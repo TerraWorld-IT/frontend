@@ -1,0 +1,56 @@
+name: Frontend Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npx nuxi build
+        env:
+          NUXT_PUBLIC_API_BASE_URL: ${{ secrets.API_BASE_URL }}
+
+      - name: Build Docker image
+        run: docker build -t terraworld-frontend:${{ github.sha }} .
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Push Docker image
+        run: |
+          docker tag terraworld-frontend:${{ github.sha }} ${{ secrets.REGISTRY_URL }}/terraworld-frontend:${{ github.sha }}
+          docker tag terraworld-frontend:${{ github.sha }} ${{ secrets.REGISTRY_URL }}/terraworld-frontend:latest
+          docker push ${{ secrets.REGISTRY_URL }}/terraworld-frontend:${{ github.sha }}
+          docker push ${{ secrets.REGISTRY_URL }}/terraworld-frontend:latest
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/terraworld
+            docker compose pull frontend
+            docker compose up -d frontend
