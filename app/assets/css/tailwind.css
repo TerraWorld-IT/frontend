@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* TerraWorld Riso-paint inspired color palette */
+@layer base {
+  :root {
+    --color-riso-red: #E3505F;
+    --color-riso-blue: #0078BF;
+    --color-riso-green: #00A95C;
+    --color-riso-yellow: #FFE800;
+    --color-riso-orange: #FF6C2F;
+    --color-riso-pink: #F5A0B1;
+    --color-riso-cream: #FFF5E6;
+    --color-riso-dark: #2D2D2D;
+  }
+}
