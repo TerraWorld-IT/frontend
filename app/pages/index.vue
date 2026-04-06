@@ -361,6 +361,270 @@
         🌱 기록 심기
       </button>
     </div>
+
+    <!-- ===== 6. Storybook (나의 작은 테라리움 참고) ===== -->
+    <div v-if="current === 5" class="pt-4 pb-6 space-y-5">
+      <!-- 동화책 표지 헤더 -->
+      <div class="relative bg-gradient-to-br from-riso-butter via-riso-cream to-riso-peach/30 rounded-3xl p-6 mx-1 border border-riso-terracotta/15 overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-riso-pink/10 rounded-full blur-3xl" />
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-riso-sage/10 rounded-full blur-2xl" />
+        <div class="relative z-10 text-center">
+          <p class="text-[10px] text-riso-terracotta/60 tracking-widest uppercase mb-2">Chapter 7</p>
+          <h2 class="text-xl font-bold text-riso-dark mb-1">4월 7일의 이야기</h2>
+          <p class="text-xs text-riso-dark/40">오늘도 작은 세계가 자라고 있어요</p>
+        </div>
+      </div>
+
+      <!-- 테라리움 + 동물 캐릭터 (동화 일러스트 느낌) -->
+      <div class="relative mx-4">
+        <div class="aspect-[4/3] bg-gradient-to-b from-riso-sky/20 via-riso-cream to-riso-sage/10 rounded-[2rem] border-2 border-riso-terracotta/10 overflow-hidden">
+          <!-- 유리병 실루엣 -->
+          <div class="absolute inset-x-8 top-4 bottom-4 border-2 border-riso-dark/5 rounded-[1.5rem]">
+            <span class="absolute left-[20%] top-[25%] text-3xl animate-sway">🌿</span>
+            <span class="absolute left-[50%] top-[35%] text-2xl animate-float" style="animation-delay: 0.7s">🌸</span>
+            <span class="absolute left-[70%] top-[50%] text-xl animate-sway" style="animation-delay: 1.2s">🍄</span>
+            <span class="absolute left-[35%] top-[60%] text-sm">🪨</span>
+            <span class="absolute left-[55%] top-[70%] text-xl animate-sway" style="animation-delay: 0.3s">🌱</span>
+          </div>
+          <!-- 동물 캐릭터 (동화풍) -->
+          <span class="absolute right-6 bottom-6 text-3xl animate-float" style="animation-delay: 2s">🐱</span>
+          <span class="absolute left-6 bottom-8 text-2xl animate-float" style="animation-delay: 1s">🦊</span>
+          <!-- 유리 반사광 -->
+          <div class="absolute top-3 left-1/4 w-1/3 h-3 bg-white/25 rounded-full blur-sm" />
+        </div>
+        <!-- 장식 라벨 -->
+        <div class="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-riso-cream px-4 py-1 rounded-full border border-riso-terracotta/15 text-xs text-riso-dark/50 riso-shadow-sm">
+          Lv.1 · 🌿 5개 · 🐱 2마리
+        </div>
+      </div>
+
+      <!-- 오늘의 이야기 카드들 (페이지 넘기는 느낌) -->
+      <div class="space-y-3 pt-2">
+        <p class="text-xs text-riso-dark/40 px-1 italic">"오늘 테라리움에 새 친구가 찾아왔어요"</p>
+        <div v-for="(story, i) in storyCards" :key="story.title" class="relative">
+          <div
+            :class="['p-4 rounded-2xl border transition-transform', story.bgClass]"
+            :style="{ transform: `rotate(${(i % 2 === 0 ? -0.5 : 0.8)}deg)` }"
+          >
+            <div class="flex items-start gap-3">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl bg-white/50">
+                {{ story.icon }}
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-sm">{{ story.title }}</p>
+                <p class="text-xs text-riso-dark/40 mt-0.5">{{ story.desc }}</p>
+                <div class="flex gap-2 mt-2">
+                  <span class="text-[10px] bg-white/60 px-2 py-0.5 rounded-full">🪙 +{{ story.coin }}</span>
+                  <span class="text-[10px] bg-white/60 px-2 py-0.5 rounded-full">⭐ +{{ story.exp }} EXP</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단: 코인 + 다음 챕터 예고 -->
+      <div class="flex gap-3">
+        <div class="flex-1 bg-riso-butter/40 rounded-2xl p-3 text-center border border-riso-terracotta/10">
+          <p class="text-lg font-bold">🪙 128</p>
+          <p class="text-[10px] text-riso-dark/30">골드</p>
+        </div>
+        <button class="flex-1 bg-riso-terracotta text-white rounded-2xl p-3 font-bold text-sm riso-shadow active:translate-x-[2px] active:translate-y-[3px] active:shadow-none transition-all">
+          + 이야기 이어가기
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== 7. Windowsill (Terrarium Garden Idle 참고) ===== -->
+    <div v-if="current === 6" class="pt-2 pb-6">
+      <!-- 하늘 배경 + 나이트 모드 토글 -->
+      <div class="relative rounded-3xl overflow-hidden mx-1 mb-4" :class="isNight ? 'bg-gradient-to-b from-indigo-900 via-indigo-800 to-purple-900' : 'bg-gradient-to-b from-riso-sky via-sky-200 to-sky-100'">
+        <!-- 구름/별 -->
+        <template v-if="!isNight">
+          <div class="absolute w-16 h-5 bg-white/50 rounded-full blur-sm top-6 animate-drift" />
+          <div class="absolute w-10 h-3 bg-white/40 rounded-full blur-sm top-12 animate-drift" style="animation-delay: 5s" />
+          <div class="absolute w-12 h-4 bg-white/35 rounded-full blur-sm top-8 right-0 animate-drift" style="animation-delay: 10s" />
+        </template>
+        <template v-else>
+          <div v-for="s in 12" :key="s" class="absolute w-1 h-1 bg-white rounded-full animate-float" :style="{ left: (s * 8) + '%', top: (5 + (s * 3) % 20) + '%', animationDelay: s * 0.3 + 's', opacity: 0.4 + Math.random() * 0.6 }" />
+          <span class="absolute top-4 right-8 text-2xl">🌙</span>
+        </template>
+
+        <!-- 낮/밤 토글 -->
+        <button class="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-sm" @click="isNight = !isNight">
+          {{ isNight ? '☀️' : '🌙' }}
+        </button>
+
+        <!-- 레벨 표시 -->
+        <div class="absolute top-3 left-3 z-10">
+          <span :class="['text-xs px-2.5 py-1 rounded-full font-bold', isNight ? 'bg-indigo-700/60 text-white' : 'bg-white/60 text-riso-dark/70']">
+            Lv.1 · 🪙 128
+          </span>
+        </div>
+
+        <!-- 창틀 선반 + 화분들 -->
+        <div class="pt-24 pb-2">
+          <!-- 선반 1 (메인) -->
+          <div class="relative">
+            <div class="flex justify-center gap-3 px-4 pb-2">
+              <div v-for="plant in windowPlants" :key="plant.name" class="text-center group">
+                <div class="relative">
+                  <!-- 산소 버블 -->
+                  <div class="absolute -top-4 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-riso-sky/30 animate-float border border-riso-sky/20" :style="{ animationDelay: plant.delay }" />
+                  <div class="absolute -top-7 left-1/3 w-2 h-2 rounded-full bg-riso-sky/20 animate-float" :style="{ animationDelay: (parseFloat(plant.delay) + 0.5) + 's' }" />
+                  <!-- 식물 -->
+                  <div class="text-3xl group-hover:-translate-y-1 transition-transform animate-sway" :style="{ animationDelay: plant.delay }">
+                    {{ plant.icon }}
+                  </div>
+                  <!-- 화분 -->
+                  <div :class="['w-10 h-5 mx-auto rounded-b-lg -mt-1', plant.potColor]" />
+                </div>
+                <p :class="['text-[9px] mt-1 font-medium', isNight ? 'text-white/50' : 'text-riso-dark/40']">{{ plant.name }}</p>
+              </div>
+            </div>
+            <!-- 나무 선반 -->
+            <div :class="['h-3 mx-2 rounded-sm', isNight ? 'bg-gradient-to-b from-amber-900 to-amber-950' : 'bg-gradient-to-b from-riso-walnut to-riso-earth']" style="box-shadow: 0 3px 8px rgba(0,0,0,0.2)" />
+          </div>
+
+          <!-- 선반 2 (잠금) -->
+          <div class="relative mt-6">
+            <div class="flex justify-center gap-3 px-4 pb-2">
+              <div v-for="i in 3" :key="i" class="text-center">
+                <div class="w-10 h-10 rounded-lg border-2 border-dashed flex items-center justify-center text-sm" :class="isNight ? 'border-white/15 text-white/20' : 'border-riso-dark/10 text-riso-dark/15'">
+                  🔒
+                </div>
+                <p :class="['text-[9px] mt-1', isNight ? 'text-white/30' : 'text-riso-dark/25']">Lv.3</p>
+              </div>
+            </div>
+            <div :class="['h-3 mx-2 rounded-sm', isNight ? 'bg-gradient-to-b from-amber-900/50 to-amber-950/50' : 'bg-gradient-to-b from-riso-walnut/40 to-riso-earth/40']" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 기록 카드 (심플) -->
+      <div class="space-y-2 px-1">
+        <div class="flex justify-between items-center mb-1">
+          <h3 class="text-sm font-bold">오늘의 기록</h3>
+          <span class="text-xs text-riso-dark/30">3/5 완료</span>
+        </div>
+        <div v-for="cat in categories" :key="cat.name" class="flex items-center gap-3 bg-white/50 rounded-xl p-3 border border-riso-walnut/8">
+          <span class="text-xl">{{ cat.icon }}</span>
+          <div class="flex-1">
+            <p class="text-sm font-medium">{{ cat.name }}</p>
+          </div>
+          <span class="text-xs text-riso-dark/30">{{ cat.count }}회</span>
+          <button class="w-8 h-8 rounded-lg bg-riso-sage/15 flex items-center justify-center text-sm text-riso-sage">+</button>
+        </div>
+      </div>
+
+      <!-- 하단 통계 -->
+      <div class="flex gap-2 px-1">
+        <div class="flex-1 bg-riso-sage/10 rounded-xl p-3 text-center">
+          <p class="font-bold text-riso-sage">🔥 3</p>
+          <p class="text-[10px] text-riso-dark/30">연속</p>
+        </div>
+        <div class="flex-1 bg-riso-butter/40 rounded-xl p-3 text-center">
+          <p class="font-bold">⭐ 30</p>
+          <p class="text-[10px] text-riso-dark/30">EXP</p>
+        </div>
+        <div class="flex-1 bg-riso-pink/10 rounded-xl p-3 text-center">
+          <p class="font-bold text-riso-pink">🫧 3</p>
+          <p class="text-[10px] text-riso-dark/30">아이템</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 8. Bubble Pop ===== -->
+    <div v-if="current === 7" class="pt-4 pb-6 space-y-5">
+      <!-- 중앙 원형 테라리움 -->
+      <div class="relative flex justify-center">
+        <div class="relative w-56 h-56">
+          <!-- 외곽 원 (유리 효과) -->
+          <div class="absolute inset-0 rounded-full bg-gradient-to-br from-white/40 via-riso-sage/10 to-riso-sky/10 border-2 border-white/50 shadow-[0_0_30px_rgba(168,198,134,0.2)]">
+            <!-- 내부 아이템 -->
+            <span class="absolute left-[28%] top-[25%] text-2xl animate-sway">🌿</span>
+            <span class="absolute left-[55%] top-[35%] text-xl animate-float" style="animation-delay: 1s">🌸</span>
+            <span class="absolute left-[40%] top-[55%] text-lg">🪨</span>
+            <span class="absolute left-[65%] top-[60%] text-xl animate-sway" style="animation-delay: 0.5s">🍄</span>
+            <!-- 유리 반사 -->
+            <div class="absolute top-4 left-8 w-12 h-3 bg-white/30 rounded-full blur-sm rotate-[-20deg]" />
+          </div>
+          <!-- 레벨 뱃지 -->
+          <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-riso-cream px-3 py-1 rounded-full border border-riso-sage/20 text-xs font-bold riso-shadow-sm">
+            Lv.1
+          </div>
+        </div>
+
+        <!-- 주변 떠다니는 버블들 (재화) -->
+        <div class="absolute -left-2 top-4 animate-float" style="animation-delay: 0.5s">
+          <div class="w-14 h-14 rounded-full bg-riso-butter/60 border border-riso-butter flex items-center justify-center riso-shadow-sm">
+            <div class="text-center">
+              <span class="text-sm">🪙</span>
+              <p class="text-[8px] font-bold">128</p>
+            </div>
+          </div>
+        </div>
+        <div class="absolute -right-2 top-8 animate-float" style="animation-delay: 1.5s">
+          <div class="w-12 h-12 rounded-full bg-riso-poppy/15 border border-riso-poppy/30 flex items-center justify-center">
+            <div class="text-center">
+              <span class="text-sm">🔥</span>
+              <p class="text-[8px] font-bold">3일</p>
+            </div>
+          </div>
+        </div>
+        <div class="absolute left-4 -bottom-4 animate-float" style="animation-delay: 2s">
+          <div class="w-11 h-11 rounded-full bg-riso-sage/15 border border-riso-sage/30 flex items-center justify-center">
+            <span class="text-xs font-bold text-riso-sage">⭐30</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 카테고리 버블 그리드 -->
+      <div class="px-4">
+        <p class="text-xs text-riso-dark/40 text-center mb-3">탭해서 기록하기</p>
+        <div class="flex justify-center gap-4">
+          <div v-for="cat in categories" :key="cat.name" class="text-center group cursor-pointer">
+            <div :class="['w-16 h-16 rounded-full flex items-center justify-center text-2xl border-2 transition-all duration-200 group-hover:scale-110 group-active:scale-95', cat.bg, cat.border]">
+              {{ cat.icon }}
+            </div>
+            <p class="text-[10px] mt-1.5 text-riso-dark/50 font-medium">{{ cat.name }}</p>
+            <p class="text-[9px] text-riso-dark/30">{{ cat.count }}회</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오늘 기록 버블 타임라인 -->
+      <div class="px-1">
+        <h3 class="text-sm font-bold mb-3">오늘의 방울 💧</h3>
+        <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+          <div v-for="act in todayActivities" :key="act.name" class="shrink-0">
+            <div :class="['w-20 h-20 rounded-full flex flex-col items-center justify-center border-2 riso-shadow-sm', act.bg, act.border]">
+              <span class="text-xl">{{ act.icon }}</span>
+              <span class="text-[8px] font-medium mt-0.5 text-riso-dark/60">+{{ act.coin }}</span>
+            </div>
+            <p class="text-[9px] text-center mt-1 text-riso-dark/40">{{ act.label }}</p>
+          </div>
+          <!-- 추가 버블 -->
+          <div class="shrink-0">
+            <div class="w-20 h-20 rounded-full border-2 border-dashed border-riso-dark/10 flex items-center justify-center text-riso-dark/20 text-xl">
+              +
+            </div>
+            <p class="text-[9px] text-center mt-1 text-riso-dark/25">추가</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 경험치 바 (둥근 형태) -->
+      <div class="mx-auto w-48">
+        <div class="flex justify-between text-[10px] text-riso-dark/30 mb-1">
+          <span>Lv.1</span>
+          <span>30/100 EXP</span>
+        </div>
+        <div class="h-3 bg-riso-dark/5 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-riso-sage to-riso-sky rounded-full" style="width: 30%" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -373,6 +637,9 @@ const layouts = [
   { id: 'shelf', emoji: '📚', name: 'Cozy Shelf', desc: '나의 선반 — 책장 속 아늑한 공간' },
   { id: 'window', emoji: '🪟', name: 'Window', desc: '창가의 아침 — 시간에 따라 변하는 풍경' },
   { id: 'garden', emoji: '🗺️', name: 'Garden Map', desc: '나의 정원 지도 — 기록이 꽃으로 피어남' },
+  { id: 'storybook', emoji: '📖', name: 'Storybook', desc: '동화책 — 매일이 새로운 챕터 (나의 작은 테라리움 참고)' },
+  { id: 'windowsill', emoji: '🪴', name: 'Windowsill', desc: '창틀 위 화분 — 산소 버블이 올라오는 정원 (Garden Idle 참고)' },
+  { id: 'bubble', emoji: '💧', name: 'Bubble Pop', desc: '방울 세상 — 둥글둥글 떠다니는 기록들' },
 ]
 
 const categories = [
@@ -393,6 +660,22 @@ const bookSpines = [
   { name: '독서', bg: 'bg-gradient-to-r from-riso-sky to-riso-blue' },
   { name: '러닝', bg: 'bg-gradient-to-r from-riso-poppy to-riso-red' },
   { name: '낙서', bg: 'bg-gradient-to-r from-riso-orange to-riso-terracotta' },
+]
+
+const isNight = ref(false)
+
+const storyCards = [
+  { icon: '🚶', title: '산책 30분', desc: '한강 산책로를 따라 걸었어요', coin: 10, exp: 10, bgClass: 'bg-green-50/60 border-green-200/30' },
+  { icon: '📖', title: '독서 1시간', desc: '아토믹 해빗 3장을 읽었어요', coin: 10, exp: 10, bgClass: 'bg-blue-50/60 border-blue-200/30' },
+  { icon: '🏃', title: '러닝 5km', desc: '아침 조깅으로 하루를 시작했어요', coin: 15, exp: 15, bgClass: 'bg-red-50/60 border-red-200/30' },
+]
+
+const windowPlants = [
+  { name: '선인장', icon: '🌵', potColor: 'bg-riso-terracotta', delay: '0s' },
+  { name: '해바라기', icon: '🌻', potColor: 'bg-riso-walnut', delay: '0.5s' },
+  { name: '허브', icon: '🌿', potColor: 'bg-riso-sage', delay: '1s' },
+  { name: '튤립', icon: '🌷', potColor: 'bg-riso-pink', delay: '1.5s' },
+  { name: '버섯', icon: '🍄', potColor: 'bg-riso-poppy', delay: '2s' },
 ]
 
 const timeGreeting = computed(() => {
