@@ -2,16 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* TerraWorld Riso-paint inspired color palette */
 @layer base {
-  :root {
-    --color-riso-red: #E3505F;
-    --color-riso-blue: #0078BF;
-    --color-riso-green: #00A95C;
-    --color-riso-yellow: #FFE800;
-    --color-riso-orange: #FF6C2F;
-    --color-riso-pink: #F5A0B1;
-    --color-riso-cream: #FFF5E6;
-    --color-riso-dark: #2D2D2D;
+  body {
+    -webkit-tap-highlight-color: transparent;
   }
+}
+
+@layer utilities {
+  /* Riso grain texture overlay */
+  .riso-grain::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.03;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Riso halftone dot pattern */
+  .riso-dots {
+    background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
+    background-size: 4px 4px;
+  }
+
+  /* Hide scrollbar */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Riso offset shadow */
+  .riso-shadow { box-shadow: 3px 4px 0px 0px rgba(45, 58, 110, 0.15); }
+  .riso-shadow-sm { box-shadow: 2px 2px 0px 0px rgba(45, 58, 110, 0.12); }
+  .riso-shadow-press { box-shadow: 1px 1px 0px 0px rgba(45, 58, 110, 0.1); }
 }
