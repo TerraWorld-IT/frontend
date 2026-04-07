@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/oxlint-config/refs/heads/main/src/schema.json",
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-console": "warn",
+    "eqeqeq": "error"
+  },
+  "ignorePatterns": [
+    ".nuxt",
+    ".output",
+    "node_modules",
+    "dist"
+  ]
+}

@@ -1,12 +1,28 @@
+import tailwindcss from '@tailwindcss/vite'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
   modules: [
-    '@nuxtjs/tailwindcss',
     '@pinia/nuxt',
+    '@vueuse/nuxt',
+    '@nuxt/icon',
+    '@nuxt/image',
+    '@nuxt/fonts',
+    'nuxt-gtag',
+    '@nuxtjs/color-mode',
   ],
+
+  vite: {
+    plugins: [tailwindcss()],
+    esbuild: {
+      drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    },
+  },
+
+  css: ['~/assets/css/tailwind.css'],
 
   app: {
     head: {
@@ -28,7 +44,27 @@ export default defineNuxtConfig({
     },
   },
 
-  tailwindcss: {
-    cssPath: '~/assets/css/tailwind.css',
+  pinia: {
+    storesDirs: ['./app/stores'],
+  },
+
+  fonts: {
+    families: [
+      { name: 'Pretendard', provider: 'local' },
+    ],
+  },
+
+  gtag: {
+    id: process.env.NUXT_PUBLIC_GA_ID || '',
+    enabled: process.env.NODE_ENV === 'production',
+  },
+
+  colorMode: {
+    preference: 'light',
+    fallback: 'light',
+  },
+
+  typescript: {
+    strict: true,
   },
 })

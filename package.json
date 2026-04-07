@@ -1,23 +1,39 @@
 {
-  "name": "nuxt-app",
+  "name": "terraworld-frontend",
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "nuxt build",
     "dev": "nuxt dev",
+    "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "lint": "oxlint --fix .",
+    "lint:check": "oxlint .",
+    "typecheck": "nuxi typecheck"
   },
   "dependencies": {
+    "@nuxt/fonts": "^0.11.4",
+    "@nuxt/icon": "^1.12.0",
+    "@nuxt/image": "^1.10.0",
+    "@nuxtjs/color-mode": "^3.5.2",
+    "@vueuse/nuxt": "^13.3.0",
+    "dayjs": "^1.11.13",
     "nuxt": "^4.4.2",
+    "nuxt-gtag": "*",
+    "better-auth": "*",
+    "pg": "*",
+    "pinia": "^3.0.4",
     "pixi.js": "^8.17.1",
-    "vue": "^3.5.31",
+    "valibot": "^1.1.0",
+    "vue": "^3.5.32",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
-    "@nuxtjs/tailwindcss": "^6.14.0",
     "@pinia/nuxt": "^0.11.3",
-    "pinia": "^3.0.4"
+    "@tailwindcss/vite": "^4.2.2",
+    "lefthook": "^2.1.5",
+    "oxlint": "^1.59.0",
+    "tailwindcss": "^4.2.2"
   }
 }

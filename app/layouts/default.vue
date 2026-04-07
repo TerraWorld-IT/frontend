@@ -5,9 +5,7 @@
         <NuxtLink to="/" class="text-lg font-bold tracking-tight">
           🌿 TerraWorld
         </NuxtLink>
-        <div class="flex items-center gap-3">
-          <span class="text-xs bg-riso-butter/60 px-2.5 py-1 rounded-full font-medium">🪙 128</span>
-        </div>
+        <CommonWalletBar :coin="128" />
       </div>
     </header>
 
@@ -29,6 +27,9 @@
         </NuxtLink>
       </div>
     </nav>
+
+    <!-- Global Toast -->
+    <CommonToast />
   </div>
 </template>
 
