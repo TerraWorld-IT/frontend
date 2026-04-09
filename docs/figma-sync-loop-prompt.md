@@ -173,8 +173,19 @@ progress.md "Fallback 태스크 스택" 각 항목의 실행 가이드:
 
 - Phase 3 빌드 실패 → `git reset --hard HEAD` → blocked 기록 → Phase 5 로 점프 → push 없음.
 - openapi SDK에 필요한 엔드포인트 없음 → 해당 페이지 skip, progress.md 에 `blocked: missing SDK <method>` 기록, 다음 우선순위로 이동.
-- 30분 안에 못 끝낼 것 같은 대작업 → 체크포인트 커밋 (`wip(<scope>): partial ...`) 하고 push, progress.md `in_progress` 상태로 남김. 다음 회차가 이어받음.
 - 4회차 이상 같은 항목에서 blocked → progress.md 에 `blocked_permanent` 로 표시하고 다음 항목으로.
+
+## 회차 길이 정책 (갱신됨)
+
+- **트리거 주기**: `*/30 * * * *` (cron 관점). 이전 회차가 끝나 있어야 다음 fire가 들어온다. 아직 실행 중이면 cron은 자연스럽게 건너뛰고 다음 기회에 들어온다.
+- **회차 지속 시간**: 상한 없음. "한 회차 = 하나의 논리적 단위를 처음부터 끝까지 완료"가 원칙. 예: 아이템 배치 다이얼로그 + 해당 API 통합을 한 회차에서 함께 완성하는 것이 자르는 것보다 나으면 시간 무제한으로 간다.
+- **논리 단위 정의**: 아래 중 하나.
+  - 페이지 1개의 디자인 포팅 + 관련 API 연동 전부
+  - 공용 자산(아이콘/store/lib) 1개 완성
+  - fallback 태스크 1개 스코프 전부
+- **예외 (중간 체크포인트 허용)**: 한 회차에서 **독립적으로 빌드 가능한 여러 commit** 을 남겨도 된다. 예: `feat(icons): port Jamjar` 커밋 후 이어서 `feat(index): use Jamjar icon` 커밋. 각 커밋이 빌드를 통과해야 한다. push 는 회차 끝에 한 번에.
+- **종료 조건 재확인**: 매 커밋 직전에 KST 가 `2026-04-10 10:00` 을 넘었는지 재확인. 넘었으면 현재까지의 변경만 커밋 후 "loop time window ended" 출력하고 종료.
+- **WIP 커밋 금지**: 과거 정책에 있던 `wip(...): partial` 커밋은 더 이상 쓰지 않는다. 회차 끝에 남는 것은 항상 "빌드 통과 + 하나의 논리 단위 완료" 상태여야 한다. 그 안에 도달하지 못하면 `git reset --hard HEAD` 로 전부 버리고 다음 회차가 원점에서 다시 시도한다.
 
 ## 마지막 한 줄
 
