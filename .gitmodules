@@ -1,0 +1,3 @@
+[submodule "openapi-frontend"]
+	path = openapi-frontend
+	url = https://github.com/TerraWorld-IT/openapi-frontend.git
