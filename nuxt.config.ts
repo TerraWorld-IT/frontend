@@ -67,4 +67,9 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
+
+  // The generated openapi client ships as raw .ts and must be transpiled by Nuxt.
+  build: {
+    transpile: ['@terraworld-it/openapi-frontend'],
+  },
 })
