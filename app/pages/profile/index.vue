@@ -32,31 +32,7 @@
           </NuxtLink>
         </div>
 
-        <!-- Coins -->
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <div class="p-4 rounded-[12px] text-center flex flex-col items-center" style="background-color: #fef3ed">
-            <Icon name="lucide:star" class="w-5 h-5 mb-1" style="color: #eb662c" />
-            <div class="text-xs text-[#525252] font-medium">기본 코인</div>
-            <div class="text-lg font-bold text-black tabular-nums">{{ formatCoin(user?.currency?.basicCoins) }}</div>
-          </div>
-          <div class="p-4 rounded-[12px] text-center flex flex-col items-center" style="background-color: #fef3ed">
-            <Icon name="lucide:gem" class="w-5 h-5 mb-1" style="color: #eb662c" />
-            <div class="text-xs text-[#525252] font-medium">스페셜 코인</div>
-            <div class="text-lg font-bold text-black tabular-nums">{{ formatCoin(user?.currency?.specialCoins) }}</div>
-          </div>
-        </div>
-
-        <!-- Tokens -->
-        <div class="grid grid-cols-4 gap-2">
-          <div
-            v-for="tk in tokenDisplay"
-            :key="tk.label"
-            class="p-3 bg-white border border-black/10 rounded-[12px] text-center flex flex-col items-center"
-          >
-            <Icon :name="tk.icon" class="w-4 h-4 mb-1 text-gray-500" />
-            <div class="text-xs font-semibold text-black tabular-nums">{{ formatCoin(tk.value) }}</div>
-          </div>
-        </div>
+        <CommonCurrencyDisplay :currency="user?.currency" coin-cell-bg="#fef3ed" />
       </div>
 
       <!-- Owned items card -->
@@ -183,17 +159,6 @@ const loggingOut = ref(false)
 const ownedCount = computed(() => user.value?.ownedItems?.length ?? 0)
 const placedCount = computed(() => user.value?.placedItems?.length ?? 0)
 
-const tokenDisplay = computed(() => {
-  const c = user.value?.currency
-  if (!c) return []
-  return [
-    { icon: 'lucide:footprints', label: '산책', value: c.walkTokens },
-    { icon: 'lucide:book-open', label: '독서', value: c.readTokens },
-    { icon: 'lucide:zap', label: '러닝', value: c.runTokens },
-    { icon: 'lucide:palette', label: '낙서', value: c.drawTokens },
-  ]
-})
-
 const nextLevelExp = computed(() => {
   const cur = user.value?.progress?.level ?? 1
   const nextLvl = levels.value.find((l) => l.level === cur + 1)
@@ -206,11 +171,6 @@ const expPercent = computed(() => {
   if (target <= 0) return 100
   return Math.min(100, Math.round((exp / target) * 100))
 })
-
-function formatCoin(n: number | undefined | null): string {
-  if (n === null || n === undefined) return '0'
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
-}
 
 function errMsg(e: unknown, fb: string): string {
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)

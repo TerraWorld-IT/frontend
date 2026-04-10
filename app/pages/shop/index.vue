@@ -30,36 +30,7 @@
           </button>
         </div>
 
-        <!-- Coins row -->
-        <div class="grid grid-cols-2 gap-2 text-sm mb-2">
-          <div class="flex items-center gap-2 px-3 py-3 rounded-xl" style="background-color: #fef9e7">
-            <Icon name="lucide:star" class="w-5 h-5 text-[#595757]" />
-            <div>
-              <div class="text-xs text-neutral-500 font-medium">기본 코인</div>
-              <div class="font-bold text-black tabular-nums">{{ formatCoin(currency?.basicCoins) }}</div>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 px-3 py-3 rounded-xl" style="background-color: #fef9e7">
-            <Icon name="lucide:gem" class="w-5 h-5 text-[#595757]" />
-            <div>
-              <div class="text-xs text-neutral-500 font-medium">스페셜 코인</div>
-              <div class="font-bold text-black tabular-nums">{{ formatCoin(currency?.specialCoins) }}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tokens row -->
-        <div class="grid grid-cols-4 gap-2 text-sm">
-          <div
-            v-for="tk in tokenDisplay"
-            :key="tk.label"
-            class="flex flex-col items-center gap-2 px-3 py-3 rounded-xl"
-            style="background-color: #fef9e7"
-          >
-            <Icon :name="tk.icon" class="w-5 h-5 text-[#595757]" />
-            <div class="font-bold text-black tabular-nums">{{ formatCoin(tk.value) }}</div>
-          </div>
-        </div>
+        <CommonCurrencyDisplay :currency="currency" />
       </div>
 
       <!-- Shop type toggle -->
@@ -279,17 +250,6 @@ const exchFromCat = ref(1)
 const exchToCat = ref(2)
 const exchTokenAmt = ref(1)
 
-const tokenDisplay = computed(() => {
-  const c = currency.value
-  if (!c) return []
-  return [
-    { icon: 'lucide:footprints', label: '산책', value: c.walkTokens },
-    { icon: 'lucide:book-open', label: '독서', value: c.readTokens },
-    { icon: 'lucide:zap', label: '러닝', value: c.runTokens },
-    { icon: 'lucide:palette', label: '낙서', value: c.drawTokens },
-  ]
-})
-
 const plantTabs = [
   { value: 'common', label: '일반' },
   { value: 'rare', label: '희귀' },
@@ -321,11 +281,6 @@ const filteredItems = computed(() => {
     return true
   })
 })
-
-function formatCoin(n: number | undefined | null): string {
-  if (n === null || n === undefined) return '0'
-  return Number.isInteger(n) ? String(n) : n.toFixed(1)
-}
 
 function rarityLabel(r: string): string {
   if (r === 'EPIC') return '판타지'
