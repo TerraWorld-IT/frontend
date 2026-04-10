@@ -22,7 +22,7 @@
    - 시크릿/토큰 변경
    - openapi-frontend 서브모듈 내부 수정 (SDK는 읽기 전용, 수정이 필요하면 progress.md에 blocked로 기록하고 다음 작업으로 넘어감)
    - prohibited_actions (삭제, 권한 변경, 결제 실행 등)
-10. **종료 조건 체크**: 현재 KST 가 `2026-04-10 10:00` 이후면 아무 작업도 하지 말고 "loop time window ended" 만 출력하고 즉시 종료. (loop 자체는 CronDelete로 사람이 끝낸다.)
+10. **종료 조건 체크**: 현재 KST 가 `2026-04-10 22:00` 이후면 아무 작업도 하지 말고 "loop time window ended" 만 출력하고 즉시 종료. (loop 자체는 scheduled-tasks MCP의 update/delete 로 사람이 끝낸다.)
 
 ---
 
@@ -184,7 +184,7 @@ progress.md "Fallback 태스크 스택" 각 항목의 실행 가이드:
   - 공용 자산(아이콘/store/lib) 1개 완성
   - fallback 태스크 1개 스코프 전부
 - **예외 (중간 체크포인트 허용)**: 한 회차에서 **독립적으로 빌드 가능한 여러 commit** 을 남겨도 된다. 예: `feat(icons): port Jamjar` 커밋 후 이어서 `feat(index): use Jamjar icon` 커밋. 각 커밋이 빌드를 통과해야 한다. push 는 회차 끝에 한 번에.
-- **종료 조건 재확인**: 매 커밋 직전에 KST 가 `2026-04-10 10:00` 을 넘었는지 재확인. 넘었으면 현재까지의 변경만 커밋 후 "loop time window ended" 출력하고 종료.
+- **종료 조건 재확인**: 매 커밋 직전에 KST 가 `2026-04-10 22:00` 을 넘었는지 재확인. 넘었으면 현재까지의 변경만 커밋 후 "loop time window ended" 출력하고 종료.
 - **WIP 커밋 금지**: 과거 정책에 있던 `wip(...): partial` 커밋은 더 이상 쓰지 않는다. 회차 끝에 남는 것은 항상 "빌드 통과 + 하나의 논리 단위 완료" 상태여야 한다. 그 안에 도달하지 못하면 `git reset --hard HEAD` 로 전부 버리고 다음 회차가 원점에서 다시 시도한다.
 
 ## 마지막 한 줄
