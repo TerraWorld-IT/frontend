@@ -53,6 +53,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1',
+      authBaseUrl: process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000',
+      gaId: process.env.NUXT_PUBLIC_GA_ID || '',
     },
   },
 
@@ -69,6 +71,7 @@ export default defineNuxtConfig({
   gtag: {
     id: process.env.NUXT_PUBLIC_GA_ID || '',
     enabled: process.env.NODE_ENV === 'production',
+    // Runtime access: useRuntimeConfig().public.gaId
   },
 
   colorMode: {
