@@ -1,568 +1,447 @@
 <template>
-  <div class="min-h-screen pb-24">
-    <!-- Layout Selector -->
-    <CommonLayoutSelector />
+  <div class="riso-grain min-h-screen space-y-5 pb-4">
+    <CommonLoading v-if="pending" variant="spinner" container-class="py-24" />
 
-    <!-- ================================================================== -->
-    <!-- 1. JAR - Items inside a glass jar shape                            -->
-    <!-- ================================================================== -->
-    <div v-if="is('jar')" class="px-4 py-4 space-y-4">
-      <!-- Wallet -->
-      <ShopWallet :tokens="tokens" />
-
-      <!-- Category Tabs -->
-      <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-
-      <!-- Glass Jar Frame -->
-      <div class="relative mx-auto max-w-sm">
-        <!-- Jar lid -->
-        <div class="mx-8 h-5 bg-riso-walnut/30 rounded-t-lg border-2 border-riso-walnut/40" />
-        <!-- Jar body -->
-        <div class="relative border-2 border-riso-sage/30 rounded-b-[2rem] bg-gradient-to-b from-white/80 to-riso-sage/10 overflow-hidden">
-          <!-- Glass reflection -->
-          <div class="absolute top-0 left-3 w-3 h-full bg-white/30 rounded-full blur-sm" />
-          <!-- Items grid inside jar -->
-          <div class="grid grid-cols-2 gap-3 p-4 max-h-[60vh] overflow-y-auto scrollbar-hide">
-            <div
-              v-for="item in filteredItems"
-              :key="item.name"
-              class="group bg-white/70 backdrop-blur-sm rounded-2xl border border-riso-sage/20 p-3 text-center transition-all hover:-translate-y-1"
-            >
-              <div :class="['w-full aspect-square rounded-xl flex items-center justify-center text-3xl mb-2', item.bg]">
-                <span class="animate-float">{{ item.icon }}</span>
-              </div>
-              <RarityBadge :rarity="item.rarity" />
-              <p class="text-xs font-medium mt-1 text-riso-dark">{{ item.name }}</p>
-              <div class="flex items-center justify-center gap-1 mt-1">
-                <span class="text-xs">{{ item.priceIcon }}</span>
-                <span class="text-xs font-bold text-riso-walnut">{{ item.price }}</span>
-              </div>
-              <button class="mt-2 w-full py-1.5 bg-riso-sage text-white text-xs font-medium rounded-lg riso-shadow-sm active:riso-shadow-press transition-all">
-                담기
-              </button>
-            </div>
-          </div>
-        </div>
-        <!-- Jar bottom reflection -->
-        <div class="mx-4 h-2 bg-riso-sage/10 rounded-b-full" />
-      </div>
+    <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
+      <p class="text-riso-poppy font-medium">불러오기 실패</p>
+      <p class="text-xs text-riso-dark/60">{{ fetchError.message }}</p>
+      <button class="mt-2 px-4 py-2 rounded-full bg-riso-sage text-white text-sm" @click="load">
+        다시 시도
+      </button>
     </div>
 
-    <!-- ================================================================== -->
-    <!-- 2. POSTCARD - Items as stamp cards on a postcard board              -->
-    <!-- ================================================================== -->
-    <div v-if="is('postcard')" class="px-4 py-4 space-y-4">
-      <ShopWallet :tokens="tokens" />
-      <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-
-      <!-- Postcard board -->
-      <div class="bg-riso-butter/40 rounded-2xl p-4 border border-riso-walnut/15 riso-grain">
-        <!-- Pinboard header -->
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-lg">&#x1F4EC;</span>
-          <h2 class="font-bold text-sm text-riso-walnut">Stamp Collection</h2>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div
-            v-for="item in filteredItems"
-            :key="item.name"
-            class="relative bg-riso-cream rounded-lg overflow-hidden border border-dashed border-riso-walnut/25"
-          >
-            <!-- Stamp perforations (rarity indicator) -->
-            <div
-              :class="[
-                'absolute top-0 left-0 right-0 h-2 flex justify-around items-center',
-                item.rarity === 'EPIC' ? 'bg-riso-poppy/20' :
-                item.rarity === 'RARE' ? 'bg-riso-navy/15' : 'bg-riso-walnut/10'
-              ]"
-            >
-              <span v-for="n in 8" :key="n" class="w-1.5 h-1.5 rounded-full bg-riso-cream" />
-            </div>
-            <!-- Stamp content -->
-            <div class="pt-4 p-3 text-center">
-              <div :class="['w-16 h-16 mx-auto rounded-lg flex items-center justify-center text-3xl border-2 border-riso-walnut/10', item.bg]">
-                {{ item.icon }}
-              </div>
-              <RarityBadge :rarity="item.rarity" class="mt-2" />
-              <p class="text-xs font-medium mt-1 text-riso-dark">{{ item.name }}</p>
-              <!-- Postmark-style price -->
-              <div class="mt-2 inline-flex items-center gap-1 border border-riso-poppy/40 rounded-full px-2 py-0.5 rotate-[-3deg]">
-                <span class="text-[10px] text-riso-poppy font-bold">{{ item.priceIcon }} {{ item.price }}</span>
-              </div>
-              <button class="mt-2 w-full py-1.5 bg-riso-terracotta text-white text-xs font-medium rounded-lg riso-shadow-sm active:riso-shadow-press">
-                수집하기
-              </button>
-            </div>
-          </div>
-        </div>
+    <template v-else>
+      <!-- Header -->
+      <div>
+        <h2 class="text-xl font-bold text-black mb-1">보유 재화</h2>
+        <p class="text-sm text-neutral-600">재화를 사용해 아이템을 구매하세요</p>
       </div>
-    </div>
 
-    <!-- ================================================================== -->
-    <!-- 3. SHELF - Wooden display cabinet / bookshelf                      -->
-    <!-- ================================================================== -->
-    <div v-if="is('shelf')" class="px-4 py-4 space-y-4">
-      <ShopWallet :tokens="tokens" />
-      <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-
-      <!-- Wooden cabinet -->
-      <div class="bg-riso-walnut/10 rounded-2xl border-2 border-riso-walnut/30 overflow-hidden">
-        <!-- Cabinet top trim -->
-        <div class="h-3 bg-gradient-to-b from-riso-walnut/40 to-riso-walnut/20" />
-
-        <!-- Shelves -->
-        <div
-          v-for="(row, ri) in itemRows"
-          :key="ri"
-          class="relative"
-        >
-          <!-- Shelf items -->
-          <div class="flex gap-3 px-4 py-3 justify-center">
-            <div
-              v-for="item in row"
-              :key="item.name"
-              class="w-24 text-center group"
-            >
-              <div :class="['w-20 h-20 mx-auto rounded-xl flex items-center justify-center text-3xl transition-transform group-hover:scale-110', item.bg]">
-                <span class="animate-sway">{{ item.icon }}</span>
-              </div>
-              <RarityBadge :rarity="item.rarity" class="mt-1" />
-              <p class="text-[10px] font-medium mt-0.5 text-riso-dark truncate">{{ item.name }}</p>
-              <span class="text-[10px] font-bold text-riso-walnut">{{ item.priceIcon }} {{ item.price }}</span>
-              <button class="mt-1 w-full py-1 bg-riso-walnut text-white text-[10px] font-medium rounded-md riso-shadow-sm active:riso-shadow-press">
-                구매
-              </button>
-            </div>
-          </div>
-          <!-- Wooden shelf bar -->
-          <div class="h-2.5 bg-gradient-to-b from-riso-walnut/50 to-riso-walnut/30 riso-shadow-sm" />
-        </div>
-
-        <!-- Cabinet bottom trim -->
-        <div class="h-4 bg-gradient-to-t from-riso-walnut/40 to-riso-walnut/15" />
-      </div>
-    </div>
-
-    <!-- ================================================================== -->
-    <!-- 4. WINDOW - Store window display                                   -->
-    <!-- ================================================================== -->
-    <div v-if="is('window')" class="py-4 space-y-4">
-      <!-- Sky gradient background -->
-      <div class="mx-4 rounded-2xl overflow-hidden bg-gradient-to-b from-riso-sky/60 via-riso-sky/30 to-riso-cream border border-riso-navy/15">
-        <!-- Sale banner -->
-        <div class="bg-riso-poppy/90 text-white text-center py-2">
-          <p class="text-xs font-bold tracking-wider animate-pulse">OPEN NOW</p>
-        </div>
-
-        <div class="px-4 py-3">
-          <ShopWallet :tokens="tokens" />
-        </div>
-
-        <div class="px-4 pb-2">
-          <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-        </div>
-
-        <!-- Window panes grid -->
-        <div class="grid grid-cols-2 gap-px bg-riso-navy/20 mx-4 mb-4 rounded-xl overflow-hidden riso-shadow">
-          <div
-            v-for="item in filteredItems"
-            :key="item.name"
-            class="bg-white/80 backdrop-blur-sm p-3 text-center relative"
-          >
-            <!-- Glass shine -->
-            <div class="absolute top-1 right-1 w-4 h-4 bg-white/60 rounded-full blur-sm" />
-            <div :class="['w-14 h-14 mx-auto rounded-lg flex items-center justify-center text-2xl', item.bg]">
-              {{ item.icon }}
-            </div>
-            <RarityBadge :rarity="item.rarity" class="mt-1" />
-            <p class="text-[10px] font-medium mt-0.5 text-riso-dark">{{ item.name }}</p>
-            <div class="flex items-center justify-center gap-1 mt-0.5">
-              <span class="text-[10px] font-bold text-riso-navy">{{ item.priceIcon }} {{ item.price }}</span>
-            </div>
-            <button class="mt-1.5 w-full py-1 bg-riso-navy text-white text-[10px] font-medium rounded-md riso-shadow-sm active:riso-shadow-press">
-              구매
-            </button>
-          </div>
-        </div>
-
-        <!-- Window sill -->
-        <div class="h-3 bg-riso-walnut/30 rounded-b-2xl" />
-      </div>
-    </div>
-
-    <!-- ================================================================== -->
-    <!-- 5. GARDEN - Flower market map                                      -->
-    <!-- ================================================================== -->
-    <div v-if="is('garden')" class="px-4 py-4 space-y-4">
-      <ShopWallet :tokens="tokens" />
-
-      <!-- Garden map -->
-      <div class="bg-riso-grass/15 rounded-2xl p-4 border border-riso-sage/30 riso-grain relative overflow-hidden">
-        <!-- Winding path decorations -->
-        <div class="absolute inset-0 opacity-20">
-          <div class="absolute top-1/4 left-0 right-0 h-4 bg-riso-butter/60 rounded-full transform rotate-1" />
-          <div class="absolute top-2/4 left-0 right-0 h-4 bg-riso-butter/60 rounded-full transform -rotate-1" />
-          <div class="absolute top-3/4 left-0 right-0 h-4 bg-riso-butter/60 rounded-full transform rotate-2" />
-        </div>
-
-        <div class="relative z-10 space-y-6">
-          <!-- Market stall per category -->
-          <section v-for="cat in shopTabs.slice(1)" :key="cat">
-            <!-- Stall header -->
-            <div class="flex items-center gap-2 mb-2">
-              <div class="w-6 h-6 bg-riso-forest/20 rounded-full flex items-center justify-center text-sm">
-                {{ cat === '산책' ? '&#x1F6B6;' : cat === '독서' ? '&#x1F4D6;' : cat === '러닝' ? '&#x1F3C3;' : cat === '낙서' ? '&#x1F3A8;' : '&#x1FA99;' }}
-              </div>
-              <h3 class="text-xs font-bold text-riso-forest">{{ cat }} 가판대</h3>
-            </div>
-
-            <!-- Stall items (horizontal scroll) -->
-            <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
-              <div
-                v-for="item in shopItems"
-                :key="cat + item.name"
-                class="shrink-0 w-28 bg-white/80 backdrop-blur-sm rounded-xl border border-riso-sage/20 p-2 text-center"
-              >
-                <!-- Plant pot display -->
-                <div class="relative">
-                  <div :class="['w-16 h-16 mx-auto rounded-full flex items-center justify-center text-2xl', item.bg]">
-                    <span class="animate-sway">{{ item.icon }}</span>
-                  </div>
-                  <!-- Pot -->
-                  <div class="w-10 h-3 mx-auto bg-riso-terracotta/40 rounded-b-lg -mt-1" />
-                </div>
-                <RarityBadge :rarity="item.rarity" class="mt-1" />
-                <p class="text-[10px] font-medium text-riso-dark truncate">{{ item.name }}</p>
-                <span class="text-[10px] font-bold text-riso-sage">{{ item.priceIcon }} {{ item.price }}</span>
-                <button class="mt-1 w-full py-1 bg-riso-sage text-white text-[10px] font-medium rounded-md riso-shadow-sm active:riso-shadow-press">
-                  심기
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================================================================== -->
-    <!-- 6. STORYBOOK - Magic shop in a fairytale                           -->
-    <!-- ================================================================== -->
-    <div v-if="is('storybook')" class="px-4 py-4 space-y-4">
-      <ShopWallet :tokens="tokens" />
-      <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-
-      <!-- Storybook page frame -->
-      <div class="bg-riso-butter/50 rounded-2xl border-2 border-riso-walnut/30 overflow-hidden riso-grain">
-        <!-- Page header ornament -->
-        <div class="text-center py-3 border-b border-riso-walnut/15">
-          <p class="text-[10px] text-riso-walnut/50 tracking-widest uppercase">Chapter IV</p>
-          <h2 class="font-bold text-sm text-riso-walnut mt-0.5">마법사의 가게</h2>
-          <div class="flex justify-center gap-1 mt-1">
-            <span v-for="n in 3" :key="n" class="w-1 h-1 rounded-full bg-riso-walnut/30" />
-          </div>
-        </div>
-
-        <!-- Enchanted items on old wooden tables -->
-        <div class="p-4 space-y-3">
-          <div
-            v-for="item in filteredItems"
-            :key="item.name"
-            class="flex items-center gap-3 bg-riso-cream/60 rounded-xl p-3 border border-riso-walnut/15"
-          >
-            <!-- Enchanted object -->
-            <div :class="['w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0 border border-riso-walnut/10', item.bg]">
-              <span class="animate-float">{{ item.icon }}</span>
-            </div>
-            <!-- Description -->
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-1.5">
-                <p class="text-xs font-bold text-riso-walnut">{{ item.name }}</p>
-                <RarityBadge :rarity="item.rarity" />
-              </div>
-              <p class="text-[10px] text-riso-walnut/50 mt-0.5 italic">
-                {{ item.rarity === 'EPIC' ? '전설의 마법이 깃든 물건' : item.rarity === 'RARE' ? '희귀한 숲의 선물' : '평범하지만 소중한 것' }}
-              </p>
-              <div class="flex items-center justify-between mt-1.5">
-                <span class="text-xs font-bold text-riso-terracotta">{{ item.priceIcon }} {{ item.price }}</span>
-                <button class="px-3 py-1 bg-riso-terracotta text-white text-[10px] font-medium rounded-lg riso-shadow-sm active:riso-shadow-press">
-                  획득
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Page footer -->
-        <div class="text-center pb-3 border-t border-riso-walnut/10 pt-2">
-          <p class="text-[10px] text-riso-walnut/30 italic">~ to be continued ~</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================================================================== -->
-    <!-- 7. WINDOWSILL - Garden center shelves (clean, minimal)             -->
-    <!-- ================================================================== -->
-    <div v-if="is('windowsill')" class="px-4 py-4 space-y-4">
-      <ShopWallet :tokens="tokens" />
-      <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-
-      <!-- Clean plant shelf display -->
-      <div class="space-y-1">
-        <div
-          v-for="(row, ri) in itemRows"
-          :key="ri"
-        >
-          <!-- Shelf row -->
-          <div class="flex gap-2 px-2 py-3 justify-around">
-            <div
-              v-for="item in row"
-              :key="item.name"
-              class="flex-1 max-w-[7rem] bg-white rounded-xl border border-riso-sage/15 p-2.5 text-center"
-            >
-              <div :class="['w-12 h-12 mx-auto rounded-lg flex items-center justify-center text-2xl', item.bg]">
-                {{ item.icon }}
-              </div>
-              <p class="text-[10px] font-medium mt-1.5 text-riso-dark">{{ item.name }}</p>
-              <RarityBadge :rarity="item.rarity" class="mt-0.5" />
-              <!-- Price tag (clean style) -->
-              <div class="mt-1.5 bg-riso-cream rounded-md px-2 py-0.5 inline-flex items-center gap-0.5">
-                <span class="text-[10px]">{{ item.priceIcon }}</span>
-                <span class="text-[10px] font-bold text-riso-dark">{{ item.price }}</span>
-              </div>
-              <button class="mt-2 w-full py-1.5 bg-riso-sage text-white text-[10px] font-medium rounded-lg active:riso-shadow-press transition-all">
-                구매
-              </button>
-            </div>
-          </div>
-          <!-- Thin shelf divider -->
-          <div class="h-1 bg-riso-walnut/15 rounded-full mx-4" />
-        </div>
-      </div>
-    </div>
-
-    <!-- ================================================================== -->
-    <!-- 8. BUBBLE - Items floating as bubbles (rarity = size)              -->
-    <!-- ================================================================== -->
-    <div v-if="is('bubble')" class="px-4 py-4 space-y-4">
-      <ShopWallet :tokens="tokens" />
-      <ShopTabs v-model="selectedTab" :tabs="shopTabs" />
-
-      <!-- Bubble field -->
-      <div class="relative min-h-[65vh] bg-gradient-to-b from-riso-sky/20 via-riso-lavender/10 to-riso-cream rounded-2xl overflow-hidden p-4">
-        <!-- Background decoration bubbles -->
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
-          <div class="absolute top-[10%] left-[5%] w-8 h-8 rounded-full bg-riso-sky/20 animate-float" />
-          <div class="absolute top-[30%] right-[8%] w-5 h-5 rounded-full bg-riso-lavender/20 animate-float" style="animation-delay: -1s" />
-          <div class="absolute top-[60%] left-[15%] w-6 h-6 rounded-full bg-riso-pink/15 animate-float" style="animation-delay: -2s" />
-          <div class="absolute top-[80%] right-[20%] w-4 h-4 rounded-full bg-riso-sky/15 animate-float" style="animation-delay: -0.5s" />
-        </div>
-
-        <!-- Item bubbles -->
-        <div class="relative z-10 flex flex-wrap justify-center gap-3 items-center">
+      <!-- Currency display + exchange button -->
+      <div class="py-4">
+        <div class="flex items-center justify-start mb-4">
           <button
-            v-for="item in filteredItems"
-            :key="item.name"
-            :class="[
-              'rounded-full flex flex-col items-center justify-center border-2 transition-all active:scale-95',
-              'bg-white/70 backdrop-blur-sm animate-float',
-              item.rarity === 'EPIC'
-                ? 'w-32 h-32 border-riso-poppy/30 riso-shadow'
-                : item.rarity === 'RARE'
-                  ? 'w-26 h-26 border-riso-navy/25 riso-shadow-sm'
-                  : 'w-22 h-22 border-riso-sage/20'
-            ]"
-            :style="{ animationDelay: `-${Math.random() * 3}s` }"
-            @click="selectedBubble = selectedBubble === item.name ? null : item.name"
+            type="button"
+            class="px-4 py-2 rounded-xl bg-black text-white hover:bg-black/90 text-sm font-medium flex items-center gap-2"
+            @click="showExchange = true"
           >
-            <span :class="[item.rarity === 'EPIC' ? 'text-3xl' : item.rarity === 'RARE' ? 'text-2xl' : 'text-xl']">
-              {{ item.icon }}
-            </span>
-            <span class="text-[9px] font-medium text-riso-dark/70 mt-0.5">{{ item.name }}</span>
-            <RarityBadge :rarity="item.rarity" class="mt-0.5 scale-75" />
+            <Icon name="lucide:refresh-cw" class="w-4 h-4" />
+            환전
           </button>
         </div>
 
-        <!-- Bubble detail popup -->
-        <Transition name="fade">
+        <!-- Coins row -->
+        <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+          <div class="flex items-center gap-2 px-3 py-3 rounded-xl" style="background-color: #fef9e7">
+            <Icon name="lucide:star" class="w-5 h-5 text-[#595757]" />
+            <div>
+              <div class="text-xs text-neutral-500 font-medium">기본 코인</div>
+              <div class="font-bold text-black tabular-nums">{{ formatCoin(currency?.basicCoins) }}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 px-3 py-3 rounded-xl" style="background-color: #fef9e7">
+            <Icon name="lucide:gem" class="w-5 h-5 text-[#595757]" />
+            <div>
+              <div class="text-xs text-neutral-500 font-medium">스페셜 코인</div>
+              <div class="font-bold text-black tabular-nums">{{ formatCoin(currency?.specialCoins) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tokens row -->
+        <div class="grid grid-cols-4 gap-2 text-sm">
           <div
-            v-if="selectedBubbleItem"
-            class="fixed inset-x-4 bottom-24 z-50 bg-white rounded-2xl riso-shadow p-4"
+            v-for="tk in tokenDisplay"
+            :key="tk.label"
+            class="flex flex-col items-center gap-2 px-3 py-3 rounded-xl"
+            style="background-color: #fef9e7"
           >
-            <div class="flex items-center gap-3">
-              <div :class="['w-16 h-16 rounded-xl flex items-center justify-center text-3xl', selectedBubbleItem.bg]">
-                {{ selectedBubbleItem.icon }}
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <p class="font-bold text-sm text-riso-dark">{{ selectedBubbleItem.name }}</p>
-                  <RarityBadge :rarity="selectedBubbleItem.rarity" />
-                </div>
-                <div class="flex items-center gap-1 mt-1">
-                  <span class="text-sm">{{ selectedBubbleItem.priceIcon }}</span>
-                  <span class="text-sm font-bold text-riso-navy">{{ selectedBubbleItem.price }}</span>
-                </div>
+            <Icon :name="tk.icon" class="w-5 h-5 text-[#595757]" />
+            <div class="font-bold text-black tabular-nums">{{ formatCoin(tk.value) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shop type toggle -->
+      <div class="flex gap-2">
+        <button
+          v-for="t in (['plant', 'figure'] as const)"
+          :key="t"
+          type="button"
+          class="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
+          :class="shopType === t ? 'bg-black text-white' : 'bg-white text-black border border-black/10'"
+          @click="shopType = t"
+        >
+          {{ t === 'plant' ? '식물 상점' : '피규어 상점' }}
+        </button>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+        <button
+          v-for="tab in currentTabs"
+          :key="tab.value"
+          type="button"
+          class="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+          :class="activeTab === tab.value ? 'bg-black text-white' : 'bg-white text-black/60 border border-black/10'"
+          @click="activeTab = tab.value"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <!-- Items grid -->
+      <div v-if="filteredItems.length > 0" class="grid grid-cols-2 gap-3">
+        <div
+          v-for="item in filteredItems"
+          :key="item.id"
+          class="bg-white rounded-[16px] border border-black/10 p-3 flex flex-col aspect-square"
+          :style="ownedSlugs.has(item.slug ?? '') ? { backgroundColor: '#fdf9e9', borderColor: '#fdf9e9' } : {}"
+        >
+          <div class="font-semibold text-xs text-center mb-2 truncate">{{ item.name }}</div>
+
+          <div class="flex-1 flex flex-col items-center justify-center">
+            <div class="text-4xl mb-1">{{ item.assetUrl }}</div>
+            <div v-if="item.isAnimated" class="text-xs text-yellow-500">✨</div>
+          </div>
+
+          <div class="space-y-1.5 mt-2">
+            <!-- Badges -->
+            <div class="flex items-center gap-1 flex-wrap justify-center">
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded-full"
+                :class="rarityClass(item.rarity)"
+              >{{ rarityLabel(item.rarity) }}</span>
+              <span
+                v-if="item.layout !== 'FIGURE'"
+                class="text-[10px] px-1.5 py-0.5 rounded-full border border-black/10"
+              >{{ item.layout === 'FOREGROUND' ? '전경' : '후경' }}</span>
+            </div>
+
+            <!-- Price -->
+            <div class="text-xs text-gray-600 text-center flex items-center justify-center gap-1">
+              <template v-if="item.priceType === 'BASIC'">
+                <Icon name="lucide:star" class="w-3 h-3" /> {{ item.priceAmount }}
+              </template>
+              <template v-else-if="item.priceType === 'SPECIAL'">
+                <Icon name="lucide:gem" class="w-3 h-3" /> {{ item.priceAmount }}
+              </template>
+              <template v-else-if="item.priceType === 'MIXED'">
+                <Icon name="lucide:star" class="w-3 h-3" /> {{ item.priceAmount }}
+                <span class="mx-0.5">+</span>
+                <Icon name="lucide:coins" class="w-3 h-3" /> {{ item.tokenPrice }}
+              </template>
+              <template v-else>
+                <Icon name="lucide:coins" class="w-3 h-3" /> {{ item.priceAmount }}
+              </template>
+            </div>
+
+            <!-- Buy / Owned -->
+            <div v-if="ownedSlugs.has(item.slug ?? '')" class="text-center text-[10px] text-gray-500 border border-black/10 rounded-full py-1">
+              보유중
+            </div>
+            <button
+              v-else
+              type="button"
+              class="w-full text-xs py-1.5 rounded-full font-medium transition-colors disabled:bg-[#e5e5e5] disabled:text-[#a1a1a1]"
+              :class="purchasing === item.id ? 'bg-gray-200 text-gray-500' : 'bg-black text-white hover:bg-black/90'"
+              :disabled="purchasing === item.id"
+              @click="onPurchase(item)"
+            >
+              {{ purchasing === item.id ? '...' : '구매' }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div v-else class="text-center py-12 text-sm text-gray-400">
+        아이템이 없습니다
+      </div>
+
+      <!-- Exchange modal (overlay) -->
+      <Teleport to="body">
+        <div
+          v-if="showExchange"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          @click.self="showExchange = false"
+        >
+          <div class="bg-white rounded-2xl shadow-2xl p-5 w-[90%] max-w-md max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold flex items-center gap-2">
+                <Icon name="lucide:refresh-cw" class="w-4 h-4" style="color: #fcee5a" />
+                재화 환전
+              </h3>
+              <button type="button" @click="showExchange = false">
+                <Icon name="lucide:x" class="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <!-- Special → Basic -->
+            <div class="mb-4">
+              <div class="text-sm font-semibold text-gray-700 mb-2">스페셜 → 기본 코인 (1:2)</div>
+              <div class="flex items-center gap-3 p-3 rounded-xl" style="background-color: #fef9e7">
+                <span class="text-2xl">💎</span>
+                <input
+                  v-model.number="exchSpecialAmt"
+                  type="number"
+                  min="1"
+                  :max="currency?.specialCoins ?? 0"
+                  class="w-20 h-8 rounded-lg border border-black/10 px-2 text-center text-sm"
+                >
+                <Icon name="lucide:arrow-right" class="w-4 h-4 text-gray-400" />
+                <span class="text-2xl">⭐</span>
+                <span class="font-bold text-green-600">+{{ (exchSpecialAmt ?? 0) * 2 }}</span>
               </div>
               <button
-                class="px-4 py-2 bg-riso-navy text-white text-xs font-bold rounded-xl riso-shadow-sm active:riso-shadow-press"
-                @click="selectedBubble = null"
+                type="button"
+                class="mt-2 w-full py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                style="background-color: #fcee5a"
+                :disabled="!exchSpecialAmt || exchSpecialAmt > (currency?.specialCoins ?? 0) || exchanging"
+                @click="onExchangeSpecial"
               >
-                구매
+                {{ exchanging ? '환전 중...' : '환전' }}
+              </button>
+            </div>
+
+            <!-- Token ↔ Token -->
+            <div>
+              <div class="text-sm font-semibold text-gray-700 mb-2">토큰 교환 (1:1)</div>
+              <div class="flex items-center gap-2 mb-2">
+                <select
+                  v-model.number="exchFromCat"
+                  class="flex-1 h-8 rounded-lg border border-black/10 px-2 text-sm"
+                >
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                    {{ cat.emoji ?? '' }} {{ cat.name }}
+                  </option>
+                </select>
+                <Icon name="lucide:arrow-right" class="w-4 h-4 text-gray-400 shrink-0" />
+                <select
+                  v-model.number="exchToCat"
+                  class="flex-1 h-8 rounded-lg border border-black/10 px-2 text-sm"
+                >
+                  <option v-for="cat in categories.filter(c => c.id !== exchFromCat)" :key="cat.id" :value="cat.id">
+                    {{ cat.emoji ?? '' }} {{ cat.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 mb-2">
+                <input
+                  v-model.number="exchTokenAmt"
+                  type="number"
+                  min="1"
+                  class="w-20 h-8 rounded-lg border border-black/10 px-2 text-center text-sm"
+                >
+                <span class="text-xs text-gray-500">개</span>
+              </div>
+              <button
+                type="button"
+                class="w-full py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                style="background-color: #fcee5a"
+                :disabled="!exchTokenAmt || exchFromCat === exchToCat || exchanging"
+                @click="onExchangeToken"
+              >
+                {{ exchanging ? '교환 중...' : '교환' }}
               </button>
             </div>
           </div>
-        </Transition>
-      </div>
-    </div>
+        </div>
+      </Teleport>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-const { is } = useLayoutVariant()
+import type {
+  CategoryResponse,
+  CurrencyResponse,
+  ItemResponse,
+} from '@terraworld-it/openapi-frontend'
 
-const selectedTab = ref('전체')
-const selectedBubble = ref<string | null>(null)
+definePageMeta({ layout: 'default' })
 
-// ---------- Mock Data ----------
-const tokens = [
-  { name: '산책', icon: '🚶', amount: 25 },
-  { name: '독서', icon: '📖', amount: 15 },
-  { name: '러닝', icon: '🏃', amount: 10 },
+const { sdk, client } = useOpenApi()
+const toast = useToast()
+
+// State
+const pending = ref(true)
+const fetchError = ref<Error | null>(null)
+const currency = ref<CurrencyResponse | null>(null)
+const categories = ref<CategoryResponse[]>([])
+const items = ref<ItemResponse[]>([])
+const ownedSlugs = ref(new Set<string>())
+const shopType = ref<'plant' | 'figure'>('plant')
+const activeTab = ref('common')
+const purchasing = ref<number | null>(null)
+const showExchange = ref(false)
+const exchanging = ref(false)
+const exchSpecialAmt = ref(1)
+const exchFromCat = ref(1)
+const exchToCat = ref(2)
+const exchTokenAmt = ref(1)
+
+const tokenDisplay = computed(() => {
+  const c = currency.value
+  if (!c) return []
+  return [
+    { icon: 'lucide:footprints', label: '산책', value: c.walkTokens },
+    { icon: 'lucide:book-open', label: '독서', value: c.readTokens },
+    { icon: 'lucide:zap', label: '러닝', value: c.runTokens },
+    { icon: 'lucide:palette', label: '낙서', value: c.drawTokens },
+  ]
+})
+
+const plantTabs = [
+  { value: 'common', label: '일반' },
+  { value: 'rare', label: '희귀' },
+  { value: 'epic', label: '판타지' },
+  { value: 'foreground', label: '전경' },
+  { value: 'background', label: '후경' },
+]
+const figureTabs = [
+  { value: 'common', label: '일반' },
+  { value: 'rare', label: '희귀' },
+  { value: 'epic', label: '판타지' },
 ]
 
-const shopItems = [
-  { name: '작은 풀', icon: '🌿', rarity: 'COMMON', price: 30, priceIcon: '🪙', bg: 'bg-green-50' },
-  { name: '빨간 버섯', icon: '🍄', rarity: 'RARE', price: 15, priceIcon: '🚶', bg: 'bg-red-50' },
-  { name: '돌멩이', icon: '🪨', rarity: 'COMMON', price: 20, priceIcon: '🪙', bg: 'bg-gray-50' },
-  { name: '해바라기', icon: '🌻', rarity: 'EPIC', price: 50, priceIcon: '🪙', bg: 'bg-yellow-50' },
-  { name: '작은 나무', icon: '🌲', rarity: 'RARE', price: 20, priceIcon: '🚶', bg: 'bg-green-50' },
-  { name: '조약돌', icon: '🫧', rarity: 'COMMON', price: 10, priceIcon: '🪙', bg: 'bg-blue-50' },
-]
+const currentTabs = computed(() => shopType.value === 'plant' ? plantTabs : figureTabs)
 
-const shopTabs = ['전체', '산책', '독서', '러닝', '낙서', '범용']
-
-// ---------- Computed ----------
 const filteredItems = computed(() => {
-  if (selectedTab.value === '전체') return shopItems
-  return shopItems // In real app: filter by category
+  const isFigure = shopType.value === 'figure'
+  const tab = activeTab.value
+
+  return items.value.filter((it) => {
+    if (isFigure && it.layout !== 'FIGURE') return false
+    if (!isFigure && it.layout === 'FIGURE') return false
+
+    if (tab === 'foreground') return it.layout === 'FOREGROUND'
+    if (tab === 'background') return it.layout === 'BACKGROUND'
+    if (tab === 'common') return it.rarity === 'COMMON'
+    if (tab === 'rare') return it.rarity === 'RARE'
+    if (tab === 'epic') return it.rarity === 'EPIC'
+    return true
+  })
 })
 
-/** Split items into rows of 3 for shelf / windowsill layouts */
-const itemRows = computed(() => {
-  const rows: typeof shopItems[] = []
-  const items = filteredItems.value
-  for (let i = 0; i < items.length; i += 3) {
-    rows.push(items.slice(i, i + 3))
+function formatCoin(n: number | undefined | null): string {
+  if (n === null || n === undefined) return '0'
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
+function rarityLabel(r: string): string {
+  if (r === 'EPIC') return '판타지'
+  if (r === 'RARE') return '희귀'
+  return '일반'
+}
+function rarityClass(r: string): string {
+  if (r === 'EPIC') return 'bg-purple-100 text-purple-700'
+  if (r === 'RARE') return 'bg-blue-100 text-blue-700'
+  return 'bg-gray-100 text-gray-600'
+}
+
+function errMsg(e: unknown, fb: string): string {
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
+  return fb
+}
+
+async function load() {
+  pending.value = true
+  fetchError.value = null
+  try {
+    const [meRes, catRes, itemRes] = await Promise.all([
+      sdk.getMe({ client }),
+      sdk.listCategories({ client }),
+      sdk.listItems({ client }),
+    ])
+    if (meRes.error) throw new Error(errMsg(meRes.error, 'getMe failed'))
+    if (catRes.error) throw new Error(errMsg(catRes.error, 'listCategories failed'))
+    if (itemRes.error) throw new Error(errMsg(itemRes.error, 'listItems failed'))
+
+    currency.value = meRes.data?.currency ?? null
+    categories.value = catRes.data?.categories ?? []
+    items.value = itemRes.data?.items ?? []
+    ownedSlugs.value = new Set(meRes.data?.ownedItems ?? [])
   }
-  return rows
-})
+ catch (e) {
+    fetchError.value = e as Error
+    toast.error((e as Error).message)
+  }
+ finally {
+    pending.value = false
+  }
+}
 
-const selectedBubbleItem = computed(() => {
-  if (!selectedBubble.value) return null
-  return shopItems.find(i => i.name === selectedBubble.value) ?? null
-})
-</script>
+async function onPurchase(item: ItemResponse) {
+  if (purchasing.value) return
+  purchasing.value = item.id
+  try {
+    const { data, error } = await sdk.purchaseItem({ client, body: { itemId: item.id } })
+    if (error) throw new Error(errMsg(error, '구매 실패'))
+    if (data) {
+      currency.value = data.updatedCurrency
+      ownedSlugs.value = new Set(data.ownedItems)
+      toast.success(`${data.purchasedItem.name} 구매 완료!`)
+    }
+  }
+ catch (e) {
+    toast.error((e as Error).message)
+  }
+ finally {
+    purchasing.value = null
+  }
+}
 
-<!-- ======================================= -->
-<!-- Inline sub-components (SFC style)       -->
-<!-- ======================================= -->
-<script lang="ts">
-/**
- * ShopWallet - Displays coin balance + token balances
- */
-const ShopWallet = defineComponent({
-  name: 'ShopWallet',
-  props: {
-    tokens: { type: Array as PropType<{ name: string; icon: string; amount: number }[]>, required: true },
-  },
-  setup(props) {
-    return () =>
-      h('div', { class: 'flex gap-2 overflow-x-auto pb-1 scrollbar-hide' }, [
-        h('div', { class: 'bg-riso-butter/60 rounded-xl px-3 py-2 flex items-center gap-2 shrink-0 border border-riso-walnut/10' }, [
-          h('span', { class: 'text-sm' }, '🪙'),
-          h('span', { class: 'text-sm font-bold text-riso-walnut' }, '150'),
-        ]),
-        ...props.tokens.map(t =>
-          h('div', {
-            key: t.name,
-            class: 'bg-white rounded-xl px-3 py-2 flex items-center gap-2 border border-riso-walnut/10 shrink-0',
-          }, [
-            h('span', { class: 'text-sm' }, t.icon),
-            h('span', { class: 'text-xs text-riso-dark/40' }, t.name),
-            h('span', { class: 'text-sm font-bold text-riso-dark' }, String(t.amount)),
-          ]),
-        ),
-      ])
-  },
-})
-
-/**
- * ShopTabs - Category filter tabs
- */
-const ShopTabs = defineComponent({
-  name: 'ShopTabs',
-  props: {
-    modelValue: { type: String, required: true },
-    tabs: { type: Array as PropType<string[]>, required: true },
-  },
-  emits: ['update:modelValue'],
-  setup(props, { emit }) {
-    return () =>
-      h('div', { class: 'flex gap-2 overflow-x-auto pb-1 scrollbar-hide' },
-        props.tabs.map(tab =>
-          h('button', {
-            key: tab,
-            class: [
-              'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0',
-              props.modelValue === tab
-                ? 'bg-riso-navy text-white riso-shadow-sm'
-                : 'bg-white/70 text-riso-dark/50 border border-riso-walnut/15',
-            ],
-            onClick: () => emit('update:modelValue', tab),
-          }, tab),
-        ),
-      )
-  },
-})
-
-/**
- * RarityBadge - Rarity tag display
- */
-const RarityBadge = defineComponent({
-  name: 'RarityBadge',
-  props: {
-    rarity: { type: String, required: true },
-  },
-  setup(props) {
-    const cls = computed(() => {
-      switch (props.rarity) {
-        case 'EPIC': return 'bg-riso-poppy/15 text-riso-poppy border-riso-poppy/20'
-        case 'RARE': return 'bg-riso-navy/10 text-riso-navy border-riso-navy/20'
-        default: return 'bg-riso-walnut/10 text-riso-walnut/70 border-riso-walnut/15'
-      }
+async function onExchangeSpecial() {
+  if (exchanging.value || !exchSpecialAmt.value) return
+  exchanging.value = true
+  try {
+    const { data, error } = await sdk.exchangeSpecialToBasic({
+      client,
+      body: { amount: exchSpecialAmt.value },
     })
-    return () =>
-      h('span', {
-        class: ['inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full border', cls.value],
-      }, props.rarity)
-  },
-})
+    if (error) throw new Error(errMsg(error, '환전 실패'))
+    if (data) {
+      currency.value = data.updatedCurrency
+      toast.success(`기본 코인 +${data.exchanged.toAmount}`)
+      exchSpecialAmt.value = 1
+    }
+  }
+ catch (e) {
+    toast.error((e as Error).message)
+  }
+ finally {
+    exchanging.value = false
+  }
+}
+
+async function onExchangeToken() {
+  if (exchanging.value || !exchTokenAmt.value || exchFromCat.value === exchToCat.value) return
+  exchanging.value = true
+  try {
+    const { data, error } = await sdk.exchangeTokens({
+      client,
+      body: {
+        fromCategoryId: exchFromCat.value,
+        toCategoryId: exchToCat.value,
+        amount: exchTokenAmt.value,
+      },
+    })
+    if (error) throw new Error(errMsg(error, '교환 실패'))
+    if (data) {
+      currency.value = data.updatedCurrency
+      toast.success(`${data.exchanged.toType} +${data.exchanged.toAmount}`)
+      exchTokenAmt.value = 1
+    }
+  }
+ catch (e) {
+    toast.error((e as Error).message)
+  }
+ finally {
+    exchanging.value = false
+  }
+}
+
+// Reset tab when shop type changes
+watch(shopType, () => { activeTab.value = 'common' })
+
+onMounted(load)
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s, transform 0.2s;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-/* Bubble sizes that Tailwind may not generate */
-.w-22 { width: 5.5rem; }
-.h-22 { height: 5.5rem; }
-.w-26 { width: 6.5rem; }
-.h-26 { height: 6.5rem; }
-</style>
