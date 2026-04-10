@@ -240,7 +240,7 @@ import type {
   PagedRecordResponse,
 } from '@terraworld-it/openapi-frontend'
 
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
