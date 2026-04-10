@@ -1,0 +1,27 @@
+{
+  "common": {
+    "loading": "불러오는 중...",
+    "error": "오류가 발생했습니다",
+    "retry": "다시 시도",
+    "close": "닫기",
+    "save": "저장",
+    "cancel": "취소",
+    "confirm": "확인",
+    "delete": "삭제",
+    "edit": "편집",
+    "back": "뒤로"
+  },
+  "nav": {
+    "record": "기록",
+    "calendar": "캘린더",
+    "terrarium": "테라",
+    "shop": "상점",
+    "profile": "서랍"
+  },
+  "home": {},
+  "record": {},
+  "calendar": {},
+  "shop": {},
+  "profile": {},
+  "auth": {}
+}

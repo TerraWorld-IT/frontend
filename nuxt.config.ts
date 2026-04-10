@@ -13,7 +13,19 @@ export default defineNuxtConfig({
     '@nuxt/fonts',
     'nuxt-gtag',
     '@nuxtjs/color-mode',
+    '@nuxtjs/i18n',
   ],
+
+  i18n: {
+    locales: [
+      { code: 'ko', language: 'ko-KR', file: 'ko.json', name: '한국어' },
+      { code: 'en', language: 'en-US', file: 'en.json', name: 'English' },
+    ],
+    defaultLocale: 'ko',
+    langDir: 'locales/',
+    strategy: 'no_prefix',
+    lazy: true,
+  },
 
   vite: {
     plugins: [tailwindcss()],

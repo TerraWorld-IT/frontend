@@ -1,0 +1,27 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back"
+  },
+  "nav": {
+    "record": "Record",
+    "calendar": "Calendar",
+    "terrarium": "Terra",
+    "shop": "Shop",
+    "profile": "Profile"
+  },
+  "home": {},
+  "record": {},
+  "calendar": {},
+  "shop": {},
+  "profile": {},
+  "auth": {}
+}
