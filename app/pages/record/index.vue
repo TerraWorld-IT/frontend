@@ -60,120 +60,26 @@
 
       <!-- Solo -->
       <template v-if="recordType === 'solo'">
-        <!-- Category grid -->
-        <div class="grid grid-cols-2 gap-[12px]">
-          <button
-            v-for="cat in categories"
-            :key="cat.id"
-            type="button"
-            class="bg-white rounded-[16px] border border-black/10 p-[19px] text-left transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]"
-            :class="selectedCategoryId === cat.id ? 'ring-2 ring-riso-pink' : ''"
-            @click="selectedCategoryId = cat.id"
-          >
-            <div class="flex items-center gap-3 mb-[30px]">
-              <div
-                class="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                :style="{ backgroundColor: cat.color + '22', color: cat.color }"
-              >
-                {{ cat.emoji ?? '🏷️' }}
-              </div>
-              <div>
-                <div class="font-bold text-[16px] leading-[24px] text-black tracking-[-0.31px]">
-                  {{ cat.name }}
-                </div>
-                <div class="text-[12px] leading-[16px] text-[#737373]">
-                  +{{ cat.baseTokenReward }} {{ cat.tokenName }}
-                </div>
-              </div>
-            </div>
-            <div class="text-[12px] leading-[16px] text-[#525252] flex items-center gap-1">
-              <Icon name="lucide:star" class="w-3 h-3" />
-              {{ cat.baseCoinReward }} 코인
-            </div>
-          </button>
-        </div>
+        <RecordCategoryGrid v-model="selectedCategoryId" :categories="categories" />
 
-        <!-- Form when a category is selected -->
-        <div
-          v-if="selectedCategory"
-          class="bg-white rounded-[16px] border border-black/10 p-5 space-y-4"
-        >
-          <div class="flex items-center gap-2">
-            <span class="text-2xl">{{ selectedCategory.emoji ?? '🏷️' }}</span>
-            <h3 class="font-bold text-lg text-black">{{ selectedCategory.name }} 기록</h3>
-          </div>
+        <RecordRecordForm
+          :category="selectedCategory"
+          :duration="duration"
+          :note="note"
+          :submitting="submitting"
+          @update:duration="duration = $event"
+          @update:note="note = $event"
+          @submit="onSubmit"
+        />
 
-          <div>
-            <label for="record-duration" class="block text-sm font-semibold mb-2 text-black">
-              시간 (분, 선택사항)
-            </label>
-            <input
-              id="record-duration"
-              v-model="duration"
-              type="number"
-              min="1"
-              placeholder="예: 30"
-              class="w-full h-12 rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-riso-pink"
-            >
-          </div>
-
-          <div>
-            <label for="record-note" class="block text-sm font-semibold mb-2 text-black">
-              메모 (선택사항)
-            </label>
-            <textarea
-              id="record-note"
-              v-model="note"
-              rows="3"
-              placeholder="오늘의 기록을 남겨보세요..."
-              class="w-full rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 py-3 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-riso-pink resize-none"
-            />
-          </div>
-
-          <button
-            type="button"
-            class="w-full h-12 rounded-[20px] text-white hover:opacity-90 font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-            style="background-color: #f092f0"
-            :disabled="submitting"
-            @click="onSubmit"
-          >
-            <Icon name="lucide:sparkles" class="w-4 h-4" />
-            <span>{{ submitting ? '기록 중...' : '기록하고 보상 받기' }}</span>
-          </button>
-        </div>
-
-        <!-- Recent records -->
         <div v-if="recentRecords.length > 0">
           <h3 class="font-bold mb-3 text-black">최근 기록</h3>
           <div class="space-y-2">
-            <div
+            <RecordRecordCard
               v-for="record in recentRecords"
               :key="record.id"
-              class="bg-white rounded-[16px] border border-black/10 p-4"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-12 h-12 rounded-[12px] flex items-center justify-center text-xl"
-                    style="background-color: #f1c3f4"
-                  >
-                    {{ record.categoryEmoji ?? '🏷️' }}
-                  </div>
-                  <div>
-                    <div class="font-semibold text-sm text-black">{{ record.categoryName }}</div>
-                    <div class="text-xs text-[#525252]">
-                      {{ formatRecordedDate(record) }}
-                    </div>
-                  </div>
-                </div>
-                <div v-if="record.duration" class="text-sm font-semibold text-[#525252]">
-                  {{ record.duration }}분
-                </div>
-              </div>
-              <div v-if="record.memo" class="mt-3 text-sm text-[#525252] pl-[60px]">
-                {{ record.memo }}
-              </div>
-            </div>
+              :record="record"
+            />
           </div>
         </div>
       </template>
@@ -262,17 +168,6 @@ function pickErrorMessage(e: unknown, fallback: string): string {
   return fallback
 }
 
-function formatRecordedDate(r: RecordResponse): string {
-  const src = r.recordedDate || r.createdAt
-  const d = new Date(src)
-  if (Number.isNaN(d.getTime())) return src
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${yyyy}.${mm}.${dd} ${hh}:${mi}`
-}
 
 async function load() {
   pending.value = true
