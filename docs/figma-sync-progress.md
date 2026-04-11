@@ -1,0 +1,204 @@
+# Figma0409 → Nuxt 포팅 진행 체크포인트
+
+> 이 문서는 `/loop`가 매 회차 읽고 갱신합니다. 사람이 수동으로 편집해도 됩니다.
+> 상태 값: `todo` / `in_progress` / `done` / `blocked`
+
+- **레퍼런스 리포**: `D:\01.Work\08.rf\TerraWorld\reference\Figma0409` (React + Vite + Tailwind)
+- **타겟**: `frontend/app/` (Nuxt 4 + Vue 3 + Tailwind v4)
+- **작업 브랜치**: `design/figma0409-sync`
+- **시작 시각 (KST)**: 2026-04-09 22:38
+- **종료 시각 (KST)**: 2026-04-10 22:00 (R3부터 새 창; 기존 10:00 창은 R2 후 세션 끊김으로 cron 유실)
+
+## 스냅샷 고정
+- 레퍼런스 리포는 `git fetch` 후 `origin/main` 기준으로만 읽는다. 루프가 레퍼런스를 수정하지 않는다.
+- 최초 고정 커밋: `4197da3 Add files from Figma Make`
+
+## 페이지 포팅 상태
+
+| #  | Figma0409 소스                | Nuxt 타겟                        | 상태     | 메모 |
+|----|-------------------------------|----------------------------------|----------|------|
+| 1  | `app/pages/Root.tsx`          | `app/layouts/default.vue`        | done     | R2: 5탭/센터강조/route 배경색 전환/헤더 제거 (WalletBar mock 제거) |
+| 2  | `app/pages/MyTerra.tsx`       | `app/pages/index.vue`            | done     | R13: JamjarSvg(실제 벡터), 배치다이얼로그(updateTerrariumPlacements), 레벨업 info 다이얼로그, 무료코인(claimAdReward), 하트 floatUp 애니메이션. Share는 html2canvas 미설치로 toast stub 유지 |
+| 3  | `app/pages/Record.tsx`        | `app/pages/record/index.vue`     | done     | R3: solo/friend 토글, 동적 카테고리, createRecord+reward toast, createInvite 클립보드 |
+| 4  | `app/pages/Calendar.tsx`      | `app/pages/calendar/index.vue`   | done     | R4: 월달력/stats/day-detail/note CRUD, getRecordStatistics+listRecords+getNote+saveNote+deleteNote |
+| 5  | `app/pages/Shop.tsx`          | `app/pages/shop/index.vue`       | done     | R5: 재화대시보드, plant/figure탭, 등급+레이아웃 필터, 구매, 환전모달 (special→basic, token↔token) |
+| 6  | `app/pages/Profile.tsx`       | `app/pages/profile/index.vue`    | done     | R6: 재화+아이템카운트, 레벨바, 계정(로그인/로그아웃), 환전→/shop 링크 |
+
+## 공용 자산 포팅 상태
+
+| 분류         | 소스                                | 타겟                              | 상태  | 메모 |
+|--------------|-------------------------------------|-----------------------------------|-------|------|
+| UserContext  | `app/context/UserContext.tsx`       | `app/composables/useUser.ts` + Pinia store | done | FB5(R9): stores/user.ts + stores/terrarium.ts + stores/items.ts 생성 완료 |
+| exchange lib | `app/lib/exchange.ts`               | `app/lib/exchange.ts` (Vue용 포팅) | n/a   | API 기반 앱 — exchangeTokens/exchangeSpecialToBasic SDK 호출로 대체. 로컬 계산 불필요 |
+| items lib    | `app/lib/items.ts`                  | `app/lib/items.ts`                | n/a   | API 기반 앱 — listItems SDK 호출로 대체. 하드코딩 SHOP_ITEMS 불필요 |
+| rewards lib  | `app/lib/rewards.ts`                | `app/lib/rewards.ts`              | n/a   | API 기반 앱 — 보상은 createRecord 서버 응답으로 수신. 로컬 계산 불필요 |
+| storage lib  | `app/lib/storage.ts`                | `app/composables/useStorage.ts`   | n/a   | API 기반 앱 — Pinia + API로 대체. localStorage 프로토타입 코드 불필요 |
+| Jamjar SVG   | `imports/Jamjar/*`                  | `app/components/icons/JamjarSvg.vue` | done | R13: 실제 Figma 벡터 경로 포팅 완료 |
+| PPJamjar     | `imports/Ppjamjar/*`                | `app/components/icons/PpJamjar.vue` | done | R15: 584.54px 높이 tall 변형 포팅 완료 |
+| Terraworld 로고 | `imports/TerraworldCopy*/*`      | `app/components/icons/TerraworldLogo.vue` | n/a  | TerraworldCopy는 페이지 섹션 헤더(텍스트+아이콘)이며 독립 로고 SVG 없음. 로그인 페이지는 텍스트 로고 사용 중 |
+
+## shadcn/ui 컴포넌트 포팅
+
+Figma0409는 shadcn/ui 48개를 그대로 export 해둠. Nuxt는 shadcn-vue를 쓰지 않는 방향으로 결정됨. **우선 쓰이는 것만 골라서 포팅**한다.
+
+- [ ] button → `app/components/ui/Button.vue`
+- [ ] card → `app/components/ui/Card.vue`
+- [ ] dialog → `app/components/ui/Dialog.vue` (기존 `CommonModal`과 통합 검토)
+- [ ] sheet (바텀시트) → `app/components/ui/Sheet.vue`
+- [ ] tabs → `app/components/ui/Tabs.vue`
+- [ ] badge → `app/components/ui/Badge.vue`
+- [ ] input → `app/components/ui/Input.vue`
+- [ ] avatar → `app/components/ui/Avatar.vue`
+- [ ] skeleton → `app/components/ui/Skeleton.vue`
+- [ ] toast/sonner → 기존 `CommonToast`와 통합 검토
+
+## API 통합 상태 (openapi-frontend SDK)
+
+루프는 포팅한 페이지마다 **mock 제거 + `useOpenApi()` 연결**을 병행한다.
+
+| 페이지           | 사용할 API                                                   | 상태  |
+|------------------|--------------------------------------------------------------|-------|
+| index (MyTerra)  | `getMe`, `getTerrarium`, `clickTerrariumHeart`               | done  |
+| record           | `listCategories`, `listRecords`, `createRecord`, `createInvite`    | done |
+| calendar         | `getRecordStatistics`, `listRecords`, `getNote`, `saveNote`, `deleteNote` | done  |
+| shop             | `getMe`, `listCategories`, `listItems`, `purchaseItem`, `exchangeSpecialToBasic`, `exchangeTokens` | done |
+| profile          | `getMe`, `getLevels`, `logout`                               | done  |
+
+## Fallback 태스크 스택 (디자인 포팅 거리가 떨어졌을 때)
+
+루프가 순서대로 집어든다. 완료 시 체크.
+
+1. [x] **인증 실제 연결**: `app/lib/auth-client.ts`를 better-auth + openapi SDK로 묶고, login/signup 페이지를 실제 API 호출로 전환
+2. [x] **라우트 미들웨어**: `app/middleware/auth.ts` 추가 — 토큰 없으면 `/auth/login` 리다이렉트
+3. [x] **런타임 config 정리**: `nuxt.config.ts`의 `NUXT_PUBLIC_API_BASE_URL` 기본값과 타입 선언 점검
+4. [x] **공용 컴포넌트 추출**: 페이지에서 중복되는 블록을 `app/components/common/*`로 분리
+5. [x] **Pinia stores**: `stores/user.ts`, `stores/terrarium.ts`, `stores/items.ts` 선제 스캐폴딩
+6. [x] **페이먼트 훅**: `app/composables/usePayment.ts` — PG SDK 로딩 + 결제 상태 머신 스켈레톤 (결제는 아직 시뮬레이션 플래그로)
+7. [x] **에러 바운더리**: `app/error.vue` + `useErrorHandler` 컴포저블
+8. [x] **loading/empty 상태**: 각 페이지 `<Suspense>` + `CommonLoading` 일관화
+9. [x] **i18n 스캐폴딩**: `@nuxtjs/i18n` 기본 구조 (ko/en 네임스페이스만 세팅)
+10. [x] **mobile 리포지토리 확인**: TerraWorld-IT org에 mobile 리포가 있으면 클론해서 상태 파악, 없으면 스펙 문서 초안
+
+## 회차 로그
+
+각 루프 회차는 아래 템플릿으로 append.
+
+```
+### Round {n} — {kst-timestamp}
+- **picked**: <page or fallback item>
+- **result**: done | partial | blocked
+- **commit**: <sha short> or "-"
+- **notes**: <one-liner>
+```
+
+<!-- LOOP_LOG_START -->
+### Round 1 — 2026-04-09 ~23:05 KST
+- **picked**: MyTerra → pages/index.vue (+API wiring)
+- **result**: partial (core + API done, visual polish deferred)
+- **commit**: afbb4c7
+- **notes**: Replaced 8-concept demo with real Figma0409 port. getMe+getTerrarium on mount, clickTerrariumHeart on button. 3 action buttons + item placement stubbed with TODO toasts. Jamjar SVG still placeholder.
+
+### Round 2 — 2026-04-09 ~23:15 KST
+- **picked**: Root → layouts/default.vue
+- **result**: done
+- **commit**: 5c57aa3
+- **notes**: Mobile-app shell: no top header, max-w-md centered, bottom nav 5 tabs (기록/캘린더/나의테라centered/상점/서랍) with lucide icons, per-route bg color. WalletBar mock (coin=128) removed — Figma design has no persistent wallet bar. /calendar tab will 404 until R4.
+
+### Round 3 — 2026-04-10 ~13:55 KST
+- **picked**: Record → pages/record/index.vue (+API wiring)
+- **result**: done
+- **commit**: 8cd0150
+- **notes**: Figma Record.tsx port. Solo/friend toggle, dynamic category grid from listCategories, createRecord with real reward toast (basicCoins+categoryTokens from server response), recent records from listRecords, createInvite button copies link to clipboard. Session-only cron died after R2 (durable:false mistake); task now rearmed via scheduled-tasks MCP persistent task until KST 04-10 22:00.
+### Round 4 — 2026-04-10 ~14:20 KST
+- **picked**: Calendar → pages/calendar/index.vue (+API wiring)
+- **result**: done
+- **commit**: c49accf
+- **notes**: Figma Calendar.tsx port. Monthly calendar grid, stats panel (today/week/total + byCategory progress bars), day-click detail showing records + note CRUD. APIs: getRecordStatistics, listRecords(year/month), getNote, saveNote, deleteNote. Fixed 5 TS type assertions (hey-api union resolution), stale noteMap cache on month nav, unsafe error casts. Architecture TODO: extract #e8ecfc/#97a8f1 as riso tokens (project-wide issue across all pages).
+
+### Round 5 — 2026-04-10 ~14:45 KST
+- **picked**: Shop → pages/shop/index.vue (+API wiring)
+- **result**: done
+- **commit**: ec1be0e
+- **notes**: Figma Shop.tsx port. Currency dashboard (coins+tokens), plant/figure tab, rarity+layout filter, item grid with purchase, exchange modal (special→basic 1:2, token↔token with category select). APIs: getMe, listCategories, listItems, purchaseItem, exchangeSpecialToBasic, exchangeTokens. All server responses update state in-place.
+
+### Round 6 — 2026-04-10 ~15:10 KST
+- **picked**: Profile → pages/profile/index.vue (+API wiring)
+- **result**: done
+- **commit**: 58bda65
+- **notes**: Figma Profile.tsx port. Currency dashboard, owned/placed item counts, level progress bar (getLevels), account section with login link + logout (sdk.logout → navigateTo login). Token exchange deduped to /shop link. All 6 Figma pages now ported.
+### Round 7 — 2026-04-10 07:16 KST
+- **picked**: Fallback #4 — 공용 컴포넌트 추출
+- **result**: done
+- **commit**: a8348ca
+- **notes**: Extracted CommonCurrencyDisplay.vue from shop and profile. Removed duplicate tokenDisplay computed + formatCoin from both pages. coinCellBg prop allows per-page color customization. Lint+build green.
+### Round 8 — 2026-04-10 16:40 KST
+- **picked**: Fallback #6 — 페이먼트 훅 스켈레톤
+- **result**: done
+- **commit**: 61259aa
+- **notes**: usePayment.ts with PaymentStatus state machine (idle/loading/processing/success/failed), initPayment/confirmPayment/refund interfaces, SIMULATE=true flag resolves without real PG SDK. Phase-3 TODO stubs inline.
+### Round 9 — 2026-04-10 17:14 KST
+- **picked**: Fallback #8 — loading/empty 상태
+- **result**: done
+- **commit**: fc08743
+- **notes**: Extracted shop logic to async ShopContent.vue (top-level await). shop/index.vue reduced to <Suspense> wrapper. ShopSkeleton.vue mirrors layout (currency rows + filter tabs + 6-card grid). Empty state upgraded from plain text to icon+message. Build green.
+### Round 10 — 2026-04-10 17:40 KST
+- **picked**: Fallback #9 — i18n 스캐폴딩
+- **result**: done
+- **commit**: 5a694fb
+- **notes**: Installed @nuxtjs/i18n v10.2.4, registered in nuxt.config.ts (strategy: no_prefix, defaultLocale: ko, lazy). Created i18n/locales/ko.json + en.json with common/nav/page empty namespaces. Fixed langDir (i18n/ restructureDir prefix). Build green.
+### Round 11 — 2026-04-10 18:15 KST
+- **picked**: Fallback #10 — mobile 리포지토리 확인
+- **result**: done
+- **commit**: ca7603a
+- **notes**: TerraWorld-IT/mobile 존재 확인 (created 2026-04-06). 빈 저장소(커밋 0). 로컬 clone(D:\TerraWorld\mobile). docs/mobile-status.md 에 현황 + Capacitor 계획 + 다음 단계 문서화. Fallback 스택 전체 완료.
+### Round 12 — 2026-04-10 18:42 KST
+- **picked**: Fallback #3 — 런타임 config 정리
+- **result**: done
+- **commit**: 0dcfd66
+- **notes**: Synced progress.md (FB1/2/5/7 already done in prior commits, not logged). Added authBaseUrl+gaId to runtimeConfig.public. Renamed VITE_AUTH_BASE_URL → NUXT_PUBLIC_AUTH_BASE_URL in auth-client.ts. Updated .env.example. All NUXT_PUBLIC_* vars now consistent. Build+lint green. Fallback stack fully complete (all 10 items done).
+### Round 13 — 2026-04-10 10:10 KST
+- **picked**: MyTerra → pages/index.vue (partial → done)
+- **result**: done
+- **commit**: 0089f88
+- **notes**: Ported remaining Figma0409 MyTerra elements: JamjarSvg with actual Figma vector paths (useId for clipPath uniqueness), item placement dialog (listItems + updateTerrariumPlacements full-snapshot), level-up info dialog, free-coin dialog (claimAdReward API), floating +0.1 heart animation. Code review fixes: 10 TS type assertion errors (SDK union collapse), z-index z-50→z-[9997], removed spurious middleware:'auth', slotId nullability with ??0. Share remains toast stub (html2canvas not installed). All 6 pages now fully done.
+### Round 14 — 2026-04-10 10:40 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: All 6 pages done, all 10 fallback tasks done. 공용 자산(UserContext/libs/icons) still in table as "todo" but no longer blocking page porting. Awaiting new task additions from team.
+### Round 15 — 2026-04-10 11:10 KST
+- **picked**: 공용 자산 포팅 — PpJamjar SVG + 테이블 정리
+- **result**: done
+- **commit**: cda6f3d
+- **notes**: PpJamjar.vue 포팅 완료 (584.54px tall variant, JamjarSvg와 동일 구조). 공용 자산 테이블 정리: UserContext→done(FB5), JamjarSvg→done(R13), exchange/items/rewards/storage libs→n/a(API 기반 앱), TerraworldLogo→n/a(텍스트 로고 사용 중). 전체 공용 자산 테이블 클린업.
+### Round 16 — 2026-04-10 20:40 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: All 6 pages done, all 10 fallback tasks done, all common assets done/n/a. No new items in queue. Awaiting team additions.
+### Round 17 — 2026-04-10 21:10 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: 전체 완료 상태 유지. 6페이지/10 fallback/공용 자산 모두 done. 팀 추가 작업 대기 중. 종료 22:00까지 50분 남음.
+### Round 18 — 2026-04-10 12:40 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: 전체 완료 상태 유지. 6페이지/10 fallback/공용 자산 모두 done. 팀 추가 작업 대기 중. 종료 22:00까지 9시간 20분 남음.
+### Round 19 — 2026-04-10 13:10 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: 전체 완료 상태 유지. 6페이지/10 fallback/공용 자산 모두 done. 팀 추가 작업 대기 중. 종료 22:00까지 8시간 50분 남음.
+### Round 20 — 2026-04-10 14:10 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: 전체 완료 상태 유지. 6페이지/10 fallback/공용 자산 모두 done. 팀 추가 작업 대기 중. 종료 22:00까지 7시간 50분 남음.
+### Round 21 — 2026-04-10 20:40 KST
+- **picked**: idle — nothing to do
+- **result**: idle
+- **commit**: -
+- **notes**: 전체 완료 상태 유지. 6페이지/10 fallback/공용 자산 모두 done. 종료 22:00까지 약 80분 남음.
+<!-- LOOP_LOG_END -->

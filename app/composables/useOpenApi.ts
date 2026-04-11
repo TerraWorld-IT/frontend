@@ -29,3 +29,17 @@ export function useOpenApi() {
     client: $apiClient,
   }
 }
+
+/**
+ * Cast hey-api SDK response `data` to the expected concrete type.
+ *
+ * @hey-api/client-fetch applies `TData[keyof TData]` to response types,
+ * collapsing multi-field objects into a union of their field value types.
+ * e.g. `CreateRecordResponse { record, reward, updatedCurrency }` becomes
+ *      `RecordResponse | RewardInfo | CurrencyResponse` instead of the full object.
+ *
+ * This utility provides a clean, consistent cast point across all SDK consumers.
+ */
+export function castData<T>(data: unknown): T | undefined {
+  return data as unknown as T | undefined
+}

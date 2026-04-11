@@ -4,16 +4,22 @@ export interface Toast {
   message: string
 }
 
-const toasts = ref<Toast[]>([])
-let nextId = 0
-
+/**
+ * Toast notification composable.
+ * Uses useState (SSR-safe) instead of module-scope ref to prevent cross-request state pollution.
+ */
 export function useToast() {
+  const toasts = useState<Toast[]>('toasts', () => [])
+  const nextId = useState<number>('toastNextId', () => 0)
+
   function show(message: string, type: Toast['type'] = 'info', duration = 3000) {
-    const id = nextId++
+    const id = nextId.value++
     toasts.value.push({ id, type, message })
-    setTimeout(() => {
-      toasts.value = toasts.value.filter(t => t.id !== id)
-    }, duration)
+    if (import.meta.client) {
+      setTimeout(() => {
+        toasts.value = toasts.value.filter(t => t.id !== id)
+      }, duration)
+    }
   }
 
   function success(message: string) { show(message, 'success') }
