@@ -1,9 +1,12 @@
-import type { Terrarium } from '~/types'
+import type {
+  PlacementItem,
+  TerrariumResponse,
+} from '@terraworld-it/openapi-frontend'
 
 export function useTerrarium() {
   const { sdk, client } = useOpenApi()
 
-  const terrarium = ref<Terrarium | null>(null)
+  const terrarium = ref<TerrariumResponse | null>(null)
   const loading = ref(false)
 
   async function fetchTerrarium() {
@@ -11,17 +14,25 @@ export function useTerrarium() {
     try {
       const { data, error } = await sdk.getTerrarium({ client })
       if (error) throw error
-      terrarium.value = data as Terrarium
+      terrarium.value = (data as TerrariumResponse) ?? null
     } finally {
       loading.value = false
     }
   }
 
-  async function savePlacements(placements: Array<{ itemId: number; posX: number; posY: number; rotation?: number; scale?: number }>) {
-    const { data, error } = await sdk.updateTerrariumPlacements({ client, body: { placements } })
+  /**
+   * Save full placement snapshot (slot-based, not position-based).
+   * API expects: { placedItems: [{ itemId, slotId }] }
+   */
+  async function savePlacements(items: PlacementItem[]) {
+    const { data, error } = await sdk.updateTerrariumPlacements({
+      client,
+      body: { placedItems: items },
+    })
     if (error) throw error
-    terrarium.value = data as Terrarium
-    return terrarium.value
+    // Refresh local state after save
+    await fetchTerrarium()
+    return data
   }
 
   async function clickHeart() {

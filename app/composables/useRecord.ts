@@ -1,34 +1,50 @@
-import type { ActivityRecord, CreateRecordPayload, RecordStats } from '~/types'
+import type {
+  CreateRecordResponse,
+  PagedRecordResponse,
+  RecordResponse,
+  StatisticsResponse,
+} from '@terraworld-it/openapi-frontend'
 
 export function useRecord() {
   const { sdk, client } = useOpenApi()
 
-  const records = ref<ActivityRecord[]>([])
+  const records = ref<RecordResponse[]>([])
   const loading = ref(false)
 
-  async function fetchRecords(params?: { from?: string; to?: string; categoryId?: number }) {
+  async function fetchRecords(params?: { categoryId?: number; year?: number; month?: number; page?: number; size?: number }) {
     loading.value = true
     try {
       const { data, error } = await sdk.listRecords({ client, query: params })
       if (error) throw error
-      records.value = (data as ActivityRecord[]) ?? []
+      const paged = data as PagedRecordResponse | undefined
+      records.value = paged?.content ?? []
     } finally {
       loading.value = false
     }
   }
 
   async function fetchToday() {
-    const { data, error } = await sdk.listRecords({ client, query: { today: true } })
+    // SDK spec does not have a 'today' filter — use current date year/month + page
+    const now = new Date()
+    const { data, error } = await sdk.listRecords({
+      client,
+      query: { year: now.getFullYear(), month: now.getMonth() + 1, page: 0, size: 50 },
+    })
     if (error) throw error
-    records.value = (data as ActivityRecord[]) ?? []
+    const paged = data as PagedRecordResponse | undefined
+    // Client-side filter for today only
+    const todayStr = now.toISOString().slice(0, 10)
+    records.value = (paged?.content ?? []).filter(r => r.recordedDate?.startsWith(todayStr))
   }
 
-  async function createRecord(payload: CreateRecordPayload) {
+  async function createRecord(payload: { categoryId: number; duration?: number | null; note?: string | null }) {
     const { data, error } = await sdk.createRecord({ client, body: payload })
     if (error) throw error
-    const record = data as ActivityRecord
-    records.value.unshift(record)
-    return record
+    const result = data as CreateRecordResponse | undefined
+    if (result?.record) {
+      records.value.unshift(result.record)
+    }
+    return result
   }
 
   async function deleteRecord(id: number) {
@@ -40,7 +56,7 @@ export function useRecord() {
   async function fetchStats() {
     const { data, error } = await sdk.getRecordStatistics({ client })
     if (error) throw error
-    return data as RecordStats
+    return data as StatisticsResponse | undefined
   }
 
   return {
