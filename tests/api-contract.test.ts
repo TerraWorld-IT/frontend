@@ -10,7 +10,6 @@ import type {
   UserMeResponse,
   ItemListResponse,
   ItemResponse,
-  CategoryListResponse,
   ExchangeResponse,
   InviteResponse,
   InviteAcceptResponse,
