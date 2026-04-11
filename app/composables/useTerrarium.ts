@@ -1,7 +1,7 @@
-import type { Terrarium, PlaceItemPayload, TerrariumItem } from '~/types'
+import type { Terrarium } from '~/types'
 
 export function useTerrarium() {
-  const { get, post, put, del } = useApi()
+  const { sdk, client } = useOpenApi()
 
   const terrarium = ref<Terrarium | null>(null)
   const loading = ref(false)
@@ -9,43 +9,30 @@ export function useTerrarium() {
   async function fetchTerrarium() {
     loading.value = true
     try {
-      terrarium.value = await get<Terrarium>('/terrarium')
+      const { data, error } = await sdk.getTerrarium({ client })
+      if (error) throw error
+      terrarium.value = data as Terrarium
     } finally {
       loading.value = false
     }
   }
 
-  async function placeItem(payload: PlaceItemPayload) {
-    const placed = await post<TerrariumItem>('/terrarium/items', payload)
-    terrarium.value?.items.push(placed)
-    return placed
+  async function savePlacements(placements: Array<{ itemId: number; posX: number; posY: number; rotation?: number; scale?: number }>) {
+    const { data, error } = await sdk.updateTerrariumPlacements({ client, body: { placements } })
+    if (error) throw error
+    terrarium.value = data as Terrarium
+    return terrarium.value
   }
 
-  async function moveItem(id: number, posX: number, posY: number) {
-    return put<TerrariumItem>(`/terrarium/items/${id}`, { posX, posY })
-  }
-
-  async function removeItem(id: number) {
-    await del(`/terrarium/items/${id}`)
-    if (terrarium.value) {
-      terrarium.value.items = terrarium.value.items.filter(i => i.id !== id)
-    }
-  }
-
-  async function changeBackground(backgroundId: number) {
-    await put('/terrarium/background', { backgroundId })
-    if (terrarium.value) {
-      terrarium.value.backgroundId = backgroundId
-    }
-  }
-
-  async function fetchUserTerrarium(userId: number) {
-    return get<Terrarium>(`/terrarium/user/${userId}`)
+  async function clickHeart() {
+    const { data, error } = await sdk.clickTerrariumHeart({ client })
+    if (error) throw error
+    return data
   }
 
   return {
     terrarium: readonly(terrarium),
     loading: readonly(loading),
-    fetchTerrarium, placeItem, moveItem, removeItem, changeBackground, fetchUserTerrarium,
+    fetchTerrarium, savePlacements, clickHeart,
   }
 }

@@ -1,7 +1,7 @@
-import type { WalletInfo, WalletTransaction, ExchangeTokenPayload } from '~/types'
+import type { WalletInfo } from '~/types'
 
 export function useWallet() {
-  const { get, post, getPage } = useApi()
+  const { sdk, client } = useOpenApi()
 
   const wallet = ref<WalletInfo | null>(null)
   const loading = ref(false)
@@ -9,21 +9,31 @@ export function useWallet() {
   async function fetchWallet() {
     loading.value = true
     try {
-      wallet.value = await get<WalletInfo>('/wallet')
+      const { data, error } = await sdk.getMe({ client })
+      if (error) throw error
+      // getMe returns user profile which includes wallet info
+      if (data) {
+        wallet.value = {
+          basicCoin: (data as { basicCoin: number }).basicCoin ?? 0,
+          tokens: (data as { tokens: WalletInfo['tokens'] }).tokens ?? [],
+        }
+      }
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchHistory(page = 1) {
-    return getPage<WalletTransaction>('/wallet/history', { page })
+  async function exchangeSpecialToBasic(payload: { categoryId: number; amount: number }) {
+    const { data, error } = await sdk.exchangeSpecialToBasic({ client, body: payload })
+    if (error) throw error
+    return data
   }
 
-  async function exchangeToken(payload: ExchangeTokenPayload) {
-    const result = await post<WalletInfo>('/wallet/exchange', payload)
-    wallet.value = result
-    return result
+  async function exchangeTokens(payload: { fromCategoryId: number; toCategoryId: number; amount: number }) {
+    const { data, error } = await sdk.exchangeTokens({ client, body: payload })
+    if (error) throw error
+    return data
   }
 
-  return { wallet: readonly(wallet), loading: readonly(loading), fetchWallet, fetchHistory, exchangeToken }
+  return { wallet: readonly(wallet), loading: readonly(loading), fetchWallet, exchangeSpecialToBasic, exchangeTokens }
 }

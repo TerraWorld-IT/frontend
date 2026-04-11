@@ -1,7 +1,7 @@
 import type { ActivityRecord, CreateRecordPayload, RecordStats } from '~/types'
 
 export function useRecord() {
-  const { get, post, put, del } = useApi()
+  const { sdk, client } = useOpenApi()
 
   const records = ref<ActivityRecord[]>([])
   const loading = ref(false)
@@ -9,42 +9,43 @@ export function useRecord() {
   async function fetchRecords(params?: { from?: string; to?: string; categoryId?: number }) {
     loading.value = true
     try {
-      records.value = await get<ActivityRecord[]>('/records', params as Record<string, unknown>)
+      const { data, error } = await sdk.listRecords({ client, query: params })
+      if (error) throw error
+      records.value = (data as ActivityRecord[]) ?? []
     } finally {
       loading.value = false
     }
   }
 
   async function fetchToday() {
-    records.value = await get<ActivityRecord[]>('/records/today')
+    const { data, error } = await sdk.listRecords({ client, query: { today: true } })
+    if (error) throw error
+    records.value = (data as ActivityRecord[]) ?? []
   }
 
   async function createRecord(payload: CreateRecordPayload) {
-    const record = await post<ActivityRecord>('/records', payload)
+    const { data, error } = await sdk.createRecord({ client, body: payload })
+    if (error) throw error
+    const record = data as ActivityRecord
     records.value.unshift(record)
     return record
   }
 
-  async function updateRecord(id: number, payload: Partial<CreateRecordPayload>) {
-    return put<ActivityRecord>(`/records/${id}`, payload)
-  }
-
   async function deleteRecord(id: number) {
-    await del(`/records/${id}`)
+    const { error } = await sdk.deleteRecord({ client, path: { recordId: id } })
+    if (error) throw error
     records.value = records.value.filter(r => r.id !== id)
   }
 
   async function fetchStats() {
-    return get<RecordStats>('/records/stats')
-  }
-
-  async function fetchCalendar(yearMonth: string) {
-    return get<ActivityRecord[]>(`/records/calendar/${yearMonth}`)
+    const { data, error } = await sdk.getRecordStatistics({ client })
+    if (error) throw error
+    return data as RecordStats
   }
 
   return {
     records: readonly(records),
     loading: readonly(loading),
-    fetchRecords, fetchToday, createRecord, updateRecord, deleteRecord, fetchStats, fetchCalendar,
+    fetchRecords, fetchToday, createRecord, deleteRecord, fetchStats,
   }
 }
