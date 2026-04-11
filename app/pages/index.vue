@@ -304,6 +304,9 @@
       </div>
     </div>
   </CommonModal>
+
+  <!-- Onboarding (first visit) -->
+  <CommonOnboarding :show="showOnboarding" @close="showOnboarding = false" />
 </template>
 
 <script setup lang="ts">
@@ -321,6 +324,14 @@ definePageMeta({ layout: 'default' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+
+// Onboarding — show on first visit
+const showOnboarding = ref(false)
+onMounted(() => {
+  if (import.meta.client && !localStorage.getItem('tw-onboarding-done')) {
+    showOnboarding.value = true
+  }
+})
 
 // --- State ---
 const pending = ref(true)
