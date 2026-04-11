@@ -1,12 +1,20 @@
 import { betterAuth } from 'better-auth'
 import { Pool } from 'pg'
 
-export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://terraworld:terraworld@localhost:5432/terraworld',
-  }),
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) {
+  throw new Error('[auth] DATABASE_URL is required — set it in .env or environment variables')
+}
 
-  secret: process.env.BETTER_AUTH_SECRET || 'terraworld-dev-secret-change-in-production',
+const secret = process.env.BETTER_AUTH_SECRET
+if (!secret) {
+  throw new Error('[auth] BETTER_AUTH_SECRET is required — set it in .env or environment variables')
+}
+
+export const auth = betterAuth({
+  database: new Pool({ connectionString }),
+
+  secret,
 
   emailAndPassword: {
     enabled: true,
@@ -27,5 +35,18 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5, // 5 min cache
+    },
+  },
+
+  advanced: {
+    cookiePrefix: 'tw',
+    defaultCookieAttributes: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    },
   },
 })

@@ -24,7 +24,6 @@ export default defineNuxtConfig({
     defaultLocale: 'ko',
     langDir: 'locales/',
     strategy: 'no_prefix',
-    lazy: true,
   },
 
   vite: {
@@ -81,6 +80,17 @@ export default defineNuxtConfig({
 
   typescript: {
     strict: true,
+  },
+
+  routeRules: {
+    '/**': {
+      headers: {
+        'X-Frame-Options': 'DENY',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        ...(process.env.NODE_ENV === 'production' ? { 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' } : {}),
+      },
+    },
   },
 
   // The generated openapi client ships as raw .ts and must be transpiled by Nuxt.
