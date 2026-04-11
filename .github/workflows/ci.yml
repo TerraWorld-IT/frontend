@@ -50,6 +50,9 @@ jobs:
           bun-version: latest
 
       - run: bun install --frozen-lockfile
+      # TODO: Remove continue-on-error after hey-api union type debt is resolved
+      # Tracked: hey-api TData[keyof TData] unwrapping causes ~50 false positives
+      # Target: remove by 2026-06-01
       - run: bun run typecheck
         continue-on-error: true
 

@@ -82,8 +82,7 @@ export default defineNuxtPlugin(() => {
       refreshTokens(data as unknown as import('@terraworld-it/openapi-frontend').TokenResponse)
       return true
     }
-    catch (e) {
-      if (import.meta.dev) console.warn('[openapi] token refresh failed:', e)
+    catch {
       return false
     }
   }

@@ -45,6 +45,7 @@ export function useNative() {
 
   // --- Camera ---
   async function takePhoto() {
+    if (!import.meta.client) return undefined // SSR guard
     const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera')
     return Camera.getPhoto({
       quality: 90,
@@ -65,12 +66,17 @@ export function useNative() {
     return perm
   }
 
+  /**
+   * Subscribe to push notifications received while app is in foreground.
+   * Returns a cleanup function — call it in onUnmounted() to prevent listener stacking.
+   */
   async function onPushReceived(callback: (notification: { title?: string; body?: string; data?: Record<string, unknown> }) => void) {
-    if (!isNative) return
+    if (!isNative) return () => {}
     const { PushNotifications } = await import('@capacitor/push-notifications')
-    PushNotifications.addListener('pushNotificationReceived', (n) => {
+    const handle = await PushNotifications.addListener('pushNotificationReceived', (n) => {
       callback({ title: n.title, body: n.body, data: n.data as Record<string, unknown> })
     })
+    return () => handle.remove()
   }
 
   // --- Splash Screen ---
@@ -87,6 +93,15 @@ export function useNative() {
     await StatusBar.setBackgroundColor({ color })
   }
 
+  /**
+   * Clear push token on logout — call from sign-out flow.
+   */
+  function clearPushToken() {
+    if (import.meta.client) {
+      localStorage.removeItem(STORAGE_KEYS.PUSH_TOKEN)
+    }
+  }
+
   return {
     isNative,
     platform,
@@ -100,5 +115,6 @@ export function useNative() {
     onPushReceived,
     hideSplash,
     setStatusBarColor,
+    clearPushToken,
   }
 }

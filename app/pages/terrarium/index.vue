@@ -176,7 +176,7 @@ function onItemSelect(itemId: number) {
   pendingChanges.value = currentPlacements
 
   selectedSlot.value = null
-  hapticImpact('Medium')
+  void hapticImpact('Medium')
   savePlacements()
 }
 

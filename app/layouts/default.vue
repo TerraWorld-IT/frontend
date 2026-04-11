@@ -82,7 +82,7 @@ const tabs: Tab[] = [
 const route = useRoute()
 const { hapticImpact } = useNative()
 
-function onTabTap() { hapticImpact('Light') }
+function onTabTap() { void hapticImpact('Light') }
 
 function isActive(to: string): boolean {
   return route.path === to

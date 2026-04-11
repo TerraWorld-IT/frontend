@@ -320,8 +320,6 @@ import type {
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
 
-definePageMeta({ layout: 'default' })
-
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { trackHeartClick } = useGtagEvents()
@@ -535,6 +533,8 @@ function onShareClick() {
 }
 
 onMounted(load)
+
+definePageMeta({ layout: 'default' })
 </script>
 
 <style scoped>
