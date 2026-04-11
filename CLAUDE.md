@@ -70,42 +70,58 @@ frontend/
 │   ├── assets/css/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
-│   │   ├── common/                 # Toast, Modal, Loading, WalletBar, LayoutSelector
+│   │   ├── common/                 # Toast, Modal, Loading, WalletBar, LayoutSelector, CurrencyDisplay
+│   │   ├── icons/                  # JamjarSvg, PpJamjar (SVG 컴포넌트)
 │   │   ├── record/                 # (추후)
 │   │   ├── terrarium/              # (추후: TerrariumCanvas 등)
-│   │   └── shop/                   # (추후)
+│   │   └── shop/                   # ShopContent, ShopSkeleton
 │   ├── composables/
-│   │   ├── useApi.ts               # API 클라이언트 (제네릭 래퍼, 401 핸들링)
+│   │   ├── useApi.ts               # [레거시] 제네릭 API 래퍼 ($fetch)
+│   │   ├── useAuth.ts              # JWT 토큰 관리 (useCookie + useState)
 │   │   ├── useLayoutVariant.ts     # 8개 디자인 컨셉 전역 상태
+│   │   ├── useOpenApi.ts           # [주력] OpenAPI SDK 래퍼 (@hey-api/client-fetch)
+│   │   ├── usePayment.ts           # 구매/교환 트랜잭션 플로우
 │   │   ├── useRecord.ts            # 기록 CRUD, 통계
 │   │   ├── useTerrarium.ts         # 테라리움 배치
 │   │   ├── useWallet.ts            # 재화 조회/교환
 │   │   └── useToast.ts             # 토스트 알림
+│   ├── error.vue                   # 전역 에러 페이지 (404 등)
 │   ├── layouts/
 │   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + Toast
+│   ├── lib/
+│   │   └── auth-client.ts          # better-auth Vue 클라이언트 (createAuthClient)
 │   ├── middleware/
-│   │   └── auth.ts                 # better-auth 세션 체크
+│   │   └── auth.ts                 # JWT 쿠키 기반 라우트 가드
 │   ├── pages/
-│   │   ├── index.vue               # 홈 (8 컨셉 레이아웃)
-│   │   ├── auth/login.vue          # 로그인 (8 컨셉, layout: false)
-│   │   ├── record/index.vue        # 기록 (8 컨셉)
-│   │   ├── terrarium/index.vue     # 테라리움 꾸미기 (8 컨셉)
-│   │   ├── shop/index.vue          # 상점 (8 컨셉)
-│   │   └── profile/index.vue       # 프로필 (8 컨셉)
-│   ├── plugins/                    # (추후: auth.client.ts 등)
+│   │   ├── index.vue               # 홈 (테라리움 미리보기 + 오늘 기록)
+│   │   ├── auth/login.vue          # 로그인/가입 (layout: false)
+│   │   ├── calendar/index.vue      # 캘린더 뷰
+│   │   ├── record/index.vue        # 기록 입력/리스트
+│   │   ├── terrarium/index.vue     # 테라리움 꾸미기/감상
+│   │   ├── shop/index.vue          # 아이템 상점 (Suspense + ClientOnly)
+│   │   └── profile/index.vue       # 프로필/통계/설정
+│   ├── plugins/
+│   │   └── openapi.ts              # @hey-api/client-fetch 인스턴스 + 401 리프레시 인터셉터
 │   ├── stores/
-│   │   └── auth.ts                 # 인증 스토어 (better-auth 연동 후 보강)
+│   │   ├── auth.ts                 # 인증 상태 (레거시, useAuth로 대체 중)
+│   │   ├── user.ts                 # 프로필/레벨/재화 (OpenAPI SDK 연동)
+│   │   ├── items.ts                # 상점 아이템 카탈로그
+│   │   └── terrarium.ts            # 테라리움 배치 상태
 │   ├── types/
 │   │   ├── index.ts                # 도메인 타입 (User, Record, Item, Terrarium 등)
 │   │   └── api.ts                  # API 응답 래퍼 (ApiResponse, PaginatedResponse)
 │   └── utils/
 │       ├── format.ts               # dayjs 기반 날짜/숫자 포맷
 │       └── constants.ts            # 카테고리 아이콘/컬러 맵, 희귀도 라벨
-├── lib/
-│   └── auth-client.ts              # better-auth Vue 클라이언트 (signIn, signUp, useSession)
+├── i18n/locales/
+│   ├── ko.json                     # 한국어 (기본)
+│   └── en.json                     # 영어
 ├── server/
 │   ├── api/auth/[...all].ts        # better-auth Nitro 핸들러
 │   └── lib/auth.ts                 # better-auth 서버 설정 (PostgreSQL)
+├── docs/
+│   ├── figma-sync-progress.md      # Figma→Nuxt 포팅 진행 기록
+│   └── mobile-status.md            # 모바일 래핑 계획
 ├── nuxt.config.ts
 ├── lefthook.yml
 ├── cog.toml
@@ -224,9 +240,10 @@ GET    /api/v1/admin/dashboard
 |------|------|------|------|
 | `/` | `pages/index.vue` | 홈 (테라리움 미리보기 + 오늘 기록) | 선택 |
 | `/auth/login` | `pages/auth/login.vue` | 로그인/가입 (layout: false) | 불필요 |
-| `/record` | `pages/record/index.vue` | 기록 캘린더/타임라인 | 필수 |
+| `/calendar` | `pages/calendar/index.vue` | 캘린더 뷰 | 필수 |
+| `/record` | `pages/record/index.vue` | 기록 입력/리스트 | 필수 |
 | `/terrarium` | `pages/terrarium/index.vue` | 테라리움 꾸미기/감상 | 필수 |
-| `/shop` | `pages/shop/index.vue` | 아이템 상점 | 선택 |
+| `/shop` | `pages/shop/index.vue` | 아이템 상점 (Suspense + ClientOnly) | 선택 |
 | `/profile` | `pages/profile/index.vue` | 프로필/통계/설정 | 필수 |
 | `/share/:shareCode` | (추후) | 공유 수신 (SSR + OG) | 불필요 |
 | `/admin/*` | (추후) | 어드민 (ADMIN role) | 필수 |
@@ -335,14 +352,16 @@ PixiJS v8 선택 이유:
 
 ---
 
-## 10. 인증 (better-auth)
+## 10. 인증 (better-auth + JWT)
 
 ### 아키텍처
 
 ```
-Nuxt Nitro (/api/auth/*)  ←→  PostgreSQL (users/sessions/accounts)
+better-auth (Nitro Server)  ←→  PostgreSQL (users/sessions/accounts)
      ↓
-Vue Client (lib/auth-client.ts: signIn, signUp, useSession)
+useAuth() composable (useCookie + useState)
+     ↓
+plugins/openapi.ts (Authorization: Bearer 헤더 자동 첨부)
      ↓
 Spring Boot (/api/v1/*) — JWT 토큰 검증
 ```
@@ -353,8 +372,18 @@ Spring Boot (/api/v1/*) — JWT 토큰 검증
 |------|------|
 | `server/lib/auth.ts` | better-auth 서버 설정 (DB, 이메일/비밀번호) |
 | `server/api/auth/[...all].ts` | Nitro API 핸들러 |
-| `lib/auth-client.ts` | Vue 클라이언트 (`signIn`, `signUp`, `signOut`, `useSession`) |
-| `app/middleware/auth.ts` | 라우트 가드 (record, terrarium, profile 보호) |
+| `app/lib/auth-client.ts` | better-auth Vue 클라이언트 (createAuthClient) |
+| `app/composables/useAuth.ts` | JWT 토큰 상태 관리 (access_token 1h, refresh_token 7d) |
+| `app/plugins/openapi.ts` | OpenAPI 클라이언트 + 401 자동 리프레시 인터셉터 |
+| `app/middleware/auth.ts` | JWT 쿠키 기반 라우트 가드 |
+
+### 인증 플로우
+
+1. 로그인/가입 → `sdk.login()` / `sdk.signup()` (OpenAPI SDK)
+2. 응답 → `useAuth().setTokens()` → useCookie에 JWT 저장
+3. 이후 요청 → `plugins/openapi.ts` 인터셉터가 Bearer 헤더 자동 첨부
+4. 401 발생 시 → 인터셉터가 `sdk.refreshToken()` 자동 시도 (동시 요청 중복 방지)
+5. 리프레시 실패 → 토큰 삭제 + `/auth/login` 리다이렉트
 
 ### 지원 인증 방식
 
@@ -393,21 +422,33 @@ utils/          → camelCase (format.ts, constants.ts)
 <style scoped>...</style>
 ```
 
-### API 호출 패턴
+### API 호출 패턴 (주력: OpenAPI SDK)
 
 ```typescript
-const { get, post, put, del } = useApi()
+// useOpenApi() — 자동생성 SDK 사용 (권장)
+const { sdk, client } = useOpenApi()
+const { data, error } = await sdk.login({ client, body: { email, password } })
+if (error) throw new Error(errMsg(error, '로그인 실패'))
 
-// 타입 안전 호출
+// Pinia 스토어에서 SDK 호출
+const { sdk, client } = useOpenApi()
+const { data, error } = await sdk.getMe({ client })
+if (error) throw error
+me.value = data
+```
+
+### 레거시: useApi() (비권장)
+
+```typescript
+// useApi() — 제네릭 래퍼 (신규 코드에서 사용 금지)
+const { get, post } = useApi()
 const records = await get<ActivityRecord[]>('/records', { from, to })
-const created = await post<ActivityRecord>('/records', payload)
 ```
 
 ### 멱등성 (구매/교환)
 
 ```typescript
-import { v4 as uuid } from 'crypto'
-await post('/shop/purchase', { itemId, idempotencyKey: crypto.randomUUID() })
+await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUUID() } })
 ```
 
 ---
@@ -461,12 +502,14 @@ bun run typecheck   # TypeScript 체크
 
 ### Phase 1 (W2~W4, ~5/15)
 
-- [ ] better-auth 로그인/가입 폼 연동
-- [ ] 기록 입력 폼 → API 연동
-- [ ] 기록 캘린더/리스트 → API 연동
+- [x] better-auth 로그인/가입 폼 연동 (JWT 기반, OpenAPI SDK)
+- [x] 기록 입력 폼 → API 연동 (record/index.vue)
+- [x] 기록 캘린더/리스트 → API 연동 (calendar/index.vue)
 - [ ] 보상 획득 애니메이션 (코인 +N, EXP 바 증가)
-- [ ] 상점 구매 플로우 → API 연동
+- [x] 상점 구매 플로우 → API 연동 (ShopContent + Suspense)
 - [ ] 디자인 컨셉 1개 확정 → 나머지 제거
+- [x] i18n 스캐폴딩 (@nuxtjs/i18n, ko/en)
+- [x] 6개 핵심 페이지 Figma→Nuxt 포팅 완료
 
 ### Phase 2 (W5~W12, ~7월)
 
