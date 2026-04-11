@@ -325,6 +325,7 @@ definePageMeta({ layout: 'default' })
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { trackHeartClick } = useGtagEvents()
+const { hapticImpact, share: nativeShare } = useNative()
 
 // Onboarding — show on first visit
 const showOnboarding = ref(false)
@@ -439,6 +440,7 @@ async function onHeartClick() {
       user.value.currency.basicCoins = heart.updatedBasicCoins
     }
     trackHeartClick()
+    hapticImpact('Light')
     toast.success(`+${heart?.reward ?? 0} 코인`)
   }
   catch (e) {

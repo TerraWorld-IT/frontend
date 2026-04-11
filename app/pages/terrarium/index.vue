@@ -118,6 +118,7 @@ import { useUserStore } from '~/stores/user'
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { hapticImpact } = useNative()
 
 const terrariumStore = useTerrariumStore()
 const itemsStore = useItemsStore()
@@ -175,6 +176,7 @@ function onItemSelect(itemId: number) {
   pendingChanges.value = currentPlacements
 
   selectedSlot.value = null
+  hapticImpact('Medium')
   savePlacements()
 }
 

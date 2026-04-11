@@ -40,7 +40,7 @@ export default defineNuxtConfig({
       title: 'TerraWorld',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'description', content: '일상을 기록하고, 나만의 테라리움을 꾸며보세요' },
       ],
       link: [

@@ -21,6 +21,7 @@
               :key="tab.to"
               :to="tab.to"
               class="flex flex-col items-center gap-1 transition-all"
+              @click="onTabTap"
             >
               <div
                 class="flex items-center justify-center rounded-2xl transition-all"
@@ -79,6 +80,9 @@ const tabs: Tab[] = [
 ]
 
 const route = useRoute()
+const { hapticImpact } = useNative()
+
+function onTabTap() { hapticImpact('Light') }
 
 function isActive(to: string): boolean {
   return route.path === to
