@@ -438,7 +438,7 @@ async function onHeartClick() {
       user.value.currency.basicCoins = heart.updatedBasicCoins
     }
     trackHeartClick()
-    hapticImpact('Light')
+    void hapticImpact('Light')
     toast.success(`+${heart?.reward ?? 0} 코인`)
   }
   catch (e) {
