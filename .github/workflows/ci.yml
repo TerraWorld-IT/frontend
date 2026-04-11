@@ -36,9 +36,12 @@ jobs:
       - name: Lint (oxlint)
         run: bun run lint:check
 
-      # NOTE: `bun run typecheck` currently fails on pre-existing type debt
-      # (strict null checks in pages/, any-typed useApi body, etc.). Re-enable
-      # once those are triaged — tracked separately, not a CI regression.
+      - name: Typecheck (vue-tsc)
+        run: bun run typecheck
+        continue-on-error: true
+
+      - name: Test (vitest)
+        run: bun run test
 
       - name: Build (nuxt)
         run: bun run build

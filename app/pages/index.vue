@@ -328,7 +328,7 @@ const toast = useToast()
 // Onboarding — show on first visit
 const showOnboarding = ref(false)
 onMounted(() => {
-  if (import.meta.client && !localStorage.getItem('tw-onboarding-done')) {
+  if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
     showOnboarding.value = true
   }
 })

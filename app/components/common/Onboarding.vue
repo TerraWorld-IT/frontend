@@ -112,7 +112,7 @@ const steps = [
 const currentStep = computed(() => steps[step.value])
 
 function onComplete() {
-  localStorage.setItem('tw-onboarding-done', 'true')
+  localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true')
   emit('close')
 }
 </script>

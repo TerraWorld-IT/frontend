@@ -41,3 +41,9 @@ export const DEFAULTS = {
   TOKEN_EXCHANGE_RATE: 2,
   PAGE_SIZE: 20,
 } as const
+
+/** localStorage 키 (일관된 네이밍) */
+export const STORAGE_KEYS = {
+  ONBOARDING_DONE: 'tw-onboarding-done',
+  LAYOUT_VARIANT: 'tw-layout',
+} as const

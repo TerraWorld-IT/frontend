@@ -125,7 +125,8 @@ async function acceptInvite() {
   try {
     const { data, error } = await sdk.acceptInvite({ client, path: { code: code.value } })
     if (error) throw error
-    toast.success(`초대 수락 완료! 스페셜 코인 +${data?.reward?.specialCoins ?? 0}`)
+    const result = data as import('@terraworld-it/openapi-frontend').InviteAcceptResponse | undefined
+    toast.success(`초대 수락 완료! 스페셜 코인 +${result?.reward?.specialCoins ?? 0}`)
     await navigateTo('/')
   }
   catch {
@@ -145,8 +146,9 @@ const SLOT_POSITIONS: Record<number, { top: string; left: string }> = {
   4: { top: '52%', left: '65%' },
 }
 
-function slotPosition(slotId: number) {
-  const pos = SLOT_POSITIONS[slotId] ?? SLOT_POSITIONS[0]
-  return { top: pos.top, left: pos.left }
+const DEFAULT_SLOT_POS = { top: '26%', left: '35%' }
+
+function slotPosition(slotId: number): { top: string; left: string } {
+  return SLOT_POSITIONS[slotId] ?? DEFAULT_SLOT_POS
 }
 </script>

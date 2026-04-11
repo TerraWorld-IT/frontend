@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
  */
 describe('useGtagEvents contract', () => {
   it('exports useGtagEvents function', async () => {
-    const mod = await import('~/composables/useGtag')
+    const mod = await import('~/composables/useGtagEvents')
     expect(mod).toHaveProperty('useGtagEvents')
     expect(typeof mod.useGtagEvents).toBe('function')
   })

@@ -49,7 +49,7 @@
 <script setup lang="ts">
 import type { CategoryResponse } from '@terraworld-it/openapi-frontend'
 
-definePageMeta({ layout: 'default', middleware: 'auth' })
+definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const { sdk, client } = useOpenApi()
 const loading = ref(true)

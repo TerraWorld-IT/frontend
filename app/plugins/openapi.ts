@@ -82,7 +82,8 @@ export default defineNuxtPlugin(() => {
       setTokens(data)
       return true
     }
-    catch {
+    catch (e) {
+      if (import.meta.dev) console.warn('[openapi] token refresh failed:', e)
       return false
     }
   }

@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: 'auth' })
+definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const menus = [
   { path: '/admin/items', icon: '🎨', label: '아이템 관리', desc: '스탬프 추가/수정/삭제', bg: '#E8A0BF22' },

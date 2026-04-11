@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: 'auth' })
+definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const { sdk, client } = useOpenApi()
 const loading = ref(true)
