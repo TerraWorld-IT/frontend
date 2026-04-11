@@ -109,7 +109,7 @@ const steps = [
   },
 ]
 
-const currentStep = computed(() => steps[step.value] ?? steps[0])
+const currentStep = computed((): typeof steps[0] => steps[step.value] ?? steps[0]!)
 
 function onComplete() {
   localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true')

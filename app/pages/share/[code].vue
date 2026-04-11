@@ -125,7 +125,7 @@ async function acceptInvite() {
   try {
     const { data, error } = await sdk.acceptInvite({ client, path: { code: code.value } })
     if (error) throw error
-    const result = data as import('@terraworld-it/openapi-frontend').InviteAcceptResponse | undefined
+    const result = castData<import('@terraworld-it/openapi-frontend').InviteAcceptResponse>(data)
     toast.success(`초대 수락 완료! 스페셜 코인 +${result?.reward?.specialCoins ?? 0}`)
     await navigateTo('/')
   }

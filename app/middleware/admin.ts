@@ -5,6 +5,8 @@
  * Checks that the authenticated user has 'ADMIN' role.
  * Falls back to home page if not authorized.
  */
+import { useUserStore } from '~/stores/user'
+
 export default defineNuxtRouteMiddleware(async () => {
   if (!import.meta.client) return // SSR guard handled by auth middleware
 

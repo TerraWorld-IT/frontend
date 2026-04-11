@@ -104,10 +104,11 @@ async function onSubmit() {
         body: { email: email.value, password: password.value },
       })
       if (error) throw new Error(errMsg(error, '로그인 실패'))
-      if (data) {
-        setTokens(data)
+      const auth = castData<import('@terraworld-it/openapi-frontend').AuthResponse>(data)
+      if (auth) {
+        setTokens(auth)
         trackLogin('email')
-        toast.success(`${data.nickname}님 환영합니다!`)
+        toast.success(`${auth.nickname}님 환영합니다!`)
         await navigateTo('/')
       }
     }
@@ -117,8 +118,9 @@ async function onSubmit() {
         body: { email: email.value, password: password.value, nickname: nickname.value },
       })
       if (error) throw new Error(errMsg(error, '가입 실패'))
-      if (data) {
-        setTokens(data)
+      const auth = castData<import('@terraworld-it/openapi-frontend').AuthResponse>(data)
+      if (auth) {
+        setTokens(auth)
         trackSignup('email')
         toast.success('가입 완료! 테라월드에 오신 걸 환영해요')
         await navigateTo('/')

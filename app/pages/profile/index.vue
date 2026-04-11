@@ -181,7 +181,7 @@ async function load() {
       sdk.getLevels({ client }),
     ])
     if (meRes.error) throw new Error(errMsg(meRes.error, 'getMe failed'))
-    user.value = meRes.data ?? null
+    user.value = castData<import('@terraworld-it/openapi-frontend').UserMeResponse>(meRes.data) ?? null
     // getLevels might fail (not critical)
     if (!lvlRes.error && lvlRes.data) {
       const raw = lvlRes.data as unknown

@@ -1,5 +1,5 @@
 <template>
-  <CommonModal :show="show" @close="$emit('close')">
+  <CommonModal :model-value="show" @update:model-value="$emit('close')">
     <div class="space-y-5">
       <h3 class="font-bold text-lg text-riso-dark">토큰 교환</h3>
 

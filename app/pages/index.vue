@@ -410,7 +410,7 @@ async function load() {
     if (meRes.error) throw new Error(errMsg(meRes.error, 'getMe failed'))
     if (terraRes.error) throw new Error(errMsg(terraRes.error, 'getTerrarium failed'))
     if (itemsRes.error) throw new Error(errMsg(itemsRes.error, 'listItems failed'))
-    user.value = meRes.data as UserMeResponse ?? null
+    user.value = castData<UserMeResponse>(meRes.data) ?? null
     terrarium.value = terraRes.data as TerrariumResponse ?? null
     allItems.value = (itemsRes.data as ItemListResponse)?.items ?? []
   }

@@ -112,6 +112,9 @@
 
 <script setup lang="ts">
 import type { PlacementItem } from '@terraworld-it/openapi-frontend'
+import { useTerrariumStore } from '~/stores/terrarium'
+import { useItemsStore } from '~/stores/items'
+import { useUserStore } from '~/stores/user'
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()

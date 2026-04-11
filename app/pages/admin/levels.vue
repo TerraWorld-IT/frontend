@@ -42,7 +42,7 @@ const levels = ref<Array<{ level: number; requiredExp: number; maxSlots: number 
 
 onMounted(async () => {
   const { data, error } = await sdk.getLevels({ client })
-  if (!error && data) levels.value = (data as { levels: typeof levels.value }).levels ?? []
+  if (!error && data) levels.value = castData<{ levels: typeof levels.value }>(data)?.levels ?? []
   loading.value = false
 })
 </script>

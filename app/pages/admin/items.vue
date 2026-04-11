@@ -67,6 +67,8 @@
 </template>
 
 <script setup lang="ts">
+import { useItemsStore } from '~/stores/items'
+
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const itemsStore = useItemsStore()

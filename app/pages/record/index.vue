@@ -132,7 +132,10 @@
 
 <script setup lang="ts">
 import type {
+  CategoryListResponse,
   CategoryResponse,
+  CreateRecordResponse,
+  PagedRecordResponse,
   RecordResponse,
 } from '@terraworld-it/openapi-frontend'
 
@@ -171,8 +174,8 @@ async function load() {
     if (recRes.error) {
       throw new Error(errMsg(recRes.error, 'listRecords failed'))
     }
-    categories.value = catRes.data?.categories ?? []
-    recentRecords.value = recRes.data?.content ?? []
+    categories.value = castData<CategoryListResponse>(catRes.data)?.categories ?? []
+    recentRecords.value = castData<PagedRecordResponse>(recRes.data)?.content ?? []
   }
  catch (e) {
     fetchError.value = e as Error
@@ -196,9 +199,10 @@ async function onSubmit() {
     if (error) {
       throw new Error(errMsg(error, '기록 생성 실패'))
     }
-    if (data) {
-      recentRecords.value = [data.record, ...recentRecords.value].slice(0, 5)
-      const rew = data.reward
+    const created = castData<CreateRecordResponse>(data)
+    if (created) {
+      recentRecords.value = [created.record, ...recentRecords.value].slice(0, 5)
+      const rew = created.reward
       trackRecordCreated({
         categoryId: selectedCategoryId.value!,
         categoryName: selectedCategory.value?.name ?? '',

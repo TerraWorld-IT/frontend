@@ -226,9 +226,14 @@
 
 <script setup lang="ts">
 import type {
+  CategoryListResponse,
   CategoryResponse,
   CurrencyResponse,
+  ExchangeResponse,
+  ItemListResponse,
   ItemResponse,
+  PurchaseResponse,
+  UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
 
 const { sdk, client } = useOpenApi()
@@ -336,10 +341,11 @@ async function reload() {
     if (catRes.error) throw new Error(errMsg(catRes.error, 'listCategories failed'))
     if (itemRes.error) throw new Error(errMsg(itemRes.error, 'listItems failed'))
 
-    currency.value = meRes.data?.currency ?? null
-    categories.value = catRes.data?.categories ?? []
-    items.value = itemRes.data?.items ?? []
-    ownedSlugs.value = new Set(meRes.data?.ownedItems ?? [])
+    const me = castData<UserMeResponse>(meRes.data)
+    currency.value = me?.currency ?? null
+    categories.value = castData<CategoryListResponse>(catRes.data)?.categories ?? []
+    items.value = castData<ItemListResponse>(itemRes.data)?.items ?? []
+    ownedSlugs.value = new Set(me?.ownedItems ?? [])
   }
   catch (e) {
     fetchError.value = e as Error
@@ -353,11 +359,12 @@ async function onPurchase(item: ItemResponse) {
   try {
     const { data, error } = await sdk.purchaseItem({ client, body: { itemId: item.id } })
     if (error) throw new Error(errMsg(error, '구매 실패'))
-    if (data) {
-      currency.value = data.updatedCurrency
-      ownedSlugs.value = new Set(data.ownedItems)
-      trackItemPurchased({ itemId: item.id, itemName: data.purchasedItem.name, priceType: item.priceType, priceAmount: item.priceAmount, rarity: item.rarity })
-      toast.success(`${data.purchasedItem.name} 구매 완료!`)
+    const purchased = castData<PurchaseResponse>(data)
+    if (purchased) {
+      currency.value = purchased.updatedCurrency
+      ownedSlugs.value = new Set(purchased.ownedItems)
+      trackItemPurchased({ itemId: item.id, itemName: purchased.purchasedItem.name, priceType: item.priceType, priceAmount: item.priceAmount, rarity: item.rarity })
+      toast.success(`${purchased.purchasedItem.name} 구매 완료!`)
     }
   }
   catch (e) {
@@ -377,10 +384,11 @@ async function onExchangeSpecial() {
       body: { amount: exchSpecialAmt.value },
     })
     if (error) throw new Error(errMsg(error, '환전 실패'))
-    if (data) {
-      currency.value = data.updatedCurrency
-      trackTokenExchanged({ fromType: data.exchanged.fromType, toType: data.exchanged.toType, amount: data.exchanged.fromAmount })
-      toast.success(`기본 코인 +${data.exchanged.toAmount}`)
+    const ex = castData<ExchangeResponse>(data)
+    if (ex) {
+      currency.value = ex.updatedCurrency
+      trackTokenExchanged({ fromType: ex.exchanged.fromType, toType: ex.exchanged.toType, amount: ex.exchanged.fromAmount })
+      toast.success(`기본 코인 +${ex.exchanged.toAmount}`)
       exchSpecialAmt.value = 1
     }
   }

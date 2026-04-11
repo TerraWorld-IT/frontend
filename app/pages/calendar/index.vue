@@ -339,8 +339,8 @@ async function load() {
     ])
     if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
     if (recRes.error) throw new Error(errMsg(recRes.error, 'listRecords failed'))
-    stats.value = (statsRes.data as StatisticsResponse) ?? null
-    monthRecords.value = (recRes.data as PagedRecordResponse | undefined)?.content ?? []
+    stats.value = castData<StatisticsResponse>(statsRes.data) ?? null
+    monthRecords.value = castData<PagedRecordResponse>(recRes.data)?.content ?? []
   }
   catch (e) {
     fetchError.value = e as Error

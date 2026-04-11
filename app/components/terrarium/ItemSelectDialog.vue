@@ -1,5 +1,5 @@
 <template>
-  <CommonModal :show="show" @close="$emit('close')">
+  <CommonModal :model-value="show" @update:model-value="$emit('close')">
     <div class="space-y-4">
       <!-- Header -->
       <div class="flex justify-between items-center">

@@ -79,7 +79,7 @@ export default defineNuxtPlugin(() => {
       })
       if (error || !data) return false
       const { refreshTokens } = useAuth()
-      refreshTokens(data as import('@terraworld-it/openapi-frontend').TokenResponse)
+      refreshTokens(data as unknown as import('@terraworld-it/openapi-frontend').TokenResponse)
       return true
     }
     catch (e) {

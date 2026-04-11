@@ -57,7 +57,7 @@ const categories = ref<CategoryResponse[]>([])
 
 onMounted(async () => {
   const { data, error } = await sdk.listCategories({ client })
-  if (!error && data) categories.value = data.categories ?? []
+  if (!error && data) categories.value = castData<import('@terraworld-it/openapi-frontend').CategoryListResponse>(data)?.categories ?? []
   loading.value = false
 })
 </script>
