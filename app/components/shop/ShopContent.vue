@@ -233,6 +233,7 @@ import type {
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { trackItemPurchased, trackTokenExchanged } = useGtagEvents()
 
 // Fetch error (caught internally so Suspense doesn't crash)
 const fetchError = ref<Error | null>(null)
@@ -322,11 +323,6 @@ function rarityClass(r: string): string {
   return 'bg-gray-100 text-gray-600'
 }
 
-function errMsg(e: unknown, fb: string): string {
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
-  return fb
-}
-
 // --- Actions ---
 async function reload() {
   fetchError.value = null
@@ -360,6 +356,7 @@ async function onPurchase(item: ItemResponse) {
     if (data) {
       currency.value = data.updatedCurrency
       ownedSlugs.value = new Set(data.ownedItems)
+      trackItemPurchased({ itemId: item.id, itemName: data.purchasedItem.name, priceType: item.priceType, priceAmount: item.priceAmount, rarity: item.rarity })
       toast.success(`${data.purchasedItem.name} 구매 완료!`)
     }
   }
@@ -382,6 +379,7 @@ async function onExchangeSpecial() {
     if (error) throw new Error(errMsg(error, '환전 실패'))
     if (data) {
       currency.value = data.updatedCurrency
+      trackTokenExchanged({ fromType: data.exchanged.fromType, toType: data.exchanged.toType, amount: data.exchanged.fromAmount })
       toast.success(`기본 코인 +${data.exchanged.toAmount}`)
       exchSpecialAmt.value = 1
     }

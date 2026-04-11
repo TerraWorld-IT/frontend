@@ -172,11 +172,6 @@ const expPercent = computed(() => {
   return Math.min(100, Math.round((exp / target) * 100))
 })
 
-function errMsg(e: unknown, fb: string): string {
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
-  return fb
-}
-
 async function load() {
   pending.value = true
   fetchError.value = null

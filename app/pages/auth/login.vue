@@ -82,6 +82,7 @@ definePageMeta({ layout: false })
 const { sdk, client } = useOpenApi()
 const { setTokens } = useAuth()
 const toast = useToast()
+const { trackLogin, trackSignup } = useGtagEvents()
 
 const mode = ref<'login' | 'signup'>('login')
 const email = ref('')
@@ -91,11 +92,6 @@ const submitting = ref(false)
 
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'signup' : 'login'
-}
-
-function errMsg(e: unknown, fb: string): string {
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
-  return fb
 }
 
 async function onSubmit() {
@@ -110,6 +106,7 @@ async function onSubmit() {
       if (error) throw new Error(errMsg(error, '로그인 실패'))
       if (data) {
         setTokens(data)
+        trackLogin('email')
         toast.success(`${data.nickname}님 환영합니다!`)
         await navigateTo('/')
       }
@@ -122,6 +119,7 @@ async function onSubmit() {
       if (error) throw new Error(errMsg(error, '가입 실패'))
       if (data) {
         setTokens(data)
+        trackSignup('email')
         toast.success('가입 완료! 테라월드에 오신 걸 환영해요')
         await navigateTo('/')
       }

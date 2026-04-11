@@ -324,6 +324,7 @@ definePageMeta({ layout: 'default' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { trackHeartClick } = useGtagEvents()
 
 // Onboarding — show on first visit
 const showOnboarding = ref(false)
@@ -396,11 +397,6 @@ function formatCoin(n: number | undefined | null): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 
-function errMsg(e: unknown, fallback: string): string {
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message)
-  return fallback
-}
-
 // --- API ---
 async function load() {
   pending.value = true
@@ -442,6 +438,7 @@ async function onHeartClick() {
     if (heart && user.value) {
       user.value.currency.basicCoins = heart.updatedBasicCoins
     }
+    trackHeartClick()
     toast.success(`+${heart?.reward ?? 0} 코인`)
   }
   catch (e) {

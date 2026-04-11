@@ -16,7 +16,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       const { data, error } = await sdk.getMe({ client })
       if (error) throw new Error('getMe failed')
-      me.value = data ?? null
+      me.value = (data as UserMeResponse | undefined) ?? null
     }
     finally {
       loading.value = false

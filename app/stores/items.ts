@@ -1,4 +1,4 @@
-import type { ItemResponse } from '@terraworld-it/openapi-frontend'
+import type { ItemListResponse, ItemResponse } from '@terraworld-it/openapi-frontend'
 
 export const useItemsStore = defineStore('items', () => {
   const { sdk, client } = useOpenApi()
@@ -11,7 +11,7 @@ export const useItemsStore = defineStore('items', () => {
     try {
       const { data, error } = await sdk.listItems({ client })
       if (error) throw new Error('listItems failed')
-      items.value = data?.items ?? []
+      items.value = (data as ItemListResponse | undefined)?.items ?? []
     }
     finally {
       loading.value = false

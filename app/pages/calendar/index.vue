@@ -326,13 +326,6 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function pickErrorMessage(e: unknown, fallback: string): string {
-  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') {
-    return (e as { message: string }).message
-  }
-  return fallback
-}
-
 async function load() {
   pending.value = true
   fetchError.value = null
@@ -344,14 +337,14 @@ async function load() {
         query: { year: viewYear.value, month: viewMonth.value + 1, size: 200 },
       }),
     ])
-    if (statsRes.error) throw new Error(pickErrorMessage(statsRes.error, 'getRecordStatistics failed'))
-    if (recRes.error) throw new Error(pickErrorMessage(recRes.error, 'listRecords failed'))
+    if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
+    if (recRes.error) throw new Error(errMsg(recRes.error, 'listRecords failed'))
     stats.value = (statsRes.data as StatisticsResponse) ?? null
     monthRecords.value = (recRes.data as PagedRecordResponse | undefined)?.content ?? []
   }
   catch (e) {
     fetchError.value = e as Error
-    toast.error(pickErrorMessage(e, '불러오기 실패'))
+    toast.error(errMsg(e, '불러오기 실패'))
   }
   finally {
     pending.value = false
@@ -364,11 +357,11 @@ async function loadMonth() {
       client,
       query: { year: viewYear.value, month: viewMonth.value + 1, size: 200 },
     })
-    if (error) throw new Error(pickErrorMessage(error, 'listRecords failed'))
+    if (error) throw new Error(errMsg(error, 'listRecords failed'))
     monthRecords.value = (data as PagedRecordResponse | undefined)?.content ?? []
   }
   catch (e) {
-    toast.error(pickErrorMessage(e, 'listRecords failed'))
+    toast.error(errMsg(e, 'listRecords failed'))
   }
 }
 
@@ -443,7 +436,7 @@ async function saveNote() {
     const text = editingNoteText.value.trim()
     if (text) {
       const { data, error } = await sdk.saveNote({ client, path: { date: key }, body: { note: text } })
-      if (error) throw new Error(pickErrorMessage(error, '메모 저장 실패'))
+      if (error) throw new Error(errMsg(error, '메모 저장 실패'))
       const saved = (data as NoteResponse | undefined)?.note ?? text
       noteMap.value[key] = saved
       selectedNote.value = saved
@@ -452,7 +445,7 @@ async function saveNote() {
     else {
       // empty → delete
       const { error } = await sdk.deleteNote({ client, path: { date: key } })
-      if (error) throw new Error(pickErrorMessage(error, '메모 삭제 실패'))
+      if (error) throw new Error(errMsg(error, '메모 삭제 실패'))
       noteMap.value[key] = ''
       selectedNote.value = null
       toast.success('메모가 삭제되었습니다')
@@ -460,7 +453,7 @@ async function saveNote() {
     isEditingNote.value = false
   }
   catch (e) {
-    toast.error(pickErrorMessage(e, '메모 저장 실패'))
+    toast.error(errMsg(e, '메모 저장 실패'))
   }
   finally {
     noteSaving.value = false

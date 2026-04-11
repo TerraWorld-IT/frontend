@@ -14,7 +14,7 @@ export const useTerrariumStore = defineStore('terrarium', () => {
     try {
       const { data: res, error } = await sdk.getTerrarium({ client })
       if (error) throw new Error('getTerrarium failed')
-      data.value = res ?? null
+      data.value = (res as TerrariumResponse | undefined) ?? null
     }
     finally {
       loading.value = false

@@ -140,6 +140,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { trackRecordCreated } = useGtagEvents()
 
 const pending = ref(true)
 const fetchError = ref<Error | null>(null)
@@ -156,19 +157,6 @@ const selectedCategory = computed(
   () => categories.value.find((c) => c.id === selectedCategoryId.value) ?? null,
 )
 
-function pickErrorMessage(e: unknown, fallback: string): string {
-  if (
-    e
-    && typeof e === 'object'
-    && 'message' in e
-    && typeof (e as { message: unknown }).message === 'string'
-  ) {
-    return (e as { message: string }).message
-  }
-  return fallback
-}
-
-
 async function load() {
   pending.value = true
   fetchError.value = null
@@ -178,10 +166,10 @@ async function load() {
       sdk.listRecords({ client, query: { page: 0, size: 5 } }),
     ])
     if (catRes.error) {
-      throw new Error(pickErrorMessage(catRes.error, 'listCategories failed'))
+      throw new Error(errMsg(catRes.error, 'listCategories failed'))
     }
     if (recRes.error) {
-      throw new Error(pickErrorMessage(recRes.error, 'listRecords failed'))
+      throw new Error(errMsg(recRes.error, 'listRecords failed'))
     }
     categories.value = catRes.data?.categories ?? []
     recentRecords.value = recRes.data?.content ?? []
@@ -206,11 +194,18 @@ async function onSubmit() {
     }
     const { data, error } = await sdk.createRecord({ client, body })
     if (error) {
-      throw new Error(pickErrorMessage(error, '기록 생성 실패'))
+      throw new Error(errMsg(error, '기록 생성 실패'))
     }
     if (data) {
       recentRecords.value = [data.record, ...recentRecords.value].slice(0, 5)
       const rew = data.reward
+      trackRecordCreated({
+        categoryId: selectedCategoryId.value!,
+        categoryName: selectedCategory.value?.name ?? '',
+        basicCoins: rew.basicCoins,
+        categoryTokens: rew.categoryTokens,
+        experienceGained: rew.experienceGained,
+      })
       toast.success(
         `+${rew.basicCoins.toFixed(1)} 코인, +${rew.categoryTokens.toFixed(1)} 토큰`,
       )
@@ -233,7 +228,7 @@ async function onInvite() {
   try {
     const { data, error } = await sdk.createInvite({ client })
     if (error) {
-      throw new Error(pickErrorMessage(error, '초대 링크 생성 실패'))
+      throw new Error(errMsg(error, '초대 링크 생성 실패'))
     }
     const raw = data as unknown
     const inviteCode

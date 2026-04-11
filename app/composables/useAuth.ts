@@ -1,4 +1,4 @@
-import type { AuthResponse } from '@terraworld-it/openapi-frontend'
+import type { AuthResponse, TokenResponse } from '@terraworld-it/openapi-frontend'
 
 /**
  * JWT auth state shared across components via useState (SSR-safe).
@@ -7,7 +7,8 @@ import type { AuthResponse } from '@terraworld-it/openapi-frontend'
  * - SSR can read them (server-side requests)
  * - Client refreshes don't lose the session
  *
- * Call `setTokens()` after login/signup/refresh.
+ * Call `setTokens()` after login/signup (full AuthResponse).
+ * Call `refreshTokens()` after token refresh (TokenResponse only).
  * Call `clearTokens()` on logout or fatal 401.
  */
 export function useAuth() {
@@ -18,11 +19,18 @@ export function useAuth() {
 
   const isLoggedIn = computed(() => !!accessToken.value)
 
+  /** Full auth set (login/signup response) */
   function setTokens(auth: AuthResponse) {
     accessToken.value = auth.accessToken
     refreshTokenCookie.value = auth.refreshToken
     userId.value = auth.userId
     nickname.value = auth.nickname
+  }
+
+  /** Token-only update (refresh response — no userId/nickname change) */
+  function refreshTokens(tokens: TokenResponse) {
+    accessToken.value = tokens.accessToken
+    refreshTokenCookie.value = tokens.refreshToken
   }
 
   function clearTokens() {
@@ -39,6 +47,7 @@ export function useAuth() {
     nickname: readonly(nickname),
     isLoggedIn,
     setTokens,
+    refreshTokens,
     clearTokens,
   }
 }
