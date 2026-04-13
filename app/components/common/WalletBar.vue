@@ -15,13 +15,14 @@
 </template>
 
 <script setup lang="ts">
-import type { CategoryToken } from '~/types'
 import { CATEGORY_ICONS } from '~/utils/constants'
 import { formatNumber } from '~/utils/format'
 
+interface TokenDisplay { categoryId: number; categoryName: string; amount: number }
+
 withDefaults(defineProps<{
   coin?: number
-  tokens?: CategoryToken[]
+  tokens?: TokenDisplay[]
 }>(), {
   coin: 0,
   tokens: () => [],

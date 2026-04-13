@@ -1,18 +1,26 @@
-export default defineNuxtRouteMiddleware(async (to) => {
-  // 인증 불필요 페이지
-  const publicPaths = ['/auth/login', '/auth/signup', '/share']
-  if (publicPaths.some(p => to.path.startsWith(p))) return
+/**
+ * Auth route guard — runs on both SSR and CSR.
+ *
+ * Strategy: protect by default, allowlist public paths. Checks for the
+ * presence of better-auth's session cookie (`tw.session_token`) to decide
+ * whether the visitor is authenticated. Full cryptographic validation of
+ * the session happens server-side via the Nitro handler when API calls
+ * are actually made — this guard only handles routing UX.
+ */
 
-  // 홈, 상점은 비로그인도 접근 허용 (제한된 기능)
-  const optionalAuthPaths = ['/', '/shop']
-  if (optionalAuthPaths.includes(to.path)) return
+const PUBLIC_EXACT = new Set(['/', '/auth/login', '/auth/signup', '/shop'])
+const PUBLIC_PREFIXES = ['/share/']
 
-  // better-auth 세션 체크
-  if (import.meta.client) {
-    const { useSession } = await import('~/lib/auth-client')
-    const { data: session } = useSession()
-    if (!session.value) {
-      return navigateTo('/auth/login')
-    }
+function isPublicRoute(path: string): boolean {
+  if (PUBLIC_EXACT.has(path)) return true
+  return PUBLIC_PREFIXES.some(p => path.startsWith(p) && path.length > p.length)
+}
+
+export default defineNuxtRouteMiddleware((to) => {
+  if (isPublicRoute(to.path)) return
+
+  const sessionCookie = useCookie('tw.session_token').value
+  if (!sessionCookie) {
+    return navigateTo('/auth/login')
   }
 })
