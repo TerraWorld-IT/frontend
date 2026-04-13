@@ -201,8 +201,8 @@ async function onLogout() {
   if (loggingOut.value) return
   loggingOut.value = true
   try {
-    const { error } = await sdk.logout({ client })
-    if (error) throw new Error(errMsg(error, '로그아웃 실패'))
+    const { signOutAndClear } = useAuth()
+    await signOutAndClear()
     toast.success('로그아웃 되었습니다')
     await navigateTo('/auth/login')
   }

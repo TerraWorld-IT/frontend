@@ -77,10 +77,11 @@
 </template>
 
 <script setup lang="ts">
+import { authClient } from '~/lib/auth-client'
+
 definePageMeta({ layout: false })
 
-const { sdk, client } = useOpenApi()
-const { setTokens } = useAuth()
+const { loadJwt } = useAuth()
 const toast = useToast()
 const { trackLogin, trackSignup } = useGtagEvents()
 
@@ -99,38 +100,41 @@ async function onSubmit() {
   submitting.value = true
   try {
     if (mode.value === 'login') {
-      const { data, error } = await sdk.login({
-        client,
-        body: { email: email.value, password: password.value },
+      const { error } = await authClient.signIn.email({
+        email: email.value,
+        password: password.value,
       })
-      if (error) throw new Error(errMsg(error, '로그인 실패'))
-      const auth = castData<import('@terraworld-it/openapi-frontend').AuthResponse>(data)
-      if (auth) {
-        setTokens(auth)
-        trackLogin('email')
-        toast.success(`${auth.nickname}님 환영합니다!`)
-        await navigateTo('/')
-      }
+      if (error) throw new Error(error.message ?? '로그인 실패')
+
+      const token = await loadJwt()
+      if (!token) throw new Error('인증 토큰 발급에 실패했습니다')
+
+      trackLogin('email')
+      toast.success('환영합니다!')
+      await navigateTo('/')
     }
- else {
-      const { data, error } = await sdk.signup({
-        client,
-        body: { email: email.value, password: password.value, nickname: nickname.value },
+    else {
+      const { error } = await authClient.signUp.email({
+        email: email.value,
+        password: password.value,
+        name: nickname.value,
       })
-      if (error) throw new Error(errMsg(error, '가입 실패'))
-      const auth = castData<import('@terraworld-it/openapi-frontend').AuthResponse>(data)
-      if (auth) {
-        setTokens(auth)
-        trackSignup('email')
-        toast.success('가입 완료! 테라월드에 오신 걸 환영해요')
-        await navigateTo('/')
-      }
+      if (error) throw new Error(error.message ?? '가입 실패')
+
+      // better-auth signs the user in automatically after signUp.email.
+      // Pull the JWT immediately so the next API call has a bearer token.
+      const token = await loadJwt()
+      if (!token) throw new Error('인증 토큰 발급에 실패했습니다')
+
+      trackSignup('email')
+      toast.success('가입 완료! 테라월드에 오신 걸 환영해요')
+      await navigateTo('/')
     }
   }
- catch (e) {
+  catch (e) {
     toast.error((e as Error).message)
   }
- finally {
+  finally {
     submitting.value = false
   }
 }

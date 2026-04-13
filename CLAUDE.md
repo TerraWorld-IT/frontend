@@ -77,7 +77,7 @@ frontend/
 │   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog
 │   │   └── shop/                   # ShopContent, ShopSkeleton
 │   ├── composables/
-│   │   ├── useAuth.ts              # JWT 토큰 관리 (useCookie + useState, setTokens/refreshTokens)
+│   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped), loadJwt/getJwt/clearJwt
 │   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (8개 이벤트 헬퍼)
 │   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
@@ -366,43 +366,85 @@ PixiJS v8 선택 이유:
 
 ---
 
-## 10. 인증 (better-auth + JWT)
+## 10. 인증 (better-auth + RS256 JWKS)
 
 ### 아키텍처
 
 ```
-better-auth (Nitro Server)  ←→  PostgreSQL (users/sessions/accounts)
-     ↓
-useAuth() composable (useCookie + useState)
-     ↓
-plugins/openapi.ts (Authorization: Bearer 헤더 자동 첨부)
-     ↓
-Spring Boot (/api/v1/*) — JWT 토큰 검증
+Browser
+  ↓ authClient.signIn.email() / signUp.email()
+Nitro: /api/auth/*                    ← better-auth 핸들러
+  ├ auth.user, auth.session, auth.account INSERT
+  ├ databaseHooks.user.create.after → Spring /api/v1/internal/users/bootstrap
+  │                                       (X-Internal-Token 검증, JIT profile)
+  └ tw.session_token 쿠키 설정 (HttpOnly, SameSite=Strict, 7일)
+  ↓
+useAuth().loadJwt() → GET /api/auth/token
+  ↓ better-auth jwt 플러그인이 RS256 JWT 발급 (5분 TTL)
+  ↓ 서명 키는 auth.jwks 테이블 (BETTER_AUTH_SECRET으로 암호화)
+module-scoped clientJwt 변수 캐시 (절대 useState/cookie에 넣지 않음 — SSR 누출 방지)
+  ↓
+plugins/openapi.ts 요청 인터셉터가 Authorization: Bearer 헤더 부착
+  ↓
+Spring Boot /api/v1/*
+  ├ JwtAuthenticationFilter가 JwtTokenProvider로 검증
+  │   (iss=terraworld, aud=terraworld-api, exp 필수, 30s clock skew)
+  ├ JWKS는 GET http://frontend/api/auth/jwks에서 캐시
+  │   (kid rate-limit 30s, negative cache 60s, 단일 in-flight)
+  └ SecurityContext에 AuthenticatedUser(id, email) 설정
 ```
 
 ### 파일
 
 | 파일 | 역할 |
 |------|------|
-| `server/lib/auth.ts` | better-auth 서버 설정 (DB, 이메일/비밀번호) |
-| `server/api/auth/[...all].ts` | Nitro API 핸들러 |
-| `app/lib/auth-client.ts` | better-auth Vue 클라이언트 (createAuthClient) |
-| `app/composables/useAuth.ts` | JWT 토큰 상태 관리 (access_token 1h, refresh_token 7d) |
-| `app/plugins/openapi.ts` | OpenAPI 클라이언트 + 401 자동 리프레시 인터셉터 |
-| `app/middleware/auth.ts` | JWT 쿠키 기반 라우트 가드 |
+| `server/lib/auth.ts` | better-auth 설정 + jwt(RS256)+bearer 플러그인 + databaseHooks → Spring bootstrap |
+| `server/api/auth/[...all].ts` | Nitro 핸들러 (사인인/사인업/토큰/JWKS/세션) |
+| `server/db/migrations/001_better_auth_init.sql` | auth 스키마 DDL (수동 1회 적용) |
+| `app/lib/auth-client.ts` | better-auth Vue 클라이언트 + jwtClient 플러그인 |
+| `app/composables/useAuth.ts` | JWT 메모리 캐시 (module-scoped) + loadJwt/getJwt/clearJwt/signOutAndClear |
+| `app/plugins/openapi.ts` | 요청 Bearer 부착 + 401 단일 재시도 (loop 방지) |
+| `app/middleware/auth.ts` | tw.session_token 쿠키 presence 체크 (경로 가드) |
+| `app/middleware/admin.ts` | CSR 전용 role 체크 (admin 페이지는 `ssr: false`) |
+
+### 주요 원칙
+
+- **Admin 페이지는 CSR 전용**: `nuxt.config.ts`의 `routeRules['/admin/**'].ssr = false`. SSR payload에 role-gated 데이터가 절대 들어가지 않게 하기 위함 (SEC-017 mitigation). 트레이드오프 — 차가운 로드 시 ~100ms 동안 빈 셸이 보인 뒤 `admin` middleware가 redirect. 이걸 "고치기" 위해 SSR로 되돌리지 말 것 — 보안 결정이지 성능 최적화의 빈틈이 아님.
+- **대칭 시크릿 없음**: Spring과 프론트 사이에 HS256 공유 시크릿이 없음. 프론트가 RS256 키페어를 `auth.jwks`에 저장하고 `/api/auth/jwks`로 public key만 노출 → Spring이 fetch해서 캐시
+- **JWT TTL 5분**: ADMIN → USER 강등이 최대 5분 뒤에 반영됨. 프론트는 필요 시 자주 refresh
+- **JWT 저장소 원칙**: `useState`/쿠키에 저장 금지 (SSR payload 누출). module-scoped 변수만 사용
+- **JIT bootstrap은 fallback**: primary는 signup 시점의 `databaseHooks.user.create.after`가 Spring 내부 엔드포인트 호출. filter JIT은 hook 실패 시의 안전망
+- **role 강제**: bootstrap 시 role은 무조건 USER. JWT claim의 role은 bootstrap에서 무시됨
+- **email 필수**: blank email claim이 있는 JWT는 필터에서 거부
+- **세션 쿠키**: `tw.session_token` (HttpOnly, Strict, 7일). 세션 재검증은 better-auth가 5분 쿠키 캐시로 처리
 
 ### 인증 플로우
 
-1. 로그인/가입 → `sdk.login()` / `sdk.signup()` (OpenAPI SDK)
-2. 응답 → `useAuth().setTokens()` → useCookie에 JWT 저장
-3. 이후 요청 → `plugins/openapi.ts` 인터셉터가 Bearer 헤더 자동 첨부
-4. 401 발생 시 → 인터셉터가 `sdk.refreshToken()` 자동 시도 (동시 요청 중복 방지)
-5. 리프레시 실패 → 토큰 삭제 + `/auth/login` 리다이렉트
+1. **가입**: `authClient.signUp.email({ email, password, name })`
+   - Nitro: auth.user + auth.account 생성 + tw.session_token 쿠키 설정
+   - databaseHooks.user.create.after → Spring `/api/v1/internal/users/bootstrap` → public.users + 4 UserTokens + Terrarium 생성
+   - 클라이언트: `loadJwt()` → 첫 JWT 메모리 캐시
+2. **로그인**: `authClient.signIn.email()` → 동일 흐름 (bootstrap은 skip, 이미 존재)
+3. **API 호출**: `sdk.getMe({ client })` → 요청 인터셉터가 module-scoped JWT 부착
+4. **401 수신**: 인터셉터가 `loadJwt()` 호출 → JWT 재발급 → 원본 요청을 `x-tw-retried: 1` 헤더와 함께 한 번 재시도 → 재시도 실패 시 `/auth/login`으로 redirect
+5. **로그아웃**: `useAuth().signOutAndClear()` → better-auth signOut + memory JWT 삭제
+
+### 환경변수
+
+| 이름 | 소유자 | 용도 |
+|------|--------|------|
+| `DATABASE_URL` | FE | 공유 PG (search_path=auth,public) |
+| `BETTER_AUTH_SECRET` | FE | 쿠키 서명 + auth.jwks 개인키 wrap (Spring과 공유 아님) |
+| `INTERNAL_API_TOKEN` | FE+BE | 동일값. databaseHooks → Spring internal endpoint 호출 시 X-Internal-Token 헤더 |
+| `INTERNAL_API_BASE_URL` | FE | Spring internal endpoint base (기본 `http://localhost:8080`) |
+| `AUTH_JWKS_URL` | BE | Spring이 JWKS를 가져올 URL (기본 `http://localhost:3000/api/auth/jwks`) |
+| `AUTH_JWT_ISSUER` / `AUTH_JWT_AUDIENCE` | BE | Spring이 강제할 claim 값 (`terraworld` / `terraworld-api`) |
+| `CORS_ALLOWED_ORIGINS` | BE | 콤마 분리. prod 프로파일에서 localhost 포함 시 부팅 실패 |
 
 ### 지원 인증 방식
 
 - ✅ 이메일/비밀번호 (활성)
-- ⏸️ Google OAuth (추후)
+- ⏸️ Google OAuth (추후 — server/lib/auth.ts의 socialProviders 블록 활성화)
 - ⏸️ Kakao OAuth (추후)
 
 ---
@@ -439,16 +481,17 @@ utils/          → camelCase (format.ts, constants.ts)
 ### API 호출 패턴 (주력: OpenAPI SDK)
 
 ```typescript
-// useOpenApi() — 자동생성 SDK 사용 (권장)
-const { sdk, client } = useOpenApi()
-const { data, error } = await sdk.login({ client, body: { email, password } })
-if (error) throw new Error(errMsg(error, '로그인 실패'))
+// 인증 — better-auth 클라이언트 (OpenAPI SDK가 아님)
+import { authClient } from '~/lib/auth-client'
+const { error } = await authClient.signIn.email({ email, password })
+if (error) throw new Error(error.message ?? '로그인 실패')
+await useAuth().loadJwt()  // 메모리 JWT 캐시 워밍
 
-// Pinia 스토어에서 SDK 호출
+// 비즈니스 API — OpenAPI SDK
 const { sdk, client } = useOpenApi()
 const { data, error } = await sdk.getMe({ client })
 if (error) throw error
-me.value = data
+me.value = castData<UserMeResponse>(data)
 ```
 
 ### 레거시: useApi() (비권장)

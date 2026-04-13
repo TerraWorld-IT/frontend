@@ -12,7 +12,9 @@
     "lint:check": "oxlint .",
     "typecheck": "nuxi typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:init": "psql \"$DATABASE_URL\" -f server/db/migrations/001_better_auth_init.sql",
+    "db:verify": "psql \"$DATABASE_URL\" -c \"\\dt auth.*\""
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
