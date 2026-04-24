@@ -5,7 +5,7 @@
    ============================================ */
 
 @theme {
-  /* Riso Ink Colors */
+  /* Riso Ink Colors (primary brand palette) */
   --color-riso-red: #E3505F;
   --color-riso-blue: #0078BF;
   --color-riso-green: #00A95C;
@@ -27,6 +27,36 @@
   --color-riso-earth: #B8926A;
   --color-riso-poppy: #E07A5F;
 
+  /* Neon accents (Terraworld0420 참고) — 카테고리 하이라이트 / 차트 전용.
+     리소 팔레트와 공존. 본문/버튼 기본색으로는 사용하지 말 것. */
+  --color-neon-pink: #ff2d95;
+  --color-neon-yellow: #ffeb3b;
+  --color-neon-green: #39ff14;
+  --color-neon-cyan: #00f5ff;
+  --color-neon-purple: #bf00ff;
+  --color-neon-orange: #ff6b00;
+
+  /* Pastel backgrounds (Terraworld0420 참고) — 탭별 / 섹션별 부드러운 배경 */
+  --color-pastel-pink: #ffe4f1;
+  --color-pastel-yellow: #fffbeb;
+  --color-pastel-green: #e6ffe6;
+  --color-pastel-cyan: #e6fcff;
+  --color-pastel-purple: #f3e6ff;
+  --color-pastel-orange: #fff2e6;
+
+  /* Rarity accent (shop / item cards) */
+  --color-rarity-common: #737373;
+  --color-rarity-rare: #0078BF;
+  --color-rarity-epic: #bf00ff;
+
+  /* Radius scale (mobile-friendly, 16px base) */
+  --radius: 1rem;
+  --radius-sm: calc(var(--radius) - 4px);   /* 12px */
+  --radius-md: calc(var(--radius) - 2px);   /* 14px */
+  --radius-lg: var(--radius);               /* 16px */
+  --radius-xl: calc(var(--radius) + 4px);   /* 20px */
+  --radius-2xl: calc(var(--radius) + 8px);  /* 24px */
+
   /* Fonts */
   --font-sans: 'Pretendard', system-ui, sans-serif;
 
@@ -34,6 +64,8 @@
   --animate-drift: drift 20s linear infinite;
   --animate-sway: sway 3s ease-in-out infinite;
   --animate-float: float 4s ease-in-out infinite;
+  --animate-heart-pop: heart-pop 0.4s ease-out;
+  --animate-coin-float: coin-float 0.8s ease-out forwards;
 }
 
 @keyframes drift {
@@ -49,6 +81,17 @@
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-6px); }
+}
+
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes coin-float {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-48px); }
 }
 
 /* ============================================
@@ -99,4 +142,9 @@
 
 @utility riso-shadow-press {
   box-shadow: 1px 1px 0px 0px rgba(45, 58, 110, 0.1);
+}
+
+/* 탭 활성 상태 — 각 탭별 accent 에 투명도를 입혀 부드러운 bg */
+@utility tab-active-bg {
+  background: color-mix(in srgb, currentColor 16%, transparent);
 }
