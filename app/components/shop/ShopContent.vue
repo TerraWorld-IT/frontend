@@ -271,10 +271,13 @@ try {
   if (catRes.error) throw new Error(errMsg(catRes.error, 'listCategories failed'))
   if (itemRes.error) throw new Error(errMsg(itemRes.error, 'listItems failed'))
 
-  currency.value = meRes.data?.currency ?? null
-  categories.value = catRes.data?.categories ?? []
-  items.value = itemRes.data?.items ?? []
-  ownedSlugs.value = new Set(meRes.data?.ownedItems ?? [])
+  const me = castData<UserMeResponse>(meRes.data)
+  const cats = castData<CategoryListResponse>(catRes.data)
+  const itemList = castData<ItemListResponse>(itemRes.data)
+  currency.value = me?.currency ?? null
+  categories.value = cats?.categories ?? []
+  items.value = itemList?.items ?? []
+  ownedSlugs.value = new Set(me?.ownedItems ?? [])
 }
 catch (e) {
   fetchError.value = e as Error
@@ -413,9 +416,10 @@ async function onExchangeToken() {
       },
     })
     if (error) throw new Error(errMsg(error, '교환 실패'))
-    if (data) {
-      currency.value = data.updatedCurrency
-      toast.success(`${data.exchanged.toType} +${data.exchanged.toAmount}`)
+    const exch = castData<ExchangeResponse>(data)
+    if (exch) {
+      currency.value = exch.updatedCurrency
+      toast.success(`${exch.exchanged.toType} +${exch.exchanged.toAmount}`)
       exchTokenAmt.value = 1
     }
   }

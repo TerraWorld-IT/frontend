@@ -75,7 +75,7 @@ const itemsStore = useItemsStore()
 const loading = ref(true)
 const showCreateDialog = ref(false)
 
-const items = computed(() => itemsStore.items.value)
+const items = computed(() => itemsStore.items)
 
 onMounted(async () => {
   await itemsStore.fetchAll()

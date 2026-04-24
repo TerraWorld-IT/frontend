@@ -88,6 +88,8 @@
 </template>
 
 <script setup lang="ts">
+import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
+
 definePageMeta({ layout: false })
 
 const route = useRoute()
@@ -97,13 +99,17 @@ const toast = useToast()
 
 const code = computed(() => route.params.code as string)
 
-// SSR-friendly data fetch
+// SSR-friendly data fetch.
+// TODO: 현재는 getTerrarium 만 호출 — nickname 은 미지원. 추후 전용 share API
+// 또는 /users/{id}/terrarium 식으로 통합 응답이 나오면 교체.
+type ShareData = TerrariumResponse & { nickname?: string }
+
 const { data: sharedData, pending, error } = await useAsyncData(
   `share-${code.value}`,
   async () => {
     const { data, error } = await sdk.getTerrarium({ client })
     if (error) throw error
-    return data
+    return castData<ShareData>(data) ?? null
   },
 )
 

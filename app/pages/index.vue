@@ -410,8 +410,8 @@ async function load() {
     if (terraRes.error) throw new Error(errMsg(terraRes.error, 'getTerrarium failed'))
     if (itemsRes.error) throw new Error(errMsg(itemsRes.error, 'listItems failed'))
     user.value = castData<UserMeResponse>(meRes.data) ?? null
-    terrarium.value = terraRes.data as TerrariumResponse ?? null
-    allItems.value = (itemsRes.data as ItemListResponse)?.items ?? []
+    terrarium.value = castData<TerrariumResponse>(terraRes.data) ?? null
+    allItems.value = castData<ItemListResponse>(itemsRes.data)?.items ?? []
   }
   catch (e) {
     fetchError.value = e as Error
@@ -433,7 +433,7 @@ async function onHeartClick() {
   try {
     const { data, error } = await sdk.clickTerrariumHeart({ client })
     if (error) throw new Error(errMsg(error, 'heart failed'))
-    const heart = data as HeartResponse
+    const heart = castData<HeartResponse>(data)
     if (heart && user.value) {
       user.value.currency.basicCoins = heart.updatedBasicCoins
     }
@@ -473,7 +473,7 @@ async function placeItem(item: ItemResponse) {
     if (error) throw new Error(errMsg(error, '배치 실패'))
 
     const { data: terraData } = await sdk.getTerrarium({ client })
-    if (terraData) terrarium.value = terraData as TerrariumResponse
+    if (terraData) terrarium.value = castData<TerrariumResponse>(terraData) ?? null
     selectedSlot.value = null
     toast.success('배치 완료!')
   }
@@ -500,7 +500,7 @@ async function removeItem() {
     if (error) throw new Error(errMsg(error, '제거 실패'))
 
     const { data: terraData } = await sdk.getTerrarium({ client })
-    if (terraData) terrarium.value = terraData as TerrariumResponse
+    if (terraData) terrarium.value = castData<TerrariumResponse>(terraData) ?? null
     selectedSlot.value = null
     toast.success('아이템 제거 완료')
   }
@@ -516,7 +516,7 @@ async function onClaimAdReward() {
   try {
     const { data, error } = await sdk.claimAdReward({ client })
     if (error) throw new Error(errMsg(error, '광고 보상 실패'))
-    const ad = data as AdRewardResponse
+    const ad = castData<AdRewardResponse>(data)
     if (ad && user.value) {
       user.value.currency.specialCoins = ad.updatedCurrency.specialCoins
       user.value.currency.basicCoins = ad.updatedCurrency.basicCoins
