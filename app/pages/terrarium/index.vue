@@ -19,7 +19,7 @@
     </div>
 
     <!-- Loading -->
-    <CommonLoading v-if="terrariumStore.loading.value" />
+    <CommonLoading v-if="terrariumStore.loading" />
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center gap-3 py-12">
@@ -33,7 +33,7 @@
     <template v-else>
       <TerrariumCanvas
         ref="canvasRef"
-        :placed-items="terrariumStore.placedItems.value"
+        :placed-items="terrariumStore.placedItems"
         :editable="mode === 'edit'"
         @slot-click="onSlotClick"
         @heart-click="onHeartClick"
@@ -44,7 +44,7 @@
         <!-- Slot usage info -->
         <div class="flex items-center justify-between">
           <p class="text-xs text-riso-dark/40">
-            {{ terrariumStore.placedItems.value.length }} / {{ terrariumStore.maxSlots.value }} 슬롯 사용
+            {{ terrariumStore.placedItems.length }} / {{ terrariumStore.maxSlots }} 슬롯 사용
           </p>
           <button
             v-if="hasChanges"
@@ -79,11 +79,11 @@
         <div class="flex gap-3">
           <div class="flex-1 bg-white rounded-2xl p-3 border border-riso-walnut/10 text-center riso-shadow-sm">
             <p class="text-xs text-riso-dark/30">아이템</p>
-            <p class="font-bold text-lg text-riso-dark">{{ terrariumStore.placedItems.value.length }}</p>
+            <p class="font-bold text-lg text-riso-dark">{{ terrariumStore.placedItems.length }}</p>
           </div>
           <div class="flex-1 bg-white rounded-2xl p-3 border border-riso-walnut/10 text-center riso-shadow-sm">
             <p class="text-xs text-riso-dark/30">배경</p>
-            <p class="font-bold text-sm text-riso-dark">{{ terrariumStore.data.value?.background?.name ?? '-' }}</p>
+            <p class="font-bold text-sm text-riso-dark">{{ terrariumStore.data?.background?.name ?? '-' }}</p>
           </div>
           <button class="flex-1 bg-riso-pink text-white rounded-2xl p-3 font-bold text-sm riso-shadow-sm active:scale-95 transition-transform">
             공유
@@ -96,10 +96,10 @@
     <TerrariumItemSelectDialog
       :show="selectedSlot !== null"
       :slot-id="selectedSlot ?? 0"
-      :items="itemsStore.items.value"
-      :owned-item-slugs="userStore.me.value?.ownedItems ?? []"
-      :placed-items="terrariumStore.placedItems.value"
-      :current-item="selectedSlot !== null ? terrariumStore.placedItems.value.find(p => p.slotId === selectedSlot) : undefined"
+      :items="[...itemsStore.items]"
+      :owned-item-slugs="[...(userStore.me?.ownedItems ?? [])]"
+      :placed-items="[...terrariumStore.placedItems]"
+      :current-item="selectedSlot !== null ? terrariumStore.placedItems.find(p => p.slotId === selectedSlot) : undefined"
       @close="selectedSlot = null"
       @select="onItemSelect"
       @remove="onItemRemove"
@@ -168,7 +168,7 @@ function onItemSelect(itemId: number) {
   if (selectedSlot.value === null) return
 
   // Build new placement: replace or add to current slot
-  const currentPlacements = terrariumStore.placedItems.value
+  const currentPlacements = terrariumStore.placedItems
     .filter(p => p.slotId !== selectedSlot.value)
     .map(p => ({ itemId: p.itemId, slotId: p.slotId! }))
 
@@ -181,7 +181,7 @@ function onItemSelect(itemId: number) {
 }
 
 function onItemRemove(slotId: number) {
-  const currentPlacements = terrariumStore.placedItems.value
+  const currentPlacements = terrariumStore.placedItems
     .filter(p => p.slotId !== slotId)
     .map(p => ({ itemId: p.itemId, slotId: p.slotId! }))
 
@@ -191,12 +191,12 @@ function onItemRemove(slotId: number) {
 }
 
 async function savePlacements() {
-  if (pendingChanges.value.length === 0 && terrariumStore.placedItems.value.length === 0) return
+  if (pendingChanges.value.length === 0 && terrariumStore.placedItems.length === 0) return
   saving.value = true
   try {
     const placements = pendingChanges.value.length > 0
       ? pendingChanges.value
-      : terrariumStore.placedItems.value
+      : terrariumStore.placedItems
           .filter(p => p.slotId !== null && p.slotId !== undefined)
           .map(p => ({ itemId: p.itemId, slotId: p.slotId! }))
 
@@ -237,9 +237,9 @@ async function onHeartClick() {
 
 // Owned item details (for inventory preview)
 const ownedItemDetails = computed(() => {
-  const slugs = userStore.me.value?.ownedItems ?? []
+  const slugs = userStore.me?.ownedItems ?? []
   return slugs
-    .map(slug => itemsStore.items.value.find(i => i.slug === slug))
-    .filter(Boolean)
+    .map(slug => itemsStore.items.find(i => i.slug === slug))
+    .filter((i): i is NonNullable<typeof i> => i !== undefined && i !== null)
 })
 </script>
