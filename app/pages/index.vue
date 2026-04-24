@@ -62,6 +62,9 @@
           <!-- Jamjar SVG (actual Figma paths) -->
           <IconsJamjarSvg />
 
+          <!-- Wilting overlay (P-4) — stage 1~3 일 때만 말풍선 표시 -->
+          <TerrariumWiltingOverlay :state="terrarium?.wilting" />
+
           <!-- Slots overlay inside jar -->
           <div class="absolute top-[100px] left-1/2 -translate-x-1/2 w-[220px]">
             <!-- Top row: 2 background slots (slotId 0, 1) -->

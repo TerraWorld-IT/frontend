@@ -80,13 +80,10 @@
         <div class="space-y-1.5 mt-2">
           <!-- Badges -->
           <div class="flex items-center gap-1 flex-wrap justify-center">
-            <span
-              class="text-[10px] px-1.5 py-0.5 rounded-full"
-              :class="rarityClass(item.rarity)"
-            >{{ rarityLabel(item.rarity) }}</span>
+            <CommonRarityBadge :rarity="item.rarity" />
             <span
               v-if="item.layout !== 'FIGURE'"
-              class="text-[10px] px-1.5 py-0.5 rounded-full border border-black/10"
+              class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none border border-riso-walnut/20 text-riso-dark/60"
             >{{ item.layout === 'FOREGROUND' ? '전경' : '후경' }}</span>
           </div>
 
@@ -317,19 +314,6 @@ const filteredItems = computed(() => {
 })
 
 watch(shopType, () => { activeTab.value = 'common' })
-
-// --- Helpers ---
-function rarityLabel(r: string): string {
-  if (r === 'EPIC') return '판타지'
-  if (r === 'RARE') return '희귀'
-  return '일반'
-}
-
-function rarityClass(r: string): string {
-  if (r === 'EPIC') return 'bg-purple-100 text-purple-700'
-  if (r === 'RARE') return 'bg-blue-100 text-blue-700'
-  return 'bg-gray-100 text-gray-600'
-}
 
 // --- Actions ---
 async function reload() {
