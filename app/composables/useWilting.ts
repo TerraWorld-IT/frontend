@@ -2,17 +2,17 @@
  * 시들기 연출 매핑. 백엔드 TerrariumResponse.wilting 을 받아
  * 화면에 적용할 시각 힌트 (filter, 오버레이 메시지, show flag) 로 변환.
  *
- * 백엔드가 wilting 을 반환하지 않는 경우 (스펙/SDK 재생성 전) stage=0 으로 간주.
  * P-4 단계는 정적 연출만 수행 — 광고 보상 복구는 Phase 2 (backend /rewards/ad 연동).
  */
 
-export interface WiltingState {
-  stage: 0 | 1 | 2 | 3
-  daysSinceRecord: number | null
-}
+import type { WiltingState } from '@terraworld-it/openapi-frontend'
+
+export type { WiltingState }
+
+type StageKey = 0 | 1 | 2 | 3
 
 export interface WiltingVisual {
-  stage: 0 | 1 | 2 | 3
+  stage: StageKey
   /** CSS filter 값. jar 이미지에 적용. */
   filter: string
   /** 오버레이 메시지. stage 0 이면 null. */
@@ -23,7 +23,7 @@ export interface WiltingVisual {
   showOverlay: boolean
 }
 
-const STAGE_MAP: Record<WiltingState['stage'], Omit<WiltingVisual, 'stage'>> = {
+const STAGE_MAP: Record<StageKey, Omit<WiltingVisual, 'stage'>> = {
   0: {
     filter: 'none',
     message: null,
@@ -50,10 +50,16 @@ const STAGE_MAP: Record<WiltingState['stage'], Omit<WiltingVisual, 'stage'>> = {
   },
 }
 
+function clampStage(raw: number | undefined | null): StageKey {
+  if (raw === undefined || raw === null) return 0
+  if (raw <= 0) return 0
+  if (raw >= 3) return 3
+  return (raw === 1 ? 1 : 2) as StageKey
+}
+
 export function useWilting(source: Ref<WiltingState | null | undefined>) {
   const visual = computed<WiltingVisual>(() => {
-    const s = source.value?.stage ?? 0
-    const stage = (s >= 0 && s <= 3 ? s : 0) as WiltingState['stage']
+    const stage = clampStage(source.value?.stage)
     return { stage, ...STAGE_MAP[stage] }
   })
 
