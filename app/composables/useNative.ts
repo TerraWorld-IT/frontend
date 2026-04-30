@@ -30,6 +30,62 @@ export function useNative() {
     }
   }
 
+  /**
+   * 이미지 파일 공유 — 네이티브에서는 Cache 디렉토리에 임시 저장 후 시스템 공유 시트 호출,
+   * 웹에서는 Web Share API (file 지원 시) 또는 다운로드 폴백.
+   */
+  async function shareFile(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}) {
+    if (!import.meta.client) return
+
+    if (isNative) {
+      // 1) blob → base64 변환 (Capacitor Filesystem 은 base64 string 만 받음)
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const result = reader.result as string
+          resolve(result.split(',')[1] ?? '')
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      // 2) 임시 캐시에 PNG 저장
+      const { Filesystem, Directory } = await import('@capacitor/filesystem')
+      const result = await Filesystem.writeFile({
+        path: filename,
+        data: base64,
+        directory: Directory.Cache,
+      })
+      // 3) 네이티브 공유 시트 호출 (files 배열 — Capacitor Share v6+)
+      const { Share } = await import('@capacitor/share')
+      await Share.share({
+        title: opts.title,
+        text: opts.text,
+        files: [result.uri],
+        dialogTitle: opts.title,
+      })
+      return
+    }
+
+    // 웹: Share API 의 file 지원 여부 확인
+    if (navigator.share && 'canShare' in navigator) {
+      const file = new File([blob], filename, { type: blob.type })
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ title: opts.title, text: opts.text, files: [file] })
+        return
+      }
+    }
+
+    // 폴백: 다운로드 트리거
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // --- Haptics ---
   async function hapticImpact(style: 'Heavy' | 'Medium' | 'Light' = 'Medium') {
     if (!isNative) return
@@ -108,6 +164,7 @@ export function useNative() {
     isIOS,
     isAndroid,
     share,
+    shareFile,
     hapticImpact,
     hapticNotification,
     takePhoto,

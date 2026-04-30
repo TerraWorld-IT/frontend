@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-neutral-100 flex items-center justify-center riso-grain">
+  <div class="min-h-screen bg-neutral-100 flex flex-col items-center riso-grain">
     <!-- Mobile app container, centered on desktop -->
     <div
       class="relative flex flex-col w-full max-w-md min-h-screen shadow-2xl transition-colors duration-300"
@@ -55,6 +55,9 @@
 
     <!-- Global Toast -->
     <CommonToast />
+
+    <!-- AdSense PC banner (hidden on mobile container width) -->
+    <CommonAdSenseBanner />
   </div>
 </template>
 

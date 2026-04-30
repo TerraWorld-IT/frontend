@@ -98,6 +98,28 @@
         </h3>
 
         <div class="space-y-2">
+          <NuxtLink
+            to="/friends"
+            class="w-full flex items-center justify-between p-3 bg-white border border-black/10 rounded-[12px] hover:bg-[#f5f5f5] transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <Icon name="lucide:users" class="w-4 h-4 text-[#525252]" />
+              <span class="text-sm font-medium text-black">친구 관리</span>
+            </div>
+            <Icon name="lucide:chevron-right" class="w-4 h-4 text-[#a1a1a1]" />
+          </NuxtLink>
+
+          <NuxtLink
+            to="/ranking"
+            class="w-full flex items-center justify-between p-3 bg-white border border-black/10 rounded-[12px] hover:bg-[#f5f5f5] transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <Icon name="lucide:trophy" class="w-4 h-4 text-[#525252]" />
+              <span class="text-sm font-medium text-black">월간 랭킹</span>
+            </div>
+            <Icon name="lucide:chevron-right" class="w-4 h-4 text-[#a1a1a1]" />
+          </NuxtLink>
+
           <button
             type="button"
             class="w-full flex items-center justify-between p-3 bg-white border border-black/10 rounded-[12px] hover:bg-[#f5f5f5] transition-colors"

@@ -62,6 +62,48 @@ export function useGtagEvents() {
     gtag('event', 'login', { method })
   }
 
+  function trackScreenshotSaved(params: { context?: string }) {
+    gtag('event', 'screenshot_saved', {
+      context: params.context ?? 'home',
+    })
+  }
+
+  function trackAdRewardClaimed(params: { specialCoins: number; reason?: string }) {
+    gtag('event', 'ad_reward_claimed', {
+      special_coins: params.specialCoins,
+      reason: params.reason ?? 'daily',
+    })
+  }
+
+  function trackWiltingRecovered(params: { previousStage: number }) {
+    gtag('event', 'wilting_recovered', {
+      previous_stage: params.previousStage,
+    })
+  }
+
+  function trackInviteCreated() {
+    gtag('event', 'invite_created')
+  }
+
+  function trackInviteAccepted(params: { specialCoinsRewarded: number }) {
+    gtag('event', 'invite_accepted', {
+      special_coins_rewarded: params.specialCoinsRewarded,
+    })
+  }
+
+  function trackRankingViewed(params: { type: string; yearMonth: string }) {
+    gtag('event', 'ranking_viewed', {
+      ranking_type: params.type,
+      year_month: params.yearMonth,
+    })
+  }
+
+  function trackFreePlacementSaved(params: { itemCount: number }) {
+    gtag('event', 'free_placement_saved', {
+      item_count: params.itemCount,
+    })
+  }
+
   return {
     trackRecordCreated,
     trackItemPurchased,
@@ -71,5 +113,12 @@ export function useGtagEvents() {
     trackTokenExchanged,
     trackSignup,
     trackLogin,
+    trackScreenshotSaved,
+    trackAdRewardClaimed,
+    trackWiltingRecovered,
+    trackInviteCreated,
+    trackInviteAccepted,
+    trackRankingViewed,
+    trackFreePlacementSaved,
   }
 }
