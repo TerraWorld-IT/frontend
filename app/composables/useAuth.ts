@@ -22,6 +22,12 @@ import { authClient } from '~/lib/auth-client'
 
 let clientJwt: string | null = null
 
+// SEC-010 보강: JWT 5분 TTL 이라 매 요청마다 401→retry 사이클을 도는 대신,
+// 4분 주기 preemptive refresh 로 미리 갱신해 사용자 체감 latency 감소.
+// 첫 loadJwt 성공 시 자동으로 시작, clearJwt / signOutAndClear 시 정리.
+const JWT_REFRESH_INTERVAL_MS = 4 * 60 * 1000
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
 export function useAuth() {
   const isLoggedIn = useState('auth.isLoggedIn', () => false)
 
@@ -38,6 +44,7 @@ export function useAuth() {
       })
       clientJwt = response.token
       isLoggedIn.value = true
+      ensureAutoRefresh()
       return response.token
     }
     catch (e) {
@@ -65,8 +72,26 @@ export function useAuth() {
   }
 
   function clearJwt() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer)
+      refreshTimer = null
+    }
     clientJwt = null
     isLoggedIn.value = false
+  }
+
+  /**
+   * 4분 주기 preemptive JWT refresh. loadJwt 첫 성공 시 자동 가동.
+   * SSR 환경 / 이미 가동 중 / clientJwt 없음 시 no-op.
+   */
+  function ensureAutoRefresh() {
+    if (import.meta.server) return
+    if (refreshTimer) return
+    refreshTimer = setInterval(() => {
+      if (!clientJwt) return
+      // best-effort. 실패 시 plugins/openapi.ts 의 401 인터셉터 폴백.
+      loadJwt().catch(() => {})
+    }, JWT_REFRESH_INTERVAL_MS)
   }
 
   return {

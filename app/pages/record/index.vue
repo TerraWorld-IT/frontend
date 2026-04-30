@@ -72,6 +72,47 @@
           @submit="onSubmit"
         />
 
+        <!-- 사진 첨부 (선택) -->
+        <div class="bg-white rounded-[16px] border border-black/10 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <p class="text-[13px] font-semibold text-black">
+              사진 첨부 <span class="text-[11px] font-normal text-[#737373]">(선택)</span>
+            </p>
+            <button
+              v-if="photoUrl"
+              type="button"
+              class="text-[12px] text-riso-poppy underline"
+              @click="onClearPhoto"
+            >
+              제거
+            </button>
+          </div>
+          <button
+            v-if="!photoUrl"
+            type="button"
+            class="w-full h-11 rounded-[12px] border border-dashed border-black/20 text-[13px] font-medium text-[#525252] flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+            :disabled="uploadingPhoto"
+            @click="fileInputRef?.click()"
+          >
+            <Icon name="lucide:camera" class="w-4 h-4" />
+            <span>{{ uploadingPhoto ? '업로드 중...' : '사진 추가' }}</span>
+          </button>
+          <img
+            v-else
+            :src="photoUrl"
+            alt="첨부 사진 미리보기"
+            class="w-full max-h-[240px] object-cover rounded-[12px] riso-shadow-sm"
+          >
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            class="hidden"
+            @change="onFileSelected"
+          >
+        </div>
+
         <div v-if="recentRecords.length > 0">
           <h3 class="font-bold mb-3 text-black">최근 기록</h3>
           <div class="space-y-2">
@@ -156,6 +197,11 @@ const note = ref('')
 const submitting = ref(false)
 const invitePending = ref(false)
 
+// 사진 첨부 — POST /uploads/photo 응답의 photoUrl 보관. 저장 시 createRecord body 에 포함.
+const photoUrl = ref<string>('')
+const uploadingPhoto = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
 const selectedCategory = computed(
   () => categories.value.find((c) => c.id === selectedCategoryId.value) ?? null,
 )
@@ -186,15 +232,71 @@ async function load() {
   }
 }
 
+async function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingPhoto.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    // 인증 헤더는 plugins/openapi.ts 의 인터셉터가 자동 주입.
+    // SDK 자동 생성 전이라 client 의 generic POST 사용. spec sync 후 sdk.uploadPhoto 로 마이그레이션.
+    const { data: result, error } = await client.post({
+      url: '/uploads/photo',
+      body: formData,
+    })
+    if (error) throw new Error(errMsg(error, '업로드 실패'))
+    const typed = result as { photoUrl?: string } | undefined
+    if (!typed?.photoUrl) throw new Error('photoUrl 누락')
+
+    photoUrl.value = typed.photoUrl
+    toast.success('사진이 업로드되었어요')
+  }
+  catch (e) {
+    toast.error(`업로드 실패: ${(e as Error).message}`)
+  }
+  finally {
+    uploadingPhoto.value = false
+    if (fileInputRef.value) fileInputRef.value.value = ''
+  }
+}
+
+function onClearPhoto() {
+  photoUrl.value = ''
+}
+
+async function fireSavedConfetti() {
+  if (!import.meta.client) return
+  try {
+    const { default: confetti } = await import('canvas-confetti')
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.7 },
+      colors: ['#7B9E6B', '#E8A0BF', '#F4E4BA', '#A8D8EA'],
+      ticks: 200,
+      gravity: 0.8,
+    })
+  }
+ catch {
+    // canvas-confetti 미설치 시 토스트만 노출 — silent fallback
+  }
+}
+
 async function onSubmit() {
   if (selectedCategoryId.value === null || submitting.value) return
   submitting.value = true
   try {
+    // photoUrl 은 spec sync 후 generated DTO 에 포함되지만 현재는 type 가 없어 cast 사용.
+    // BE 의 ActivityRecord 엔티티에는 photo_url 컬럼 추가 (V7 마이그레이션) 완료.
     const body = {
       categoryId: selectedCategoryId.value,
       duration: duration.value ? Number(duration.value) : null,
       note: note.value || null,
-    }
+      ...(photoUrl.value ? { photoUrl: photoUrl.value } : {}),
+    } as Parameters<typeof sdk.createRecord>[0]['body']
     const { data, error } = await sdk.createRecord({ client, body })
     if (error) {
       throw new Error(errMsg(error, '기록 생성 실패'))
@@ -213,9 +315,11 @@ async function onSubmit() {
       toast.success(
         `+${rew.basicCoins.toFixed(1)} 코인, +${rew.categoryTokens.toFixed(1)} 토큰`,
       )
+      fireSavedConfetti()
     }
     duration.value = ''
     note.value = ''
+    photoUrl.value = ''
     selectedCategoryId.value = null
   }
  catch (e) {

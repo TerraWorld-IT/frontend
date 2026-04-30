@@ -33,11 +33,14 @@ function buildSecurityHeaders(): Record<string, string> {
     // hash/nonce-based inline styles become feasible.
     'Content-Security-Policy': [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      // Google AdSense (PC 웹 배너) 스크립트 도메인 허용
+      "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://*.googlesyndication.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       `connect-src ${buildConnectSrc()}`,
+      // AdSense iframe 광고 슬롯 허용
+      "frame-src 'self' https://googleads.g.doubleclick.net https://*.googlesyndication.com https://www.google.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -122,6 +125,11 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1',
       authBaseUrl: process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000',
       gaId: process.env.NUXT_PUBLIC_GA_ID || '',
+      // AdSense (PC 웹 배너 전용)
+      adsenseClient: process.env.NUXT_PUBLIC_ADSENSE_CLIENT || '',
+      adsenseSlot: process.env.NUXT_PUBLIC_ADSENSE_SLOT || '',
+      // AdMob (Android 모바일 앱). dev 빌드는 Capacitor 설정의 testing 모드로 자동 우회.
+      admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
     },
   },
 

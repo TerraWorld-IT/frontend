@@ -44,6 +44,14 @@
           >
             <Icon name="lucide:gift" class="w-4 h-4 text-white" />
           </button>
+          <button
+            type="button"
+            class="h-10 w-10 rounded-lg bg-[rgba(168,216,234,0.4)] flex items-center justify-center hover:bg-[rgba(168,216,234,0.6)] transition-colors"
+            :aria-label="rainEnabled ? '비 효과 끄기' : '비 효과 켜기'"
+            @click="rainEnabled = !rainEnabled"
+          >
+            <Icon :name="rainEnabled ? 'lucide:cloud-rain-wind' : 'lucide:cloud'" class="w-4 h-4 text-white" />
+          </button>
         </div>
 
         <div class="text-right">
@@ -64,6 +72,9 @@
 
           <!-- Wilting overlay (P-4) — stage 1~3 일 때만 말풍선 표시 -->
           <TerrariumWiltingOverlay :state="terrarium?.wilting" />
+
+          <!-- Rain particles (Phase 3 보너스) — 헤더 토글로 on/off -->
+          <TerrariumRainParticles v-if="rainEnabled" :enabled="rainEnabled" intensity="soft" />
 
           <!-- Slots overlay inside jar -->
           <div class="absolute top-[100px] left-1/2 -translate-x-1/2 w-[220px]">
@@ -325,7 +336,7 @@ import type {
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
-const { trackHeartClick } = useGtagEvents()
+const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed } = useGtagEvents()
 const { hapticImpact, share: nativeShare } = useNative()
 
 // Onboarding — show on first visit
@@ -348,6 +359,8 @@ const selectedSlot = ref<number | null>(null)
 const placementBusy = ref(false)
 const showLevelUpDialog = ref(false)
 const showFreeCoinDialog = ref(false)
+// Phase 3 보너스 — 비 효과 토글 (default false). 추후 환경 설정으로 영구화.
+const rainEnabled = ref(false)
 
 // --- Computed ---
 const terrariumName = computed(() => {
@@ -517,6 +530,15 @@ async function removeItem() {
 
 async function onClaimAdReward() {
   try {
+    // 1) 광고 시청 — Android 네이티브에서는 AdMob 보상형 광고. 웹/iOS dev 에서는 즉시 통과(=UI 측 30초 모달이 게이트).
+    const { showRewardedAd } = useAdMob()
+    const watched = await showRewardedAd()
+    if (!watched) {
+      toast.info('광고 시청을 완료해야 보상을 받을 수 있어요')
+      return
+    }
+
+    // 2) 보상 API 호출
     const { data, error } = await sdk.claimAdReward({ client })
     if (error) throw new Error(errMsg(error, '광고 보상 실패'))
     const ad = castData<AdRewardResponse>(data)
@@ -524,15 +546,51 @@ async function onClaimAdReward() {
       user.value.currency.specialCoins = ad.updatedCurrency.specialCoins
       user.value.currency.basicCoins = ad.updatedCurrency.basicCoins
     }
-    toast.success(`+${ad?.reward.specialCoins ?? 0} 스페셜 코인 획득!`)
+    const reward = ad?.reward.specialCoins ?? 0
+    toast.success(`+${reward} 스페셜 코인 획득!`)
+    if (reward > 0) {
+      trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
+    }
   }
   catch (e) {
     toast.error((e as Error).message)
   }
 }
 
-function onShareClick() {
-  toast.info('공유 기능 준비 중')
+async function onShareClick() {
+  if (!import.meta.client) return
+  const target = document.getElementById('my-terra-container')
+  if (!target) {
+    toast.error('테라리움 영역을 찾을 수 없어요')
+    return
+  }
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(target, {
+      backgroundColor: '#FFF8EB',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    })
+    const filename = `terraworld-${Date.now()}.png`
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+    if (!blob) {
+      toast.error('이미지 변환 실패')
+      return
+    }
+    // useNative.shareFile : native = filesystem + share sheet, web = Share API or download
+    const { shareFile } = useNative()
+    await shareFile(blob, filename, {
+      title: 'TerraWorld',
+      text: '나만의 테라리움을 봐주세요!',
+    })
+    toast.success('공유 준비 완료!')
+    trackScreenshotSaved({ context: 'home' })
+    trackShareCreated({ method: 'screenshot' })
+  }
+  catch (e) {
+    toast.error(`공유 실패: ${(e as Error).message}`)
+  }
 }
 
 onMounted(load)
