@@ -63,8 +63,8 @@
 </template>
 
 <script setup lang="ts">
-import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
-import { EVOLUTION_STAGE_META, type EvolutionStage } from '~/composables/useEvolution'
+import { EvolutionStage, type TerrariumResponse } from '@terraworld-it/openapi-frontend'
+import { EVOLUTION_STAGE_META } from '~/composables/useEvolution'
 
 const props = defineProps<{
   open: boolean
@@ -81,7 +81,13 @@ const { upgrade, loading: pending } = useEvolution()
 const errorMsg = ref<string | null>(null)
 const entitled = computed(() => Boolean(props.entitledFreePlacement))
 
-const allStageIds: EvolutionStage[] = ['POT', 'BOTTLE', 'PALUDARIUM', 'WORLD', 'CUSTOM']
+const allStageIds: EvolutionStage[] = [
+  EvolutionStage.POT,
+  EvolutionStage.BOTTLE,
+  EvolutionStage.PALUDARIUM,
+  EvolutionStage.WORLD,
+  EvolutionStage.CUSTOM,
+]
 
 const current = computed<EvolutionStage>(() =>
   ((props.terrarium?.evolutionStage as EvolutionStage) ?? 'BOTTLE'),

@@ -1,4 +1,4 @@
-import type { CategoryResponse, CreateCategoryRequest } from '@terraworld-it/openapi-frontend'
+import type { CategoryListResponse, CategoryResponse, CreateCategoryRequest } from '@terraworld-it/openapi-frontend'
 
 /**
  * 커스텀 카테고리 CRUD composable.
@@ -14,8 +14,7 @@ export function useCustomCategory() {
   async function fetchAll(): Promise<CategoryResponse[]> {
     const res = await sdk.listCategories({ client })
     if (res.error) throw res.error
-    const list = (res.data?.categories ?? []) as CategoryResponse[]
-    return list
+    return castData<CategoryListResponse>(res.data)?.categories ?? []
   }
 
   async function listMine(): Promise<CategoryResponse[]> {
