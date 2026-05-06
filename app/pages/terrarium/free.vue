@@ -68,11 +68,40 @@
     <p class="text-[11px] text-riso-dark/45 text-center">
       ※ 자유배치 PoC — 현재는 메모리 상태만. 서버 저장은 추후 구현
     </p>
+
+    <div
+      v-if="!entitled"
+      class="rounded-xl bg-riso-poppy/10 border border-riso-poppy/40 p-4 text-sm text-riso-dark"
+    >
+      <p class="font-semibold mb-1">유료 권리(자유배치)가 필요합니다</p>
+      <p class="text-riso-dark/70 mb-2">
+        현재는 미리보기 모드입니다. 결제를 마치면 슬롯 제약 없이 영구 저장됩니다.
+      </p>
+      <NuxtLink
+        to="/upgrade/free-placement"
+        class="inline-block px-3 py-1.5 text-sm bg-riso-sage text-white rounded-md"
+      >
+        유료 권리 안내 →
+      </NuxtLink>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
+
+// 자유배치 entitlement 체크 — false 면 PoC 모드, true 면 정식 모드
+const { sdk, client } = useOpenApi()
+const entitled = ref(false)
+;(async () => {
+  try {
+    const { data } = await sdk.getMe({ client })
+    const me = castData<{ entitlements?: { freePlacement?: boolean } }>(data)
+    entitled.value = Boolean(me?.entitlements?.freePlacement)
+  } catch {
+    entitled.value = false
+  }
+})()
 
 interface FreeItem {
   id: number

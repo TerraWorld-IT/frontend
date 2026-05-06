@@ -37,6 +37,8 @@
       />
     </div>
 
+    <RecordPartnerSelect @change="(value) => $emit('update:partnerUserId', value)" />
+
     <button
       type="button"
       class="w-full h-12 rounded-[20px] text-white hover:opacity-90 font-semibold flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
@@ -63,6 +65,7 @@ defineProps<{
 defineEmits<{
   'update:duration': [val: string]
   'update:note': [val: string]
+  'update:partnerUserId': [val: string | null]
   submit: []
 }>()
 </script>

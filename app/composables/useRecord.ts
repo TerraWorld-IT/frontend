@@ -37,7 +37,13 @@ export function useRecord() {
     records.value = (paged?.content ?? []).filter(r => r.recordedDate?.startsWith(todayStr))
   }
 
-  async function createRecord(payload: { categoryId: number; duration?: number | null; note?: string | null }) {
+  async function createRecord(payload: {
+    categoryId: number
+    duration?: number | null
+    note?: string | null
+    photoUrl?: string | null
+    partnerUserId?: string | null
+  }) {
     const { data, error } = await sdk.createRecord({ client, body: payload })
     if (error) throw error
     const result = data as CreateRecordResponse | undefined

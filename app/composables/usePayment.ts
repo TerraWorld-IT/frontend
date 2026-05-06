@@ -132,6 +132,30 @@ export function usePayment() {
     lastError.value = null
   }
 
+  /**
+   * 단일 상품 구매 — IAP/Play Billing 통합 전 placeholder.
+   * Tier 3 scaffold: 현재는 항상 false 반환 (결제 모듈 미통합).
+   * Phase 4 통합 시 productId → Capacitor InAppPurchase plugin → 서버 검증 흐름.
+   */
+  const loading = ref(false)
+  async function startPurchase(productId: string): Promise<boolean> {
+    loading.value = true
+    try {
+      if (SIMULATE) {
+        await _sleep(400)
+        // Phase 4 까지는 항상 false (entitlement 변경 없음). 사용자에게 안내 메시지 유도.
+        return false
+      }
+      // TODO(Phase-4): native IAP / Play Billing
+      // const result = await capacitorPurchase.purchase({ productId })
+      // await sdk.confirmPurchase({ ... })
+      void productId
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     status: readonly(status),
     lastResult: readonly(lastResult),
@@ -140,6 +164,8 @@ export function usePayment() {
     confirmPayment,
     refund,
     reset,
+    loading: readonly(loading),
+    startPurchase,
   }
 }
 

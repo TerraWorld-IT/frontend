@@ -47,16 +47,28 @@
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(168,216,234,0.4)] flex items-center justify-center hover:bg-[rgba(168,216,234,0.6)] transition-colors"
-            :aria-label="rainEnabled ? '비 효과 끄기' : '비 효과 켜기'"
-            @click="rainEnabled = !rainEnabled"
+            :aria-label="`효과: ${effectType}`"
+            :title="`효과: ${effectType}`"
+            @click="cycleEffect"
           >
-            <Icon :name="rainEnabled ? 'lucide:cloud-rain-wind' : 'lucide:cloud'" class="w-4 h-4 text-white" />
+            <Icon :name="effectIcon" class="w-4 h-4 text-white" />
+          </button>
+          <button
+            type="button"
+            class="h-10 w-10 rounded-lg bg-[rgba(82,179,136,0.4)] flex items-center justify-center hover:bg-[rgba(82,179,136,0.6)] transition-colors"
+            aria-label="진화 단계 전환"
+            @click="showUpgradeModal = true"
+          >
+            <Icon name="lucide:sparkles" class="w-4 h-4 text-white" />
           </button>
         </div>
 
-        <div class="text-right">
-          <div class="font-bold text-lg text-riso-dark">{{ terrariumName }}</div>
-          <div class="text-sm text-riso-dark/60">Level {{ user?.progress?.level ?? 1 }}</div>
+        <div class="flex items-start gap-2">
+          <CommonAttendanceWidget />
+          <div class="text-right">
+            <div class="font-bold text-lg text-riso-dark">{{ terrariumName }}</div>
+            <div class="text-sm text-riso-dark/60">Level {{ user?.progress?.level ?? 1 }}</div>
+          </div>
         </div>
       </div>
 
@@ -73,8 +85,11 @@
           <!-- Wilting overlay (P-4) — stage 1~3 일 때만 말풍선 표시 -->
           <TerrariumWiltingOverlay :state="terrarium?.wilting" />
 
-          <!-- Rain particles (Phase 3 보너스) — 헤더 토글로 on/off -->
-          <TerrariumRainParticles v-if="rainEnabled" :enabled="rainEnabled" intensity="soft" />
+          <!-- Particles (Phase 3) — 헤더 토글로 effectType 순환 -->
+          <TerrariumRainParticles v-if="effectType === 'rain'" :enabled="true" intensity="soft" />
+          <TerrariumSnowParticles v-if="effectType === 'snow'" :enabled="true" intensity="soft" />
+          <TerrariumFireflyParticles v-if="effectType === 'firefly'" :enabled="true" intensity="normal" />
+          <TerrariumBubbleParticles v-if="effectType === 'bubble'" :enabled="true" intensity="normal" />
 
           <!-- Slots overlay inside jar -->
           <div class="absolute top-[100px] left-1/2 -translate-x-1/2 w-[220px]">
@@ -321,6 +336,15 @@
 
   <!-- Onboarding (first visit) -->
   <CommonOnboarding :show="showOnboarding" @close="showOnboarding = false" />
+
+  <!-- Modal G — 진화 단계 전환 -->
+  <TerrariumUpgradeModal
+    :open="showUpgradeModal"
+    :terrarium="terrarium"
+    :entitled-free-placement="user?.entitlements?.freePlacement"
+    @close="showUpgradeModal = false"
+    @upgraded="onTerrariumUpgraded"
+  />
 </template>
 
 <script setup lang="ts">
@@ -359,8 +383,30 @@ const selectedSlot = ref<number | null>(null)
 const placementBusy = ref(false)
 const showLevelUpDialog = ref(false)
 const showFreeCoinDialog = ref(false)
-// Phase 3 보너스 — 비 효과 토글 (default false). 추후 환경 설정으로 영구화.
-const rainEnabled = ref(false)
+const showUpgradeModal = ref(false)
+
+// Phase 3 보너스 — 4종 효과 cycle (off → rain → snow → firefly → bubble → off)
+type EffectType = 'off' | 'rain' | 'snow' | 'firefly' | 'bubble'
+const effectType = ref<EffectType>('off')
+const effectIcon = computed(() => {
+  switch (effectType.value) {
+    case 'rain': return 'lucide:cloud-rain-wind'
+    case 'snow': return 'lucide:snowflake'
+    case 'firefly': return 'lucide:sparkle'
+    case 'bubble': return 'lucide:droplets'
+    default: return 'lucide:cloud'
+  }
+})
+function cycleEffect() {
+  const order: EffectType[] = ['off', 'rain', 'snow', 'firefly', 'bubble']
+  const next = order[(order.indexOf(effectType.value) + 1) % order.length]
+  effectType.value = next ?? 'off'
+}
+
+function onTerrariumUpgraded(updated: import('@terraworld-it/openapi-frontend').TerrariumResponse) {
+  // upgrade endpoint returns full TerrariumResponse — replace, don't merge.
+  terrarium.value = updated
+}
 
 // --- Computed ---
 const terrariumName = computed(() => {

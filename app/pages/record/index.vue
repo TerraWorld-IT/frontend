@@ -69,6 +69,7 @@
           :submitting="submitting"
           @update:duration="duration = $event"
           @update:note="note = $event"
+          @update:partner-user-id="partnerUserId = $event"
           @submit="onSubmit"
         />
 
@@ -195,6 +196,7 @@ const selectedCategoryId = ref<number | null>(null)
 const duration = ref('')
 const note = ref('')
 const submitting = ref(false)
+const partnerUserId = ref<string | null>(null)
 const invitePending = ref(false)
 
 // 사진 첨부 — POST /uploads/photo 응답의 photoUrl 보관. 저장 시 createRecord body 에 포함.
@@ -296,6 +298,7 @@ async function onSubmit() {
       duration: duration.value ? Number(duration.value) : null,
       note: note.value || null,
       ...(photoUrl.value ? { photoUrl: photoUrl.value } : {}),
+      ...(partnerUserId.value ? { partnerUserId: partnerUserId.value } : {}),
     } as Parameters<typeof sdk.createRecord>[0]['body']
     const { data, error } = await sdk.createRecord({ client, body })
     if (error) {
