@@ -84,6 +84,35 @@ export const auth = betterAuth({
     enabled: true,
   },
 
+  /**
+   * Social login (Tier 3 scaffold — disabled by default, enabled by env vars).
+   * Phase 4 통합 절차:
+   *   1) Google Cloud Console / Kakao Developers 에서 OAuth Client ID/Secret 발급
+   *   2) `.env` 에 `AUTH_GOOGLE_CLIENT_ID` / `AUTH_GOOGLE_CLIENT_SECRET` 설정
+   *      또는 `AUTH_KAKAO_CLIENT_ID` / `AUTH_KAKAO_CLIENT_SECRET` 설정
+   *   3) Redirect URI 등록: `${BASE_URL}/api/auth/callback/{google|kakao}`
+   * 두 환경변수 모두 미설정 시 socialProviders 객체는 빈 상태로 유지되어
+   * 기존 email/password 흐름에 영향을 주지 않는다.
+   */
+  socialProviders: {
+    ...(process.env.AUTH_GOOGLE_CLIENT_ID && process.env.AUTH_GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            clientId: process.env.AUTH_GOOGLE_CLIENT_ID,
+            clientSecret: process.env.AUTH_GOOGLE_CLIENT_SECRET,
+          },
+        }
+      : {}),
+    ...(process.env.AUTH_KAKAO_CLIENT_ID && process.env.AUTH_KAKAO_CLIENT_SECRET
+      ? {
+          kakao: {
+            clientId: process.env.AUTH_KAKAO_CLIENT_ID,
+            clientSecret: process.env.AUTH_KAKAO_CLIENT_SECRET,
+          },
+        }
+      : {}),
+  },
+
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days (cookie)
     updateAge: 60 * 60 * 24, // 1 day

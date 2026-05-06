@@ -44,13 +44,19 @@ Framework:      Nuxt 4.4.2 (Vue 3.5, Nitro, Vite 7)
 Package Mgr:    bun
 Styling:        Tailwind CSS v4.2 (CSS-first @theme, @tailwindcss/vite)
 State:          Pinia
-2D Rendering:   PixiJS v8 (multiply blending, stamp animation)
+2D Rendering:   PixiJS v8 (multiply blending, stamp animation, RainParticles)
 Auth:           better-auth (Nitro 서버, PostgreSQL 공유 DB)
 Validation:     valibot
 Date:           dayjs
 Lint:           oxlint
 Git Hooks:      lefthook (pre-commit lint)
 Commit:         cocogito (cog.toml)
+Capture:        html2canvas (테라리움 → PNG)
+Confetti:       canvas-confetti (기록 저장 후 연출)
+Native:         Capacitor 8 (Android 우선, iOS 추후)
+                +@capacitor/filesystem (스크린샷 임시 저장)
+                +@capacitor-community/admob (보상형 광고)
+                +@capacitor/share, app, camera, haptics, keyboard, push, splash, statusbar
 ```
 
 ### Nuxt 모듈
@@ -72,18 +78,22 @@ frontend/
 │   ├── components/
 │   │   ├── common/                 # Toast, Modal, Loading, WalletBar, CurrencyDisplay,
 │   │   │                           #   ExchangeModal, RewardToast, Onboarding
+│   │   ├── common/                 # +AdSenseBanner (PC 웹 배너, hidden md:flex fixed bottom)
 │   │   ├── icons/                  # JamjarSvg, PpJamjar (SVG 컴포넌트)
 │   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard
-│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog
+│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog, +RainParticles (PixiJS), +WiltingOverlay
 │   │   └── shop/                   # ShopContent, ShopSkeleton
 │   ├── composables/
-│   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped), loadJwt/getJwt/clearJwt
-│   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (8개 이벤트 헬퍼)
-│   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, haptics, camera, push)
+│   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped) + 4분 preemptive refresh timer
+│   │   ├── useAdMob.ts             # AdMob 보상형 광고 (Android native, 웹/iOS dev fallback)
+│   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (15개 이벤트 헬퍼)
+│   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
 │   │   ├── usePayment.ts           # 구매/교환 트랜잭션 플로우
 │   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse)
-│   │   └── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
+│   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
+│   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
+│   │   └── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
 │   ├── error.vue                   # 전역 에러 페이지 (404 등)
 │   ├── layouts/
 │   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + Toast + haptic
@@ -93,13 +103,16 @@ frontend/
 │   │   ├── auth.ts                 # JWT 쿠키 라우트 가드 (protect-by-default, SSR+CSR)
 │   │   └── admin.ts                # ADMIN 역할 체크 (useUserStore.role)
 │   ├── pages/
-│   │   ├── index.vue               # 홈 (테라리움 미리보기 + 오늘 기록 + 온보딩)
+│   │   ├── index.vue               # 홈 (테라리움 + html2canvas 캡처공유 + 비효과 토글 + AdMob 보상)
 │   │   ├── auth/login.vue          # 로그인/가입 (layout: false)
 │   │   ├── calendar/index.vue      # 캘린더 뷰
-│   │   ├── record/index.vue        # 기록 입력/리스트 + 친구 초대
+│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + confetti + 친구 초대
 │   │   ├── terrarium/index.vue     # Jar 컨셉 테라리움 (5슬롯 + 하트 + 아이템 선택)
+│   │   ├── terrarium/free.vue      # 자유배치 PoC (DnD, PointerEvent)
 │   │   ├── shop/index.vue          # 아이템 상점 (Suspense + ClientOnly)
-│   │   ├── profile/index.vue       # 프로필/통계/설정
+│   │   ├── profile/index.vue       # 프로필/통계/설정 (친구·랭킹 메뉴 진입)
+│   │   ├── friends/index.vue       # 친구 초대 코드 발급/입력 (햇살 +5)
+│   │   ├── ranking/index.vue       # 월간 랭킹 (engagement / decoration)
 │   │   ├── share/[code].vue        # 공유 수신 (SSR + OG 메타 + 초대 수락)
 │   │   └── admin/                  # 어드민 (index, items, categories, exchange, levels)
 │   ├── plugins/
@@ -251,8 +264,11 @@ GET    /api/v1/admin/dashboard
 | `/record` | `pages/record/index.vue` | 기록 입력/리스트 | 필수 |
 | `/terrarium` | `pages/terrarium/index.vue` | 테라리움 꾸미기/감상 | 필수 |
 | `/shop` | `pages/shop/index.vue` | 아이템 상점 (Suspense + ClientOnly) | 선택 |
-| `/profile` | `pages/profile/index.vue` | 프로필/통계/설정 | 필수 |
+| `/profile` | `pages/profile/index.vue` | 프로필/통계/설정 (친구·랭킹 진입) | 필수 |
 | `/share/:code` | `pages/share/[code].vue` | 공유 수신 (SSR + OG + 초대 수락) | 불필요 |
+| `/friends` | `pages/friends/index.vue` | 친구 초대 코드 발급/입력 (햇살 +5) | 필수 |
+| `/ranking` | `pages/ranking/index.vue` | 월간 랭킹 (engagement / decoration) | 필수 |
+| `/terrarium/free` | `pages/terrarium/free.vue` | 자유배치 PoC (DnD, PointerEvent) | 필수 |
 | `/admin` | `pages/admin/index.vue` | 어드민 대시보드 | 필수 (ADMIN) |
 | `/admin/items` | `pages/admin/items.vue` | 아이템 관리 | 필수 (ADMIN) |
 | `/admin/categories` | `pages/admin/categories.vue` | 카테고리 보상 관리 | 필수 (ADMIN) |
@@ -577,18 +593,30 @@ bun run typecheck   # TypeScript 체크
 - [x] 토큰 교환 모달 (ExchangeModal: 스페셜→기본 + 토큰↔토큰)
 - [x] 어드민 페이지 5개 (대시보드, 아이템, 카테고리, 교환, 레벨)
 - [x] 온보딩 튜토리얼 5단계 (기록→보상→구매→꾸미기→공유)
-- [x] GA4 이벤트 트래킹 (useGtagEvents, 5곳 연결)
+- [x] GA4 이벤트 트래킹 (useGtagEvents, 15개 헬퍼 / 9곳 연결)
 - [x] Record 컴포넌트 추출 (CategoryGrid, RecordForm, RecordCard)
 - [x] composable SDK 전환 (useRecord → OpenAPI SDK)
 - [x] 보상 애니메이션 (RewardToast)
+- [x] 기록 저장 confetti (canvas-confetti)
+- [x] 시들기 CTA (WiltingOverlay stage ≥ 2 시 "지금 기록하러 가기")
+- [x] JWT 4분 preemptive refresh (useAuth)
+- [x] 스크린샷 캡처 + 시스템 공유 (html2canvas + Capacitor filesystem)
+- [x] AdMob 보상형 광고 wiring (useAdMob)
+- [x] AdSense PC 웹 배너 (AdSenseBanner)
 - [ ] PixiJS 전환 (현재 HTML/CSS → PNG 에셋 준비 시 PixiJS v8 교체)
+- [x] PixiJS RainParticles (이펙트 1종 시연)
 
 ### Phase 3~4 (W13~W30, ~11월)
 
+- [x] 친구 초대 UI (`/friends`, 초대 코드 발급/입력, 햇살 +5)
+- [x] 월간 랭킹 페이지 (`/ranking`, engagement / decoration, myRank)
+- [x] 자유배치 PoC (`/terrarium/free`, DnD PointerEvent)
+- [x] 사진 첨부 (record/index.vue + multipart 업로드, magic byte 검증)
+- [x] 다크모드 시간 연동 (useTimeAwareColorMode, 06:00~18:00)
 - [ ] 소셜 로그인 (Google, Kakao)
 - [ ] 결제 연동 (IAP/Play Billing)
-- [x] Capacitor 모바일 래핑 (Android 빌드 완료, iOS는 macOS 필요)
-- [x] 네이티브 브릿지 (useNative: share, haptics, camera, push)
+- [x] Capacitor 모바일 래핑 (Android 빌드 완료, AdMob + Filesystem plugin)
+- [x] 네이티브 브릿지 (useNative: share, shareFile, haptics, camera, push)
 - [x] 딥 링크 (AASA + assetlinks + App Links)
 - [ ] 인스타 공유 최적화
 - [ ] 시즌/이벤트 스탬프
