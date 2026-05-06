@@ -77,20 +77,25 @@ frontend/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
 │   │   ├── common/                 # Toast, Modal, Loading, WalletBar, CurrencyDisplay,
-│   │   │                           #   ExchangeModal, RewardToast, Onboarding
-│   │   ├── common/                 # +AdSenseBanner (PC 웹 배너, hidden md:flex fixed bottom)
+│   │   │                           #   ExchangeModal, RewardToast, Onboarding,
+│   │   │                           #   AdSenseBanner, AttendanceWidget, CustomCategoryManager
 │   │   ├── icons/                  # JamjarSvg, PpJamjar (SVG 컴포넌트)
-│   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard
-│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog, +RainParticles (PixiJS), +WiltingOverlay
+│   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
+│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog,
+│   │   │                           #   WiltingOverlay, UpgradeModal (5단계 진화)
+│   │   │                           #   PixiJS 파티클: RainParticles + SnowParticles + FireflyParticles + BubbleParticles
 │   │   └── shop/                   # ShopContent, ShopSkeleton
 │   ├── composables/
 │   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped) + 4분 preemptive refresh timer
 │   │   ├── useAdMob.ts             # AdMob 보상형 광고 (Android native, 웹/iOS dev fallback)
+│   │   ├── useAttendance.ts        # 출석 체크인 (7일 streak 보너스 5→20 이슬)
+│   │   ├── useCustomCategory.ts    # 커스텀 카테고리 CRUD (사용자당 10개 한도)
+│   │   ├── useEvolution.ts         # 5단계 진화 (POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM, 레벨 1/5/10/20/30)
 │   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (15개 이벤트 헬퍼)
 │   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
-│   │   ├── usePayment.ts           # 구매/교환 트랜잭션 플로우
-│   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse)
+│   │   ├── usePayment.ts           # 구매/교환 트랜잭션 + startPurchase() IAP 진입점 (Phase 4 placeholder)
+│   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse, partnerUserId 지원)
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
 │   │   └── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
@@ -103,17 +108,18 @@ frontend/
 │   │   ├── auth.ts                 # JWT 쿠키 라우트 가드 (protect-by-default, SSR+CSR)
 │   │   └── admin.ts                # ADMIN 역할 체크 (useUserStore.role)
 │   ├── pages/
-│   │   ├── index.vue               # 홈 (테라리움 + html2canvas 캡처공유 + 비효과 토글 + AdMob 보상)
+│   │   ├── index.vue               # 홈 (테라리움 + 4종 파티클 cycle + 진화 모달 + AttendanceWidget + AdMob)
 │   │   ├── auth/login.vue          # 로그인/가입 (layout: false)
 │   │   ├── calendar/index.vue      # 캘린더 뷰
-│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + confetti + 친구 초대
+│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + confetti + 친구 함께 기록(partner)
 │   │   ├── terrarium/index.vue     # Jar 컨셉 테라리움 (5슬롯 + 하트 + 아이템 선택)
-│   │   ├── terrarium/free.vue      # 자유배치 PoC (DnD, PointerEvent)
+│   │   ├── terrarium/free.vue      # 자유배치 (entitlements.freePlacement 게이트 + 안내)
 │   │   ├── shop/index.vue          # 아이템 상점 (Suspense + ClientOnly)
-│   │   ├── profile/index.vue       # 프로필/통계/설정 (친구·랭킹 메뉴 진입)
+│   │   ├── profile/index.vue       # 프로필/통계/설정 + CustomCategoryManager
 │   │   ├── friends/index.vue       # 친구 초대 코드 발급/입력 (햇살 +5)
 │   │   ├── ranking/index.vue       # 월간 랭킹 (engagement / decoration)
 │   │   ├── share/[code].vue        # 공유 수신 (SSR + OG 메타 + 초대 수락)
+│   │   ├── upgrade/free-placement.vue # 자유배치 권리 결제 placeholder (Phase 4 IAP)
 │   │   └── admin/                  # 어드민 (index, items, categories, exchange, levels)
 │   ├── plugins/
 │   │   ├── openapi.ts              # @hey-api/client-fetch + 401 리프레시 인터셉터
@@ -206,50 +212,55 @@ EPIC   — 에픽 (특별 조건 또는 이벤트)
 
 ## 5. API 엔드포인트 (Backend 연동)
 
+> **Source of truth**: `openapi/spec/openapi.yaml` (TerraWorld-IT/openapi). 본 표는 요약본으로 spec과 어긋날 수 있다 — 신규/변경 시 `openapi-frontend/src/sdk.gen.ts` 와 `openapi-backend/src/main/kotlin/io/terraworld/api/api/*.kt` 가 SoT.
+
 ### 인증 (better-auth → Nuxt Nitro 서버)
 ```
 /api/auth/*              # better-auth 핸들러 (Nitro에서 처리)
 ```
 
-### Business API (Spring Boot)
+### Business API (Spring Boot, /api/v1 prefix)
+
 ```
-GET    /api/v1/categories
-GET    /api/v1/records                 # 날짜 범위 필터
-GET    /api/v1/records/today
-POST   /api/v1/records                 # 생성 → 비동기 보상 이벤트
-PUT    /api/v1/records/:id
-DELETE /api/v1/records/:id             # soft delete
-GET    /api/v1/records/stats
-GET    /api/v1/records/calendar/:yearMonth
+GET    /health
 
-GET    /api/v1/wallet
-GET    /api/v1/wallet/history
-POST   /api/v1/wallet/exchange         # 멱등성 키 필수
+GET    /users/me
+PUT    /users/me                       # 프로필 수정
 
-GET    /api/v1/level
+GET    /categories                     # 시스템 4종 + 본인 커스텀
+POST   /categories                     # 커스텀 카테고리 생성 (10개 한도)
+DELETE /categories/{categoryId}        # 본인 커스텀만 soft-delete
 
-GET    /api/v1/shop/items
-POST   /api/v1/shop/purchase           # 멱등성 키 필수
-GET    /api/v1/inventory
-GET    /api/v1/shop/backgrounds
+GET    /records                        # year/month 필터 + Paged
+POST   /records                        # 생성 + partnerUserId(joint record) 지원
+DELETE /records/{recordId}             # soft delete
+GET    /records/statistics
 
-GET    /api/v1/terrarium
-POST   /api/v1/terrarium/items         # 아이템 배치
-DELETE /api/v1/terrarium/items/:id
-PUT    /api/v1/terrarium/items/:id     # 위치 수정
-PUT    /api/v1/terrarium/background
-GET    /api/v1/terrarium/user/:userId
+POST   /exchange/special-to-basic      # 햇살↔이슬 1:2
+POST   /exchange/tokens                # 카테고리 토큰↔토큰
 
-POST   /api/v1/share
-GET    /api/v1/share/:shareCode        # SSR + OG 메타
+GET    /items
+GET    /items/{itemId}
+POST   /purchases                      # 아이템 구매
 
-GET    /api/v1/profile
-PUT    /api/v1/profile
+GET    /terrarium                      # evolutionStage + unlockedStages 포함
+PUT    /terrarium/placements           # 5슬롯 배치 갱신
+POST   /terrarium/heart                # +0.1 이슬
+POST   /terrarium/upgrade              # 진화 단계 전환 (Phase 3)
 
-CRUD   /api/v1/admin/items             # ADMIN only
-PUT    /api/v1/admin/categories/:id/rewards
-PUT    /api/v1/admin/exchange-rates
-GET    /api/v1/admin/dashboard
+GET    /levels
+GET    /notes/{date}, PUT, DELETE      # 캘린더 메모
+
+POST   /invites                        # 8자 코드 + 7일 만료
+POST   /invites/{code}/accept          # 양쪽 햇살 +5
+
+POST   /rewards/ad                     # 광고 보상 (일일 5회)
+GET    /rewards/attendance             # 출석 현황 (Phase 3)
+POST   /rewards/attendance             # 출석 체크인 (7일 streak +20)
+
+GET    /rankings/monthly               # engagement / decoration
+
+POST   /uploads/photo                  # multipart, magic byte 검증
 ```
 
 ---
@@ -604,19 +615,25 @@ bun run typecheck   # TypeScript 체크
 - [x] AdMob 보상형 광고 wiring (useAdMob)
 - [x] AdSense PC 웹 배너 (AdSenseBanner)
 - [ ] PixiJS 전환 (현재 HTML/CSS → PNG 에셋 준비 시 PixiJS v8 교체)
-- [x] PixiJS RainParticles (이펙트 1종 시연)
+- [x] PixiJS 4종 파티클 (Rain / Snow / Firefly / Bubble — 홈 effect cycle 버튼)
 
 ### Phase 3~4 (W13~W30, ~11월)
 
 - [x] 친구 초대 UI (`/friends`, 초대 코드 발급/입력, 햇살 +5)
+- [x] 친구와 함께 기록 (RecordForm partner select, 양측 보상 가산, 수락된 invite 관계 검증)
 - [x] 월간 랭킹 페이지 (`/ranking`, engagement / decoration, myRank)
 - [x] 자유배치 PoC (`/terrarium/free`, DnD PointerEvent)
+- [x] 자유배치 entitlement 게이트 + 안내 페이지 (`/upgrade/free-placement`)
+- [x] 5단계 진화 모달 (Modal G — POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM)
+- [x] 커스텀 카테고리 UI (`/profile` 임베드, CRUD, 사용자당 10개 한도)
+- [x] 일일 출석 위젯 + 7일 streak 보너스 (`/rewards/attendance`)
 - [x] 사진 첨부 (record/index.vue + multipart 업로드, magic byte 검증)
 - [x] 다크모드 시간 연동 (useTimeAwareColorMode, 06:00~18:00)
-- [ ] 소셜 로그인 (Google, Kakao)
-- [ ] 결제 연동 (IAP/Play Billing)
+- [△] 소셜 로그인 (Google, Kakao) — better-auth `socialProviders` env-gated 활성 (AUTH_GOOGLE_*, AUTH_KAKAO_*); OAuth 콘솔 등록 + 환경변수 설정 필요
+- [△] 결제 연동 (IAP/Play Billing) — `usePayment.startPurchase()` 진입점 scaffold; Capacitor IAP 플러그인 통합 + Play Console 상품 등록 필요
 - [x] Capacitor 모바일 래핑 (Android 빌드 완료, AdMob + Filesystem plugin)
 - [x] 네이티브 브릿지 (useNative: share, shareFile, haptics, camera, push)
 - [x] 딥 링크 (AASA + assetlinks + App Links)
 - [ ] 인스타 공유 최적화
 - [ ] 시즌/이벤트 스탬프
+- [ ] 메모지/테마 해금 UI (`entitlements.premiumThemes` 노출 완료, 카탈로그/적용 UI 미구현)
