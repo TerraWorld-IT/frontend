@@ -104,6 +104,18 @@ export function useGtagEvents() {
     })
   }
 
+  /**
+   * SEC-008: push 토큰 서버 등록 실패 시 운영 가시성 확보용. 사용자 UX 는
+   * 차단하지 않고 (silent fallback 유지), GA4 에 신호만 발행한다. `reason`
+   * 은 짧은 식별자만 — 토큰/이메일 등 PII 금지.
+   */
+  function trackPushRegistrationFailed(params: { reason: string; status?: number }) {
+    gtag('event', 'push_register_failed', {
+      reason: params.reason.slice(0, 64),
+      status: params.status ?? 0,
+    })
+  }
+
   return {
     trackRecordCreated,
     trackItemPurchased,
@@ -120,5 +132,6 @@ export function useGtagEvents() {
     trackInviteAccepted,
     trackRankingViewed,
     trackFreePlacementSaved,
+    trackPushRegistrationFailed,
   }
 }
