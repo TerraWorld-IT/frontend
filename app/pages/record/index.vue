@@ -178,6 +178,7 @@ import type {
   CategoryResponse,
   CreateRecordResponse,
   PagedRecordResponse,
+  PhotoUploadResponse,
   RecordResponse,
 } from '@terraworld-it/openapi-frontend'
 
@@ -240,17 +241,11 @@ async function onFileSelected(e: Event) {
   if (!file) return
   uploadingPhoto.value = true
   try {
-    const formData = new FormData()
-    formData.append('file', file)
-
     // 인증 헤더는 plugins/openapi.ts 의 인터셉터가 자동 주입.
-    // SDK 자동 생성 전이라 client 의 generic POST 사용. spec sync 후 sdk.uploadPhoto 로 마이그레이션.
-    const { data: result, error } = await client.post({
-      url: '/uploads/photo',
-      body: formData,
-    })
+    // multipart/form-data 직렬화는 SDK 의 formDataBodySerializer 가 처리.
+    const { data, error } = await sdk.uploadPhoto({ client, body: { file } })
     if (error) throw new Error(errMsg(error, '업로드 실패'))
-    const typed = result as { photoUrl?: string } | undefined
+    const typed = castData<PhotoUploadResponse>(data)
     if (!typed?.photoUrl) throw new Error('photoUrl 누락')
 
     photoUrl.value = typed.photoUrl
