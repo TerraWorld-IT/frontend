@@ -176,6 +176,7 @@
 import type {
   CategoryListResponse,
   CategoryResponse,
+  CreateRecordRequest,
   CreateRecordResponse,
   PagedRecordResponse,
   PhotoUploadResponse,
@@ -286,15 +287,13 @@ async function onSubmit() {
   if (selectedCategoryId.value === null || submitting.value) return
   submitting.value = true
   try {
-    // photoUrl 은 spec sync 후 generated DTO 에 포함되지만 현재는 type 가 없어 cast 사용.
-    // BE 의 ActivityRecord 엔티티에는 photo_url 컬럼 추가 (V7 마이그레이션) 완료.
-    const body = {
+    const body: CreateRecordRequest = {
       categoryId: selectedCategoryId.value,
       duration: duration.value ? Number(duration.value) : null,
       note: note.value || null,
-      ...(photoUrl.value ? { photoUrl: photoUrl.value } : {}),
-      ...(partnerUserId.value ? { partnerUserId: partnerUserId.value } : {}),
-    } as Parameters<typeof sdk.createRecord>[0]['body']
+      photoUrl: photoUrl.value || null,
+      partnerUserId: partnerUserId.value,
+    }
     const { data, error } = await sdk.createRecord({ client, body })
     if (error) {
       throw new Error(errMsg(error, '기록 생성 실패'))

@@ -65,23 +65,38 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
+    // SEC-008: 등록 실패는 사용자 UX 차단 없이 GA4 신호로만 가시화.
+    //   - sdk 의 typed error path: { error } 객체 반환 (4xx/5xx)
+    //   - throw 분기: 네트워크 오류 / interceptor 의 redirect 등
+    //   payload 에는 reason + status code 만 (PII / 토큰 절대 안 됨).
+    const { trackPushRegistrationFailed } = useGtagEvents()
+
     PushNotifications.addListener('registration', async (token) => {
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
       // 서버에 디바이스 토큰 등록 — 멱등 (동일 user, token 은 lastSeenAt 만 갱신)
       // 인증/리프레시는 plugins/openapi.ts 의 인터셉터가 자동 처리.
-      // 등록 실패는 silent — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
+      // 등록 실패는 silent (UX 차단 없음) — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
       try {
         const client = nuxtApp.$apiClient as Parameters<typeof sdk.registerDevice>[0]['client']
-        await sdk.registerDevice({
+        const { error, response } = await sdk.registerDevice({
           client,
           body: {
             token: token.value,
             platform: resolveDevicePlatform(),
           },
         })
-      } catch {
-        // 무음 — 다음 등록 시점에 자동 재시도 됨
+        if (error) {
+          trackPushRegistrationFailed({
+            reason: 'sdk_error',
+            status: response?.status ?? 0,
+          })
+        }
+      }
+      catch (e) {
+        trackPushRegistrationFailed({
+          reason: e instanceof Error ? `exception:${e.name}` : 'exception:unknown',
+        })
       }
     })
 
