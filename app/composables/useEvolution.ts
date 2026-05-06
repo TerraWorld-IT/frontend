@@ -1,6 +1,6 @@
-import type { TerrariumResponse, UpgradeTerrariumResponse } from '@terraworld-it/openapi-frontend'
+import type { EvolutionStage, TerrariumResponse, UpgradeTerrariumResponse } from '@terraworld-it/openapi-frontend'
 
-export type EvolutionStage = 'POT' | 'BOTTLE' | 'PALUDARIUM' | 'WORLD' | 'CUSTOM'
+export type { EvolutionStage }
 
 export const EVOLUTION_STAGE_META: Record<EvolutionStage, { label: string, description: string, unlockLevel: number }> = {
   POT: { label: '토분', description: '작은 화분 — 시작 단계', unlockLevel: 1 },
