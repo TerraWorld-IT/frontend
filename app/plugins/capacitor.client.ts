@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import * as sdk from '@terraworld-it/openapi-frontend'
 
 /**
  * Capacitor client-only plugin.
@@ -20,7 +21,15 @@ const SAFE_ROUTE_RE = /^\/[^/]/
 /** Deep link allowlist: only specific path patterns are navigable */
 const DEEP_LINK_RE = /^\/share\/[A-Za-z0-9_-]{1,64}$/
 
-export default defineNuxtPlugin(async () => {
+/** Capacitor platform → 백엔드 enum 매핑 */
+function resolveDevicePlatform(): 'ANDROID' | 'IOS' | 'WEB' {
+  const p = Capacitor.getPlatform()
+  if (p === 'android') return 'ANDROID'
+  if (p === 'ios') return 'IOS'
+  return 'WEB'
+}
+
+export default defineNuxtPlugin(async (nuxtApp) => {
   if (!Capacitor.isNativePlatform()) return
 
   // --- Status Bar ---
@@ -56,8 +65,24 @@ export default defineNuxtPlugin(async () => {
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
-    PushNotifications.addListener('registration', (token) => {
+    PushNotifications.addListener('registration', async (token) => {
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
+
+      // 서버에 디바이스 토큰 등록 — 멱등 (동일 user, token 은 lastSeenAt 만 갱신)
+      // 인증/리프레시는 plugins/openapi.ts 의 인터셉터가 자동 처리.
+      // 등록 실패는 silent — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
+      try {
+        const client = nuxtApp.$apiClient as Parameters<typeof sdk.registerDevice>[0]['client']
+        await sdk.registerDevice({
+          client,
+          body: {
+            token: token.value,
+            platform: resolveDevicePlatform(),
+          },
+        })
+      } catch {
+        // 무음 — 다음 등록 시점에 자동 재시도 됨
+      }
     })
 
     PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
