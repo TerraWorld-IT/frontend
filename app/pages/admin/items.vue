@@ -54,7 +54,7 @@
     <CommonModal :model-value="showCreateDialog" @update:model-value="showCreateDialog = false">
       <div class="space-y-4">
         <h3 class="font-bold text-lg text-riso-dark">새 아이템 등록</h3>
-        <p class="text-sm text-riso-dark/40">아이템 생성 폼은 Phase 2에서 구현 예정입니다.</p>
+        <p class="text-sm text-riso-dark/40">아이템 생성 폼은 Phase 4 출시 후 어드민 도구 정비 단계에 추가됩니다.</p>
         <button
           class="w-full h-11 rounded-full bg-riso-navy text-white font-medium text-sm"
           @click="showCreateDialog = false"
