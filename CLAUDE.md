@@ -48,7 +48,15 @@ State:          Pinia
 Auth:           better-auth (Nitro 서버, PostgreSQL 공유 DB)
 Validation:     valibot
 Date:           dayjs
-Lint:           oxlint
+Lint:           oxlint (3 rules: no-unused-vars, no-console, eqeqeq)
+Format:         미적용 — Option A. oxlint 는 formatter 가 없고 (oxc 는
+                linter-only), prettier 는 의도적으로 도입하지 않음. 이유:
+                (1) 기존 50 vue / 51 ts / 20 json 파일에 도입 시 ~500-800
+                LOC churn 부담, (2) oxlint 와 conflict 0 이지만 in-flight
+                PR rebase 충돌 위험. post-launch (2026-09 이후) FE 코드
+                150+ 파일로 확대되면 root prettier 도입 재검토 (Option B).
+                openapi 패키지 (별도 repo) 는 prettier 보유 — 일관성
+                의도적 비동기.
 Git Hooks:      lefthook (pre-commit lint)
 Commit:         cocogito (cog.toml)
 Capture:        html2canvas (테라리움 → PNG)
