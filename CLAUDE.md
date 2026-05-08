@@ -61,10 +61,12 @@ Git Hooks:      lefthook (pre-commit lint)
 Commit:         cocogito (cog.toml)
 Capture:        html2canvas (테라리움 → PNG)
 Confetti:       canvas-confetti (기록 저장 후 연출)
-Native:         Capacitor 8 (Android 우선, iOS 추후)
+Native:         Capacitor 8 (Android + iOS scaffold 완료, 2026-05-07 mobile #4 SPM 빌드)
                 +@capacitor/filesystem (스크린샷 임시 저장)
                 +@capacitor-community/admob (보상형 광고)
                 +@capacitor/share, app, camera, haptics, keyboard, push, splash, statusbar
+                iOS 잔여: Xcode UI 에서 App.entitlements / release.xcconfig link
+                + Package.resolved 커밋 (macOS swift package resolve)
 ```
 
 ### Nuxt 모듈
