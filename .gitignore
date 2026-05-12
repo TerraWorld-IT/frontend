@@ -6,6 +6,9 @@
 .cache
 dist
 
+# Test coverage (vitest v8) — CI 가 artifact 로 업로드
+coverage
+
 # Node dependencies
 node_modules
 package-lock.json
