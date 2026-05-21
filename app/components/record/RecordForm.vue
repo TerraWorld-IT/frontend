@@ -5,19 +5,19 @@
   >
     <div class="flex items-center gap-2">
       <span class="text-2xl">{{ category.emoji ?? '🏷️' }}</span>
-      <h3 class="font-bold text-lg text-black">{{ category.name }} 기록</h3>
+      <h3 class="font-bold text-lg text-black">{{ $t('record.categoryRecordTitle', { name: category.name }) }}</h3>
     </div>
 
     <div>
       <label for="record-duration" class="block text-sm font-semibold mb-2 text-black">
-        시간 (분, 선택사항)
+        {{ $t('record.durationLabel') }}
       </label>
       <input
         id="record-duration"
         :value="duration"
         type="number"
         min="1"
-        placeholder="예: 30"
+        :placeholder="$t('record.durationPlaceholder')"
         class="w-full h-12 rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-riso-pink"
         @input="$emit('update:duration', ($event.target as HTMLInputElement).value)"
       >
@@ -25,13 +25,13 @@
 
     <div>
       <label for="record-note" class="block text-sm font-semibold mb-2 text-black">
-        메모 (선택사항)
+        {{ $t('record.noteLabel') }}
       </label>
       <textarea
         id="record-note"
         :value="note"
         rows="3"
-        placeholder="오늘의 기록을 남겨보세요..."
+        :placeholder="$t('record.notePlaceholder')"
         class="w-full rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 py-3 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-riso-pink resize-none"
         @input="$emit('update:note', ($event.target as HTMLTextAreaElement).value)"
       />
@@ -47,7 +47,7 @@
       @click="$emit('submit')"
     >
       <Icon name="lucide:sparkles" class="w-4 h-4" />
-      <span>{{ submitting ? '기록 중...' : '기록하고 보상 받기' }}</span>
+      <span>{{ submitting ? $t('record.submitting') : $t('record.submitAndReward') }}</span>
     </button>
   </div>
 </template>

@@ -4,15 +4,15 @@
       <!-- Header -->
       <div class="flex justify-between items-center">
         <div>
-          <h3 class="font-bold text-riso-dark">슬롯 {{ slotId }} 꾸미기</h3>
-          <p class="text-xs text-riso-dark/40">{{ slotTypeLabel }} 아이템을 선택하세요</p>
+          <h3 class="font-bold text-riso-dark">{{ $t('terrarium.slotDecorate', { slot: slotId }) }}</h3>
+          <p class="text-xs text-riso-dark/40">{{ $t('terrarium.slotSelectHint', { type: slotTypeLabel }) }}</p>
         </div>
         <button
           v-if="currentItem"
           class="text-xs bg-riso-poppy/10 text-riso-poppy px-3 py-1.5 rounded-full border border-riso-poppy/20 active:scale-95 transition-transform"
           @click="$emit('remove', slotId)"
         >
-          제거
+          {{ $t('terrarium.removeItem') }}
         </button>
       </div>
 
@@ -42,16 +42,16 @@
               'bg-gray-100 text-gray-500'
             ]"
           >
-            {{ item.rarity === 'EPIC' ? '에픽' : item.rarity === 'RARE' ? '레어' : '일반' }}
+            {{ item.rarity === 'EPIC' ? $t('shop.epic') : item.rarity === 'RARE' ? $t('shop.rare') : $t('shop.common') }}
           </span>
         </button>
       </div>
 
       <!-- Empty state -->
       <div v-if="compatibleItems.length === 0" class="text-center py-8">
-        <p class="text-riso-dark/30 text-sm">보유한 {{ slotTypeLabel }} 아이템이 없습니다</p>
+        <p class="text-riso-dark/30 text-sm">{{ $t('terrarium.noOwnedItems', { type: slotTypeLabel }) }}</p>
         <NuxtLink to="/shop" class="text-xs text-riso-blue mt-2 inline-block">
-          상점에서 구매하기 →
+          {{ $t('terrarium.goShop') }}
         </NuxtLink>
       </div>
     </div>
@@ -60,6 +60,8 @@
 
 <script setup lang="ts">
 import type { ItemResponse, PlacedItemDetail } from '@terraworld-it/openapi-frontend'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   show: boolean
@@ -84,14 +86,17 @@ const SLOT_TYPE_MAP: Record<number, string> = {
   4: 'FOREGROUND',
 }
 
-const SLOT_TYPE_LABELS: Record<string, string> = {
-  BACKGROUND: '후경',
-  FOREGROUND: '전경',
-  FIGURE: '피규어',
+const SLOT_TYPE_LABEL_KEYS: Record<string, string> = {
+  BACKGROUND: 'terrarium.background',
+  FOREGROUND: 'terrarium.foreground',
+  FIGURE: 'terrarium.figure',
 }
 
 const slotType = computed(() => SLOT_TYPE_MAP[props.slotId] ?? 'FOREGROUND')
-const slotTypeLabel = computed(() => SLOT_TYPE_LABELS[slotType.value] ?? '')
+const slotTypeLabel = computed(() => {
+  const key = SLOT_TYPE_LABEL_KEYS[slotType.value]
+  return key ? t(key) : ''
+})
 
 // Filter: owned + matching layout type
 const compatibleItems = computed(() => {

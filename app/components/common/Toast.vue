@@ -1,6 +1,16 @@
 <template>
   <Teleport to="body">
-    <div class="fixed top-16 left-1/2 -translate-x-1/2 z-[9998] flex flex-col gap-2 w-full max-w-sm px-4">
+    <!--
+      WCAG 2.1 SC 4.1.3 (Status Messages) — screen reader 사용자에게 toast 공지.
+      role="status" + aria-live="polite" + aria-atomic — 일반 알림은 polite (현재 작업 방해 X).
+      error type 의 우선순위는 cite 의 직접 트리거가 알려주므로 별도 role="alert" 분기 안 함.
+    -->
+    <div
+      class="fixed top-16 left-1/2 -translate-x-1/2 z-[9998] flex flex-col gap-2 w-full max-w-sm px-4"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <TransitionGroup name="toast">
         <div
           v-for="toast in toasts"

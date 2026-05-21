@@ -3,19 +3,19 @@
     <!-- Loading -->
     <div v-if="pending" class="text-center space-y-3">
       <CommonLoading />
-      <p class="text-sm text-riso-dark/40">테라리움을 불러오는 중...</p>
+      <p class="text-sm text-riso-dark/40">{{ $t('share.loading') }}</p>
     </div>
 
     <!-- Error -->
     <div v-else-if="error" class="text-center space-y-4">
       <p class="text-6xl">🫧</p>
-      <p class="text-riso-dark font-bold text-lg">테라리움을 찾을 수 없어요</p>
-      <p class="text-sm text-riso-dark/40">초대 코드가 만료되었거나 잘못되었을 수 있어요</p>
+      <p class="text-riso-dark font-bold text-lg">{{ $t('share.notFound') }}</p>
+      <p class="text-sm text-riso-dark/40">{{ $t('share.notFoundDesc') }}</p>
       <NuxtLink
         to="/"
         class="inline-block bg-riso-sage text-white px-6 py-2.5 rounded-full text-sm font-medium riso-shadow-sm"
       >
-        TerraWorld 시작하기
+        {{ $t('share.startTerraWorld') }}
       </NuxtLink>
     </div>
 
@@ -25,8 +25,8 @@
       <div class="w-full max-w-sm space-y-5">
         <!-- User info -->
         <div class="text-center space-y-1">
-          <p class="text-sm text-riso-dark/40">{{ sharedData?.nickname }}님의 테라리움</p>
-          <h1 class="text-xl font-bold text-riso-dark">My Terrarium</h1>
+          <p class="text-sm text-riso-dark/40">{{ $t('share.userTerrarium', { nickname: sharedData?.nickname }) }}</p>
+          <h1 class="text-xl font-bold text-riso-dark">{{ $t('share.myTerrariumTitle') }}</h1>
         </div>
 
         <!-- Jar preview (read-only) -->
@@ -56,11 +56,11 @@
         <!-- Stats -->
         <div class="flex gap-3">
           <div class="flex-1 bg-white rounded-2xl p-3 border border-riso-walnut/10 text-center riso-shadow-sm">
-            <p class="text-xs text-riso-dark/30">아이템</p>
+            <p class="text-xs text-riso-dark/30">{{ $t('terrarium.items') }}</p>
             <p class="font-bold text-lg text-riso-dark">{{ sharedData?.placedItems?.length ?? 0 }}</p>
           </div>
           <div class="flex-1 bg-white rounded-2xl p-3 border border-riso-walnut/10 text-center riso-shadow-sm">
-            <p class="text-xs text-riso-dark/30">배경</p>
+            <p class="text-xs text-riso-dark/30">{{ $t('terrarium.background') }}</p>
             <p class="font-bold text-sm text-riso-dark">{{ sharedData?.background?.name ?? '-' }}</p>
           </div>
         </div>
@@ -73,13 +73,13 @@
             :disabled="accepting"
             @click="acceptInvite"
           >
-            {{ accepting ? '수락 중...' : '초대 수락하기' }}
+            {{ accepting ? $t('share.accepting') : $t('share.acceptInvite') }}
           </button>
           <NuxtLink
             to="/"
             class="block w-full bg-riso-sage text-white rounded-2xl py-3 font-bold text-sm riso-shadow-sm text-center active:scale-95 transition-transform"
           >
-            나도 TerraWorld 시작하기
+            {{ $t('share.startTerraWorldCta') }}
           </NuxtLink>
         </div>
       </div>
@@ -96,31 +96,39 @@ const route = useRoute()
 const { sdk, client } = useOpenApi()
 const { isLoggedIn } = useAuth()
 const toast = useToast()
+const { t } = useI18n()
 
 const code = computed(() => route.params.code as string)
 
-// SSR-friendly data fetch.
-// TODO: 현재는 getTerrarium 만 호출 — nickname 은 미지원. 추후 전용 share API
-// 또는 /users/{id}/terrarium 식으로 통합 응답이 나오면 교체.
+// N16 (구현 계획서 v4, 2026-05-21): 전용 public share API 연동.
+// `GET /api/v1/share/{code}` — invite code 의 발신자(초대자) terrarium + nickname 을 반환.
+// 인증 불요 — 미가입 사용자도 공유 링크로 발신자 테라리움을 구경 가능.
+// 응답 ShareResponse { nickname, terrarium } 를 평탄화해 기존 템플릿 shape 유지.
 type ShareData = TerrariumResponse & { nickname?: string }
 
 const { data: sharedData, pending, error } = await useAsyncData(
   `share-${code.value}`,
   async () => {
-    const { data, error } = await sdk.getTerrarium({ client })
+    const { data, error } = await sdk.getSharedTerrarium({ client, path: { code: code.value } })
     if (error) throw error
-    return castData<ShareData>(data) ?? null
+    const share = castData<import('@terraworld-it/openapi-frontend').ShareResponse>(data)
+    if (!share) return null
+    const result: ShareData = {
+      ...share.terrarium,
+      nickname: share.nickname,
+    }
+    return result
   },
 )
 
 // OG meta tags (SSR)
 useHead({
-  title: `${sharedData.value ? '테라리움 구경하기' : 'TerraWorld'} | TerraWorld`,
+  title: computed(() => `${sharedData.value ? t('share.ogTitle') : 'TerraWorld'} | TerraWorld`),
   meta: [
-    { property: 'og:title', content: '친구의 테라리움을 구경해보세요!' },
-    { property: 'og:description', content: '일상을 기록하고, 나만의 테라리움을 꾸며보세요' },
+    { property: 'og:title', content: computed(() => t('share.ogSocialTitle')) },
+    { property: 'og:description', content: computed(() => t('share.ogDesc')) },
     { property: 'og:type', content: 'website' },
-    { name: 'description', content: '일상을 기록하고, 나만의 테라리움을 꾸며보세요' },
+    { name: 'description', content: computed(() => t('share.ogDesc')) },
   ],
 })
 
@@ -132,11 +140,11 @@ async function acceptInvite() {
     const { data, error } = await sdk.acceptInvite({ client, path: { code: code.value } })
     if (error) throw error
     const result = castData<import('@terraworld-it/openapi-frontend').InviteAcceptResponse>(data)
-    toast.success(`초대 수락 완료! 스페셜 코인 +${result?.reward?.specialCoins ?? 0}`)
+    toast.success(t('share.acceptSuccess', { n: result?.reward?.specialCoins ?? 0 }))
     await navigateTo('/')
   }
   catch {
-    toast.error('초대 수락에 실패했습니다')
+    toast.error(t('share.acceptFail'))
   }
   finally {
     accepting.value = false

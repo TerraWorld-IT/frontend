@@ -14,7 +14,7 @@
         </div>
       </div>
       <div v-if="record.duration" class="text-sm font-semibold text-[#525252]">
-        {{ record.duration }}분
+        {{ $t('record.durationMin', { n: record.duration }) }}
       </div>
     </div>
     <div v-if="record.memo" class="mt-3 text-sm text-[#525252] pl-[60px]">

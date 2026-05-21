@@ -5,22 +5,22 @@
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
-      <p class="text-riso-poppy font-medium">불러오기 실패</p>
+      <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
       <p class="text-xs text-riso-dark/60">{{ fetchError.message }}</p>
       <button
         class="mt-2 px-4 py-2 rounded-full bg-riso-pink text-white text-sm riso-shadow-sm"
         @click="load"
       >
-        다시 시도
+        {{ $t('common.retry') }}
       </button>
     </div>
 
     <template v-else>
       <!-- 헤더 -->
       <div class="space-y-1">
-        <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">캘린더</h2>
+        <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">{{ $t('calendar.title') }}</h2>
         <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
-          나의 기록을 한눈에 확인하세요
+          {{ $t('calendar.subtitle') }}
         </p>
       </div>
 
@@ -29,34 +29,34 @@
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold flex items-center gap-2 text-black">
             <Icon name="lucide:trending-up" class="w-5 h-5" />
-            활동 통계
+            {{ $t('calendar.activityStats') }}
           </h3>
           <button
             type="button"
             class="text-xs font-medium text-[#97a8f1] hover:text-black transition-colors"
             @click="showDetailedStats = !showDetailedStats"
           >
-            {{ showDetailedStats ? '접기' : '자세히보기' }}
+            {{ showDetailedStats ? $t('calendar.collapse') : $t('calendar.viewDetail') }}
           </button>
         </div>
 
         <div class="grid grid-cols-3 gap-3">
           <div class="p-4 rounded-[12px] text-center" style="background-color: #e8ecfc">
             <div class="text-[24px] font-bold text-black leading-[32px]">{{ stats?.todayRecords ?? 0 }}</div>
-            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">오늘</div>
+            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">{{ $t('calendar.today') }}</div>
           </div>
           <div class="p-4 rounded-[12px] text-center" style="background-color: #e8ecfc">
             <div class="text-[24px] font-bold text-black leading-[32px]">{{ stats?.thisWeekRecords ?? 0 }}</div>
-            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">이번 주</div>
+            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">{{ $t('calendar.thisWeek') }}</div>
           </div>
           <div class="p-4 rounded-[12px] text-center" style="background-color: #e8ecfc">
             <div class="text-[24px] font-bold text-black leading-[32px]">{{ stats?.totalRecords ?? 0 }}</div>
-            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">전체</div>
+            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">{{ $t('calendar.total') }}</div>
           </div>
         </div>
 
         <div v-if="showDetailedStats && stats && stats.byCategory.length > 0" class="space-y-3 mt-5 pt-5 border-t border-black/10">
-          <div class="text-sm font-bold mb-3 text-black">카테고리별 기록</div>
+          <div class="text-sm font-bold mb-3 text-black">{{ $t('calendar.byCategory') }}</div>
           <div v-for="cat in stats.byCategory" :key="cat.categoryId" class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-[12px] flex items-center justify-center text-lg" style="background-color: #e8ecfc">
               {{ cat.emoji ?? '🏷️' }}
@@ -64,7 +64,7 @@
             <div class="flex-1">
               <div class="flex justify-between text-sm mb-1.5">
                 <span class="font-semibold text-black">{{ cat.categoryName }}</span>
-                <span class="font-bold text-black">{{ cat.count }}회</span>
+                <span class="font-bold text-black">{{ $t('calendar.countTimes', { n: cat.count }) }}</span>
               </div>
               <div class="h-2 bg-[#f5f5f5] rounded-full overflow-hidden">
                 <div
@@ -89,7 +89,7 @@
           >
             <Icon name="lucide:chevron-left" class="w-4 h-4" />
           </button>
-          <h3 class="text-lg font-bold text-black">{{ currentYear }}년 {{ currentMonth + 1 }}월</h3>
+          <h3 class="text-lg font-bold text-black">{{ $t('calendar.yearMonth', { year: currentYear, month: currentMonth + 1 }) }}</h3>
           <button
             type="button"
             class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
@@ -140,7 +140,7 @@
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold flex items-center gap-2 text-black">
             <Icon name="lucide:calendar" class="w-5 h-5" />
-            {{ selectedDate.getMonth() + 1 }}월 {{ selectedDate.getDate() }}일
+            {{ $t('calendar.monthDay', { month: selectedDate.getMonth() + 1, day: selectedDate.getDate() }) }}
           </h3>
           <button
             type="button"
@@ -153,7 +153,7 @@
 
         <!-- 해당 날짜 기록 -->
         <div class="mb-4">
-          <div class="text-sm font-bold mb-3 text-black">완료한 활동</div>
+          <div class="text-sm font-bold mb-3 text-black">{{ $t('calendar.completedActivities') }}</div>
           <div v-if="selectedDayRecords.length > 0" class="space-y-2">
             <div
               v-for="record in selectedDayRecords"
@@ -168,23 +168,23 @@
                 <div class="font-semibold text-sm text-black">{{ record.categoryName }}</div>
                 <div class="text-xs text-[#525252]">
                   {{ formatTime(record.recordedDate) }}
-                  <span v-if="record.duration"> · {{ record.duration }}분</span>
+                  <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
                 </div>
               </div>
               <div class="px-3 py-1 rounded-[8px] text-xs font-bold text-white" style="background-color: #97a8f1">
-                완료
+                {{ $t('calendar.done') }}
               </div>
             </div>
           </div>
           <div v-else class="text-sm text-[#a1a1a1] text-center py-6 bg-[#f5f5f5] rounded-[12px]">
-            기록이 없습니다
+            {{ $t('calendar.noRecords') }}
           </div>
         </div>
 
         <!-- 메모 -->
         <div>
           <div class="flex items-center justify-between mb-3">
-            <div class="text-sm font-bold text-black">메모</div>
+            <div class="text-sm font-bold text-black">{{ $t('calendar.memo') }}</div>
             <button
               v-if="!isEditingNote"
               type="button"
@@ -192,7 +192,7 @@
               @click="startEdit"
             >
               <Icon name="lucide:edit-2" class="w-3 h-3" />
-              {{ selectedNote ? '수정' : '작성' }}
+              {{ selectedNote ? $t('calendar.memoEdit') : $t('calendar.memoWrite') }}
             </button>
           </div>
 
@@ -200,7 +200,7 @@
             <textarea
               v-model="editingNoteText"
               rows="3"
-              placeholder="이 날의 메모를 작성해보세요..."
+              :placeholder="$t('calendar.memoPlaceholder')"
               class="w-full rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 py-3 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-[#97a8f1] resize-none text-sm"
             />
             <div class="flex gap-2">
@@ -211,7 +211,7 @@
                 @click="saveNote"
               >
                 <Icon name="lucide:check" class="w-4 h-4" />
-                {{ noteSaving ? '저장 중...' : '저장' }}
+                {{ noteSaving ? $t('calendar.saving') : $t('common.save') }}
               </button>
               <button
                 type="button"
@@ -224,7 +224,7 @@
           </div>
           <div v-else class="p-4 bg-[#f5f5f5] rounded-[12px] text-sm min-h-[60px] text-[#525252]">
             <span v-if="selectedNote">{{ selectedNote }}</span>
-            <span v-else class="text-[#a1a1a1]">메모가 없습니다</span>
+            <span v-else class="text-[#a1a1a1]">{{ $t('calendar.noMemo') }}</span>
           </div>
         </div>
       </div>
@@ -244,8 +244,12 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { t } = useI18n()
 
-const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+const DAYS = computed(() => [
+  t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'),
+  t('calendar.thu'), t('calendar.fri'), t('calendar.sat'),
+])
 
 const pending = ref(true)
 const fetchError = ref<Error | null>(null)
@@ -440,7 +444,7 @@ async function saveNote() {
       const saved = (data as NoteResponse | undefined)?.note ?? text
       noteMap.value[key] = saved
       selectedNote.value = saved
-      toast.success('메모가 저장되었습니다')
+      toast.success(t('calendar.memoSaved'))
     }
     else {
       // empty → delete
@@ -448,7 +452,7 @@ async function saveNote() {
       if (error) throw new Error(errMsg(error, '메모 삭제 실패'))
       noteMap.value[key] = ''
       selectedNote.value = null
-      toast.success('메모가 삭제되었습니다')
+      toast.success(t('calendar.memoDeleted'))
     }
     isEditingNote.value = false
   }

@@ -4,6 +4,10 @@
       <div
         v-if="visible"
         class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none"
+        role="status"
+        aria-live="assertive"
+        aria-atomic="true"
+        :aria-label="ariaLabel"
       >
         <!-- Coin reward -->
         <div
@@ -51,6 +55,8 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
+
 const props = defineProps<{
   coin?: number
   token?: number
@@ -62,6 +68,17 @@ const props = defineProps<{
 
 const visible = ref(false)
 let timer: ReturnType<typeof setTimeout> | null = null
+
+// WCAG 2.1 SC 4.1.3 (Status Messages) — screen reader 사용자에게 보상 공지.
+// aria-live="assertive" 선택 이유: 보상은 사용자 행동의 직접 결과 (시각/청각 동시 피드백 필요).
+// Loading 은 polite, Toast 도 polite, RewardToast 만 assertive (importance 차등).
+const ariaLabel = computed(() => {
+  const parts: string[] = []
+  if (props.coin) parts.push(t('reward.coinEarned', { n: props.coin }))
+  if (props.token) parts.push(t('reward.tokenEarned', { n: props.token }))
+  if (props.exp) parts.push(t('reward.expEarned', { n: props.exp }))
+  return parts.length ? parts.join(', ') : t('reward.earned')
+})
 
 function show() {
   visible.value = true
@@ -101,5 +118,27 @@ onUnmounted(() => {
 }
 .animate-bounce-in {
   animation: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/*
+ * UltraPlan code-review UX-003 — `prefers-reduced-motion: reduce` 대응.
+ * vestibular disorder 사용자 (~5-10%) 의 어지러움 / 멀미 차단.
+ * WCAG 2.1 SC 2.3.3 (Animation from Interactions).
+ * bounce / scale / translate 애니메이션은 즉시 표시 (transition 만 fade)
+ */
+@media (prefers-reduced-motion: reduce) {
+  .reward-slide-enter-active,
+  .reward-slide-leave-active {
+    transition: opacity 0.15s ease-out;
+  }
+  .reward-slide-enter-from,
+  .reward-slide-leave-to {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(1);
+  }
+  .animate-bounce-in {
+    animation: none;
+    opacity: 1;
+  }
 }
 </style>

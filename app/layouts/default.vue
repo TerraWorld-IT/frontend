@@ -73,14 +73,16 @@ interface Tab {
   center?: boolean
 }
 
+const { t } = useI18n()
+
 // Tabs ported from Figma0409 Root.tsx (order + colors + labels)
-const tabs: Tab[] = [
-  { to: '/record', icon: 'lucide:pen-tool', label: '기록', color: '#f092f0', bgColor: '#fffbf0' },
-  { to: '/calendar', icon: 'lucide:calendar', label: '캘린더', color: '#97a8f1', bgColor: '#f0fbff' },
-  { to: '/', icon: 'lucide:sprout', label: '나의테라', color: '#7edbc0', bgColor: '#f0fff4', center: true },
-  { to: '/shop', icon: 'lucide:shopping-bag', label: '상점', color: '#fcee5a', bgColor: '#fff5f5' },
-  { to: '/profile', icon: 'lucide:user', label: '서랍', color: '#eb662c', bgColor: '#faf5ff' },
-]
+const tabs = computed<Tab[]>(() => [
+  { to: '/record', icon: 'lucide:pen-tool', label: t('nav.record'), color: '#f092f0', bgColor: '#fffbf0' },
+  { to: '/calendar', icon: 'lucide:calendar', label: t('nav.calendar'), color: '#97a8f1', bgColor: '#f0fbff' },
+  { to: '/', icon: 'lucide:sprout', label: t('nav.terrarium'), color: '#7edbc0', bgColor: '#f0fff4', center: true },
+  { to: '/shop', icon: 'lucide:shopping-bag', label: t('nav.shop'), color: '#fcee5a', bgColor: '#fff5f5' },
+  { to: '/profile', icon: 'lucide:user', label: t('nav.profile'), color: '#eb662c', bgColor: '#faf5ff' },
+])
 
 const route = useRoute()
 const { hapticImpact } = useNative()
@@ -99,7 +101,7 @@ function activeStyle(tab: Tab): Record<string, string> {
 }
 
 const currentBgColor = computed(() => {
-  const match = tabs.find((t) => t.to === route.path)
+  const match = tabs.value.find((tab) => tab.to === route.path)
   return match?.bgColor ?? '#ffffff'
 })
 </script>

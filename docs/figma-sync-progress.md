@@ -1,5 +1,10 @@
 # Figma0409 → Nuxt 포팅 진행 체크포인트
 
+> **⚠ STALE (2026-04-24 이후 dormant)** — Figma 포팅 워크플로 종료. 본 문서는 historical
+> record 로 보존 (i18n 도입 시점 결정 등 trace 가치). ADR-003 (i18n REMOVE Accepted,
+> 2026-05-16) 적용 후 본 문서의 i18n 관련 표현은 stale — current state 는
+> `docs/decisions/ADR-003-i18n-removal.md` 참조.
+
 > 이 문서는 `/loop`가 매 회차 읽고 갱신합니다. 사람이 수동으로 편집해도 됩니다.
 > 상태 값: `todo` / `in_progress` / `done` / `blocked`
 

@@ -14,10 +14,10 @@
     >
       <div class="bg-riso-cream max-w-md w-[92%] rounded-xl p-6 riso-shadow">
         <h2 id="upgrade-modal-title" class="text-xl font-bold text-riso-dark mb-2">
-          테라리움 진화
+          {{ $t('terrarium.evolutionTitle') }}
         </h2>
         <p class="text-sm text-riso-dark/70 mb-4">
-          현재 단계: <strong>{{ currentLabel }}</strong>
+          {{ $t('terrarium.evolutionCurrentStage') }}: <strong>{{ currentLabel }}</strong>
         </p>
 
         <ul class="space-y-2 mb-4">
@@ -31,7 +31,7 @@
               <div class="font-semibold text-riso-dark flex items-center gap-2">
                 {{ stage.meta.label }}
                 <span v-if="stage.locked" class="text-xs text-riso-dark/50">🔒 Lv {{ stage.meta.unlockLevel }}+</span>
-                <span v-else-if="stage.id === 'CUSTOM' && !entitled" class="text-xs text-riso-poppy">유료</span>
+                <span v-else-if="stage.id === 'CUSTOM' && !entitled" class="text-xs text-riso-poppy">{{ $t('terrarium.paid') }}</span>
               </div>
               <div class="text-xs text-riso-dark/60">{{ stage.meta.description }}</div>
             </div>
@@ -41,7 +41,7 @@
               class="text-sm px-3 py-1 rounded-md bg-riso-sage text-white disabled:bg-riso-dark/20 disabled:text-riso-dark/40"
               @click="select(stage.id)"
             >
-              {{ stage.id === current ? '현재' : '선택' }}
+              {{ stage.id === current ? $t('terrarium.currentStage') : $t('terrarium.selectStage') }}
             </button>
           </li>
         </ul>
@@ -54,7 +54,7 @@
             class="px-4 py-2 text-sm text-riso-dark/70 hover:text-riso-dark"
             @click="close"
           >
-            닫기
+            {{ $t('common.close') }}
           </button>
         </div>
       </div>
@@ -65,6 +65,8 @@
 <script setup lang="ts">
 import { EvolutionStage, type TerrariumResponse } from '@terraworld-it/openapi-frontend'
 import { EVOLUTION_STAGE_META } from '~/composables/useEvolution'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -111,7 +113,7 @@ async function select(target: EvolutionStage) {
     emit('upgraded', result.terrarium)
     close()
   } else {
-    errorMsg.value = '진화 처리 중 오류가 발생했습니다'
+    errorMsg.value = t('terrarium.evolutionError')
   }
 }
 

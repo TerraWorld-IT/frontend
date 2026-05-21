@@ -85,6 +85,8 @@ export default defineNuxtConfig({
     'nuxt-gtag',
     '@nuxtjs/color-mode',
     '@nuxtjs/i18n',
+    // UltraPlan v3 I-REVERT-002 (2026-05-18) — 사용자 결정 #3: i18n 유지 + 다국어 본격 도입
+    // ADR-005 (Accepted) supersedes ADR-003 (i18n REMOVE). 단계적 ko→en→ja 도입.
   ],
 
   i18n: {
@@ -108,6 +110,13 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // UltraPlan UX-001 — WCAG 2.1 SC 3.1.1 (Language of Page).
+      // ADR-003 (i18n REMOVE) 후 단일 한국어 정책 — screen reader 가 한국어 TTS 사용하도록
+      // <html lang="ko"> 명시 강제. dir="ltr" 도 함께 명시 (RTL 미지원).
+      htmlAttrs: {
+        lang: 'ko',
+        dir: 'ltr',
+      },
       title: 'TerraWorld',
       meta: [
         { charset: 'utf-8' },
@@ -156,6 +165,13 @@ export default defineNuxtConfig({
 
   typescript: {
     strict: true,
+    // UltraPlan M3 — noUncheckedIndexedAccess.
+    // 잠재 unsafe index 접근 (array[i] / record[key]) 을 type level 에서 차단.
+    tsConfig: {
+      compilerOptions: {
+        noUncheckedIndexedAccess: true,
+      },
+    },
   },
 
   routeRules: buildRouteRules(),

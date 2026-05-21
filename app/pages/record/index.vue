@@ -5,13 +5,13 @@
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
-      <p class="text-riso-poppy font-medium">불러오기 실패</p>
+      <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
       <p class="text-xs text-riso-dark/60">{{ fetchError.message }}</p>
       <button
         class="mt-2 px-4 py-2 rounded-full bg-riso-pink text-white text-sm riso-shadow-sm"
         @click="load"
       >
-        다시 시도
+        {{ $t('common.retry') }}
       </button>
     </div>
 
@@ -19,10 +19,10 @@
       <!-- Header -->
       <div class="space-y-1">
         <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">
-          행동 기록하기
+          {{ $t('record.pageTitle') }}
         </h2>
         <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
-          일상의 행동을 기록하고 보상을 받아보세요
+          {{ $t('record.pageSubtitle') }}
         </p>
       </div>
 
@@ -40,7 +40,7 @@
           @click="recordType = 'solo'"
         >
           <Icon name="lucide:sparkles" class="w-4 h-4" />
-          <span>기록</span>
+          <span>{{ $t('record.tabSolo') }}</span>
         </button>
         <button
           type="button"
@@ -54,7 +54,7 @@
           @click="recordType = 'friend'"
         >
           <Icon name="lucide:users" class="w-4 h-4" />
-          <span>친구와 함께 기록</span>
+          <span>{{ $t('record.tabFriend') }}</span>
         </button>
       </div>
 
@@ -77,7 +77,7 @@
         <div class="bg-white rounded-[16px] border border-black/10 p-4 space-y-3">
           <div class="flex items-center justify-between">
             <p class="text-[13px] font-semibold text-black">
-              사진 첨부 <span class="text-[11px] font-normal text-[#737373]">(선택)</span>
+              {{ $t('record.photoAttach') }} <span class="text-[11px] font-normal text-[#737373]">{{ $t('record.optional') }}</span>
             </p>
             <button
               v-if="photoUrl"
@@ -85,7 +85,7 @@
               class="text-[12px] text-riso-poppy underline"
               @click="onClearPhoto"
             >
-              제거
+              {{ $t('record.photoRemove') }}
             </button>
           </div>
           <button
@@ -96,12 +96,12 @@
             @click="fileInputRef?.click()"
           >
             <Icon name="lucide:camera" class="w-4 h-4" />
-            <span>{{ uploadingPhoto ? '업로드 중...' : '사진 추가' }}</span>
+            <span>{{ uploadingPhoto ? $t('record.photoUploading') : $t('record.photoAdd') }}</span>
           </button>
           <img
             v-else
             :src="photoUrl"
-            alt="첨부 사진 미리보기"
+            :alt="$t('record.photoPreviewAlt')"
             class="w-full max-h-[240px] object-cover rounded-[12px] riso-shadow-sm"
           >
           <input
@@ -115,7 +115,7 @@
         </div>
 
         <div v-if="recentRecords.length > 0">
-          <h3 class="font-bold mb-3 text-black">최근 기록</h3>
+          <h3 class="font-bold mb-3 text-black">{{ $t('record.recentRecords') }}</h3>
           <div class="space-y-2">
             <RecordRecordCard
               v-for="record in recentRecords"
@@ -139,16 +139,15 @@
           </div>
 
           <div class="space-y-2">
-            <h3 class="text-xl font-bold text-black">친구와 함께 기록하기</h3>
+            <h3 class="text-xl font-bold text-black">{{ $t('record.friendTitle') }}</h3>
             <p class="text-sm text-[#525252]">
-              친구를 초대하여 함께 활동을 기록하고<br>
-              더 많은 보상을 받아보세요!
+              {{ $t('record.friendDesc') }}
             </p>
           </div>
 
           <div class="rounded-[16px] p-4 space-y-2" style="background-color: #f1c3f4">
-            <div class="text-sm font-bold text-black">함께하면 더 즐거운 테라월드</div>
-            <div class="text-sm text-[#525252]">스페셜 코인 획득 가능!</div>
+            <div class="text-sm font-bold text-black">{{ $t('record.friendBannerTitle') }}</div>
+            <div class="text-sm text-[#525252]">{{ $t('record.friendBannerDesc') }}</div>
           </div>
 
           <button
@@ -159,12 +158,11 @@
             @click="onInvite"
           >
             <Icon name="lucide:user-plus" class="w-4 h-4" />
-            <span>{{ invitePending ? '링크 생성 중...' : '친구 초대하기' }}</span>
+            <span>{{ invitePending ? $t('record.invitePending') : $t('record.inviteButton') }}</span>
           </button>
 
           <div class="text-xs text-[#737373]">
-            초대 링크를 통해 친구가 가입하면<br>
-            양쪽 모두 특별 보상을 받을 수 있습니다
+            {{ $t('record.inviteHint') }}
           </div>
         </div>
       </template>
@@ -187,6 +185,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { t } = useI18n()
 const { trackRecordCreated } = useGtagEvents()
 
 const pending = ref(true)
@@ -250,10 +249,10 @@ async function onFileSelected(e: Event) {
     if (!typed?.photoUrl) throw new Error('photoUrl 누락')
 
     photoUrl.value = typed.photoUrl
-    toast.success('사진이 업로드되었어요')
+    toast.success(t('record.photoUploaded'))
   }
   catch (e) {
-    toast.error(`업로드 실패: ${(e as Error).message}`)
+    toast.error(t('record.photoUploadFail', { msg: (e as Error).message }))
   }
   finally {
     uploadingPhoto.value = false
@@ -309,9 +308,10 @@ async function onSubmit() {
         categoryTokens: rew.categoryTokens,
         experienceGained: rew.experienceGained,
       })
-      toast.success(
-        `+${rew.basicCoins.toFixed(1)} 코인, +${rew.categoryTokens.toFixed(1)} 토큰`,
-      )
+      toast.success(t('record.rewardToast', {
+        coins: rew.basicCoins.toFixed(1),
+        tokens: rew.categoryTokens.toFixed(1),
+      }))
       fireSavedConfetti()
     }
     duration.value = ''
@@ -345,10 +345,10 @@ async function onInvite() {
       : window.location.origin
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(link)
-      toast.success('초대 링크가 복사되었습니다!')
+      toast.success(t('record.inviteCopied'))
     }
  else {
-      toast.info(`초대 링크: ${link}`)
+      toast.info(t('record.inviteLink', { link }))
     }
   }
  catch (e) {

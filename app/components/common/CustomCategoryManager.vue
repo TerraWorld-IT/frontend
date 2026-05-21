@@ -5,7 +5,7 @@
 <template>
   <section class="bg-riso-cream rounded-xl p-4 riso-shadow">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="font-bold text-riso-dark">커스텀 카테고리</h3>
+      <h3 class="font-bold text-riso-dark">{{ $t('category.customCategory') }}</h3>
       <span class="text-xs text-riso-dark/50">{{ mine.length }}/10</span>
     </div>
 
@@ -25,18 +25,18 @@
           :disabled="loading"
           @click="onDelete(cat.id)"
         >
-          삭제
+          {{ $t('common.delete') }}
         </button>
       </li>
     </ul>
-    <p v-else class="text-sm text-riso-dark/50 mb-3">아직 커스텀 카테고리가 없습니다</p>
+    <p v-else class="text-sm text-riso-dark/50 mb-3">{{ $t('category.empty') }}</p>
 
     <form v-if="mine.length < 10" class="space-y-2" @submit.prevent="onCreate">
       <div class="grid grid-cols-2 gap-2">
         <input
           v-model="form.name"
           type="text"
-          placeholder="이름 (예: 명상)"
+          :placeholder="$t('category.namePlaceholder')"
           maxlength="20"
           required
           class="px-2 py-1 text-sm border border-riso-dark/20 rounded"
@@ -44,7 +44,7 @@
         <input
           v-model="form.tokenName"
           type="text"
-          placeholder="토큰 이름 (예: 명상토큰)"
+          :placeholder="$t('category.tokenNamePlaceholder')"
           maxlength="20"
           required
           class="px-2 py-1 text-sm border border-riso-dark/20 rounded"
@@ -55,12 +55,12 @@
           v-model="form.color"
           type="color"
           class="w-10 h-8 rounded cursor-pointer"
-          aria-label="색상"
+          :aria-label="$t('category.colorLabel')"
         >
         <input
           v-model="form.emoji"
           type="text"
-          placeholder="이모지 (선택)"
+          :placeholder="$t('category.emojiPlaceholder')"
           maxlength="2"
           class="w-20 px-2 py-1 text-sm border border-riso-dark/20 rounded"
         >
@@ -69,7 +69,7 @@
           :disabled="loading"
           class="ml-auto px-3 py-1 text-sm bg-riso-sage text-white rounded disabled:opacity-60"
         >
-          {{ loading ? '생성 중...' : '추가' }}
+          {{ loading ? $t('category.creating') : $t('category.add') }}
         </button>
       </div>
       <p v-if="errorMsg" class="text-xs text-riso-poppy">{{ errorMsg }}</p>
@@ -80,6 +80,7 @@
 <script setup lang="ts">
 import type { CategoryResponse } from '@terraworld-it/openapi-frontend'
 
+const { t } = useI18n()
 const { listMine, create, remove, loading, error } = useCustomCategory()
 const toast = useToast()
 const mine = ref<CategoryResponse[]>([])
@@ -109,7 +110,7 @@ async function onCreate() {
     emoji: form.emoji.trim() || undefined,
   })
   if (result) {
-    toast.success(`'${result.name}' 카테고리가 생성되었습니다`)
+    toast.success(t('category.created', { name: result.name }))
     form.name = ''
     form.tokenName = ''
     form.emoji = ''
@@ -118,9 +119,9 @@ async function onCreate() {
 }
 
 async function onDelete(id: number) {
-  if (!window.confirm('이 카테고리를 삭제하시겠습니까?')) return
+  if (!window.confirm(t('category.deleteConfirm'))) return
   if (await remove(id)) {
-    toast.success('카테고리가 삭제되었습니다')
+    toast.success(t('category.deleted'))
     await refresh()
   }
 }

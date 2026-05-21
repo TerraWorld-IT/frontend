@@ -50,13 +50,14 @@
     </button>
 
     <!-- Heart reward animations -->
+    <!-- /analyze 2026-05-18 (Codex F1 fix): backend reward = 1 (BIGINT). Spec/server 정합. -->
     <TransitionGroup name="reward-float">
       <div
         v-for="anim in heartAnimations"
         :key="anim.id"
         class="absolute -right-6 top-[45%] text-sm font-bold text-riso-pink pointer-events-none"
       >
-        +0.1 ⭐
+        +1 🪙
       </div>
     </TransitionGroup>
   </div>

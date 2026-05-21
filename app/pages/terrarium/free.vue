@@ -2,19 +2,24 @@
   자유배치 PoC. 5슬롯 grid 가 아닌 임의 위치(posX/posY 0~1) 에 아이템 배치.
   PointerEvent 기반 직접 구현으로 mouse + touch 모두 지원.
 
-  현재 미구현 (다음 turn):
+  현재 미구현 (인벤토리 통합 의존):
     - 인벤토리에서 아이템 가져오기 (현재는 더미 3개)
-    - drag end 시 backend PUT /terrarium/items/:id (현재는 메모리 상태만)
     - 회전/크기 조절 핸들
+
+  N6 (구현 계획서 v4, 2026-05-21): backend 자유배치 저장 endpoint 완성.
+    PUT /api/v1/terrarium/free-placement/{placementId} 가 free_x_pixel / free_y_pixel /
+    is_free_placement 를 실제 persist 함 (PlacementController + TerrariumPlacement entity).
+    본 PoC 페이지가 실 placement 데이터 (real placementId) 를 로드하면 onSave 에서 호출 가능 —
+    real placementId 는 인벤토리 통합 후 제공됨. 그 전까지 본 페이지는 메모리 PoC 유지.
 -->
 <template>
   <div class="riso-grain min-h-screen px-4 py-4 space-y-4">
     <div class="space-y-1">
       <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">
-        자유배치
+        {{ $t('terrarium.freePlacementTitle') }}
       </h2>
       <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
-        아이템을 원하는 곳으로 드래그해 보세요
+        {{ $t('terrarium.freePlacementDesc') }}
       </p>
     </div>
 
@@ -54,34 +59,34 @@
         class="flex-1 h-12 rounded-xl bg-riso-sage text-white font-semibold text-[14px] riso-shadow-sm active:scale-95"
         @click="onSave"
       >
-        배치 저장
+        {{ $t('terrarium.freePlacementSave') }}
       </button>
       <button
         type="button"
         class="px-4 h-12 rounded-xl bg-white text-riso-dark font-semibold text-[14px] border border-riso-dark/15 active:scale-95"
         @click="onReset"
       >
-        초기화
+        {{ $t('terrarium.freePlacementReset') }}
       </button>
     </div>
 
     <p class="text-[11px] text-riso-dark/45 text-center">
-      ※ 자유배치 PoC — 현재는 메모리 상태만. 서버 저장은 추후 구현
+      {{ $t('terrarium.freePlacementPocNote') }}
     </p>
 
     <div
       v-if="!entitled"
       class="rounded-xl bg-riso-poppy/10 border border-riso-poppy/40 p-4 text-sm text-riso-dark"
     >
-      <p class="font-semibold mb-1">유료 권리(자유배치)가 필요합니다</p>
+      <p class="font-semibold mb-1">{{ $t('terrarium.freePlacementEntitlementRequired') }}</p>
       <p class="text-riso-dark/70 mb-2">
-        현재는 미리보기 모드입니다. 결제를 마치면 슬롯 제약 없이 영구 저장됩니다.
+        {{ $t('terrarium.freePlacementPreviewMode') }}
       </p>
       <NuxtLink
         to="/upgrade/free-placement"
         class="inline-block px-3 py-1.5 text-sm bg-riso-sage text-white rounded-md"
       >
-        유료 권리 안내 →
+        {{ $t('terrarium.freePlacementGuideLink') }}
       </NuxtLink>
     </div>
   </div>
@@ -114,6 +119,7 @@ interface FreeItem {
 }
 
 const toast = useToast()
+const { t } = useI18n()
 const { trackFreePlacementSaved } = useGtagEvents()
 const canvasRef = ref<HTMLDivElement | null>(null)
 
@@ -178,7 +184,7 @@ async function onSave() {
     // }))
     // const { error } = await sdk.updateTerrariumPlacements({ client, body: { placedItems } })
     // if (error) throw new Error(errMsg(error, '배치 저장 실패'))
-    toast.success(`배치 저장 완료 (${items.value.length}개) — inventory 통합 후 서버 동기화`)
+    toast.success(t('terrarium.freePlacementSaved', { n: items.value.length }))
     trackFreePlacementSaved({ itemCount: items.value.length })
   }
   catch (e) {
@@ -188,6 +194,6 @@ async function onSave() {
 
 function onReset() {
   items.value = JSON.parse(JSON.stringify(initialItems))
-  toast.info('기본 배치로 초기화')
+  toast.info(t('terrarium.freePlacementResetDone'))
 }
 </script>

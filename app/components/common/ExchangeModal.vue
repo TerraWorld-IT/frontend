@@ -1,16 +1,16 @@
 <template>
   <CommonModal :model-value="show" @update:model-value="$emit('close')">
     <div class="space-y-5">
-      <h3 class="font-bold text-lg text-riso-dark">토큰 교환</h3>
+      <h3 class="font-bold text-lg text-riso-dark">{{ $t('exchange.title') }}</h3>
 
       <!-- Current balance -->
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-riso-butter/30 rounded-xl p-3 text-center">
-          <p class="text-[10px] text-riso-dark/40 mb-1">기본 코인</p>
+          <p class="text-[10px] text-riso-dark/40 mb-1">{{ $t('currency.basicCoin') }}</p>
           <p class="font-bold text-riso-dark">{{ currency?.basicCoins?.toFixed(1) ?? '0' }}</p>
         </div>
         <div class="bg-riso-lavender/20 rounded-xl p-3 text-center">
-          <p class="text-[10px] text-riso-dark/40 mb-1">스페셜 코인</p>
+          <p class="text-[10px] text-riso-dark/40 mb-1">{{ $t('currency.specialCoin') }}</p>
           <p class="font-bold text-riso-dark">{{ currency?.specialCoins?.toFixed(1) ?? '0' }}</p>
         </div>
       </div>
@@ -33,39 +33,39 @@
       <!-- Special → Basic -->
       <template v-if="tab === 'special'">
         <div class="space-y-3">
-          <p class="text-xs text-riso-dark/40">스페셜 코인 → 기본 코인 (1:2 비율)</p>
+          <p class="text-xs text-riso-dark/40">{{ $t('exchange.specialToBasicDesc') }}</p>
           <input
             v-model="specialAmount"
             type="number"
             min="1"
-            placeholder="교환할 스페셜 코인"
+            :placeholder="$t('exchange.specialAmountPlaceholder')"
             class="w-full h-12 rounded-xl border border-riso-walnut/10 bg-white px-4 text-riso-dark placeholder:text-riso-dark/30 focus:outline-none focus:ring-2 focus:ring-riso-sage"
           >
           <div class="flex items-center justify-center gap-2 text-sm">
-            <span class="text-riso-dark/60">{{ specialAmount || 0 }} 스페셜</span>
+            <span class="text-riso-dark/60">{{ specialAmount || 0 }} {{ $t('exchange.special') }}</span>
             <span class="text-riso-dark/30">→</span>
-            <span class="font-bold text-riso-sage">{{ (Number(specialAmount) || 0) * 2 }} 기본 코인</span>
+            <span class="font-bold text-riso-sage">{{ (Number(specialAmount) || 0) * 2 }} {{ $t('currency.basicCoin') }}</span>
           </div>
           <button
             class="w-full h-11 rounded-full bg-riso-sage text-white font-medium text-sm riso-shadow-sm active:scale-95 transition-transform disabled:opacity-50"
             :disabled="exchanging || !specialAmount || Number(specialAmount) <= 0"
             @click="exchangeSpecial"
           >
-            {{ exchanging ? '교환 중...' : '교환하기' }}
+            {{ exchanging ? $t('exchange.exchanging') : $t('exchange.doExchange') }}
           </button>
         </div>
       </template>
 
       <!-- Token → Token -->
-      <template v-else>
+      <template v-else-if="tab === 'token'">
         <div class="space-y-3">
-          <p class="text-xs text-riso-dark/40">카테고리 토큰 간 교환 (1:1 비율)</p>
+          <p class="text-xs text-riso-dark/40">{{ $t('exchange.tokenToTokenDesc') }}</p>
           <div class="grid grid-cols-2 gap-3">
             <select
               v-model="fromCategoryId"
               class="h-11 rounded-xl border border-riso-walnut/10 bg-white px-3 text-sm text-riso-dark"
             >
-              <option :value="null" disabled>보낼 토큰</option>
+              <option :value="null" disabled>{{ $t('exchange.fromToken') }}</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.emoji }} {{ cat.name }}
               </option>
@@ -74,7 +74,7 @@
               v-model="toCategoryId"
               class="h-11 rounded-xl border border-riso-walnut/10 bg-white px-3 text-sm text-riso-dark"
             >
-              <option :value="null" disabled>받을 토큰</option>
+              <option :value="null" disabled>{{ $t('exchange.toToken') }}</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id" :disabled="cat.id === fromCategoryId">
                 {{ cat.emoji }} {{ cat.name }}
               </option>
@@ -84,7 +84,7 @@
             v-model="tokenAmount"
             type="number"
             min="1"
-            placeholder="교환할 수량"
+            :placeholder="$t('exchange.amountPlaceholder')"
             class="w-full h-12 rounded-xl border border-riso-walnut/10 bg-white px-4 text-riso-dark placeholder:text-riso-dark/30 focus:outline-none focus:ring-2 focus:ring-riso-sage"
           >
           <button
@@ -92,7 +92,42 @@
             :disabled="exchanging || !fromCategoryId || !toCategoryId || fromCategoryId === toCategoryId || !tokenAmount"
             @click="exchangeToken"
           >
-            {{ exchanging ? '교환 중...' : '교환하기' }}
+            {{ exchanging ? $t('exchange.exchanging') : $t('exchange.doExchange') }}
+          </button>
+        </div>
+      </template>
+
+      <!-- Token → Basic (N15) -->
+      <template v-else>
+        <div class="space-y-3">
+          <p class="text-xs text-riso-dark/40">{{ $t('exchange.tokenToBasicDesc') }}</p>
+          <select
+            v-model="tbCategoryId"
+            class="w-full h-11 rounded-xl border border-riso-walnut/10 bg-white px-3 text-sm text-riso-dark"
+          >
+            <option :value="null" disabled>{{ $t('exchange.tokenToDewPlaceholder') }}</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+              {{ cat.emoji }} {{ cat.name }}
+            </option>
+          </select>
+          <input
+            v-model="tbAmount"
+            type="number"
+            min="1"
+            :placeholder="$t('exchange.tokenAmountPlaceholder')"
+            class="w-full h-12 rounded-xl border border-riso-walnut/10 bg-white px-4 text-riso-dark placeholder:text-riso-dark/30 focus:outline-none focus:ring-2 focus:ring-riso-sage"
+          >
+          <div class="flex items-center justify-center gap-2 text-sm">
+            <span class="text-riso-dark/60">{{ tbAmount || 0 }} {{ $t('common.token') }}</span>
+            <span class="text-riso-dark/30">→</span>
+            <span class="font-bold text-riso-sage">{{ Number(tbAmount) || 0 }} {{ $t('currency.basicCoin') }}</span>
+          </div>
+          <button
+            class="w-full h-11 rounded-full bg-riso-sage text-white font-medium text-sm riso-shadow-sm active:scale-95 transition-transform disabled:opacity-50"
+            :disabled="exchanging || !tbCategoryId || !tbAmount || Number(tbAmount) <= 0"
+            @click="exchangeTokenBasic"
+          >
+            {{ exchanging ? $t('exchange.exchanging') : $t('exchange.doExchange') }}
           </button>
         </div>
       </template>
@@ -114,19 +149,25 @@ const emit = defineEmits<{
   exchanged: []
 }>()
 
+const { t } = useI18n()
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 
-const tab = ref<'special' | 'token'>('special')
-const tabs = [
-  { key: 'special' as const, label: '스페셜→기본' },
-  { key: 'token' as const, label: '토큰↔토큰' },
-]
+const tab = ref<'special' | 'token' | 'tokenBasic'>('special')
+const tabs = computed(() => [
+  { key: 'special' as const, label: t('exchange.tabSpecial') },
+  { key: 'token' as const, label: t('exchange.tabToken') },
+  // N15 (구현 계획서 v4): 카테고리 토큰 → 이슬(기본 코인) 교환
+  { key: 'tokenBasic' as const, label: t('exchange.tabTokenBasic') },
+])
 
 const specialAmount = ref('')
 const fromCategoryId = ref<number | null>(null)
 const toCategoryId = ref<number | null>(null)
 const tokenAmount = ref('')
+// N15: 토큰→이슬 교환 상태
+const tbCategoryId = ref<number | null>(null)
+const tbAmount = ref('')
 const exchanging = ref(false)
 
 async function exchangeSpecial() {
@@ -135,11 +176,11 @@ async function exchangeSpecial() {
   try {
     const { error } = await sdk.exchangeSpecialToBasic({ client, body: { amount: Number(specialAmount.value) } })
     if (error) throw error
-    toast.success('교환 완료!')
+    toast.success(t('exchange.success'))
     specialAmount.value = ''
     emit('exchanged')
   }
-  catch { toast.error('교환에 실패했습니다') }
+  catch { toast.error(t('exchange.failed')) }
   finally { exchanging.value = false }
 }
 
@@ -156,11 +197,32 @@ async function exchangeToken() {
       },
     })
     if (error) throw error
-    toast.success('교환 완료!')
+    toast.success(t('exchange.success'))
     tokenAmount.value = ''
     emit('exchanged')
   }
-  catch { toast.error('교환에 실패했습니다') }
+  catch { toast.error(t('exchange.failed')) }
+  finally { exchanging.value = false }
+}
+
+// N15 (구현 계획서 v4): 카테고리 토큰 → 이슬(기본 코인) 교환
+async function exchangeTokenBasic() {
+  if (!tbCategoryId.value || !tbAmount.value) return
+  exchanging.value = true
+  try {
+    const { error } = await sdk.exchangeTokenToBasic({
+      client,
+      body: {
+        fromCategoryId: tbCategoryId.value,
+        amount: Number(tbAmount.value),
+      },
+    })
+    if (error) throw error
+    toast.success(t('exchange.success'))
+    tbAmount.value = ''
+    emit('exchanged')
+  }
+  catch { toast.error(t('exchange.failed')) }
   finally { exchanging.value = false }
 }
 </script>

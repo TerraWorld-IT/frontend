@@ -85,6 +85,30 @@ export const auth = betterAuth({
   },
 
   /**
+   * LEGAL-001 additionalFields 등록 (e2e cycle 2026-05-18 발견).
+   *
+   * better-auth 의 default user schema 는 standard fields (id/name/email/...) 만 받음.
+   * client 가 `signUp.email({ ..., birthDate })` 추가 field 보내도 default 는 strip
+   * — e2e 검증 시 server hook 의 birthDate read 가 매번 undefined → 422 "birthDate is
+   * required" 응답 → 만 14세 이상 사용자도 가입 불가.
+   *
+   * `input: true` — client signup payload 에서 받음. `required: true` — DB schema 에
+   * NOT NULL column 강제 (002_better_auth_user_birthDate.sql migration 동반).
+   *
+   * 저장된 birthDate 는 hook (만 14세 차단) 외에 광고 타겟팅 / 보호자 동의 등
+   * 후속 기능에서 활용. privacy.md §8 retention policy 준수 (가입 후 N년 후 hash 변환).
+   */
+  user: {
+    additionalFields: {
+      birthDate: {
+        type: 'string',
+        required: true,
+        input: true,
+      },
+    },
+  },
+
+  /**
    * Social login (Tier 3 scaffold — disabled by default, enabled by env vars).
    * Phase 4 통합 절차:
    *   1) Google Cloud Console / Kakao Developers 에서 OAuth Client ID/Secret 발급
@@ -142,6 +166,37 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        /**
+         * LEGAL-001 fix (Codex audit HIGH, 2026-05-18):
+         * 만 14세 미만 가입 차단 (정보통신망법 제50조의2 + 개인정보보호법).
+         * privacy.md §8 의 선언과 정합 — birthDate 가 추가 field 로 signup form 에서 전달.
+         *
+         * birthDate 형식: ISO YYYY-MM-DD (frontend 의 signup form 에서 검증 + 본 hook 에서 재검증).
+         * 만 14세 = 오늘 - 14년 미만 시 reject.
+         *
+         * 본 hook 은 sign-up transaction 내 동기 실행 — throw 시 transaction rollback +
+         * client 가 가입 거절 응답 받음.
+         */
+        before: async (user) => {
+          const birthDate = (user as { birthDate?: string }).birthDate
+          if (!birthDate) {
+            throw new Error('birthDate is required (만 14세 미만 차단 — 정보통신망법 제50조의2)')
+          }
+          const dob = new Date(birthDate)
+          if (Number.isNaN(dob.getTime())) {
+            throw new Error('invalid birthDate format (expected ISO YYYY-MM-DD)')
+          }
+          const today = new Date()
+          const age14CutoffYear = today.getFullYear() - 14
+          const age14Cutoff = new Date(age14CutoffYear, today.getMonth(), today.getDate())
+          if (dob > age14Cutoff) {
+            throw new Error('만 14세 미만은 가입할 수 없습니다 (정보통신망법 제50조의2)')
+          }
+          // better-auth `before` hook signature: Promise<boolean | void | { data: Optional<User> & Record<string, any> }>.
+          // 통과 시 `return true` (passthrough) — user 객체 수정 없음, transaction 진행.
+          // 거절 시 위 throw — transaction rollback + client 가 가입 거절 응답 받음.
+          return true
+        },
         after: async (user) => {
           await provisionDomainProfile(user.id, user.email)
         },

@@ -3,28 +3,28 @@
     <!-- 헤더 -->
     <div class="space-y-1">
       <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">
-        랭킹
+        {{ $t('ranking.title') }}
       </h2>
       <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
-        이번 달 친구들과 함께 비교해보세요
+        {{ $t('ranking.subtitle') }}
       </p>
     </div>
 
     <!-- 종류 토글 -->
     <div class="flex gap-2">
       <button
-        v-for="t in types"
-        :key="t.value"
+        v-for="tp in types"
+        :key="tp.value"
         type="button"
         class="flex-1 h-11 rounded-xl font-semibold text-[13px] transition-colors"
         :class="
-          activeType === t.value
+          activeType === tp.value
             ? 'bg-riso-pink text-white riso-shadow-sm'
             : 'bg-white text-riso-dark border border-black/10'
         "
-        @click="activeType = t.value"
+        @click="activeType = tp.value"
       >
-        {{ t.label }}
+        {{ tp.label }}
       </button>
     </div>
 
@@ -44,10 +44,10 @@
       v-if="data && data.myRank != null"
       class="bg-riso-butter/40 rounded-xl px-4 py-3 flex items-center justify-between riso-shadow-sm"
     >
-      <span class="text-[12px] text-riso-dark/70">내 순위</span>
+      <span class="text-[12px] text-riso-dark/70">{{ $t('ranking.myRank') }}</span>
       <div class="flex items-center gap-3">
-        <span class="font-bold text-[18px] text-riso-dark">{{ data.myRank }}위</span>
-        <span class="text-[12px] text-riso-dark/60">· {{ data.myScore ?? 0 }}점</span>
+        <span class="font-bold text-[18px] text-riso-dark">{{ $t('ranking.rankSuffix', { rank: data.myRank }) }}</span>
+        <span class="text-[12px] text-riso-dark/60">· {{ $t('ranking.scoreSuffix', { score: data.myScore ?? 0 }) }}</span>
       </div>
     </div>
 
@@ -74,25 +74,27 @@
           </span>
           <span class="text-sm font-medium text-riso-dark">
             {{ entry.nickname }}
-            <span v-if="entry.isSelf" class="text-[10px] text-riso-pink ml-1">(나)</span>
+            <span v-if="entry.isSelf" class="text-[10px] text-riso-pink ml-1">{{ $t('ranking.me') }}</span>
           </span>
         </div>
-        <span class="text-sm font-semibold text-riso-dark/80">{{ entry.score }}점</span>
+        <span class="text-sm font-semibold text-riso-dark/80">{{ $t('ranking.scoreSuffix', { score: entry.score }) }}</span>
       </li>
     </ol>
     <div v-else class="py-12 text-center text-riso-dark/50 text-sm">
-      이번 달은 아직 기록이 없어요. 첫 기록을 시작해보세요!
+      {{ $t('ranking.noRecords') }}
     </div>
 
     <!-- decoration 안내 -->
     <p v-if="activeType === 'decoration'" class="text-[11px] text-riso-dark/45 text-center pt-2">
-      ※ 꾸미기 랭킹은 곧 시작될 예정이에요
+      {{ $t('ranking.decorationNotice') }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
+
+const { t } = useI18n()
 
 interface RankingEntry {
   rank: number
@@ -110,10 +112,10 @@ interface RankingResponse {
   myScore: number | null
 }
 
-const types = [
-  { value: 'engagement' as const, label: '참여 (기록 수)' },
-  { value: 'decoration' as const, label: '꾸미기 (배치 수)' },
-]
+const types = computed(() => [
+  { value: 'engagement' as const, label: t('ranking.typeEngagement') },
+  { value: 'decoration' as const, label: t('ranking.typeDecoration') },
+])
 
 const activeType = ref<'engagement' | 'decoration'>('engagement')
 const activeYearMonth = ref<string>(currentYearMonth())
@@ -164,7 +166,7 @@ async function load() {
         limit: 50,
       },
     })
-    if (error) throw new Error(errMsg(error, '랭킹을 불러오지 못했어요'))
+    if (error) throw new Error(errMsg(error, t('ranking.loadError')))
     data.value = result ?? null
     trackRankingViewed({ type: activeType.value, yearMonth: activeYearMonth.value })
   }

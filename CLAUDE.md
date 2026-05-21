@@ -49,14 +49,8 @@ Auth:           better-auth (Nitro 서버, PostgreSQL 공유 DB)
 Validation:     valibot
 Date:           dayjs
 Lint:           oxlint (3 rules: no-unused-vars, no-console, eqeqeq)
-Format:         미적용 — Option A. oxlint 는 formatter 가 없고 (oxc 는
-                linter-only), prettier 는 의도적으로 도입하지 않음. 이유:
-                (1) 기존 50 vue / 51 ts / 20 json 파일에 도입 시 ~500-800
-                LOC churn 부담, (2) oxlint 와 conflict 0 이지만 in-flight
-                PR rebase 충돌 위험. post-launch (2026-09 이후) FE 코드
-                150+ 파일로 확대되면 root prettier 도입 재검토 (Option B).
-                openapi 패키지 (별도 repo) 는 prettier 보유 — 일관성
-                의도적 비동기.
+Format:         미적용 (Option A) — 상세 결정은 `docs/decisions/ADR-004-prettier-policy.md` 참조 (2026-05-16 격상).
+                요약: oxlint 만 사용, prettier 미도입. 재도입 조건은 ADR-004 § 3.
 Git Hooks:      lefthook (pre-commit lint)
 Commit:         cocogito (cog.toml)
 Capture:        html2canvas (테라리움 → PNG)
@@ -73,7 +67,7 @@ Native:         Capacitor 8 (Android + iOS scaffold 완료, 2026-05-07 mobile #4
 
 ```
 @pinia/nuxt, @vueuse/nuxt, @nuxt/icon, @nuxt/image,
-@nuxt/fonts, nuxt-gtag, @nuxtjs/color-mode
+@nuxt/fonts, nuxt-gtag, @nuxtjs/color-mode, @nuxtjs/i18n
 ```
 
 ---
@@ -139,10 +133,15 @@ frontend/
 ├── tests/
 │   ├── api-contract.test.ts        # SDK 타입 shape 검증 (17 tests)
 │   ├── composables/*.test.ts       # composable contract 검증
+│   ├── components/*.test.ts        # Modal / RewardToast / Loading a11y 등 (2026-05-18 Round 2 fix)
 │   └── utils/*.test.ts             # format, constants 단위 테스트
-├── i18n/locales/
-│   ├── ko.json                     # 한국어 (83키, 7개 페이지 섹션)
-│   └── en.json                     # 영어 (동일 구조)
+├── e2e/                             # Playwright e2e smoke (M6, 2026-05-16~17)
+│   └── *.spec.ts                   # login / record / share 3 smoke
+├── scripts/
+│   └── measure-bundle.mjs          # M11 번들 baseline 측정 (warn +10KB/+20%, fail +50KB/+50%)
+├── playwright.config.ts            # Playwright 설정 (M6)
+├── bundle-baseline.json            # 번들 baseline lock (~1.2MB / gzip 392KB / 55 chunks, ADR-005 i18n 재도입 후)
+├── i18n/locales/                    # @nuxtjs/i18n ko.json + en.json (ADR-005 — i18n 유지 + 단계적 다국어, 2026-05-18 ADR-003 supersede)
 ├── server/
 │   ├── api/auth/[...all].ts        # better-auth Nitro 핸들러
 │   └── lib/auth.ts                 # better-auth 서버 (PostgreSQL, crash on missing env)
@@ -473,6 +472,16 @@ Spring Boot /api/v1/*
 - ⏸️ Google OAuth (추후 — server/lib/auth.ts의 socialProviders 블록 활성화)
 - ⏸️ Kakao OAuth (추후)
 
+### 만 14세 차단 3중 방어 (LEGAL-001, 2026-05-18)
+
+정보통신망법 §50조의2 준수. signup form 에서 birthDate (ISO YYYY-MM-DD) 추가 필드를 수집해 3 layer 로 검증:
+
+1. **Frontend UI 게이트** — `pages/auth/login.vue:43-52` `<input type="date" :max="maxBirthDate">` + computed `maxBirthDate` (오늘 - 14년) + `isAtLeast14()` 함수 (`:127-134`)
+2. **Backend before hook** — `server/lib/auth.ts:156` `databaseHooks.user.create.before(user, context)` 에서 birthDate 재검증 + `throw new Error('만 14세 미만은 가입할 수 없습니다 …')` 시 transaction rollback
+3. **정책 정합** — privacy.md §8 의 만 14세 차단 선언
+
+**주의 — before hook return type**: better-auth 시그니처는 `(user, context) => Promise<boolean | void | { data: Optional<User> & Record<string, any> }>`. `return user` 직접 반환 시 type error → `return { data: user }` 또는 `return true` (passthrough) 또는 throw (rollback) 중 하나로 작성.
+
 ---
 
 ## 11. 코드 컨벤션
@@ -543,6 +552,12 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 - `console.log`, `debugger` → vite esbuild drop 설정으로 자동 제거
 - 환경변수: `.env.example` 참고, `.env` 파일은 gitignore
 
+### 함정 (2026-05-18 analyze 발견)
+
+- **WalletBar.vue progressPercent 곡선 mismatch (HIGH)** — `(totalExp - lvl×100) / 100 × 100` 선형 hardcoded 계산이 V2 seed 의 2차 곡선 (`required_exp(n) = 100×(n-1)×n/2`, 만렙 4500 EXP) 과 불일치. V2 ground truth (V12 ON CONFLICT skip) 시 음수 / 100% 초과 출력 가능 → `Math.max(0, Math.min(100, …))` clamp 또는 backend 가 progressPercent 직접 내려주기. § 12 sub-cycle 미해결.
+- **`useUserStore` 자동 import 미작동** — Pinia `defineStore('user', …)` 의 export 이름 또는 `stores/` 디렉토리 자동 등록 timing 에 따라 컴파일 타임 `Cannot find name 'useUserStore'` 가능. `import { useUserStore } from '~/stores/user'` 명시 import 로 회피.
+- **better-auth hook `return user` 직접 반환 금지** — § 10 만 14세 차단 3중 방어 참조. `return { data: user }` / `return true` / throw 중 하나로 작성.
+
 ### 성능
 
 - PixiJS 캔버스: 스탬프 수 상한 (LevelConfig.maxItems, 초기 20~40개)
@@ -591,7 +606,7 @@ bun run typecheck   # TypeScript 체크
 - [ ] 보상 획득 애니메이션 (코인 +N, EXP 바 증가)
 - [x] 상점 구매 플로우 → API 연동 (ShopContent + Suspense)
 - [x] 디자인 컨셉 1개 확정 → jar 확정, 7개 삭제 (-809줄)
-- [x] i18n 번역 83키 × 2언어 (ko/en)
+- [~] i18n 번역 ko/en — **2026-05-18 재도입 (ADR-005, ADR-003 supersede)**: 사용자 결정 #3 (i18n 유지 + 단계적 다국어). I-T-MIGRATE-001 (한글 하드코딩 → t() 일괄 치환) **미착수** — `useI18n()` / `$t(` runtime call 0건 (2026-05-18 analyze 검증). en/ja 본문은 Phase 5+
 - [x] 6개 핵심 페이지 Figma→Nuxt 포팅 완료
 - [x] Vitest 테스트 32개 (utils + composable + API contract)
 - [x] 코드 리뷰 72건 전부 수정 (4차 리뷰 clean)

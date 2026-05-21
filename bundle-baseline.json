@@ -1,0 +1,291 @@
+{
+  "capturedAt": "2026-05-18T03:40:41.771Z",
+  "nuxtDir": ".output/public/_nuxt",
+  "summary": {
+    "totalBytes": 1229754,
+    "totalGzipBytes": 392601,
+    "chunkCount": 55,
+    "largestChunk": {
+      "name": "B0UUqiNF.js",
+      "bytes": 476133,
+      "gzipped": 136011
+    }
+  },
+  "chunks": [
+    {
+      "name": "B0UUqiNF.js",
+      "bytes": 476133,
+      "gzipped": 136011
+    },
+    {
+      "name": "DyNZAmUv.js",
+      "bytes": 340449,
+      "gzipped": 124919
+    },
+    {
+      "name": "DmLBsbfV.js",
+      "bytes": 200538,
+      "gzipped": 47044
+    },
+    {
+      "name": "C3zaxlNY.js",
+      "bytes": 36170,
+      "gzipped": 12227
+    },
+    {
+      "name": "Dwft5irK.js",
+      "bytes": 14074,
+      "gzipped": 5208
+    },
+    {
+      "name": "DxYj4yfF.js",
+      "bytes": 14045,
+      "gzipped": 4698
+    },
+    {
+      "name": "BaC3l7Sa.js",
+      "bytes": 11476,
+      "gzipped": 3932
+    },
+    {
+      "name": "D7c6wNv7.js",
+      "bytes": 11442,
+      "gzipped": 3943
+    },
+    {
+      "name": "C77BwpZI.js",
+      "bytes": 10614,
+      "gzipped": 4239
+    },
+    {
+      "name": "yiXpv_LL.js",
+      "bytes": 10041,
+      "gzipped": 3956
+    },
+    {
+      "name": "BjzigM2t.js",
+      "bytes": 9371,
+      "gzipped": 3953
+    },
+    {
+      "name": "ZxTvRyD_.js",
+      "bytes": 8679,
+      "gzipped": 2951
+    },
+    {
+      "name": "Bk-cWO9K.js",
+      "bytes": 7657,
+      "gzipped": 3295
+    },
+    {
+      "name": "mEqbI8lS.js",
+      "bytes": 5673,
+      "gzipped": 1654
+    },
+    {
+      "name": "CwiUZcJJ.js",
+      "bytes": 5369,
+      "gzipped": 1295
+    },
+    {
+      "name": "Cggogrkz.js",
+      "bytes": 5351,
+      "gzipped": 2113
+    },
+    {
+      "name": "NxwKTvPO.js",
+      "bytes": 4898,
+      "gzipped": 2204
+    },
+    {
+      "name": "BZkp5uvA.js",
+      "bytes": 4332,
+      "gzipped": 1613
+    },
+    {
+      "name": "DNjb5sa0.js",
+      "bytes": 4287,
+      "gzipped": 1928
+    },
+    {
+      "name": "CyY44srP.js",
+      "bytes": 4193,
+      "gzipped": 2002
+    },
+    {
+      "name": "CbVkE8O7.js",
+      "bytes": 3985,
+      "gzipped": 2050
+    },
+    {
+      "name": "BrS_zwL1.js",
+      "bytes": 3910,
+      "gzipped": 2154
+    },
+    {
+      "name": "DrHysrZ0.js",
+      "bytes": 3899,
+      "gzipped": 1705
+    },
+    {
+      "name": "GnoqTpeG.js",
+      "bytes": 3841,
+      "gzipped": 1380
+    },
+    {
+      "name": "K9Ef11Gp.js",
+      "bytes": 3294,
+      "gzipped": 1520
+    },
+    {
+      "name": "BI39mA1w.js",
+      "bytes": 2927,
+      "gzipped": 1591
+    },
+    {
+      "name": "BTJrVk_b.js",
+      "bytes": 2680,
+      "gzipped": 1371
+    },
+    {
+      "name": "D0UvB5xr.js",
+      "bytes": 2236,
+      "gzipped": 1074
+    },
+    {
+      "name": "BZChGPVJ.js",
+      "bytes": 1983,
+      "gzipped": 903
+    },
+    {
+      "name": "BhU1Y4Is.js",
+      "bytes": 1622,
+      "gzipped": 906
+    },
+    {
+      "name": "CdFo3A6s.js",
+      "bytes": 1452,
+      "gzipped": 900
+    },
+    {
+      "name": "Cv-KSA1a.js",
+      "bytes": 1332,
+      "gzipped": 712
+    },
+    {
+      "name": "C7QBvd5_.js",
+      "bytes": 1300,
+      "gzipped": 654
+    },
+    {
+      "name": "Cv2VaRIO.js",
+      "bytes": 1241,
+      "gzipped": 669
+    },
+    {
+      "name": "DTgeZREq.js",
+      "bytes": 1105,
+      "gzipped": 665
+    },
+    {
+      "name": "DW-6vT2S.js",
+      "bytes": 1088,
+      "gzipped": 457
+    },
+    {
+      "name": "0UjDjufu.js",
+      "bytes": 942,
+      "gzipped": 473
+    },
+    {
+      "name": "DM9MNZ-J.js",
+      "bytes": 836,
+      "gzipped": 393
+    },
+    {
+      "name": "DuIWMa1x.js",
+      "bytes": 669,
+      "gzipped": 392
+    },
+    {
+      "name": "2g9mE34o.js",
+      "bytes": 534,
+      "gzipped": 372
+    },
+    {
+      "name": "DIC-Qct7.js",
+      "bytes": 489,
+      "gzipped": 326
+    },
+    {
+      "name": "Beg_z9yj.js",
+      "bytes": 390,
+      "gzipped": 265
+    },
+    {
+      "name": "DvGPU3ln.js",
+      "bytes": 355,
+      "gzipped": 244
+    },
+    {
+      "name": "lTUeuAdy.js",
+      "bytes": 335,
+      "gzipped": 240
+    },
+    {
+      "name": "Db0uEUxV.js",
+      "bytes": 317,
+      "gzipped": 230
+    },
+    {
+      "name": "BgXwfWyZ.js",
+      "bytes": 314,
+      "gzipped": 231
+    },
+    {
+      "name": "D71seFsK.js",
+      "bytes": 310,
+      "gzipped": 245
+    },
+    {
+      "name": "C9Jaby-U.js",
+      "bytes": 308,
+      "gzipped": 231
+    },
+    {
+      "name": "CDqsV6Ke.js",
+      "bytes": 294,
+      "gzipped": 223
+    },
+    {
+      "name": "CAuQsQ8Y.js",
+      "bytes": 260,
+      "gzipped": 187
+    },
+    {
+      "name": "DH8EmHMu.js",
+      "bytes": 251,
+      "gzipped": 205
+    },
+    {
+      "name": "DuwvvgAC.js",
+      "bytes": 132,
+      "gzipped": 111
+    },
+    {
+      "name": "Bg92GaMi.js",
+      "bytes": 118,
+      "gzipped": 117
+    },
+    {
+      "name": "BEgnZ7Gp.js",
+      "bytes": 113,
+      "gzipped": 120
+    },
+    {
+      "name": "DvQZSfYp.js",
+      "bytes": 100,
+      "gzipped": 100
+    }
+  ]
+}

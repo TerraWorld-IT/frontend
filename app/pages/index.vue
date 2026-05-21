@@ -5,13 +5,13 @@
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
-      <p class="text-riso-poppy font-medium">불러오기 실패</p>
-      <p class="text-xs text-riso-dark/60">요청 처리 중 오류가 발생했습니다</p>
+      <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
+      <p class="text-xs text-riso-dark/60">{{ $t('common.loadFailDesc') }}</p>
       <button
         class="mt-2 px-4 py-2 rounded-full bg-riso-sage text-white text-sm riso-shadow-sm"
         @click="load"
       >
-        다시 시도
+        {{ $t('common.retry') }}
       </button>
     </div>
 
@@ -23,7 +23,7 @@
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(89,87,87,0.4)] flex items-center justify-center hover:bg-[rgba(89,87,87,0.6)] transition-colors"
-            aria-label="테라리움 저장"
+            :aria-label="$t('home.ariaSaveTerrarium')"
             @click="onShareClick"
           >
             <Icon name="lucide:download" class="w-4 h-4 text-white" />
@@ -31,7 +31,7 @@
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(82,179,136,0.4)] flex items-center justify-center hover:bg-[rgba(82,179,136,0.6)] transition-colors"
-            aria-label="테라리움 레벨업"
+            :aria-label="$t('home.ariaLevelUp')"
             @click="showLevelUpDialog = true"
           >
             <Icon name="lucide:trending-up" class="w-4 h-4 text-white" />
@@ -39,7 +39,7 @@
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(140,106,228,0.4)] flex items-center justify-center hover:bg-[rgba(140,106,228,0.6)] transition-colors"
-            aria-label="무료 코인 받기"
+            :aria-label="$t('home.ariaFreeCoin')"
             @click="showFreeCoinDialog = true"
           >
             <Icon name="lucide:gift" class="w-4 h-4 text-white" />
@@ -47,8 +47,8 @@
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(168,216,234,0.4)] flex items-center justify-center hover:bg-[rgba(168,216,234,0.6)] transition-colors"
-            :aria-label="`효과: ${effectType}`"
-            :title="`효과: ${effectType}`"
+            :aria-label="$t('home.ariaEffect', { type: effectType })"
+            :title="$t('home.ariaEffect', { type: effectType })"
             @click="cycleEffect"
           >
             <Icon :name="effectIcon" class="w-4 h-4 text-white" />
@@ -56,7 +56,7 @@
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(82,179,136,0.4)] flex items-center justify-center hover:bg-[rgba(82,179,136,0.6)] transition-colors"
-            aria-label="진화 단계 전환"
+            :aria-label="$t('home.ariaEvolution')"
             @click="showUpgradeModal = true"
           >
             <Icon name="lucide:sparkles" class="w-4 h-4 text-white" />
@@ -122,7 +122,7 @@
                 </template>
                 <template v-else>
                   <span class="text-2xl text-[#dedede]">+</span>
-                  <span class="text-xs text-[#dedede] mt-1">후경</span>
+                  <span class="text-xs text-[#dedede] mt-1">{{ $t('home.slotBackground') }}</span>
                 </template>
               </button>
             </div>
@@ -152,7 +152,7 @@
                 <template v-else>
                   <span class="text-xl text-[#dedede]">+</span>
                   <span class="text-[10px] text-[#dedede] mt-0.5">
-                    {{ slotId === 3 ? '피규어' : '전경' }}
+                    {{ slotId === 3 ? $t('home.slotFigure') : $t('home.slotForeground') }}
                   </span>
                 </template>
               </button>
@@ -165,7 +165,7 @@
               type="button"
               class="relative transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
               :disabled="heartBusy"
-              aria-label="하트 보상 받기"
+              :aria-label="$t('home.ariaHeart')"
               @click="onHeartClick"
             >
               <Icon name="lucide:heart" class="w-8 h-8 fill-[#f092f0] text-[#f092f0]" />
@@ -175,7 +175,7 @@
                 class="heart-float absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none font-bold text-base"
                 style="color: #f092f0"
               >
-                +0.1
+                +1
               </span>
             </button>
           </div>
@@ -187,11 +187,11 @@
         <div class="inline-flex items-center gap-2 bg-white/80 px-4 py-2 rounded-full riso-shadow-sm">
           <span>🪙</span>
           <span class="font-bold text-sm tabular-nums">{{ formatCoin(user?.currency?.basicCoins) }}</span>
-          <span class="text-[10px] text-riso-dark/40">기본</span>
+          <span class="text-[10px] text-riso-dark/40">{{ $t('home.coinBasic') }}</span>
           <span class="text-riso-dark/20">|</span>
           <span>💎</span>
           <span class="font-bold text-sm tabular-nums">{{ formatCoin(user?.currency?.specialCoins) }}</span>
-          <span class="text-[10px] text-riso-dark/40">스페셜</span>
+          <span class="text-[10px] text-riso-dark/40">{{ $t('home.coinSpecial') }}</span>
         </div>
       </div>
     </template>
@@ -209,10 +209,10 @@
           <div class="flex items-center justify-between mb-4">
             <div>
               <h3 class="text-base font-semibold text-emerald-800">
-                슬롯 {{ (selectedSlot ?? 0) + 1 }} 꾸미기
+                {{ $t('home.slotDecorate', { n: (selectedSlot ?? 0) + 1 }) }}
               </h3>
               <p class="text-xs text-gray-500 mt-1">
-                {{ slotTypeLabel(selectedSlot ?? 0) }} 아이템만 배치 가능
+                {{ $t('home.slotTypeOnly', { type: slotTypeLabel(selectedSlot ?? 0) }) }}
               </p>
             </div>
             <button
@@ -236,7 +236,7 @@
               @click="removeItem"
             >
               <span class="text-2xl mb-1">🗑️</span>
-              <span class="text-xs text-red-600 font-medium">제거</span>
+              <span class="text-xs text-red-600 font-medium">{{ $t('home.slotRemove') }}</span>
             </button>
 
             <!-- Empty state -->
@@ -245,8 +245,8 @@
               class="col-span-4 text-center py-8 text-gray-400"
             >
               <div class="text-3xl mb-2">🛒</div>
-              <p class="text-sm">보유한 {{ slotTypeLabel(selectedSlot ?? 0) }} 아이템이 없습니다</p>
-              <p class="text-xs mt-1">상점에서 구매해보세요!</p>
+              <p class="text-sm">{{ $t('home.slotNoItems', { type: slotTypeLabel(selectedSlot ?? 0) }) }}</p>
+              <p class="text-xs mt-1">{{ $t('home.slotBuyHint') }}</p>
             </div>
 
             <!-- Owned compatible items -->
@@ -283,53 +283,53 @@
   <!-- ====== Level-Up Dialog ====== -->
   <CommonModal
     v-model="showLevelUpDialog"
-    title="테라리움 레벨업"
-    confirm-text="확인"
+    :title="$t('home.levelUpTitle')"
+    :confirm-text="$t('common.confirm')"
     :show-cancel="false"
   >
     <div class="text-center py-2">
       <div class="text-5xl mb-3">🌿</div>
-      <h4 class="font-semibold text-base mb-2">테라리움을 업그레이드하세요!</h4>
+      <h4 class="font-semibold text-base mb-2">{{ $t('home.levelUpSubtitle') }}</h4>
       <p class="text-xs text-gray-600 mb-3">
-        재화를 사용하여 테라리움의 크기를 키우고<br />더 많은 아이템을 배치할 수 있습니다.
+        {{ $t('home.levelUpDesc') }}
       </p>
       <div class="bg-emerald-50 rounded-lg p-3 text-left mb-3">
-        <p class="text-xs font-semibold text-emerald-800 mb-1">💡 업그레이드 혜택</p>
+        <p class="text-xs font-semibold text-emerald-800 mb-1">{{ $t('home.levelUpBenefitsTitle') }}</p>
         <ul class="text-xs text-emerald-700 space-y-0.5">
-          <li>• 더 큰 테라리움 공간</li>
-          <li>• 추가 슬롯 해금</li>
-          <li>• 더 다양한 배치 가능</li>
+          <li>• {{ $t('home.levelUpBenefit1') }}</li>
+          <li>• {{ $t('home.levelUpBenefit2') }}</li>
+          <li>• {{ $t('home.levelUpBenefit3') }}</li>
         </ul>
       </div>
-      <p class="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">이 기능은 곧 추가될 예정입니다 🚀</p>
+      <p class="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">{{ $t('home.levelUpComingSoon') }}</p>
     </div>
   </CommonModal>
 
   <!-- ====== Free Coin (Ad Reward) Dialog ====== -->
   <CommonModal
     v-model="showFreeCoinDialog"
-    title="무료 💎 코인 받기"
-    confirm-text="광고 보고 코인 받기"
+    :title="$t('home.adCoinTitle')"
+    :confirm-text="$t('home.adCoinConfirm')"
     :show-cancel="true"
-    cancel-text="닫기"
+    :cancel-text="$t('common.close')"
     @confirm="onClaimAdReward"
   >
     <div class="text-center py-2">
       <div class="text-6xl mb-3">📺</div>
-      <h4 class="font-semibold text-base mb-2">광고 시청하고 보상 받기</h4>
+      <h4 class="font-semibold text-base mb-2">{{ $t('home.adCoinSubtitle') }}</h4>
       <p class="text-sm text-gray-600 mb-3">
-        짧은 광고를 시청하면<br />스페셜 코인을 무료로 받을 수 있습니다!
+        {{ $t('home.adCoinDesc') }}
       </p>
       <div class="bg-purple-50 rounded-lg p-3 text-left mb-3">
-        <p class="text-sm font-semibold text-purple-800 mb-1">🎁 보상 내역</p>
+        <p class="text-sm font-semibold text-purple-800 mb-1">{{ $t('home.adCoinRewardTitle') }}</p>
         <div class="flex items-center justify-between">
-          <span class="text-sm text-purple-700">광고 1회 시청</span>
-          <span class="font-semibold text-purple-800">💎 +5 스페셜 코인</span>
+          <span class="text-sm text-purple-700">{{ $t('home.adCoinWatchOnce') }}</span>
+          <span class="font-semibold text-purple-800">{{ $t('home.adCoinAmount') }}</span>
         </div>
-        <p class="text-xs text-purple-600 pt-2 border-t border-purple-200 mt-2">* 하루 최대 3회까지 가능</p>
+        <p class="text-xs text-purple-600 pt-2 border-t border-purple-200 mt-2">{{ $t('home.adCoinLimit') }}</p>
       </div>
       <div class="bg-amber-50 rounded-lg p-3 text-xs text-amber-800 text-left">
-        스페셜 코인으로 희귀하고 특별한 아이템을 구매할 수 있습니다!
+        {{ $t('home.adCoinHint') }}
       </div>
     </div>
   </CommonModal>
@@ -360,6 +360,7 @@ import type {
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { t } = useI18n()
 const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed } = useGtagEvents()
 const { hapticImpact, share: nativeShare } = useNative()
 
@@ -385,9 +386,13 @@ const showLevelUpDialog = ref(false)
 const showFreeCoinDialog = ref(false)
 const showUpgradeModal = ref(false)
 
-// Phase 3 보너스 — 4종 효과 cycle (off → rain → snow → firefly → bubble → off)
+// P-EFFECT-001 (구현 계획서 v4): 파티클 자동 분기 (시간대 + 진화 단계) + 수동 override.
+// manualEffect = null 이면 autoEffect (시간대/진화단계 자동) 사용. 헤더 버튼이 manual 순환.
 type EffectType = 'off' | 'rain' | 'snow' | 'firefly' | 'bubble'
-const effectType = ref<EffectType>('off')
+const { autoEffect } = useParticleEffect(computed(() => terrarium.value?.evolutionStage))
+const manualEffect = ref<EffectType | null>(null)
+// 실제 표시 효과 — 수동 선택이 있으면 그것, 없으면 자동
+const effectType = computed<EffectType>(() => manualEffect.value ?? autoEffect.value)
 const effectIcon = computed(() => {
   switch (effectType.value) {
     case 'rain': return 'lucide:cloud-rain-wind'
@@ -398,9 +403,10 @@ const effectIcon = computed(() => {
   }
 })
 function cycleEffect() {
-  const order: EffectType[] = ['off', 'rain', 'snow', 'firefly', 'bubble']
-  const next = order[(order.indexOf(effectType.value) + 1) % order.length]
-  effectType.value = next ?? 'off'
+  // null = 자동(시간대/진화단계). 이후 명시 효과들을 순환하고 다시 자동으로 복귀.
+  const order: (EffectType | null)[] = [null, 'rain', 'snow', 'firefly', 'bubble', 'off']
+  const next = order[(order.indexOf(manualEffect.value) + 1) % order.length]
+  manualEffect.value = next === undefined ? null : next
 }
 
 function onTerrariumUpgraded(updated: import('@terraworld-it/openapi-frontend').TerrariumResponse) {
@@ -411,7 +417,7 @@ function onTerrariumUpgraded(updated: import('@terraworld-it/openapi-frontend').
 // --- Computed ---
 const terrariumName = computed(() => {
   const nick = user.value?.nickname
-  return nick ? `${nick}의 테라리움` : '나의 테라리움'
+  return nick ? t('home.terrariumNameOf', { nickname: nick }) : t('home.terrariumNameDefault')
 })
 
 const maxSlots = computed(() => terrarium.value?.maxSlots ?? 5)
@@ -439,7 +445,7 @@ function slotLayoutType(slotId: number): 'BACKGROUND' | 'FOREGROUND' | 'FIGURE' 
 
 function slotTypeLabel(slotId: number): string {
   const type = slotLayoutType(slotId)
-  return type === 'BACKGROUND' ? '후경' : type === 'FIGURE' ? '피규어' : '전경'
+  return type === 'BACKGROUND' ? t('home.slotBackground') : type === 'FIGURE' ? t('home.slotFigure') : t('home.slotForeground')
 }
 
 function isPlaced(itemId: number): boolean {
@@ -501,7 +507,7 @@ async function onHeartClick() {
     }
     trackHeartClick()
     void hapticImpact('Light')
-    toast.success(`+${heart?.reward ?? 0} 코인`)
+    toast.success(t('home.heartReward', { n: heart?.reward ?? 0 }))
   }
   catch (e) {
     toast.error((e as Error).message)
@@ -513,7 +519,7 @@ async function onHeartClick() {
 
 function onSlotClick(slotId: number) {
   if (slotId >= maxSlots.value) {
-    toast.info('이 슬롯은 잠겨있습니다. 테라리움을 레벨업하세요!')
+    toast.info(t('home.slotLocked'))
     return
   }
   selectedSlot.value = slotId
@@ -537,7 +543,7 @@ async function placeItem(item: ItemResponse) {
     const { data: terraData } = await sdk.getTerrarium({ client })
     if (terraData) terrarium.value = castData<TerrariumResponse>(terraData) ?? null
     selectedSlot.value = null
-    toast.success('배치 완료!')
+    toast.success(t('home.placeDone'))
   }
   catch (e) {
     toast.error((e as Error).message)
@@ -564,7 +570,7 @@ async function removeItem() {
     const { data: terraData } = await sdk.getTerrarium({ client })
     if (terraData) terrarium.value = castData<TerrariumResponse>(terraData) ?? null
     selectedSlot.value = null
-    toast.success('아이템 제거 완료')
+    toast.success(t('home.removeDone'))
   }
   catch (e) {
     toast.error((e as Error).message)
@@ -580,7 +586,7 @@ async function onClaimAdReward() {
     const { showRewardedAd } = useAdMob()
     const watched = await showRewardedAd()
     if (!watched) {
-      toast.info('광고 시청을 완료해야 보상을 받을 수 있어요')
+      toast.info(t('home.adWatchRequired'))
       return
     }
 
@@ -593,7 +599,7 @@ async function onClaimAdReward() {
       user.value.currency.basicCoins = ad.updatedCurrency.basicCoins
     }
     const reward = ad?.reward.specialCoins ?? 0
-    toast.success(`+${reward} 스페셜 코인 획득!`)
+    toast.success(t('home.adRewardEarned', { n: reward }))
     if (reward > 0) {
       trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
     }
@@ -607,7 +613,7 @@ async function onShareClick() {
   if (!import.meta.client) return
   const target = document.getElementById('my-terra-container')
   if (!target) {
-    toast.error('테라리움 영역을 찾을 수 없어요')
+    toast.error(t('home.shareAreaNotFound'))
     return
   }
   try {
@@ -621,21 +627,21 @@ async function onShareClick() {
     const filename = `terraworld-${Date.now()}.png`
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
     if (!blob) {
-      toast.error('이미지 변환 실패')
+      toast.error(t('home.imageConvertFail'))
       return
     }
     // useNative.shareFile : native = filesystem + share sheet, web = Share API or download
     const { shareFile } = useNative()
     await shareFile(blob, filename, {
       title: 'TerraWorld',
-      text: '나만의 테라리움을 봐주세요!',
+      text: t('home.shareText'),
     })
-    toast.success('공유 준비 완료!')
+    toast.success(t('home.shareReady'))
     trackScreenshotSaved({ context: 'home' })
     trackShareCreated({ method: 'screenshot' })
   }
   catch (e) {
-    toast.error(`공유 실패: ${(e as Error).message}`)
+    toast.error(t('home.shareFail', { msg: (e as Error).message }))
   }
 }
 

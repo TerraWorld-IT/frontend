@@ -2,7 +2,7 @@
   <div
     class="relative inline-block transition-all duration-500"
     :style="{ filter: stageVisual.filter }"
-    :aria-label="`테라리움 레벨 ${clampedStage}/5`"
+    :aria-label="$t('terrarium.bottleAriaLabel', { stage: clampedStage })"
   >
     <!-- 병 본체: 기존 JamjarSvg 재사용 -->
     <IconsJamjarSvg />
@@ -34,7 +34,7 @@
     <!-- 레벨 뱃지 -->
     <div
       class="absolute -top-2 -right-2 min-w-[32px] h-8 px-2 rounded-full bg-riso-navy text-white text-xs font-bold flex items-center justify-center riso-shadow-sm"
-      :aria-label="`레벨 ${clampedStage}`"
+      :aria-label="$t('terrarium.levelBadgeAriaLabel', { n: clampedStage })"
     >
       Lv.{{ clampedStage }}
     </div>

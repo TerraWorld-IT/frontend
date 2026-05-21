@@ -12,7 +12,7 @@
     <span class="text-xl" aria-hidden="true">📅</span>
     <div class="text-xs text-riso-dark leading-tight">
       <div class="font-semibold">{{ status }}</div>
-      <div class="text-riso-dark/60">연속 {{ streak }}일</div>
+      <div class="text-riso-dark/60">{{ $t('attendance.streakDays', { n: streak }) }}</div>
     </div>
     <button
       v-if="!checkedIn"
@@ -30,19 +30,20 @@
 // 미인증 또는 fetch 실패 시 state 가 null → 위젯 자체가 렌더되지 않음 (조용한 fallback).
 // 인증된 사용자에게만 표시되며, 401 등 오류는 useAttendance 의 error.value 에 격리되고
 // 컴포넌트 외부로 노출되지 않는다 (홈 페이지의 다른 영역과 격리하기 위함).
+const { t } = useI18n()
 const { state, loading, refresh, checkIn } = useAttendance()
 const toast = useToast()
 
 const checkedIn = computed(() => Boolean(state.value?.today))
 const streak = computed(() => state.value?.streak ?? 0)
 const reward = computed(() => state.value?.rewardBasicCoins ?? 5)
-const status = computed(() => (checkedIn.value ? '오늘 출석 완료' : '출석하기'))
+const status = computed(() => (checkedIn.value ? t('attendance.checkedIn') : t('attendance.checkIn')))
 
 async function onCheckIn() {
   const result = await checkIn()
   if (result) {
-    const bonus = result.reward.bonus ? ' (보너스!)' : ''
-    toast.success(`이슬 +${result.reward.basicCoins}${bonus}`)
+    const bonus = result.reward.bonus ? ` (${t('attendance.bonus')})` : ''
+    toast.success(`${t('attendance.dewReward', { n: result.reward.basicCoins })}${bonus}`)
   }
 }
 
