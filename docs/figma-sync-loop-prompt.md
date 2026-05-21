@@ -1,5 +1,8 @@
 # Figma0409 Sync Loop — Per-Round Prompt
 
+> **⚠ STALE (2026-04-24 이후 dormant)** — Figma 포팅 워크플로 종료. 본 문서는 historical
+> record 로 보존. ADR-003 (i18n REMOVE, 2026-05-16) 적용 후 i18n 관련 표현은 stale.
+>
 > 이 파일은 `/loop`이 매 회차 그대로 읽어서 실행하는 프롬프트입니다.
 > 회차 간에 메모리가 없으므로, 여기에 적힌 모든 전제와 수칙을 그대로 따라야 합니다.
 

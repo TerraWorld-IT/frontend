@@ -1,0 +1,71 @@
+// UltraPlan M17 — component spec
+import { describe, it, expect } from 'vitest'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import Modal from '~/components/common/Modal.vue'
+
+describe('Modal (common)', () => {
+  it('modelValue=false 면 hidden (Transition v-if 미렌더)', async () => {
+    await mountSuspended(Modal, { props: { modelValue: false } })
+    // Teleport target body 에 modal 미렌더
+    expect(document.body.querySelector('.bg-riso-cream')).toBeNull()
+  })
+
+  it('modelValue=true 면 title + message 렌더', async () => {
+    await mountSuspended(Modal, {
+      props: { modelValue: true, title: 'Confirm', message: 'Are you sure?' },
+    })
+    const modalCard = document.body.querySelector('.bg-riso-cream')
+    expect(modalCard).not.toBeNull()
+    expect(modalCard!.textContent).toContain('Confirm')
+    expect(modalCard!.textContent).toContain('Are you sure?')
+  })
+
+  it('variant="danger" 시 confirm 버튼이 riso-poppy 배경', async () => {
+    await mountSuspended(Modal, { props: { modelValue: true, variant: 'danger' } })
+    const buttons = document.body.querySelectorAll('button')
+    const confirmBtn = Array.from(buttons).find((b) => b.textContent?.includes('확인'))
+    expect(confirmBtn?.className).toContain('bg-riso-poppy')
+  })
+
+  it('confirm 버튼 클릭 시 confirm + update:modelValue=false emit', async () => {
+    const wrapper = await mountSuspended(Modal, { props: { modelValue: true } })
+    const buttons = document.body.querySelectorAll('button')
+    const confirmBtn = Array.from(buttons).find((b) => b.textContent?.includes('확인'))
+    confirmBtn!.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('confirm')).toBeTruthy()
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
+  })
+
+  it('showCancel=false 면 cancel 버튼 미렌더', async () => {
+    await mountSuspended(Modal, { props: { modelValue: true, showCancel: false } })
+    const buttons = document.body.querySelectorAll('button')
+    expect(Array.from(buttons).find((b) => b.textContent?.includes('취소'))).toBeUndefined()
+  })
+
+  // UX-002 / SEC-302 — a11y + body scroll lock + focus trap
+  it('open 시 role="dialog" + aria-modal="true" 명시', async () => {
+    await mountSuspended(Modal, { props: { modelValue: true, title: 'T', message: 'M' } })
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog).not.toBeNull()
+    expect(dialog?.getAttribute('aria-modal')).toBe('true')
+    expect(dialog?.getAttribute('aria-labelledby')).toBe('modal-title')
+    expect(dialog?.getAttribute('aria-describedby')).toBe('modal-message')
+  })
+
+  it('open 시 body.style.overflow = hidden + modalDepth 증가', async () => {
+    delete document.body.dataset.modalDepth
+    document.body.style.overflow = ''
+    await mountSuspended(Modal, { props: { modelValue: true } })
+    expect(document.body.style.overflow).toBe('hidden')
+    expect(document.body.dataset.modalDepth).toBe('1')
+  })
+
+  it('open=false 일 때 body scroll 미잠금', async () => {
+    delete document.body.dataset.modalDepth
+    document.body.style.overflow = ''
+    await mountSuspended(Modal, { props: { modelValue: false } })
+    expect(document.body.style.overflow).toBe('')
+    expect(document.body.dataset.modalDepth).toBeUndefined()
+  })
+})

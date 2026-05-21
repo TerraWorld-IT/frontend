@@ -37,21 +37,21 @@
                 class="flex-1 h-11 rounded-full border border-riso-walnut/15 text-riso-dark/60 text-sm font-medium active:scale-95 transition-transform"
                 @click="step--"
               >
-                이전
+                {{ $t('onboarding.prev') }}
               </button>
               <button
                 v-if="step < steps.length - 1"
                 class="flex-1 h-11 rounded-full bg-riso-sage text-white text-sm font-medium riso-shadow-sm active:scale-95 transition-transform"
                 @click="step++"
               >
-                다음
+                {{ $t('onboarding.next') }}
               </button>
               <button
                 v-else
                 class="flex-1 h-11 rounded-full bg-riso-pink text-white text-sm font-medium riso-shadow-sm active:scale-95 transition-transform"
                 @click="onComplete"
               >
-                시작하기!
+                {{ $t('onboarding.start') }}
               </button>
             </div>
 
@@ -61,7 +61,7 @@
               class="w-full text-center text-xs text-riso-dark/30 hover:text-riso-dark/50"
               @click="onComplete"
             >
-              건너뛰기
+              {{ $t('onboarding.skip') }}
             </button>
           </div>
         </div>
@@ -74,42 +74,43 @@
 defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
+const { t } = useI18n()
 const step = ref(0)
 
-const steps = [
+const steps = computed(() => [
   {
     icon: '📝',
-    title: '활동 기록하기',
-    desc: '산책, 독서, 러닝, 낙서 — 일상의 활동을 기록하면 코인과 토큰을 받아요',
+    title: t('onboarding.step1.title'),
+    desc: t('onboarding.step1.desc'),
     bg: '#FFF8EB',
   },
   {
     icon: '🪙',
-    title: '보상 모으기',
-    desc: '기록할 때마다 코인과 카테고리 토큰을 획득! 레벨업도 함께 올라가요',
+    title: t('onboarding.step2.title'),
+    desc: t('onboarding.step2.desc'),
     bg: '#F4E4BA44',
   },
   {
     icon: '🛍️',
-    title: '아이템 구매하기',
-    desc: '모은 코인과 토큰으로 상점에서 귀여운 아이템을 구매할 수 있어요',
+    title: t('onboarding.step3.title'),
+    desc: t('onboarding.step3.desc'),
     bg: '#E8A0BF22',
   },
   {
     icon: '🫧',
-    title: '테라리움 꾸미기',
-    desc: '구매한 아이템을 유리병 안에 배치하여 나만의 테라리움을 완성하세요',
+    title: t('onboarding.step4.title'),
+    desc: t('onboarding.step4.desc'),
     bg: '#7B9E6B22',
   },
   {
     icon: '💌',
-    title: '친구에게 공유',
-    desc: '완성된 테라리움을 친구에게 공유하고, 함께 기록하며 더 큰 보상을 받아요!',
+    title: t('onboarding.step5.title'),
+    desc: t('onboarding.step5.desc'),
     bg: '#A8D8EA33',
   },
-]
+])
 
-const currentStep = computed((): typeof steps[0] => steps[step.value] ?? steps[0]!)
+const currentStep = computed(() => steps.value[step.value] ?? steps.value[0]!)
 
 function onComplete() {
   localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true')

@@ -32,3 +32,6 @@ logs
 
 # Nuxt auto-managed (setups.* etc.)
 .nuxtrc
+
+# test coverage output
+coverage/

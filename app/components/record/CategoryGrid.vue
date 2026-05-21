@@ -26,7 +26,7 @@
       </div>
       <div class="text-[12px] leading-[16px] text-[#525252] flex items-center gap-1">
         <Icon name="lucide:star" class="w-3 h-3" />
-        {{ cat.baseCoinReward }} 코인
+        {{ $t('record.coinReward', { n: cat.baseCoinReward }) }}
       </div>
     </button>
   </div>

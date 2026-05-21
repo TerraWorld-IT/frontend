@@ -40,15 +40,20 @@ const props = defineProps<{
 
 defineEmits<{ click: [] }>()
 
-const SLOT_LABELS: Record<number, string> = {
-  0: '후경',
-  1: '후경',
-  2: '전경',
-  3: '피규어',
-  4: '전경',
+const { t } = useI18n()
+
+const SLOT_LABEL_KEYS: Record<number, string> = {
+  0: 'terrarium.background',
+  1: 'terrarium.background',
+  2: 'terrarium.foreground',
+  3: 'terrarium.figure',
+  4: 'terrarium.foreground',
 }
 
-const slotLabel = computed(() => SLOT_LABELS[props.slotId] ?? '')
+const slotLabel = computed(() => {
+  const key = SLOT_LABEL_KEYS[props.slotId]
+  return key ? t(key) : ''
+})
 
 const sizeClasses = computed(() => {
   switch (props.size) {

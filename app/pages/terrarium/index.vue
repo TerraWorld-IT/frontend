@@ -23,9 +23,9 @@
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center gap-3 py-12">
-      <p class="text-riso-poppy font-medium text-sm">불러오기 실패</p>
+      <p class="text-riso-poppy font-medium text-sm">{{ $t('common.loadFail') }}</p>
       <button class="text-xs bg-riso-sage text-white px-4 py-2 rounded-full" @click="loadData">
-        다시 시도
+        {{ $t('common.retry') }}
       </button>
     </div>
 
@@ -44,7 +44,7 @@
         <!-- Slot usage info -->
         <div class="flex items-center justify-between">
           <p class="text-xs text-riso-dark/40">
-            {{ terrariumStore.placedItems.length }} / {{ terrariumStore.maxSlots }} 슬롯 사용
+            {{ $t('terrarium.slotUsage', { used: terrariumStore.placedItems.length, max: terrariumStore.maxSlots }) }}
           </p>
           <button
             v-if="hasChanges"
@@ -52,13 +52,13 @@
             :disabled="saving"
             @click="savePlacements"
           >
-            {{ saving ? '저장 중...' : '저장' }}
+            {{ saving ? $t('terrarium.saving') : $t('common.save') }}
           </button>
         </div>
 
         <!-- Owned items (quick preview) -->
         <div class="space-y-2">
-          <p class="text-xs text-riso-dark/30 font-medium">보유 아이템</p>
+          <p class="text-xs text-riso-dark/30 font-medium">{{ $t('terrarium.available') }}</p>
           <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             <div
               v-for="item in ownedItemDetails"
@@ -78,15 +78,15 @@
       <template v-else>
         <div class="flex gap-3">
           <div class="flex-1 bg-white rounded-2xl p-3 border border-riso-walnut/10 text-center riso-shadow-sm">
-            <p class="text-xs text-riso-dark/30">아이템</p>
+            <p class="text-xs text-riso-dark/30">{{ $t('terrarium.items') }}</p>
             <p class="font-bold text-lg text-riso-dark">{{ terrariumStore.placedItems.length }}</p>
           </div>
           <div class="flex-1 bg-white rounded-2xl p-3 border border-riso-walnut/10 text-center riso-shadow-sm">
-            <p class="text-xs text-riso-dark/30">배경</p>
+            <p class="text-xs text-riso-dark/30">{{ $t('terrarium.background') }}</p>
             <p class="font-bold text-sm text-riso-dark">{{ terrariumStore.data?.background?.name ?? '-' }}</p>
           </div>
           <button class="flex-1 bg-riso-pink text-white rounded-2xl p-3 font-bold text-sm riso-shadow-sm active:scale-95 transition-transform">
-            공유
+            {{ $t('common.share') }}
           </button>
         </div>
       </template>
@@ -111,13 +111,15 @@
 </template>
 
 <script setup lang="ts">
-import type { PlacementItem } from '@terraworld-it/openapi-frontend'
+import type { HeartResponse, PlacementItem } from '@terraworld-it/openapi-frontend'
+import { castData } from '~/composables/useOpenApi'
 import { useTerrariumStore } from '~/stores/terrarium'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { t } = useI18n()
 const { hapticImpact } = useNative()
 
 const terrariumStore = useTerrariumStore()
@@ -129,10 +131,10 @@ const rewardToastRef = ref<{ show: () => void } | null>(null)
 
 // Mode
 const mode = ref<'view' | 'edit'>('view')
-const modes = [
-  { key: 'view' as const, label: '감상' },
-  { key: 'edit' as const, label: '편집' },
-]
+const modes = computed(() => [
+  { key: 'view' as const, label: t('terrarium.viewMode') },
+  { key: 'edit' as const, label: t('terrarium.editMode') },
+])
 
 // Loading
 const fetchError = ref(false)
@@ -203,10 +205,10 @@ async function savePlacements() {
     await sdk.updateTerrariumPlacements({ client, body: { placedItems: placements } })
     await terrariumStore.fetch()
     pendingChanges.value = []
-    toast.success('저장 완료!')
+    toast.success(t('terrarium.saveDone'))
   }
   catch {
-    toast.error('저장에 실패했습니다')
+    toast.error(t('terrarium.saveFail'))
   }
   finally {
     saving.value = false
@@ -223,7 +225,10 @@ async function onHeartClick() {
 
     canvasRef.value?.addHeartAnimation()
 
-    lastReward.coin = 0.1
+    // /analyze 2026-05-18 (Codex 3차 F1 fix): hardcoded 0.1 → SDK 응답 동적.
+    // backend reward=1 정합 (BIGINT), spec example=1.0. fallback 0 = 응답 부재 시 안전.
+    const heart = castData<HeartResponse>(data)
+    lastReward.coin = heart?.reward ?? 0
     lastReward.exp = 0
     rewardToastRef.value?.show()
 
@@ -231,7 +236,7 @@ async function onHeartClick() {
     await userStore.fetchMe()
   }
   catch {
-    toast.error('하트 클릭 실패')
+    toast.error(t('terrarium.heartFail'))
   }
 }
 

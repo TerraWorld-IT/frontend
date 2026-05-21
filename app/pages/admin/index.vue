@@ -2,10 +2,25 @@
   <div class="py-6 space-y-6">
     <div class="space-y-1">
       <h1 class="text-xl font-bold text-riso-dark">Admin Dashboard</h1>
-      <p class="text-sm text-riso-dark/50">아이템, 보상, 경제 관리</p>
+      <p class="text-sm text-riso-dark/50">{{ $t('admin.index.subtitle') }}</p>
     </div>
 
-    <!-- Dashboard cards -->
+    <!-- Dashboard stats -->
+    <div class="grid grid-cols-2 gap-3">
+      <div
+        v-for="stat in stats"
+        :key="stat.key"
+        class="bg-white rounded-2xl p-4 border border-riso-walnut/10 riso-shadow-sm space-y-1"
+      >
+        <p class="text-[11px] text-riso-dark/40">{{ stat.label }}</p>
+        <p class="text-2xl font-bold text-riso-dark">
+          <span v-if="dashboardLoading" class="text-riso-dark/20">—</span>
+          <span v-else>{{ stat.value }}</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Menu cards -->
     <div class="grid grid-cols-2 gap-3">
       <NuxtLink
         v-for="menu in menus"
@@ -26,12 +41,45 @@
 </template>
 
 <script setup lang="ts">
+interface AdminDashboard {
+  totalUsers: number
+  totalItems: number
+  totalCategories: number
+  totalLevels: number
+}
+
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
-const menus = [
-  { path: '/admin/items', icon: '🎨', label: '아이템 관리', desc: '스탬프 추가/수정/삭제', bg: '#E8A0BF22' },
-  { path: '/admin/categories', icon: '📂', label: '카테고리', desc: '보상 설정 조정', bg: '#7B9E6B22' },
-  { path: '/admin/exchange', icon: '💱', label: '교환 비율', desc: '토큰 교환 레이트', bg: '#A8D8EA22' },
-  { path: '/admin/levels', icon: '📊', label: '레벨 설정', desc: 'EXP/보상 테이블', bg: '#F4E4BA44' },
-]
+const { t } = useI18n()
+const { request } = useInternalApi()
+const toast = useToast()
+
+const dashboardLoading = ref(true)
+const dashboard = ref<AdminDashboard | null>(null)
+
+const stats = computed(() => [
+  { key: 'users', label: t('admin.index.totalUsers'), value: dashboard.value?.totalUsers ?? 0 },
+  { key: 'items', label: t('admin.index.totalItems'), value: dashboard.value?.totalItems ?? 0 },
+  { key: 'categories', label: t('admin.index.totalCategories'), value: dashboard.value?.totalCategories ?? 0 },
+  { key: 'levels', label: t('admin.index.totalLevels'), value: dashboard.value?.totalLevels ?? 0 },
+])
+
+const menus = computed(() => [
+  { path: '/admin/items', icon: '🎨', label: t('admin.index.items'), desc: t('admin.index.itemsDesc'), bg: '#E8A0BF22' },
+  { path: '/admin/categories', icon: '📂', label: t('admin.index.categories'), desc: t('admin.index.categoriesDesc'), bg: '#7B9E6B22' },
+  { path: '/admin/exchange', icon: '💱', label: t('admin.index.exchange'), desc: t('admin.index.exchangeDesc'), bg: '#A8D8EA22' },
+  { path: '/admin/levels', icon: '📊', label: t('admin.index.levels'), desc: t('admin.index.levelsDesc'), bg: '#F4E4BA44' },
+])
+
+onMounted(async () => {
+  try {
+    dashboard.value = await request<AdminDashboard>('/api/v1/admin/dashboard')
+  }
+  catch {
+    toast.error(t('admin.index.loadError'))
+  }
+  finally {
+    dashboardLoading.value = false
+  }
+})
 </script>

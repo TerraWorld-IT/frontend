@@ -1,30 +1,43 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="modelValue" class="fixed inset-0 z-[9997] flex items-center justify-center p-4" @click.self="cancel">
+      <div
+        v-if="modelValue"
+        ref="modalRoot"
+        class="fixed inset-0 z-[9997] flex items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        :aria-labelledby="title ? 'modal-title' : undefined"
+        :aria-describedby="message ? 'modal-message' : undefined"
+        tabindex="-1"
+        @click.self="cancel"
+        @keydown.esc="cancel"
+      >
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-riso-dark/30 backdrop-blur-sm" />
 
         <!-- Modal card -->
         <div class="relative bg-riso-cream rounded-2xl p-6 w-full max-w-sm riso-shadow border border-riso-walnut/10">
-          <h3 v-if="title" class="text-lg font-bold mb-2">{{ title }}</h3>
-          <p v-if="message" class="text-sm text-riso-dark/60 mb-5">{{ message }}</p>
+          <h3 v-if="title" id="modal-title" class="text-lg font-bold mb-2">{{ title }}</h3>
+          <p v-if="message" id="modal-message" class="text-sm text-riso-dark/60 mb-5">{{ message }}</p>
           <slot />
 
           <div class="flex gap-3 mt-5">
             <button
               v-if="showCancel"
+              ref="cancelBtn"
               class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white border border-riso-walnut/15 text-riso-dark/60 active:bg-gray-50"
               @click="cancel"
             >
-              {{ cancelText }}
+              {{ resolvedCancelText }}
             </button>
             <button
+              ref="confirmBtn"
               class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white riso-shadow-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
               :class="confirmClass"
               @click="confirm"
             >
-              {{ confirmText }}
+              {{ resolvedConfirmText }}
             </button>
           </div>
         </div>
@@ -34,6 +47,15 @@
 </template>
 
 <script setup lang="ts">
+// UltraPlan code-review UX-002 — WCAG 2.1 SC 2.1.2 (No Keyboard Trap) + 2.4.3 (Focus Order)
+// + 4.1.2 (Name, Role, Value).
+// - role="dialog" + aria-modal + aria-labelledby/aria-describedby
+// - Escape key 로 cancel
+// - 열릴 때 confirm 버튼 으로 focus 이동 (또는 cancel — 의도된 default = confirm)
+// - body scroll lock (열려있는 동안 background 스크롤 차단)
+// - 닫힐 때 직전 focus 위치로 복귀
+const { t } = useI18n()
+
 const props = withDefaults(defineProps<{
   modelValue: boolean
   title?: string
@@ -43,17 +65,25 @@ const props = withDefaults(defineProps<{
   showCancel?: boolean
   variant?: 'primary' | 'danger'
 }>(), {
-  confirmText: '확인',
-  cancelText: '취소',
+  confirmText: undefined,
+  cancelText: undefined,
   showCancel: true,
   variant: 'primary',
 })
+
+const resolvedConfirmText = computed(() => props.confirmText ?? t('common.confirm'))
+const resolvedCancelText = computed(() => props.cancelText ?? t('common.cancel'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   'confirm': []
   'cancel': []
 }>()
+
+const modalRoot = ref<HTMLElement | null>(null)
+const confirmBtn = ref<HTMLButtonElement | null>(null)
+const cancelBtn = ref<HTMLButtonElement | null>(null)
+let previousActiveElement: Element | null = null
 
 const confirmClass = computed(() =>
   props.variant === 'danger' ? 'bg-riso-poppy' : 'bg-riso-sage',
@@ -68,6 +98,69 @@ function cancel() {
   emit('cancel')
   emit('update:modelValue', false)
 }
+
+// SSR-safe: import.meta.client 가드.
+// SEC-302 — 다중 Modal 중첩 시 body scroll lock 누적 카운터. nested modal 모두 닫혀야 unlock.
+watch(() => props.modelValue, async (open) => {
+  if (!import.meta.client) return
+  if (open) {
+    previousActiveElement = document.activeElement
+    // 누적 카운터 — Modal A 열림 → B 열림 → A 닫힘 시에도 B 가 lock 유지
+    const depth = Number((document.body.dataset.modalDepth ?? '0')) + 1
+    document.body.dataset.modalDepth = String(depth)
+    document.body.style.overflow = 'hidden'
+    await nextTick()
+    confirmBtn.value?.focus()
+  } else {
+    const depth = Math.max(0, Number((document.body.dataset.modalDepth ?? '0')) - 1)
+    document.body.dataset.modalDepth = String(depth)
+    if (depth === 0) {
+      document.body.style.overflow = ''
+      delete document.body.dataset.modalDepth
+    }
+    if (previousActiveElement instanceof HTMLElement) {
+      previousActiveElement.focus()
+    }
+    previousActiveElement = null
+  }
+})
+
+// Focus trap — Tab / Shift+Tab 키 가 confirm ↔ cancel 사이만 순환
+function handleTabTrap(e: KeyboardEvent) {
+  // TYPE-201 — modelValue=false 시 ref 가 null 이라 length 0 으로 early return 되지만,
+  // 의도 명시 + cost 절약 위해 modalValue open guard 를 맨 앞에.
+  if (!props.modelValue) return
+  if (e.key !== 'Tab') return
+  const focusables = [cancelBtn.value, confirmBtn.value].filter((b): b is HTMLButtonElement => b !== null)
+  if (focusables.length === 0) return
+  const first = focusables[0]!
+  const last = focusables[focusables.length - 1]!
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
+onMounted(() => {
+  if (import.meta.client) document.addEventListener('keydown', handleTabTrap)
+})
+onBeforeUnmount(() => {
+  if (import.meta.client) {
+    document.removeEventListener('keydown', handleTabTrap)
+    // unmount 시 본 instance 가 lock 보유 중이었다면 depth 감소 후 0 일 때만 unlock
+    if (props.modelValue) {
+      const depth = Math.max(0, Number((document.body.dataset.modalDepth ?? '0')) - 1)
+      document.body.dataset.modalDepth = String(depth)
+      if (depth === 0) {
+        document.body.style.overflow = ''
+        delete document.body.dataset.modalDepth
+      }
+    }
+  }
+})
 </script>
 
 <style scoped>

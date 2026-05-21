@@ -4,3 +4,14 @@ pre-commit:
     lint:
       glob: "*.{js,ts,vue}"
       run: bunx oxlint {staged_files}
+    # /analyze 2026-05-18 (Codex C-10): @capacitor/* frontend/mobile 양쪽 동기 강제.
+    # package.json 변경 시에만 실행 — 다른 commit 은 grep 만으로 빠르게 통과.
+    capacitor-sync:
+      glob: "{package.json,../mobile/package.json}"
+      run: node scripts/check-capacitor-sync.mjs
+    # UltraPlan I-DEAD-KEY-001 — i18n dead/missing key detection (advisory phase).
+    # Phase 4 현재: missing 만 BLOCKING (실 typo). dead 는 I-T-MIGRATE-001 진행 중이라 advisory.
+    # Phase 5+ strict: `I18N_STRICT=1` 환경변수로 격상.
+    i18n-keys:
+      glob: "{i18n/locales/*.json,app/**/*.{vue,ts}}"
+      run: node scripts/check-i18n-dead-keys.mjs

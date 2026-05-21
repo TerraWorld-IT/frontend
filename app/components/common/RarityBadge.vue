@@ -2,7 +2,7 @@
   <span
     class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none"
     :class="cls"
-    :aria-label="`희귀도 ${label}`"
+    :aria-label="$t('rarity.ariaLabel', { rarity: label })"
   >
     <span class="text-[8px]">{{ icon }}</span>
     {{ label }}
@@ -31,11 +31,13 @@ const cls = computed(() => {
   }
 })
 
+const { t } = useI18n()
+
 const label = computed(() => {
   switch (normalized.value) {
-    case 'RARE': return '희귀'
-    case 'EPIC': return '판타지'
-    default: return '일반'
+    case 'RARE': return t('shop.rare')
+    case 'EPIC': return t('rarity.fantasy')
+    default: return t('shop.common')
   }
 })
 

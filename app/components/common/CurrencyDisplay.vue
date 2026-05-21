@@ -8,7 +8,7 @@
       >
         <Icon name="lucide:star" class="w-5 h-5 text-[#595757] shrink-0" />
         <div>
-          <div class="text-xs text-neutral-500 font-medium">기본 코인</div>
+          <div class="text-xs text-neutral-500 font-medium">{{ $t('currency.basicCoin') }}</div>
           <div class="font-bold text-black tabular-nums text-sm">{{ fmt(currency?.basicCoins) }}</div>
         </div>
       </div>
@@ -18,7 +18,7 @@
       >
         <Icon name="lucide:gem" class="w-5 h-5 text-[#595757] shrink-0" />
         <div>
-          <div class="text-xs text-neutral-500 font-medium">스페셜 코인</div>
+          <div class="text-xs text-neutral-500 font-medium">{{ $t('currency.specialCoin') }}</div>
           <div class="font-bold text-black tabular-nums text-sm">{{ fmt(currency?.specialCoins) }}</div>
         </div>
       </div>
@@ -54,14 +54,16 @@ const props = withDefaults(
   },
 )
 
+const { t } = useI18n()
+
 const tokens = computed(() => {
   const c = props.currency
   if (!c) return []
   return [
-    { icon: 'lucide:footprints', label: '산책', value: c.walkTokens },
-    { icon: 'lucide:book-open', label: '독서', value: c.readTokens },
-    { icon: 'lucide:zap', label: '러닝', value: c.runTokens },
-    { icon: 'lucide:palette', label: '낙서', value: c.drawTokens },
+    { icon: 'lucide:footprints', label: t('record.walk'), value: c.walkTokens },
+    { icon: 'lucide:book-open', label: t('record.read'), value: c.readTokens },
+    { icon: 'lucide:zap', label: t('record.run'), value: c.runTokens },
+    { icon: 'lucide:palette', label: t('record.doodle'), value: c.drawTokens },
   ]
 })
 

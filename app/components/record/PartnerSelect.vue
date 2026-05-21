@@ -10,13 +10,13 @@
         type="checkbox"
         class="rounded"
       >
-      친구와 함께 기록
+      {{ $t('record.partnerToggle') }}
     </label>
     <input
       v-if="enabled"
       v-model="partnerUserId"
       type="text"
-      placeholder="친구 user id (8자 코드 수락 후 표시)"
+      :placeholder="$t('record.partnerPlaceholder')"
       class="w-full px-2 py-1 text-sm border border-riso-dark/20 rounded"
       @input="emitChange"
     >

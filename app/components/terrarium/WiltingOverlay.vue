@@ -3,8 +3,10 @@
     v-if="visual.showOverlay && visual.message"
     class="absolute inset-x-0 bottom-8 flex flex-col items-center gap-2 pointer-events-none"
     :class="visual.extraClass"
+    role="status"
     aria-live="polite"
-    :aria-label="`시들기 단계 ${visual.stage}: ${visual.message}`"
+    aria-atomic="true"
+    :aria-label="$t('terrarium.wiltAriaLabel', { stage: visual.stage, message: visual.message })"
   >
     <div
       class="px-3 py-1.5 rounded-full bg-white/85 backdrop-blur-sm riso-shadow-sm text-xs font-medium text-riso-dark"
@@ -22,7 +24,7 @@
       class="pointer-events-auto px-3 py-1.5 rounded-full bg-riso-pink text-white text-[11px] font-semibold riso-shadow-sm active:scale-95 transition-transform"
       @click="goRecord"
     >
-      지금 기록하러 가기 →
+      {{ $t('terrarium.goRecordNow') }}
     </button>
   </div>
 </template>

@@ -50,11 +50,9 @@ jobs:
           bun-version: latest
 
       - run: bun install --frozen-lockfile
-      # TODO: Remove continue-on-error after hey-api union type debt is resolved
-      # Tracked: hey-api TData[keyof TData] unwrapping causes ~50 false positives
-      # Target: remove by 2026-06-01
+      # L-CI-STRICT-001 (UltraPlan v3): continue-on-error 제거. hey-api union type debt 는
+      # castData<T> utility (useOpenApi.ts:43) 로 해소 — 2026-05-18 cycle 검증 시 PASS.
       - run: bun run typecheck
-        continue-on-error: true
 
   # ─────────────────────────────────────────────────────────────────
   # 3. Unit tests — Vitest + coverage
@@ -115,6 +113,12 @@ jobs:
         run: bun run build
         env:
           NUXT_PUBLIC_API_BASE_URL: https://api.terraworld.app/api/v1
+
+      # UltraPlan C-BASELINE-CYCLE-001: bundle baseline diff (warn +10KB/+20%, fail +50KB/+50%).
+      # `bundle-baseline.json` 은 i18n revert 직후 lock 된 측정 기준. baseline 벗어남 = 의도된 추가 또는 회귀.
+      - name: Bundle baseline diff
+        run: node scripts/measure-bundle.mjs --compare bundle-baseline.json
+        continue-on-error: true  # advisory phase — strict phase 진입 시 제거
 
       - name: Check build output size
         run: |

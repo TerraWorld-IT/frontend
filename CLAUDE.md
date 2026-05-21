@@ -49,14 +49,8 @@ Auth:           better-auth (Nitro 서버, PostgreSQL 공유 DB)
 Validation:     valibot
 Date:           dayjs
 Lint:           oxlint (3 rules: no-unused-vars, no-console, eqeqeq)
-Format:         미적용 — Option A. oxlint 는 formatter 가 없고 (oxc 는
-                linter-only), prettier 는 의도적으로 도입하지 않음. 이유:
-                (1) 기존 50 vue / 51 ts / 20 json 파일에 도입 시 ~500-800
-                LOC churn 부담, (2) oxlint 와 conflict 0 이지만 in-flight
-                PR rebase 충돌 위험. post-launch (2026-09 이후) FE 코드
-                150+ 파일로 확대되면 root prettier 도입 재검토 (Option B).
-                openapi 패키지 (별도 repo) 는 prettier 보유 — 일관성
-                의도적 비동기.
+Format:         미적용 (Option A) — 상세 결정은 `docs/decisions/ADR-004-prettier-policy.md` 참조 (2026-05-16 격상).
+                요약: oxlint 만 사용, prettier 미도입. 재도입 조건은 ADR-004 § 3.
 Git Hooks:      lefthook (pre-commit lint)
 Commit:         cocogito (cog.toml)
 Capture:        html2canvas (테라리움 → PNG)
@@ -73,7 +67,7 @@ Native:         Capacitor 8 (Android + iOS scaffold 완료, 2026-05-07 mobile #4
 
 ```
 @pinia/nuxt, @vueuse/nuxt, @nuxt/icon, @nuxt/image,
-@nuxt/fonts, nuxt-gtag, @nuxtjs/color-mode
+@nuxt/fonts, nuxt-gtag, @nuxtjs/color-mode, @nuxtjs/i18n
 ```
 
 ---
@@ -87,20 +81,25 @@ frontend/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
 │   │   ├── common/                 # Toast, Modal, Loading, WalletBar, CurrencyDisplay,
-│   │   │                           #   ExchangeModal, RewardToast, Onboarding
-│   │   ├── common/                 # +AdSenseBanner (PC 웹 배너, hidden md:flex fixed bottom)
+│   │   │                           #   ExchangeModal, RewardToast, Onboarding,
+│   │   │                           #   AdSenseBanner, AttendanceWidget, CustomCategoryManager
 │   │   ├── icons/                  # JamjarSvg, PpJamjar (SVG 컴포넌트)
-│   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard
-│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog, +RainParticles (PixiJS), +WiltingOverlay
+│   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
+│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog,
+│   │   │                           #   WiltingOverlay, UpgradeModal (5단계 진화)
+│   │   │                           #   PixiJS 파티클: RainParticles + SnowParticles + FireflyParticles + BubbleParticles
 │   │   └── shop/                   # ShopContent, ShopSkeleton
 │   ├── composables/
 │   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped) + 4분 preemptive refresh timer
 │   │   ├── useAdMob.ts             # AdMob 보상형 광고 (Android native, 웹/iOS dev fallback)
+│   │   ├── useAttendance.ts        # 출석 체크인 (7일 streak 보너스 5→20 이슬)
+│   │   ├── useCustomCategory.ts    # 커스텀 카테고리 CRUD (사용자당 10개 한도)
+│   │   ├── useEvolution.ts         # 5단계 진화 (POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM, 레벨 1/5/10/20/30)
 │   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (15개 이벤트 헬퍼)
 │   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
-│   │   ├── usePayment.ts           # 구매/교환 트랜잭션 플로우
-│   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse)
+│   │   ├── usePayment.ts           # 구매/교환 트랜잭션 + startPurchase() IAP 진입점 (Phase 4 placeholder)
+│   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse, partnerUserId 지원)
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
 │   │   └── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
@@ -113,17 +112,18 @@ frontend/
 │   │   ├── auth.ts                 # JWT 쿠키 라우트 가드 (protect-by-default, SSR+CSR)
 │   │   └── admin.ts                # ADMIN 역할 체크 (useUserStore.role)
 │   ├── pages/
-│   │   ├── index.vue               # 홈 (테라리움 + html2canvas 캡처공유 + 비효과 토글 + AdMob 보상)
+│   │   ├── index.vue               # 홈 (테라리움 + 4종 파티클 cycle + 진화 모달 + AttendanceWidget + AdMob)
 │   │   ├── auth/login.vue          # 로그인/가입 (layout: false)
 │   │   ├── calendar/index.vue      # 캘린더 뷰
-│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + confetti + 친구 초대
+│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + confetti + 친구 함께 기록(partner)
 │   │   ├── terrarium/index.vue     # Jar 컨셉 테라리움 (5슬롯 + 하트 + 아이템 선택)
-│   │   ├── terrarium/free.vue      # 자유배치 PoC (DnD, PointerEvent)
+│   │   ├── terrarium/free.vue      # 자유배치 (entitlements.freePlacement 게이트 + 안내)
 │   │   ├── shop/index.vue          # 아이템 상점 (Suspense + ClientOnly)
-│   │   ├── profile/index.vue       # 프로필/통계/설정 (친구·랭킹 메뉴 진입)
+│   │   ├── profile/index.vue       # 프로필/통계/설정 + CustomCategoryManager
 │   │   ├── friends/index.vue       # 친구 초대 코드 발급/입력 (햇살 +5)
 │   │   ├── ranking/index.vue       # 월간 랭킹 (engagement / decoration)
 │   │   ├── share/[code].vue        # 공유 수신 (SSR + OG 메타 + 초대 수락)
+│   │   ├── upgrade/free-placement.vue # 자유배치 권리 결제 placeholder (Phase 4 IAP)
 │   │   └── admin/                  # 어드민 (index, items, categories, exchange, levels)
 │   ├── plugins/
 │   │   ├── openapi.ts              # @hey-api/client-fetch + 401 리프레시 인터셉터
@@ -139,10 +139,15 @@ frontend/
 ├── tests/
 │   ├── api-contract.test.ts        # SDK 타입 shape 검증 (17 tests)
 │   ├── composables/*.test.ts       # composable contract 검증
+│   ├── components/*.test.ts        # Modal / RewardToast / Loading a11y 등 (2026-05-18 Round 2 fix)
 │   └── utils/*.test.ts             # format, constants 단위 테스트
-├── i18n/locales/
-│   ├── ko.json                     # 한국어 (83키, 7개 페이지 섹션)
-│   └── en.json                     # 영어 (동일 구조)
+├── e2e/                             # Playwright e2e smoke (M6, 2026-05-16~17)
+│   └── *.spec.ts                   # login / record / share 3 smoke
+├── scripts/
+│   └── measure-bundle.mjs          # M11 번들 baseline 측정 (warn +10KB/+20%, fail +50KB/+50%)
+├── playwright.config.ts            # Playwright 설정 (M6)
+├── bundle-baseline.json            # 번들 baseline lock (~1.2MB / gzip 392KB / 55 chunks, ADR-005 i18n 재도입 후)
+├── i18n/locales/                    # @nuxtjs/i18n ko.json + en.json (ADR-005 — i18n 유지 + 단계적 다국어, 2026-05-18 ADR-003 supersede)
 ├── server/
 │   ├── api/auth/[...all].ts        # better-auth Nitro 핸들러
 │   └── lib/auth.ts                 # better-auth 서버 (PostgreSQL, crash on missing env)
@@ -216,50 +221,55 @@ EPIC   — 에픽 (특별 조건 또는 이벤트)
 
 ## 5. API 엔드포인트 (Backend 연동)
 
+> **Source of truth**: `openapi/spec/openapi.yaml` (TerraWorld-IT/openapi). 본 표는 요약본으로 spec과 어긋날 수 있다 — 신규/변경 시 `openapi-frontend/src/sdk.gen.ts` 와 `openapi-backend/src/main/kotlin/io/terraworld/api/api/*.kt` 가 SoT.
+
 ### 인증 (better-auth → Nuxt Nitro 서버)
 ```
 /api/auth/*              # better-auth 핸들러 (Nitro에서 처리)
 ```
 
-### Business API (Spring Boot)
+### Business API (Spring Boot, /api/v1 prefix)
+
 ```
-GET    /api/v1/categories
-GET    /api/v1/records                 # 날짜 범위 필터
-GET    /api/v1/records/today
-POST   /api/v1/records                 # 생성 → 비동기 보상 이벤트
-PUT    /api/v1/records/:id
-DELETE /api/v1/records/:id             # soft delete
-GET    /api/v1/records/stats
-GET    /api/v1/records/calendar/:yearMonth
+GET    /health
 
-GET    /api/v1/wallet
-GET    /api/v1/wallet/history
-POST   /api/v1/wallet/exchange         # 멱등성 키 필수
+GET    /users/me
+PUT    /users/me                       # 프로필 수정
 
-GET    /api/v1/level
+GET    /categories                     # 시스템 4종 + 본인 커스텀
+POST   /categories                     # 커스텀 카테고리 생성 (10개 한도)
+DELETE /categories/{categoryId}        # 본인 커스텀만 soft-delete
 
-GET    /api/v1/shop/items
-POST   /api/v1/shop/purchase           # 멱등성 키 필수
-GET    /api/v1/inventory
-GET    /api/v1/shop/backgrounds
+GET    /records                        # year/month 필터 + Paged
+POST   /records                        # 생성 + partnerUserId(joint record) 지원
+DELETE /records/{recordId}             # soft delete
+GET    /records/statistics
 
-GET    /api/v1/terrarium
-POST   /api/v1/terrarium/items         # 아이템 배치
-DELETE /api/v1/terrarium/items/:id
-PUT    /api/v1/terrarium/items/:id     # 위치 수정
-PUT    /api/v1/terrarium/background
-GET    /api/v1/terrarium/user/:userId
+POST   /exchange/special-to-basic      # 햇살↔이슬 1:2
+POST   /exchange/tokens                # 카테고리 토큰↔토큰
 
-POST   /api/v1/share
-GET    /api/v1/share/:shareCode        # SSR + OG 메타
+GET    /items
+GET    /items/{itemId}
+POST   /purchases                      # 아이템 구매
 
-GET    /api/v1/profile
-PUT    /api/v1/profile
+GET    /terrarium                      # evolutionStage + unlockedStages 포함
+PUT    /terrarium/placements           # 5슬롯 배치 갱신
+POST   /terrarium/heart                # +0.1 이슬
+POST   /terrarium/upgrade              # 진화 단계 전환 (Phase 3)
 
-CRUD   /api/v1/admin/items             # ADMIN only
-PUT    /api/v1/admin/categories/:id/rewards
-PUT    /api/v1/admin/exchange-rates
-GET    /api/v1/admin/dashboard
+GET    /levels
+GET    /notes/{date}, PUT, DELETE      # 캘린더 메모
+
+POST   /invites                        # 8자 코드 + 7일 만료
+POST   /invites/{code}/accept          # 양쪽 햇살 +5
+
+POST   /rewards/ad                     # 광고 보상 (일일 5회)
+GET    /rewards/attendance             # 출석 현황 (Phase 3)
+POST   /rewards/attendance             # 출석 체크인 (7일 streak +20)
+
+GET    /rankings/monthly               # engagement / decoration
+
+POST   /uploads/photo                  # multipart, magic byte 검증
 ```
 
 ---
@@ -473,6 +483,16 @@ Spring Boot /api/v1/*
 - ⏸️ Google OAuth (추후 — server/lib/auth.ts의 socialProviders 블록 활성화)
 - ⏸️ Kakao OAuth (추후)
 
+### 만 14세 차단 3중 방어 (LEGAL-001, 2026-05-18)
+
+정보통신망법 §50조의2 준수. signup form 에서 birthDate (ISO YYYY-MM-DD) 추가 필드를 수집해 3 layer 로 검증:
+
+1. **Frontend UI 게이트** — `pages/auth/login.vue:43-52` `<input type="date" :max="maxBirthDate">` + computed `maxBirthDate` (오늘 - 14년) + `isAtLeast14()` 함수 (`:127-134`)
+2. **Backend before hook** — `server/lib/auth.ts:156` `databaseHooks.user.create.before(user, context)` 에서 birthDate 재검증 + `throw new Error('만 14세 미만은 가입할 수 없습니다 …')` 시 transaction rollback
+3. **정책 정합** — privacy.md §8 의 만 14세 차단 선언
+
+**주의 — before hook return type**: better-auth 시그니처는 `(user, context) => Promise<boolean | void | { data: Optional<User> & Record<string, any> }>`. `return user` 직접 반환 시 type error → `return { data: user }` 또는 `return true` (passthrough) 또는 throw (rollback) 중 하나로 작성.
+
 ---
 
 ## 11. 코드 컨벤션
@@ -543,6 +563,12 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 - `console.log`, `debugger` → vite esbuild drop 설정으로 자동 제거
 - 환경변수: `.env.example` 참고, `.env` 파일은 gitignore
 
+### 함정 (2026-05-18 analyze 발견)
+
+- **WalletBar.vue progressPercent 곡선 mismatch (HIGH)** — `(totalExp - lvl×100) / 100 × 100` 선형 hardcoded 계산이 V2 seed 의 2차 곡선 (`required_exp(n) = 100×(n-1)×n/2`, 만렙 4500 EXP) 과 불일치. V2 ground truth (V12 ON CONFLICT skip) 시 음수 / 100% 초과 출력 가능 → `Math.max(0, Math.min(100, …))` clamp 또는 backend 가 progressPercent 직접 내려주기. § 12 sub-cycle 미해결.
+- **`useUserStore` 자동 import 미작동** — Pinia `defineStore('user', …)` 의 export 이름 또는 `stores/` 디렉토리 자동 등록 timing 에 따라 컴파일 타임 `Cannot find name 'useUserStore'` 가능. `import { useUserStore } from '~/stores/user'` 명시 import 로 회피.
+- **better-auth hook `return user` 직접 반환 금지** — § 10 만 14세 차단 3중 방어 참조. `return { data: user }` / `return true` / throw 중 하나로 작성.
+
 ### 성능
 
 - PixiJS 캔버스: 스탬프 수 상한 (LevelConfig.maxItems, 초기 20~40개)
@@ -591,7 +617,7 @@ bun run typecheck   # TypeScript 체크
 - [ ] 보상 획득 애니메이션 (코인 +N, EXP 바 증가)
 - [x] 상점 구매 플로우 → API 연동 (ShopContent + Suspense)
 - [x] 디자인 컨셉 1개 확정 → jar 확정, 7개 삭제 (-809줄)
-- [x] i18n 번역 83키 × 2언어 (ko/en)
+- [~] i18n 번역 ko/en — **2026-05-18 재도입 (ADR-005, ADR-003 supersede)**: 사용자 결정 #3 (i18n 유지 + 단계적 다국어). I-T-MIGRATE-001 (한글 하드코딩 → t() 일괄 치환) **미착수** — `useI18n()` / `$t(` runtime call 0건 (2026-05-18 analyze 검증). en/ja 본문은 Phase 5+
 - [x] 6개 핵심 페이지 Figma→Nuxt 포팅 완료
 - [x] Vitest 테스트 32개 (utils + composable + API contract)
 - [x] 코드 리뷰 72건 전부 수정 (4차 리뷰 clean)
@@ -614,19 +640,25 @@ bun run typecheck   # TypeScript 체크
 - [x] AdMob 보상형 광고 wiring (useAdMob)
 - [x] AdSense PC 웹 배너 (AdSenseBanner)
 - [ ] PixiJS 전환 (현재 HTML/CSS → PNG 에셋 준비 시 PixiJS v8 교체)
-- [x] PixiJS RainParticles (이펙트 1종 시연)
+- [x] PixiJS 4종 파티클 (Rain / Snow / Firefly / Bubble — 홈 effect cycle 버튼)
 
 ### Phase 3~4 (W13~W30, ~11월)
 
 - [x] 친구 초대 UI (`/friends`, 초대 코드 발급/입력, 햇살 +5)
+- [x] 친구와 함께 기록 (RecordForm partner select, 양측 보상 가산, 수락된 invite 관계 검증)
 - [x] 월간 랭킹 페이지 (`/ranking`, engagement / decoration, myRank)
 - [x] 자유배치 PoC (`/terrarium/free`, DnD PointerEvent)
+- [x] 자유배치 entitlement 게이트 + 안내 페이지 (`/upgrade/free-placement`)
+- [x] 5단계 진화 모달 (Modal G — POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM)
+- [x] 커스텀 카테고리 UI (`/profile` 임베드, CRUD, 사용자당 10개 한도)
+- [x] 일일 출석 위젯 + 7일 streak 보너스 (`/rewards/attendance`)
 - [x] 사진 첨부 (record/index.vue + multipart 업로드, magic byte 검증)
 - [x] 다크모드 시간 연동 (useTimeAwareColorMode, 06:00~18:00)
-- [ ] 소셜 로그인 (Google, Kakao)
-- [ ] 결제 연동 (IAP/Play Billing)
+- [△] 소셜 로그인 (Google, Kakao) — better-auth `socialProviders` env-gated 활성 (AUTH_GOOGLE_*, AUTH_KAKAO_*); OAuth 콘솔 등록 + 환경변수 설정 필요
+- [△] 결제 연동 (IAP/Play Billing) — `usePayment.startPurchase()` 진입점 scaffold; Capacitor IAP 플러그인 통합 + Play Console 상품 등록 필요
 - [x] Capacitor 모바일 래핑 (Android 빌드 완료, AdMob + Filesystem plugin)
 - [x] 네이티브 브릿지 (useNative: share, shareFile, haptics, camera, push)
 - [x] 딥 링크 (AASA + assetlinks + App Links)
 - [ ] 인스타 공유 최적화
 - [ ] 시즌/이벤트 스탬프
+- [ ] 메모지/테마 해금 UI (`entitlements.premiumThemes` 노출 완료, 카탈로그/적용 UI 미구현)

@@ -1,13 +1,13 @@
 <template>
   <!-- Error state -->
   <div v-if="fetchError" class="flex flex-col items-center py-24 gap-3">
-    <p class="text-riso-poppy font-medium">불러오기 실패</p>
+    <p class="text-riso-poppy font-medium">{{ $t('common.loadFailed') }}</p>
     <p class="text-xs text-riso-dark/60">{{ fetchError.message }}</p>
     <button
       class="mt-2 px-4 py-2 rounded-full bg-riso-sage text-white text-sm"
       @click="reload"
     >
-      다시 시도
+      {{ $t('common.retry') }}
     </button>
   </div>
 
@@ -15,8 +15,8 @@
   <template v-else>
     <!-- Header -->
     <div>
-      <h2 class="text-xl font-bold text-black mb-1">보유 재화</h2>
-      <p class="text-sm text-neutral-600">재화를 사용해 아이템을 구매하세요</p>
+      <h2 class="text-xl font-bold text-black mb-1">{{ $t('shop.currencyTitle') }}</h2>
+      <p class="text-sm text-neutral-600">{{ $t('shop.currencySubtitle') }}</p>
     </div>
 
     <!-- Currency display + exchange button -->
@@ -28,7 +28,7 @@
           @click="showExchange = true"
         >
           <Icon name="lucide:refresh-cw" class="w-4 h-4" />
-          환전
+          {{ $t('shop.exchange') }}
         </button>
       </div>
       <CommonCurrencyDisplay :currency="currency" />
@@ -44,7 +44,7 @@
         :class="shopType === t ? 'bg-black text-white' : 'bg-white text-black border border-black/10'"
         @click="shopType = t"
       >
-        {{ t === 'plant' ? '식물 상점' : '피규어 상점' }}
+        {{ t === 'plant' ? $t('shop.plantShop') : $t('shop.figureShop') }}
       </button>
     </div>
 
@@ -84,7 +84,7 @@
             <span
               v-if="item.layout !== 'FIGURE'"
               class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none border border-riso-walnut/20 text-riso-dark/60"
-            >{{ item.layout === 'FOREGROUND' ? '전경' : '후경' }}</span>
+            >{{ item.layout === 'FOREGROUND' ? $t('terrarium.foreground') : $t('terrarium.background') }}</span>
           </div>
 
           <!-- Price -->
@@ -107,7 +107,7 @@
 
           <!-- Buy / Owned -->
           <div v-if="ownedSlugs.has(item.slug ?? '')" class="text-center text-[10px] text-gray-500 border border-black/10 rounded-full py-1">
-            보유중
+            {{ $t('shop.owned') }}
           </div>
           <button
             v-else
@@ -117,7 +117,7 @@
             :disabled="purchasing === item.id"
             @click="onPurchase(item)"
           >
-            {{ purchasing === item.id ? '...' : '구매' }}
+            {{ purchasing === item.id ? '...' : $t('shop.buy') }}
           </button>
         </div>
       </div>
@@ -126,7 +126,7 @@
     <!-- Empty state -->
     <div v-else class="flex flex-col items-center py-16 gap-3 text-center">
       <div class="text-4xl opacity-40">🌿</div>
-      <p class="text-sm text-gray-400">이 카테고리에 아이템이 없습니다</p>
+      <p class="text-sm text-gray-400">{{ $t('shop.emptyCategory') }}</p>
     </div>
 
     <!-- Exchange modal -->
@@ -140,7 +140,7 @@
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold flex items-center gap-2">
               <Icon name="lucide:refresh-cw" class="w-4 h-4" style="color: #fcee5a" />
-              재화 환전
+              {{ $t('shop.currencyExchange') }}
             </h3>
             <button type="button" @click="showExchange = false">
               <Icon name="lucide:x" class="w-5 h-5 text-gray-400" />
@@ -149,7 +149,7 @@
 
           <!-- Special → Basic -->
           <div class="mb-4">
-            <div class="text-sm font-semibold text-gray-700 mb-2">스페셜 → 기본 코인 (1:2)</div>
+            <div class="text-sm font-semibold text-gray-700 mb-2">{{ $t('shop.specialToBasic') }}</div>
             <div class="flex items-center gap-3 p-3 rounded-xl" style="background-color: #fef9e7">
               <span class="text-2xl">💎</span>
               <input
@@ -170,13 +170,13 @@
               :disabled="!exchSpecialAmt || exchSpecialAmt > (currency?.specialCoins ?? 0) || exchanging"
               @click="onExchangeSpecial"
             >
-              {{ exchanging ? '환전 중...' : '환전' }}
+              {{ exchanging ? $t('shop.exchanging') : $t('shop.exchange') }}
             </button>
           </div>
 
           <!-- Token ↔ Token -->
           <div>
-            <div class="text-sm font-semibold text-gray-700 mb-2">토큰 교환 (1:1)</div>
+            <div class="text-sm font-semibold text-gray-700 mb-2">{{ $t('shop.tokenExchange') }}</div>
             <div class="flex items-center gap-2 mb-2">
               <select
                 v-model.number="exchFromCat"
@@ -203,7 +203,7 @@
                 min="1"
                 class="w-20 h-8 rounded-lg border border-black/10 px-2 text-center text-sm"
               >
-              <span class="text-xs text-gray-500">개</span>
+              <span class="text-xs text-gray-500">{{ $t('shop.tokenUnit') }}</span>
             </div>
             <button
               type="button"
@@ -212,7 +212,7 @@
               :disabled="!exchTokenAmt || exchFromCat === exchToCat || exchanging"
               @click="onExchangeToken"
             >
-              {{ exchanging ? '교환 중...' : '교환' }}
+              {{ exchanging ? $t('shop.swapping') : $t('shop.exchangeToken') }}
             </button>
           </div>
         </div>
@@ -232,6 +232,8 @@ import type {
   PurchaseResponse,
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
+
+const { t } = useI18n()
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
@@ -281,20 +283,20 @@ catch (e) {
 }
 
 // --- Computed ---
-const plantTabs = [
-  { value: 'common', label: '일반' },
-  { value: 'rare', label: '희귀' },
-  { value: 'epic', label: '판타지' },
-  { value: 'foreground', label: '전경' },
-  { value: 'background', label: '후경' },
-]
-const figureTabs = [
-  { value: 'common', label: '일반' },
-  { value: 'rare', label: '희귀' },
-  { value: 'epic', label: '판타지' },
-]
+const plantTabs = computed(() => [
+  { value: 'common', label: t('shop.common') },
+  { value: 'rare', label: t('shop.rare') },
+  { value: 'epic', label: t('shop.epic') },
+  { value: 'foreground', label: t('terrarium.foreground') },
+  { value: 'background', label: t('terrarium.background') },
+])
+const figureTabs = computed(() => [
+  { value: 'common', label: t('shop.common') },
+  { value: 'rare', label: t('shop.rare') },
+  { value: 'epic', label: t('shop.epic') },
+])
 
-const currentTabs = computed(() => shopType.value === 'plant' ? plantTabs : figureTabs)
+const currentTabs = computed(() => shopType.value === 'plant' ? plantTabs.value : figureTabs.value)
 
 const filteredItems = computed(() => {
   const isFigure = shopType.value === 'figure'
@@ -345,13 +347,13 @@ async function onPurchase(item: ItemResponse) {
   purchasing.value = item.id
   try {
     const { data, error } = await sdk.purchaseItem({ client, body: { itemId: item.id } })
-    if (error) throw new Error(errMsg(error, '구매 실패'))
+    if (error) throw new Error(errMsg(error, t('shop.purchaseFailed')))
     const purchased = castData<PurchaseResponse>(data)
     if (purchased) {
       currency.value = purchased.updatedCurrency
       ownedSlugs.value = new Set(purchased.ownedItems)
       trackItemPurchased({ itemId: item.id, itemName: purchased.purchasedItem.name, priceType: item.priceType, priceAmount: item.priceAmount, rarity: item.rarity })
-      toast.success(`${purchased.purchasedItem.name} 구매 완료!`)
+      toast.success(t('shop.purchaseSuccessItem', { name: purchased.purchasedItem.name }))
     }
   }
   catch (e) {
@@ -370,12 +372,12 @@ async function onExchangeSpecial() {
       client,
       body: { amount: exchSpecialAmt.value },
     })
-    if (error) throw new Error(errMsg(error, '환전 실패'))
+    if (error) throw new Error(errMsg(error, t('shop.exchangeFailed')))
     const ex = castData<ExchangeResponse>(data)
     if (ex) {
       currency.value = ex.updatedCurrency
       trackTokenExchanged({ fromType: ex.exchanged.fromType, toType: ex.exchanged.toType, amount: ex.exchanged.fromAmount })
-      toast.success(`기본 코인 +${ex.exchanged.toAmount}`)
+      toast.success(t('shop.exchangeBasicSuccess', { n: ex.exchanged.toAmount }))
       exchSpecialAmt.value = 1
     }
   }
@@ -399,7 +401,7 @@ async function onExchangeToken() {
         amount: exchTokenAmt.value,
       },
     })
-    if (error) throw new Error(errMsg(error, '교환 실패'))
+    if (error) throw new Error(errMsg(error, t('shop.swapFailed')))
     const exch = castData<ExchangeResponse>(data)
     if (exch) {
       currency.value = exch.updatedCurrency
