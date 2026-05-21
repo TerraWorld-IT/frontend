@@ -1,9 +1,18 @@
 // UltraPlan M17 — component spec
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import Modal from '~/components/common/Modal.vue'
 
 describe('Modal (common)', () => {
+  // Modal 은 <Teleport to="body"> 라 mountSuspended wrapper 가 해제돼도
+  // teleport 된 DOM 이 body 에 잔류 → 다음 테스트의 querySelectorAll 오염.
+  // 매 테스트 후 body + scroll-lock 상태를 초기화해 테스트 격리를 보장한다.
+  afterEach(() => {
+    document.body.innerHTML = ''
+    delete document.body.dataset.modalDepth
+    document.body.style.overflow = ''
+  })
+
   it('modelValue=false 면 hidden (Transition v-if 미렌더)', async () => {
     await mountSuspended(Modal, { props: { modelValue: false } })
     // Teleport target body 에 modal 미렌더

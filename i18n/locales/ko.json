@@ -155,7 +155,7 @@
     "loadFail": "불러오기 실패",
     "loadFailDesc": "요청 처리 중 오류가 발생했습니다",
     "loadFailed": "불러오기 실패",
-    "loading": "불러오는 중...",
+    "loading": "로딩 중",
     "retry": "다시 시도",
     "save": "저장",
     "share": "공유",
@@ -360,7 +360,8 @@
   },
   "rarity": {
     "ariaLabel": "희귀도 {rarity}",
-    "fantasy": "판타지"
+    "fantasy": "판타지",
+    "rare": "희귀"
   },
   "record": {
     "addRecord": "기록 추가",

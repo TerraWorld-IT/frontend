@@ -47,6 +47,7 @@ describe('CurrencyDisplay (common)', () => {
     const wrapper = await mountSuspended(CurrencyDisplay, {
       props: { currency: mockCurrency, coinCellBg: '#fafbcc' },
     })
-    expect(wrapper.html()).toContain('background-color: rgb(250, 251, 204)')
+    // happy-dom 은 inline style 의 hex 색을 rgb() 로 정규화하지 않고 원문 유지.
+    expect(wrapper.html()).toContain('background-color: #fafbcc')
   })
 })

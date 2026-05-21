@@ -35,7 +35,7 @@ const { t } = useI18n()
 
 const label = computed(() => {
   switch (normalized.value) {
-    case 'RARE': return t('shop.rare')
+    case 'RARE': return t('rarity.rare')
     case 'EPIC': return t('rarity.fantasy')
     default: return t('shop.common')
   }

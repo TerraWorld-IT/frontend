@@ -101,23 +101,31 @@ function cancel() {
 
 // SSR-safe: import.meta.client 가드.
 // SEC-302 — 다중 Modal 중첩 시 body scroll lock 누적 카운터. nested modal 모두 닫혀야 unlock.
+function acquireScrollLock() {
+  // 누적 카운터 — Modal A 열림 → B 열림 → A 닫힘 시에도 B 가 lock 유지
+  const depth = Number((document.body.dataset.modalDepth ?? '0')) + 1
+  document.body.dataset.modalDepth = String(depth)
+  document.body.style.overflow = 'hidden'
+}
+
+function releaseScrollLock() {
+  const depth = Math.max(0, Number((document.body.dataset.modalDepth ?? '0')) - 1)
+  document.body.dataset.modalDepth = String(depth)
+  if (depth === 0) {
+    document.body.style.overflow = ''
+    delete document.body.dataset.modalDepth
+  }
+}
+
 watch(() => props.modelValue, async (open) => {
   if (!import.meta.client) return
   if (open) {
     previousActiveElement = document.activeElement
-    // 누적 카운터 — Modal A 열림 → B 열림 → A 닫힘 시에도 B 가 lock 유지
-    const depth = Number((document.body.dataset.modalDepth ?? '0')) + 1
-    document.body.dataset.modalDepth = String(depth)
-    document.body.style.overflow = 'hidden'
+    acquireScrollLock()
     await nextTick()
     confirmBtn.value?.focus()
   } else {
-    const depth = Math.max(0, Number((document.body.dataset.modalDepth ?? '0')) - 1)
-    document.body.dataset.modalDepth = String(depth)
-    if (depth === 0) {
-      document.body.style.overflow = ''
-      delete document.body.dataset.modalDepth
-    }
+    releaseScrollLock()
     if (previousActiveElement instanceof HTMLElement) {
       previousActiveElement.focus()
     }
@@ -144,20 +152,23 @@ function handleTabTrap(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
-  if (import.meta.client) document.addEventListener('keydown', handleTabTrap)
+onMounted(async () => {
+  if (!import.meta.client) return
+  document.addEventListener('keydown', handleTabTrap)
+  // watch 는 modelValue 변경 시에만 발화 — 이미 열린 채 mount 되면 lock 을 직접 획득.
+  if (props.modelValue) {
+    previousActiveElement = document.activeElement
+    acquireScrollLock()
+    await nextTick()
+    confirmBtn.value?.focus()
+  }
 })
 onBeforeUnmount(() => {
   if (import.meta.client) {
     document.removeEventListener('keydown', handleTabTrap)
     // unmount 시 본 instance 가 lock 보유 중이었다면 depth 감소 후 0 일 때만 unlock
     if (props.modelValue) {
-      const depth = Math.max(0, Number((document.body.dataset.modalDepth ?? '0')) - 1)
-      document.body.dataset.modalDepth = String(depth)
-      if (depth === 0) {
-        document.body.style.overflow = ''
-        delete document.body.dataset.modalDepth
-      }
+      releaseScrollLock()
     }
   }
 })
