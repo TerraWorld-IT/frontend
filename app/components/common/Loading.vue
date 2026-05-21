@@ -1,9 +1,4 @@
 <template>
-  <!--
-    UltraPlan code-review UX-005 — WCAG 2.1 SC 4.1.3 (Status Messages) + 1.3.1 (Info and Relationships).
-    role="status" + aria-live="polite" + aria-busy="true" 로 screen reader 가 "로딩 중" 인지.
-    aria-label 로 시각 외 사용자에게 한국어 안내.
-  -->
   <div
     class="flex items-center justify-center"
     :class="containerClass"
@@ -12,6 +7,13 @@
     aria-busy="true"
     :aria-label="resolvedAriaLabel"
   >
+    <!--
+      UltraPlan code-review UX-005 — WCAG 2.1 SC 4.1.3 (Status Messages) + 1.3.1 (Info and Relationships).
+      role="status" + aria-live="polite" + aria-busy="true" 로 screen reader 가 "로딩 중" 인지.
+      aria-label 로 시각 외 사용자에게 한국어 안내.
+      주의: 이 주석/문서는 반드시 root div 안에 둘 것 — 템플릿 최상단 주석은
+      multi-root 로 인식돼 wrapper.attributes() 가 깨진다 (Loading.test.ts a11y).
+    -->
     <!-- Spinner -->
     <div v-if="variant === 'spinner'" class="relative">
       <div class="w-8 h-8 rounded-full border-2 border-riso-sage/20 border-t-riso-sage animate-spin" />
