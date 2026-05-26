@@ -8,15 +8,35 @@ import { Capacitor } from '@capacitor/core'
  * - dev 빌드는 `capacitor.config.ts` 의 `initializeForTesting=true` 로 Google 테스트 광고 ID 자동 사용 → 어뷰징 정책 위반 없음.
  *
  * 사용
- *   const { showRewardedAd } = useAdMob()
+ *   const { showRewardedAd, generateNonce } = useAdMob()
+ *   const nonce = generateNonce()           // N9: 광고 시청 직전 발급 (UUID v4)
  *   const rewarded = await showRewardedAd()
- *   if (rewarded) { ... 보상 API 호출 ... }
+ *   if (rewarded) { sdk.claimAdReward({ client, body: { nonce } }) }  // backend dedup
+ *
+ * N9 (구현 계획서 v4, 2026-05-26): client-issued nonce 도입. 광고 1회당 하나의 nonce 만
+ * 발급 — backend `ad_reward_nonce_inbox` 가 같은 nonce 두 번 사용을 거부. 외부 AdMob SSV
+ * public key 활성화 전이라도 단순 replay attack 차단.
  */
 export function useAdMob() {
   const isNative = import.meta.client ? Capacitor.isNativePlatform() : false
   const isAndroid = import.meta.client ? Capacitor.getPlatform() === 'android' : false
 
   let initialized = false
+
+  /**
+   * N9: 광고 보상 nonce 발급 (UUID v4). 광고 시청 직전 호출 → 시청 완료 후 backend
+   * `/rewards/ad` 에 body.nonce 로 전달. 같은 nonce 로 두 번 호출 시 backend 가 409.
+   *
+   * crypto.randomUUID() 는 모던 브라우저 / Node 14.17+ 표준. dev/SSR 에서 미지원 시
+   * `Math.random` fallback (보안 강도 낮음 — 운영은 secure context 만 사용).
+   */
+  function generateNonce(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID()
+    }
+    // fallback — non-secure context. 운영 빌드는 HTTPS 강제로 도달 불가.
+    return `nonce-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+  }
 
   async function initialize(): Promise<void> {
     if (!import.meta.client || !isNative || initialized) return
@@ -79,5 +99,6 @@ export function useAdMob() {
     isAndroid,
     initialize,
     showRewardedAd,
+    generateNonce,
   }
 }

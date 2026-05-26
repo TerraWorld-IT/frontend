@@ -583,15 +583,20 @@ async function removeItem() {
 async function onClaimAdReward() {
   try {
     // 1) 광고 시청 — Android 네이티브에서는 AdMob 보상형 광고. 웹/iOS dev 에서는 즉시 통과(=UI 측 30초 모달이 게이트).
-    const { showRewardedAd } = useAdMob()
+    const { showRewardedAd, generateNonce } = useAdMob()
+    // N9 (구현 계획서 v4, 2026-05-26): 광고 시청 직전 nonce 발급. 시청 완료 후 backend 에
+    // body.nonce 로 전달 — backend `ad_reward_nonce_inbox` 가 같은 nonce 두 번 사용 거부.
+    // SDK body 인자는 openapi spec → codegen 동기화 후 활성화 (TODO: 사용자 영역).
+    const nonce = generateNonce()
     const watched = await showRewardedAd()
     if (!watched) {
       toast.info(t('home.adWatchRequired'))
       return
     }
 
-    // 2) 보상 API 호출
-    const { data, error } = await sdk.claimAdReward({ client })
+    // 2) 보상 API 호출 — N9 codegen sync 완료 후 body 로 nonce 전달.
+    // backend `ad_reward_nonce_inbox` 가 같은 nonce 두 번 사용 시 409 거부.
+    const { data, error } = await sdk.claimAdReward({ client, body: { nonce } })
     if (error) throw new Error(errMsg(error, '광고 보상 실패'))
     const ad = castData<AdRewardResponse>(data)
     if (ad && user.value) {
