@@ -101,11 +101,64 @@ async function signUpAndLogin(page: Page) {
   await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {})
   await page.waitForTimeout(2000) // bootstrap 비동기 buffer
 
-  // cookie set 확인 (debugging)
+  // cookie set 확인 (debugging) — 상세 dump
   const cookies = await page.context().cookies()
-  const sessionCookie = cookies.find((c) => c.name.includes('session'))
+  const sessionCookie = cookies.find((c) => c.name.includes('session_token'))
   if (!sessionCookie) {
-    console.warn('session cookie 미set — signup 실패 또는 cookie 미persist')
+    console.warn('session_token cookie 미set — signup 실패 또는 cookie 미persist')
+    console.warn('all cookies:', JSON.stringify(cookies.map((c) => `${c.name}@${c.domain}${c.path}`), null, 2))
+  }
+  else {
+    console.log(`cookie OK: ${sessionCookie.name}@${sessionCookie.domain}${sessionCookie.path} sameSite=${sessionCookie.sameSite} httpOnly=${sessionCookie.httpOnly}`)
+
+    // 2단 cookie 전략 — chromium headless IPv6 [::1] cookie attach bug 회피:
+    //  1) setExtraHTTPHeaders 로 모든 request 의 Cookie header 강제 inject
+    //     → SSR middleware 의 useCookie 가 정상 read
+    //  2) addCookies (url-based, Lax) 로 chromium cookie store 에도 set
+    //     → client side hydration 후 useCookie 가 reactive cookie 봄 (auth middleware CSR 통과)
+    //  3) tw.session_data 는 httpOnly=false 라 document.cookie 로도 read 가능
+    const allSessionCookies = cookies.filter(
+      (c) => c.name.startsWith('tw.') || c.name.includes('session') || c.name.includes('csrf'),
+    )
+    const cookieHeader = allSessionCookies.map((c) => `${c.name}=${c.value}`).join('; ')
+    await page.context().setExtraHTTPHeaders({ cookie: cookieHeader })
+
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
+    await page.context().clearCookies()
+    await page.context().addCookies(
+      allSessionCookies.map((c) => ({
+        name: c.name,
+        value: c.value,
+        url: baseUrl,
+        httpOnly: false, // client useCookie 가 read 할 수 있도록 dev e2e 한정 강제
+        secure: false,
+        sameSite: 'Lax' as const,
+      })),
+    )
+    console.log(`cookies installed: ${allSessionCookies.length} (extraHTTPHeaders + addCookies host-only Lax httpOnly=false)`)
+
+    // JWT bearer token preload — useAuth.loadJwt() 의 module-scoped clientJwt 가 page
+    // navigation 시 reset 되지 않도록 (Nuxt SPA navigation 은 module 유지), signup 직후
+    // /api/auth/token 호출해 JWT 받고 그것을 spec 의 모든 backend 호출에 Bearer 로 inject.
+    try {
+      const tokenResp = await page.request.get(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'}/api/auth/token`)
+      if (tokenResp.ok()) {
+        const { token } = await tokenResp.json() as { token: string }
+        if (token) {
+          await page.context().setExtraHTTPHeaders({
+            cookie: cookieHeader,
+            authorization: `Bearer ${token}`,
+          })
+          console.log(`JWT loaded (${token.length}c) — Bearer in extraHTTPHeaders`)
+        }
+      }
+      else {
+        console.warn(`/api/auth/token status=${tokenResp.status()}`)
+      }
+    }
+    catch (e) {
+      console.warn('JWT preload error:', (e as Error).message)
+    }
   }
 }
 
@@ -141,11 +194,19 @@ test.describe('인증 후 페이지', () => {
     await signUpAndLogin(page)
     await page.goto('/')
     await shot(page, '04-home-authed')
+    // 인증 통과 sanity check — auth/login URL 로 redirect 되면 인증 fail
+    expect(page.url()).not.toContain('/auth/login')
   })
 
   test('05-record', async ({ page }) => {
     await signUpAndLogin(page)
+    page.on('response', (resp) => {
+      if (resp.url().includes('/api/v1/') || resp.url().includes('/api/auth/')) {
+        console.log(`[05-record API] ${resp.status()} ${resp.url()}`)
+      }
+    })
     await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
     await shot(page, '05-record')
   })
 
@@ -368,5 +429,60 @@ test.describe('UX 흐름', () => {
     // useTimeAwareColorMode 가 06:00~18:00 light / 그 외 dark 자동
     // 실 시간 의존이라 캡처만
     await shot(page, 'flow-05-color-mode-current')
+  })
+
+  test('flow-6-홈-스크롤-아래쪽', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await page.waitForTimeout(500)
+    await shot(page, 'flow-06-home-scrolled')
+  })
+
+  test('flow-7-출석-위젯-클릭', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const attendanceBtn = page.locator('button:has-text("출석"), [data-testid="attendance"]').first()
+    if (await attendanceBtn.isVisible().catch(() => false)) {
+      await attendanceBtn.click().catch(() => {})
+      await page.waitForTimeout(1500)
+    }
+    await shot(page, 'flow-07-attendance-clicked')
+  })
+
+  test('flow-8-기록-카테고리-산책-선택', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 카테고리 grid 의 산책 선택 — `iconUrl + name` 매칭
+    const walkBtn = page.locator('button:has-text("산책"), [data-category="WALK"]').first()
+    if (await walkBtn.isVisible().catch(() => false)) {
+      await walkBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-08-record-walk-selected')
+  })
+
+  test('flow-9-상점-식물-탭', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const plantTab = page.locator('button:has-text("식물"), [data-tab="plant"]').first()
+    if (await plantTab.isVisible().catch(() => false)) {
+      await plantTab.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-09-shop-plant-tab')
+  })
+
+  test('flow-10-프로필-스크롤', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/profile')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.evaluate(() => window.scrollTo(0, 400))
+    await page.waitForTimeout(300)
+    await shot(page, 'flow-10-profile-scrolled')
   })
 })
