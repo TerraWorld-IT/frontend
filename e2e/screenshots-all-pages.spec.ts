@@ -755,3 +755,178 @@ test.describe('cycle 6 모달 정밀화', () => {
     await shot(page, 'M-H-levelup-info-modal')
   })
 })
+
+// ─────────────────────────────────────────────────────────
+// 7) cycle 7 — onboarding step + reward flow + 로그아웃 confirm
+// ─────────────────────────────────────────────────────────
+
+/**
+ * onboarding 캡처 helper — localStorage flag 미주입 후 가입해 onboarding 활성화 상태로 시작.
+ * signUpAndLogin 은 `tw-onboarding-done='true'` addInitScript 으로 skip 하지만, 본 helper 는
+ * 그 init script 가 적용되기 전 raw signup 으로 onboarding 첫 step 노출 보장.
+ */
+async function signupWithoutOnboardingSkip(page: Page) {
+  const user = freshUser()
+  await page.goto('/auth/login')
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
+
+  const toggleBtn = page.locator('button[type="button"]', {
+    hasText: /계정이 없으신가요|가입하기/,
+  }).first()
+  if (await toggleBtn.isVisible().catch(() => false)) {
+    await toggleBtn.click()
+  }
+
+  await page.locator('input[type="email"]').first().fill(user.email)
+  await page.locator('input[type="password"]').first().fill(user.password)
+  const nameInput = page.locator('input[placeholder*="닉네임"]').first()
+  if (await nameInput.isVisible().catch(() => false)) {
+    await nameInput.fill(user.name)
+  }
+  const birthInput = page.locator('input[type="date"]').first()
+  if (await birthInput.isVisible().catch(() => false)) {
+    await birthInput.fill(user.birthDate)
+  }
+
+  await page.locator('button[type="submit"]').first().click()
+  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {})
+  await page.waitForTimeout(2000)
+
+  // cookie 강제 inject (chromium IPv6 attach bug 회피)
+  const cookies = await page.context().cookies()
+  const allSessionCookies = cookies.filter(
+    (c) => c.name.startsWith('tw.') || c.name.includes('session') || c.name.includes('csrf'),
+  )
+  if (allSessionCookies.length > 0) {
+    const cookieHeader = allSessionCookies.map((c) => `${c.name}=${c.value}`).join('; ')
+    await page.context().setExtraHTTPHeaders({ cookie: cookieHeader })
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
+    await page.context().clearCookies()
+    await page.context().addCookies(
+      allSessionCookies.map((c) => ({
+        name: c.name,
+        value: c.value,
+        url: baseUrl,
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax' as const,
+      })),
+    )
+  }
+}
+
+test.describe('cycle 7 onboarding step + UX', () => {
+  test('flow-23-onboarding-step-2', async ({ page }) => {
+    await signupWithoutOnboardingSkip(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(2000) // onboarding 자동 표시 대기
+    await page.locator('[data-testid="onboarding-next"]').click().catch(() => {})
+    await page.waitForTimeout(500)
+    await shot(page, 'flow-23-onboarding-step-2')
+  })
+
+  test('flow-24-onboarding-step-3', async ({ page }) => {
+    await signupWithoutOnboardingSkip(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(2000)
+    for (let i = 0; i < 2; i++) {
+      await page.locator('[data-testid="onboarding-next"]').click().catch(() => {})
+      await page.waitForTimeout(400)
+    }
+    await shot(page, 'flow-24-onboarding-step-3')
+  })
+
+  test('flow-25-onboarding-step-4', async ({ page }) => {
+    await signupWithoutOnboardingSkip(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(2000)
+    for (let i = 0; i < 3; i++) {
+      await page.locator('[data-testid="onboarding-next"]').click().catch(() => {})
+      await page.waitForTimeout(400)
+    }
+    await shot(page, 'flow-25-onboarding-step-4')
+  })
+
+  test('flow-26-onboarding-step-5-start', async ({ page }) => {
+    await signupWithoutOnboardingSkip(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(2000)
+    for (let i = 0; i < 4; i++) {
+      await page.locator('[data-testid="onboarding-next"]').click().catch(() => {})
+      await page.waitForTimeout(400)
+    }
+    // step 5 — "시작하기" button 노출
+    await shot(page, 'flow-26-onboarding-step-5-start')
+  })
+
+  test('flow-27-record-saved-reward-toast', async ({ page }) => {
+    // 기록 저장 flow + RewardToast 노출
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 산책 카테고리 클릭
+    const walkBtn = page.locator('button', { hasText: /산책/ }).first()
+    if (await walkBtn.isVisible().catch(() => false)) {
+      await walkBtn.click()
+      await page.waitForTimeout(400)
+    }
+    // 저장 button 클릭
+    const saveBtn = page.locator('button', { hasText: /저장|기록 저장|완료/ }).first()
+    if (await saveBtn.isVisible().catch(() => false)) {
+      await saveBtn.click()
+      // confetti + toast 노출 timing
+      await page.waitForTimeout(1500)
+    }
+    await shot(page, 'flow-27-record-saved-reward-toast')
+  })
+
+  test('flow-28-profile-logout-confirm', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/profile')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 프로필 하단 로그아웃 button
+    const logoutBtn = page.locator('button', { hasText: /^로그아웃$/ }).first()
+    if (await logoutBtn.isVisible().catch(() => false)) {
+      // confirm dialog (window.confirm) 가 native — page.on('dialog') 으로 dismiss + 캡처
+      page.on('dialog', async (dialog) => {
+        // 캡처 시점에 dialog 활성. dismiss 로 logout cancel
+        await dialog.dismiss()
+      })
+      await logoutBtn.click().catch(() => {})
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-28-profile-logout-confirm')
+  })
+
+  test('flow-29-friends-section3-empty', async ({ page }) => {
+    // friends 페이지의 "내 친구" 빈 상태 — 11-friends 의 scroll 하단
+    await signUpAndLogin(page)
+    await page.goto('/friends')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await page.waitForTimeout(400)
+    await shot(page, 'flow-29-friends-list-empty')
+  })
+
+  test('flow-30-record-form-memo-typed', async ({ page }) => {
+    // record 산책 선택 + memo 타이핑 후
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const walkBtn = page.locator('button', { hasText: /산책/ }).first()
+    if (await walkBtn.isVisible().catch(() => false)) {
+      await walkBtn.click()
+      await page.waitForTimeout(400)
+    }
+    const memoInput = page.locator('textarea, input[name="memo"]').first()
+    if (await memoInput.isVisible().catch(() => false)) {
+      await memoInput.fill('오늘 30분 산책하며 봄을 느꼈다. 길가의 진달래가 활짝.')
+      await page.waitForTimeout(300)
+    }
+    await shot(page, 'flow-30-record-memo-typed')
+  })
+})

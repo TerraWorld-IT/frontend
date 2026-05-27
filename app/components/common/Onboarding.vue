@@ -34,6 +34,7 @@
             <div class="flex gap-3">
               <button
                 v-if="step > 0"
+                data-testid="onboarding-prev"
                 class="flex-1 h-11 rounded-full border border-riso-walnut/15 text-riso-dark/60 text-sm font-medium active:scale-95 transition-transform"
                 @click="step--"
               >
@@ -41,6 +42,7 @@
               </button>
               <button
                 v-if="step < steps.length - 1"
+                data-testid="onboarding-next"
                 class="flex-1 h-11 rounded-full bg-riso-sage text-white text-sm font-medium riso-shadow-sm active:scale-95 transition-transform"
                 @click="step++"
               >
@@ -48,6 +50,7 @@
               </button>
               <button
                 v-else
+                data-testid="onboarding-start"
                 class="flex-1 h-11 rounded-full bg-riso-pink text-white text-sm font-medium riso-shadow-sm active:scale-95 transition-transform"
                 @click="onComplete"
               >
