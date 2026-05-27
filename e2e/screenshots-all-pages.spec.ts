@@ -1393,24 +1393,148 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await shot(page, 'flow-52-share-valid-other-code')
   })
 
-  test('flow-54-admin-index-with-role', async ({ page }) => {
-    // admin user seed → admin 페이지 (현재 비 admin 은 redirect home, ADMIN role 이면 실 페이지)
+  /**
+   * cycle 12 — admin role 적용 + 신규 JWT 강제 (signOut → re-login).
+   * signUpAndLogin 후 docker UPDATE role=ADMIN → /api/auth/token 다시 호출하면 JWT 새 role claim.
+   */
+  async function refreshJwtAfterRoleChange(page: Page) {
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
+    try {
+      const tokenResp = await page.request.get(`${baseUrl}/api/auth/token`)
+      if (tokenResp.ok()) {
+        const { token } = await tokenResp.json() as { token: string }
+        if (token) {
+          await page.context().setExtraHTTPHeaders({
+            authorization: `Bearer ${token}`,
+          })
+          console.log(`[admin] new JWT loaded (${token.length}c)`)
+        }
+      }
+    }
+    catch (e) {
+      console.warn('[admin] JWT refresh fail:', (e as Error).message)
+    }
+  }
+
+  /**
+   * cycle 12 — wilt_recovered_at 직접 set + 새 user records 미 seed → WiltingOverlay stage 트리거.
+   */
+  async function seedWiltStage(daysAgo: number) {
+    try {
+      const userId = execSync(
+        `docker exec tw-dev-postgres psql -U terraworld -d terraworld -t -A -c "SELECT id FROM users ORDER BY created_at DESC LIMIT 1"`,
+        { encoding: 'utf-8' },
+      ).trim()
+      if (!userId) return null
+      // 모든 records 삭제 + wilt_recovered_at = N일 전 (stage trigger)
+      const sql = `DELETE FROM activity_records WHERE user_id='${userId}'; `
+        + `UPDATE terrariums SET wilt_recovered_at=NOW() - INTERVAL '${daysAgo} days' WHERE user_id='${userId}';`
+      const out = execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
+      console.log(`[wilt] stage seed ${daysAgo}d:`, out.split('\n').slice(0, 3).join(' | '))
+      return userId
+    }
+    catch (e) {
+      console.warn('[wilt] fail:', (e as Error).message)
+      return null
+    }
+  }
+
+  test('flow-59-wilt-stage-1', async ({ page }) => {
     await signUpAndLogin(page)
-    await seedCurrentUserState(page, { admin: true })
-    // JWT TTL 5분이라 role 갱신 위해 새 JWT 받기
+    await seedWiltStage(4) // 3일+ → stage 1
     await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(1000)
-    await page.goto('/admin')
+    await shot(page, 'flow-59-wilt-stage-1')
+  })
+
+  test('flow-60-wilt-stage-2', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedWiltStage(8) // 7일+ → stage 2
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1000)
+    await shot(page, 'flow-60-wilt-stage-2')
+  })
+
+  test('flow-61-wilt-stage-3', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedWiltStage(15) // 14일+ → stage 3
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1000)
+    await shot(page, 'flow-61-wilt-stage-3')
+  })
+
+  test('flow-62-attendance-streak-7', async ({ page }) => {
+    // attendance_logs seed: 6일 연속 + 오늘 미체크 → 7일째 출석 button 클릭 시 streak bonus 모달
+    await signUpAndLogin(page)
+    try {
+      const userId = execSync(
+        `docker exec tw-dev-postgres psql -U terraworld -d terraworld -t -A -c "SELECT id FROM users ORDER BY created_at DESC LIMIT 1"`,
+        { encoding: 'utf-8' },
+      ).trim()
+      if (userId) {
+        const sql = `INSERT INTO attendance_logs (user_id, attended_date, basic_coins_rewarded, created_at) `
+          + `SELECT '${userId}', CURRENT_DATE - (gs || ' days')::interval, 5, NOW() - (gs || ' days')::interval `
+          + `FROM generate_series(1, 6) gs ON CONFLICT DO NOTHING;`
+        execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
+      }
+    }
+    catch (e) {
+      console.warn('[attendance] seed fail:', (e as Error).message)
+    }
+    await page.goto('/')
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
+    await shot(page, 'flow-62-attendance-streak-6day')
+  })
+
+  test('flow-63-terrarium-item-placed', async ({ page }) => {
+    // user_items + terrarium_items seed → 슬롯 채워진 terrarium
+    await signUpAndLogin(page)
+    try {
+      const userId = execSync(
+        `docker exec tw-dev-postgres psql -U terraworld -d terraworld -t -A -c "SELECT id FROM users ORDER BY created_at DESC LIMIT 1"`,
+        { encoding: 'utf-8' },
+      ).trim()
+      const terrariumId = execSync(
+        `docker exec tw-dev-postgres psql -U terraworld -d terraworld -t -A -c "SELECT id FROM terrariums WHERE user_id='${userId}' LIMIT 1"`,
+        { encoding: 'utf-8' },
+      ).trim()
+      if (userId && terrariumId) {
+        // 5 슬롯 item 배치 — items 1~5 사용 + slot_id 0~4
+        const sql = `INSERT INTO user_items (user_id, item_id, quantity, acquired_at) `
+          + `SELECT '${userId}', gs::bigint, 1, NOW() FROM generate_series(1,5) gs ON CONFLICT DO NOTHING; `
+          + `INSERT INTO terrarium_items (terrarium_id, item_id, pos_x, pos_y, rotation, scale, z_index, slot_id) `
+          + `SELECT ${terrariumId}, gs::bigint, 0.5, 0.5, 0, 1.0, gs, gs-1 FROM generate_series(1,5) gs ON CONFLICT DO NOTHING;`
+        const out = execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
+        console.log('[terrarium] seed:', out.split('\n').slice(0, 4).join(' | '))
+      }
+    }
+    catch (e) {
+      console.warn('[terrarium] seed fail:', (e as Error).message)
+    }
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1000)
+    await shot(page, 'flow-63-home-with-items-placed')
+  })
+
+  test('flow-54-admin-index-with-role', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page, { admin: true })
+    await refreshJwtAfterRoleChange(page)
+    await page.goto('/admin')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1000)
     await shot(page, 'flow-54-admin-index-real')
   })
 
   test('flow-55-admin-items-with-role', async ({ page }) => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
-    await page.goto('/')
-    await page.waitForTimeout(1000)
+    await refreshJwtAfterRoleChange(page)
     await page.goto('/admin/items')
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
@@ -1420,8 +1544,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
   test('flow-56-admin-categories-with-role', async ({ page }) => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
-    await page.goto('/')
-    await page.waitForTimeout(1000)
+    await refreshJwtAfterRoleChange(page)
     await page.goto('/admin/categories')
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
@@ -1431,8 +1554,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
   test('flow-57-admin-exchange-with-role', async ({ page }) => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
-    await page.goto('/')
-    await page.waitForTimeout(1000)
+    await refreshJwtAfterRoleChange(page)
     await page.goto('/admin/exchange')
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
@@ -1442,8 +1564,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
   test('flow-58-admin-levels-with-role', async ({ page }) => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
-    await page.goto('/')
-    await page.waitForTimeout(1000)
+    await refreshJwtAfterRoleChange(page)
     await page.goto('/admin/levels')
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
