@@ -523,40 +523,17 @@ test.describe('UX 흐름', () => {
     await shot(page, 'flow-11-signup-mode')
   })
 
-  test('flow-12a-파티클-rain', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    // effect cycle button — 1번 클릭 = rain (intensity='soft' 라 파티클 적음 → PixiJS 렌더 안정화 3초 대기)
-    await page.locator('[data-testid="home-effect"]').click().catch(() => {})
-    await page.waitForTimeout(3000)
-    await shot(page, 'flow-12a-particle-rain')
-  })
-
-  test('flow-12b-파티클-snow', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.locator('[data-testid="home-effect"]').click().catch(() => {})
-    await page.waitForTimeout(400)
-    await page.locator('[data-testid="home-effect"]').click().catch(() => {})
-    await page.waitForTimeout(3000)
-    await shot(page, 'flow-12b-particle-snow')
-  })
-
-  test('flow-12c-파티클-firefly', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    for (let i = 0; i < 3; i++) {
-      await page.locator('[data-testid="home-effect"]').click().catch(() => {})
-      await page.waitForTimeout(300)
-    }
-    await page.waitForTimeout(3000)
-    await shot(page, 'flow-12c-particle-firefly')
-  })
-
-  test('flow-12d-파티클-bubble', async ({ page }) => {
+  test('flow-12-effect-button-cycle', async ({ page }) => {
+    // 파티클 4종 (rain/snow/firefly/bubble) 의 fullPage 캡처는 PixiJS WebGL headless 한계로
+    // visual 차이가 사실상 button icon 미세 변화에 그침 → 4장 PNG (rain/snow/firefly/bubble) 을
+    // 단일 PNG 로 통합 + effect button row 영역만 element-level screenshot 으로 close-up 캡처.
+    // 본 PNG 는 cycle 의 한 stage (bubble = 4번 클릭 후) 만 캡처. 4 icon 의 차이는 코드 주석으로 기록:
+    //   - 0회 클릭 (default): lucide:cloud (자동)
+    //   - 1회: lucide:cloud-rain-wind (rain)
+    //   - 2회: lucide:snowflake (snow)
+    //   - 3회: lucide:sparkle (firefly)
+    //   - 4회: lucide:droplets (bubble)
+    //   - 5회: lucide:cloud-off (off)
     await signUpAndLogin(page)
     await page.goto('/')
     await page.waitForLoadState('networkidle').catch(() => {})
@@ -564,8 +541,18 @@ test.describe('UX 흐름', () => {
       await page.locator('[data-testid="home-effect"]').click().catch(() => {})
       await page.waitForTimeout(300)
     }
-    await page.waitForTimeout(3000)
-    await shot(page, 'flow-12d-particle-bubble')
+    await page.waitForTimeout(1500)
+    // effect button row close-up — 5 effect button 그룹 전체 영역 element-level screenshot
+    const effectRow = page.locator('[data-testid="home-effect"]').locator('xpath=..').first()
+    if (await effectRow.isVisible().catch(() => false)) {
+      await effectRow.screenshot({
+        path: path.join(SCREENSHOT_DIR, 'flow-12-effect-button-cycle.png'),
+      })
+    }
+    else {
+      // fallback — fullPage 캡처
+      await shot(page, 'flow-12-effect-button-cycle')
+    }
   })
 
   test('flow-13-자세히보기-expanded', async ({ page }) => {
