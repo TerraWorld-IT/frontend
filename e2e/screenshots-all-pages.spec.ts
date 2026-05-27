@@ -22,7 +22,9 @@ import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const SCREENSHOT_DIR = path.resolve(__dirname, '../test-results/screenshots')
+// test-results/ 는 Playwright 가 매 실행마다 auto-clean → grep 필터 retry 시 직전 PNG 가 사라짐.
+// 캡처 산출물은 별 디렉토리에 저장 (e2e/output-screenshots/).
+const SCREENSHOT_DIR = path.resolve(__dirname, './output-screenshots')
 
 // fixture 사용자 — test 별 unique (Date.now + Math.random)
 // 같은 email 중복 signup 시 better-auth 가 422 응답 → cookie 미set 회귀.
@@ -44,6 +46,26 @@ test.beforeAll(async () => {
 
 async function shot(page: Page, name: string) {
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
+  // Nuxt devtools floating anchor 가 fullPage screenshot 의 하단 nav 와 겹쳐서 보임 — 캡처 직전 제거.
+  // cycle 5 UI 깨짐 fix: AttendanceWidget header wrap + devtools overlay 가림 정리.
+  // Nuxt 4 devtools 의 실제 host tag: <nuxt-route-announcer>, <nuxt-devtools-host>, anchor html element.
+  await page.addStyleTag({
+    content: `
+      nuxt-devtools-host,
+      nuxt-route-announcer,
+      iframe[src*="__nuxt_devtools__"],
+      #nuxt-devtools-anchor,
+      [class*="__nuxt-devtools"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+    `,
+  }).catch(() => {})
+  await page.evaluate(() => {
+    // shadow root + custom element host 둘 다 제거
+    document.querySelectorAll('nuxt-devtools-host, nuxt-route-announcer, #nuxt-devtools-anchor').forEach((el) => el.remove())
+  }).catch(() => {})
   await page.screenshot({
     path: path.join(SCREENSHOT_DIR, `${name}.png`),
     fullPage: true,
@@ -414,23 +436,12 @@ test.describe('UX 흐름', () => {
     }
   })
 
-  test('flow-4-홈-진입후-반응형', async ({ page, viewport }) => {
+  test('flow-4-홈-기본-mobile-portrait', async ({ page }) => {
+    // TerraWorld 는 mobile 세로 전용 — playwright.config 의 project (Pixel 5 393×851)
+    // 그대로 사용. 반응형 multi-viewport 캡처는 본 서비스 정책 외.
     await signUpAndLogin(page)
-
-    // mobile viewport
-    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/')
-    await shot(page, 'flow-04a-home-mobile')
-
-    // tablet viewport
-    await page.setViewportSize({ width: 768, height: 1024 })
-    await page.goto('/')
-    await shot(page, 'flow-04b-home-tablet')
-
-    // desktop viewport
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/')
-    await shot(page, 'flow-04c-home-desktop')
+    await shot(page, 'flow-04-home-mobile-portrait')
   })
 
   test('flow-5-다크모드-시간연동', async ({ page }) => {

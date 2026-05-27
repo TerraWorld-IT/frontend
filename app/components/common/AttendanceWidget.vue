@@ -7,10 +7,10 @@
 <template>
   <div
     v-if="state"
-    class="bg-riso-cream/90 backdrop-blur rounded-xl px-3 py-2 riso-shadow-sm flex items-center gap-2"
+    class="bg-riso-cream/90 backdrop-blur rounded-xl px-3 py-2 riso-shadow-sm flex items-center gap-2 whitespace-nowrap"
   >
     <span class="text-xl" aria-hidden="true">📅</span>
-    <div class="text-xs text-riso-dark leading-tight">
+    <div class="text-xs text-riso-dark leading-tight whitespace-nowrap">
       <div class="font-semibold">{{ status }}</div>
       <div class="text-riso-dark/60">{{ $t('attendance.streakDays', { n: streak }) }}</div>
     </div>
@@ -18,7 +18,7 @@
       v-if="!checkedIn"
       type="button"
       :disabled="loading"
-      class="ml-1 px-2 py-1 text-xs bg-riso-sage text-white rounded-md disabled:opacity-60"
+      class="ml-1 px-2 py-1 text-xs bg-riso-sage text-white rounded-md disabled:opacity-60 whitespace-nowrap"
       @click="onCheckIn"
     >
       {{ loading ? '...' : `+${reward}` }}

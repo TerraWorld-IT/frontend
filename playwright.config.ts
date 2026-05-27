@@ -43,13 +43,11 @@ export default defineConfig({
   },
 
   projects: [
+    // TerraWorld 는 모바일 세로 전용 UI (Capacitor WebView + mobile-first 반응형).
+    // desktop viewport 에서는 layout 일부 깨짐 → 단일 mobile project 만 사용.
+    // Pixel 5 (393×851) 세로. iPhone 14 Pro 등 다른 mobile 기기로 swap 가능.
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    // mobile viewport — Capacitor WebView 와 가까운 viewport
-    {
-      name: 'mobile-chromium',
       use: { ...devices['Pixel 5'] },
     },
   ],

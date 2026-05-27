@@ -18,8 +18,8 @@
     <!-- Main -->
     <template v-else>
       <!-- Header: action buttons + terrarium info -->
-      <div class="flex items-center justify-between">
-        <div class="flex gap-2">
+      <div class="flex flex-wrap items-start justify-between gap-y-3">
+        <div class="flex flex-wrap gap-2">
           <button
             type="button"
             class="h-10 w-10 rounded-lg bg-[rgba(89,87,87,0.4)] flex items-center justify-center hover:bg-[rgba(89,87,87,0.6)] transition-colors"
