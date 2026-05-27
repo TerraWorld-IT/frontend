@@ -912,6 +912,89 @@ test.describe('cycle 7 onboarding step + UX', () => {
     await shot(page, 'flow-29-friends-list-empty')
   })
 
+  test('flow-31-friends-code-input-active', async ({ page }) => {
+    // 친구 코드 8자 입력 후 "코드 수락하기" 활성 상태
+    await signUpAndLogin(page)
+    await page.goto('/friends')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const codeInput = page.locator('input[maxlength="8"]').first()
+    if (await codeInput.isVisible().catch(() => false)) {
+      await codeInput.fill('ABCD1234')
+      await page.waitForTimeout(300)
+    }
+    await shot(page, 'flow-31-friends-code-input-active')
+  })
+
+  test('flow-32-shop-rare-filter', async ({ page }) => {
+    // shop 식물 + 레어 필터
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const rareBtn = page.locator('button', { hasText: /^레어$/ }).first()
+    if (await rareBtn.isVisible().catch(() => false)) {
+      await rareBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-32-shop-plant-rare-filter')
+  })
+
+  test('flow-33-shop-epic-filter', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const epicBtn = page.locator('button', { hasText: /^에픽$/ }).first()
+    if (await epicBtn.isVisible().catch(() => false)) {
+      await epicBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-33-shop-plant-epic-filter')
+  })
+
+  test('flow-34-shop-background-filter', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const bgBtn = page.locator('button', { hasText: /^배경$/ }).first()
+    if (await bgBtn.isVisible().catch(() => false)) {
+      await bgBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-34-shop-background-filter')
+  })
+
+  test('M-F2-홈-slot-itemselect', async ({ page }) => {
+    // 홈 페이지 slot 0 (후경 첫 번째) 클릭 → ItemSelectDialog 모달 노출
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // slot 0 는 jar 안의 첫 button — 후경 (background) 슬롯
+    const slot0 = page.locator('button:has-text("후경")').first()
+    if (await slot0.isVisible().catch(() => false)) {
+      await slot0.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'M-F2-home-slot-itemselect-modal')
+  })
+
+  test('flow-35-share-valid-code', async ({ page }) => {
+    // valid share code 경로 — 사용자 자신의 코드를 발급해 본인 share 페이지 접근
+    // 본 e2e 에서는 본인 코드라 unable to accept self-invite 결과 캡처
+    await signUpAndLogin(page)
+    await page.goto('/friends')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('[data-testid="friends-create-code"]').click().catch(() => {})
+    await page.waitForTimeout(1500)
+    // 발급된 코드 추출
+    const codeEl = page.locator('code.font-mono').first()
+    const code = await codeEl.textContent().catch(() => null)
+    if (code) {
+      await page.goto(`/share/${code.trim()}`)
+      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-35-share-valid-code')
+  })
+
   test('flow-30-record-form-memo-typed', async ({ page }) => {
     // record 산책 선택 + memo 타이핑 후
     await signUpAndLogin(page)
