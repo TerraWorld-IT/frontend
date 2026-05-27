@@ -18,6 +18,7 @@
 import { test, expect, Page } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -752,6 +753,33 @@ test.describe('cycle 6 모달 정밀화', () => {
  * signUpAndLogin 은 `tw-onboarding-done='true'` addInitScript 으로 skip 하지만, 본 helper 는
  * 그 init script 가 적용되기 전 raw signup 으로 onboarding 첫 step 노출 보장.
  */
+/**
+ * cycle 10 — backend state seed helper.
+ * signUpAndLogin 직후 호출 → user_id 추출 → docker exec 으로 user-specific seed.
+ * dev DB 만 변경 (tw-dev-postgres). production 영향 없음.
+ * 사용자 명시 승인 phrase 통과 후 진행.
+ */
+async function seedCurrentUserState(page: Page) {
+  const meResp = await page.request.get(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'}/api/v1/users/me`)
+  if (!meResp.ok()) return null
+  const me = await meResp.json() as { id?: string }
+  const userId = me.id
+  if (!userId) return null
+  const sql = `UPDATE users SET level=10, total_exp=4500 WHERE id='${userId}'; `
+    + `UPDATE terrariums SET evolution_stage='PALUDARIUM' WHERE user_id='${userId}'; `
+    + `INSERT INTO activity_records (user_id, category_id, memo, recorded_date, created_at) `
+    + `SELECT '${userId}', (1+(gs%4))::bigint, 'memo '||gs, `
+    + `  CURRENT_DATE - (gs||' days')::interval, NOW() - (gs||' days')::interval `
+    + `FROM generate_series(0,29) gs;`
+  try {
+    execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { stdio: 'pipe' })
+  }
+  catch (e) {
+    console.warn('seed fail:', (e as Error).message)
+  }
+  return userId
+}
+
 async function signupWithoutOnboardingSkip(page: Page) {
   const user = freshUser()
   await page.goto('/auth/login')
@@ -980,6 +1008,69 @@ test.describe('cycle 7 onboarding step + UX', () => {
       await page.waitForTimeout(800)
     }
     await shot(page, 'flow-35-share-valid-code')
+  })
+
+  // ───── cycle 10 — backend state seed 후 캡처 ─────
+
+  test('flow-36-shop-카탈로그-식물', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 식물 상점 = default tab. items 카탈로그 (잔디/새싹/파란꽃/해바라기/큰나무) 노출 기대
+    await shot(page, 'flow-36-shop-plant-catalog-loaded')
+  })
+
+  test('flow-37-shop-카탈로그-피규어', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const figureTab = page.locator('button', { hasText: /피규어/ }).first()
+    if (await figureTab.isVisible().catch(() => false)) {
+      await figureTab.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-37-shop-figure-catalog-loaded')
+  })
+
+  test('flow-38-calendar-with-records', async ({ page }) => {
+    await signUpAndLogin(page)
+    // user-specific seed (records 30 day + Lv10 + paludarium)
+    await seedCurrentUserState(page)
+    await page.goto('/calendar')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1000)
+    await shot(page, 'flow-38-calendar-with-records')
+  })
+
+  test('flow-39-ranking-with-data', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page)
+    await page.goto('/ranking')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1000)
+    await shot(page, 'flow-39-ranking-with-data')
+  })
+
+  test('M-G3-진화-paludarium-unlocked', async ({ page }) => {
+    // Lv10 + paludarium seed 후 진화 모달 → 다음 단계 (나만의 세계 Lv20) 도 unlock 표시
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(500)
+    await page.locator('[data-testid="home-evolution"]').click().catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'M-G3-evolution-paludarium-unlocked')
+  })
+
+  test('flow-40-profile-with-records', async ({ page }) => {
+    // profile 페이지의 레벨/EXP 채워진 상태
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page)
+    await page.goto('/profile')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-40-profile-lv10-with-records')
   })
 
   test('flow-30-record-form-memo-typed', async ({ page }) => {
