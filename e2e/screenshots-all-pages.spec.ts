@@ -1467,7 +1467,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
   })
 
   test('flow-62-attendance-streak-7', async ({ page }) => {
-    // attendance_logs seed: 6일 연속 + 오늘 미체크 → 7일째 출석 button 클릭 시 streak bonus 모달
+    // attendance_logs seed: 6일 연속 → 출석위젯 streak 6일 표시
     await signUpAndLogin(page)
     try {
       const userId = execSync(
@@ -1475,10 +1475,12 @@ test.describe('cycle 11 자잘한 미캡처', () => {
         { encoding: 'utf-8' },
       ).trim()
       if (userId) {
-        const sql = `INSERT INTO attendance_logs (user_id, attended_date, basic_coins_rewarded, created_at) `
-          + `SELECT '${userId}', CURRENT_DATE - (gs || ' days')::interval, 5, NOW() - (gs || ' days')::interval `
+        // correct schema: user_id / check_in_date / streak / reward_basic_coins / bonus
+        const sql = `INSERT INTO attendance_logs (user_id, check_in_date, streak, reward_basic_coins, bonus, created_at) `
+          + `SELECT '${userId}', CURRENT_DATE - (gs || ' days')::interval, (7-gs)::integer, 5, false, NOW() - (gs || ' days')::interval `
           + `FROM generate_series(1, 6) gs ON CONFLICT DO NOTHING;`
-        execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
+        const out = execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
+        console.log('[attendance] seed:', out.split('\n').slice(0, 3).join(' | '))
       }
     }
     catch (e) {
@@ -1486,7 +1488,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     }
     await page.goto('/')
     await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(800)
+    await page.waitForTimeout(1000)
     await shot(page, 'flow-62-attendance-streak-6day')
   })
 
@@ -1525,9 +1527,14 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
+    // useUserStore.role 갱신 위해 page.reload() — store 가 backend users/me 재 fetch
+    await page.goto('/')
+    await page.reload()
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
     await page.goto('/admin')
     await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(800)
     await shot(page, 'flow-54-admin-index-real')
   })
 
@@ -1535,7 +1542,12 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
+    await page.goto('/')
+    await page.reload()
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1500)
     await page.goto('/admin/items')
+    await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
     await shot(page, 'flow-55-admin-items-real')
@@ -1545,7 +1557,12 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
+    await page.goto('/')
+    await page.reload()
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1500)
     await page.goto('/admin/categories')
+    await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
     await shot(page, 'flow-56-admin-categories-real')
@@ -1555,7 +1572,12 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
+    await page.goto('/')
+    await page.reload()
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1500)
     await page.goto('/admin/exchange')
+    await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
     await shot(page, 'flow-57-admin-exchange-real')
@@ -1565,7 +1587,12 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
+    await page.goto('/')
+    await page.reload()
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(1500)
     await page.goto('/admin/levels')
+    await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
     await shot(page, 'flow-58-admin-levels-real')
