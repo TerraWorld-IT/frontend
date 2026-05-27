@@ -22,6 +22,7 @@
         <div class="flex flex-wrap gap-2">
           <button
             type="button"
+            data-testid="home-download"
             class="h-10 w-10 rounded-lg bg-[rgba(89,87,87,0.4)] flex items-center justify-center hover:bg-[rgba(89,87,87,0.6)] transition-colors"
             :aria-label="$t('home.ariaSaveTerrarium')"
             @click="onShareClick"
@@ -30,6 +31,7 @@
           </button>
           <button
             type="button"
+            data-testid="home-levelup"
             class="h-10 w-10 rounded-lg bg-[rgba(82,179,136,0.4)] flex items-center justify-center hover:bg-[rgba(82,179,136,0.6)] transition-colors"
             :aria-label="$t('home.ariaLevelUp')"
             @click="showLevelUpDialog = true"
@@ -38,6 +40,7 @@
           </button>
           <button
             type="button"
+            data-testid="home-freecoin"
             class="h-10 w-10 rounded-lg bg-[rgba(140,106,228,0.4)] flex items-center justify-center hover:bg-[rgba(140,106,228,0.6)] transition-colors"
             :aria-label="$t('home.ariaFreeCoin')"
             @click="showFreeCoinDialog = true"
@@ -46,6 +49,7 @@
           </button>
           <button
             type="button"
+            data-testid="home-effect"
             class="h-10 w-10 rounded-lg bg-[rgba(168,216,234,0.4)] flex items-center justify-center hover:bg-[rgba(168,216,234,0.6)] transition-colors"
             :aria-label="$t('home.ariaEffect', { type: effectType })"
             :title="$t('home.ariaEffect', { type: effectType })"
@@ -55,6 +59,7 @@
           </button>
           <button
             type="button"
+            data-testid="home-evolution"
             class="h-10 w-10 rounded-lg bg-[rgba(82,179,136,0.4)] flex items-center justify-center hover:bg-[rgba(82,179,136,0.6)] transition-colors"
             :aria-label="$t('home.ariaEvolution')"
             @click="showUpgradeModal = true"

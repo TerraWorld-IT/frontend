@@ -506,4 +506,252 @@ test.describe('UX 흐름', () => {
     await page.waitForTimeout(300)
     await shot(page, 'flow-10-profile-scrolled')
   })
+
+  // ───── cycle 6 추가 — 잔여 화면 ─────
+
+  test('flow-11-가입모드-폼', async ({ page }) => {
+    // signup mode 토글 후 nickname + birthDate 필드 노출 상태
+    await page.goto('/auth/login')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const toggleBtn = page.locator('button[type="button"]', {
+      hasText: /계정이 없으신가요|가입하기/,
+    }).first()
+    if (await toggleBtn.isVisible().catch(() => false)) {
+      await toggleBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-11-signup-mode')
+  })
+
+  test('flow-12a-파티클-rain', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // effect cycle button — 1번 클릭 = rain (intensity='soft' 라 파티클 적음 → PixiJS 렌더 안정화 3초 대기)
+    await page.locator('[data-testid="home-effect"]').click().catch(() => {})
+    await page.waitForTimeout(3000)
+    await shot(page, 'flow-12a-particle-rain')
+  })
+
+  test('flow-12b-파티클-snow', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('[data-testid="home-effect"]').click().catch(() => {})
+    await page.waitForTimeout(400)
+    await page.locator('[data-testid="home-effect"]').click().catch(() => {})
+    await page.waitForTimeout(3000)
+    await shot(page, 'flow-12b-particle-snow')
+  })
+
+  test('flow-12c-파티클-firefly', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    for (let i = 0; i < 3; i++) {
+      await page.locator('[data-testid="home-effect"]').click().catch(() => {})
+      await page.waitForTimeout(300)
+    }
+    await page.waitForTimeout(3000)
+    await shot(page, 'flow-12c-particle-firefly')
+  })
+
+  test('flow-12d-파티클-bubble', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    for (let i = 0; i < 4; i++) {
+      await page.locator('[data-testid="home-effect"]').click().catch(() => {})
+      await page.waitForTimeout(300)
+    }
+    await page.waitForTimeout(3000)
+    await shot(page, 'flow-12d-particle-bubble')
+  })
+
+  test('flow-13-자세히보기-expanded', async ({ page }) => {
+    // calendar 활동 통계 자세히보기 toggle 후 카테고리 별 progress 보임
+    await signUpAndLogin(page)
+    await page.goto('/calendar')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const detailBtn = page.locator('button', { hasText: /자세히보기/ }).first()
+    if (await detailBtn.isVisible().catch(() => false)) {
+      await detailBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-13-calendar-stats-expanded')
+  })
+
+  test('flow-14-친구코드-발급', async ({ page }) => {
+    // friends 페이지 진입 시 초대 코드 자동 생성 또는 발급 button 클릭
+    await signUpAndLogin(page)
+    await page.goto('/friends')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const createBtn = page.locator('[data-testid="friends-create-code"]').first()
+    if (await createBtn.isVisible().catch(() => false)) {
+      await createBtn.click()
+      await page.waitForTimeout(1500)
+    }
+    await shot(page, 'flow-14-friends-code-issued')
+  })
+
+  test('flow-15-캘린더-날짜선택', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/calendar')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 캘린더 그리드 의 첫 번째 활성 날짜 클릭 (오늘 또는 임의 날짜)
+    const dayBtn = page.locator('button:has-text("15"), button:has-text("20")').first()
+    if (await dayBtn.isVisible().catch(() => false)) {
+      await dayBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-15-calendar-day-selected')
+  })
+
+  test('flow-16-테라리움-편집모드', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/terrarium')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const editTab = page.locator('button', { hasText: /편집/ }).first()
+    if (await editTab.isVisible().catch(() => false)) {
+      await editTab.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-16-terrarium-edit-mode')
+  })
+
+  test('flow-17-다크모드-강제', async ({ page }) => {
+    // useTimeAwareColorMode 가 'system' preference 일 때만 시간 기반 자동 — 'dark' 명시
+    // 시 그대로. addInitScript 으로 page load 전 localStorage 주입 (hydration 시 적용).
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.addInitScript(() => {
+      try { localStorage.setItem('nuxt-color-mode', 'dark') } catch { /* noop */ }
+    })
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-17-dark-mode-forced')
+  })
+
+  test('flow-18-라이트모드-강제', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
+    await page.addInitScript(() => {
+      try { localStorage.setItem('nuxt-color-mode', 'light') } catch { /* noop */ }
+    })
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-18-light-mode-forced')
+  })
+
+  test('flow-19-record-friend-tab', async ({ page }) => {
+    // record 페이지의 "친구와 함께 기록" tab toggle
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const friendTab = page.locator('button', { hasText: /친구와 함께/ }).first()
+    if (await friendTab.isVisible().catch(() => false)) {
+      await friendTab.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-19-record-friend-tab')
+  })
+
+  test('flow-20-shop-figure-tab', async ({ page }) => {
+    // shop 의 "피규어 상점" tab
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const figureTab = page.locator('button', { hasText: /피규어/ }).first()
+    if (await figureTab.isVisible().catch(() => false)) {
+      await figureTab.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-20-shop-figure-tab')
+  })
+
+  test('flow-21-ranking-decoration-tab', async ({ page }) => {
+    // ranking 의 "꾸미기 (배치 수)" tab
+    await signUpAndLogin(page)
+    await page.goto('/ranking')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const decoTab = page.locator('button', { hasText: /꾸미기|배치/ }).first()
+    if (await decoTab.isVisible().catch(() => false)) {
+      await decoTab.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-21-ranking-decoration')
+  })
+
+  test('flow-22-shop-rare-filter', async ({ page }) => {
+    // shop 의 "레어" 희귀도 필터
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const rareFilter = page.locator('button', { hasText: /^레어$/ }).first()
+    if (await rareFilter.isVisible().catch(() => false)) {
+      await rareFilter.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-22-shop-rare-filter')
+  })
+})
+
+// ─────────────────────────────────────────────────────────
+// 6) cycle 6 신규 모달 캡처 — data-testid 기반
+// ─────────────────────────────────────────────────────────
+
+test.describe('cycle 6 모달 정밀화', () => {
+  test('M-E2-shop-교환-modal', async ({ page }) => {
+    // M-E 교환은 shop 페이지의 모달 (profile 아님)
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('[data-testid="shop-exchange-trigger"]').click().catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'M-E2-shop-exchange-modal')
+  })
+
+  test('M-G2-진화-modal-trigger', async ({ page }) => {
+    // 홈의 진화 button (data-testid="home-evolution") 클릭 → showUpgradeModal=true
+    // Lv1 이라 조건 미충족 일 수도 있지만 modal 자체는 노출됨 (조건 안내 UI 포함)
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('[data-testid="home-evolution"]').click().catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'M-G2-evolution-upgrade-modal')
+  })
+
+  test('M-B2-홈-다운로드-trigger', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // onShareClick → html2canvas 가 dom 캡처 후 share UI 노출 (또는 toast)
+    // download dialog 가 native 라 캡처 후 reload
+    await page.locator('[data-testid="home-download"]').click().catch(() => {})
+    await page.waitForTimeout(2000)
+    await shot(page, 'M-B2-download-share-flow')
+  })
+
+  test('M-C2-홈-무료코인-광고-trigger', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // showFreeCoinDialog = true
+    await page.locator('[data-testid="home-freecoin"]').click().catch(() => {})
+    await page.waitForTimeout(1000)
+    await shot(page, 'M-C2-freecoin-ad-modal')
+  })
+
+  test('M-H-홈-레벨업-안내-modal', async ({ page }) => {
+    // 레벨업 안내 button (data-testid="home-levelup") — showLevelUpDialog=true
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('[data-testid="home-levelup"]').click().catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'M-H-levelup-info-modal')
+  })
 })

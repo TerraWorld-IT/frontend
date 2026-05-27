@@ -49,6 +49,7 @@
       <button
         v-else
         type="button"
+        data-testid="friends-create-code"
         class="w-full h-12 rounded-xl bg-riso-sage text-white font-semibold text-[14px] riso-shadow-sm active:scale-95 disabled:opacity-50"
         :disabled="creating"
         @click="onCreateInvite"

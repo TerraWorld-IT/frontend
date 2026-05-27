@@ -24,6 +24,7 @@
       <div class="flex items-center justify-start mb-4">
         <button
           type="button"
+          data-testid="shop-exchange-trigger"
           class="px-4 py-2 rounded-xl bg-black text-white hover:bg-black/90 text-sm font-medium flex items-center gap-2"
           @click="showExchange = true"
         >
