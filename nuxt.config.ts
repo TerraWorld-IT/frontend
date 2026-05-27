@@ -104,6 +104,14 @@ export default defineNuxtConfig({
     esbuild: {
       drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
     },
+    // Windows + Vite 7 의 알려진 issue 회피: Vite WS-only listener 가 main HTTP port 를
+    // 점유해 IPv4 path 의 모든 request 가 426 Upgrade Required 응답. hmr port 를 명시
+    // 분리해 main port 의 HTTP 응답을 정상화. dev 환경 한정 영향 (production build 무관).
+    server: {
+      hmr: {
+        port: 24678,
+      },
+    },
   },
 
   css: ['~/assets/css/tailwind.css'],
