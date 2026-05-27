@@ -338,7 +338,7 @@ async function load() {
       sdk.getRecordStatistics({ client }),
       sdk.listRecords({
         client,
-        query: { year: viewYear.value, month: viewMonth.value + 1, size: 200 },
+        query: { year: viewYear.value, month: viewMonth.value + 1, size: 50 },
       }),
     ])
     if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
@@ -359,7 +359,7 @@ async function loadMonth() {
   try {
     const { data, error } = await sdk.listRecords({
       client,
-      query: { year: viewYear.value, month: viewMonth.value + 1, size: 200 },
+      query: { year: viewYear.value, month: viewMonth.value + 1, size: 50 },
     })
     if (error) throw new Error(errMsg(error, 'listRecords failed'))
     monthRecords.value = (data as PagedRecordResponse | undefined)?.content ?? []

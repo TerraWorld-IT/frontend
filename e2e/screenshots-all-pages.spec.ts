@@ -137,6 +137,16 @@ async function signUpAndLogin(page: Page) {
     )
     console.log(`cookies installed: ${allSessionCookies.length} (extraHTTPHeaders + addCookies host-only Lax httpOnly=false)`)
 
+    // Onboarding modal skip — 신규 user signup 직후 / 진입 시 localStorage 첫 진입 플래그
+    // 보고 5단계 onboarding 자동 표시. 본 e2e 는 메인 화면 캡처가 목적이므로 onboarding
+    // skip. (app/pages/index.vue:370 + app/utils/constants.ts: ONBOARDING_DONE='tw-onboarding-done')
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('tw-onboarding-done', 'true')
+      }
+      catch { /* SSR or first-load context — ignore */ }
+    })
+
     // JWT bearer token preload — useAuth.loadJwt() 의 module-scoped clientJwt 가 page
     // navigation 시 reset 되지 않도록 (Nuxt SPA navigation 은 module 유지), signup 직후
     // /api/auth/token 호출해 JWT 받고 그것을 spec 의 모든 backend 호출에 Bearer 로 inject.
