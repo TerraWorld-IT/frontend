@@ -168,6 +168,7 @@
           <div class="absolute right-0 top-1/2 -translate-y-1/2">
             <button
               type="button"
+              data-testid="home-heart"
               class="relative transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
               :disabled="heartBusy"
               :aria-label="$t('home.ariaHeart')"

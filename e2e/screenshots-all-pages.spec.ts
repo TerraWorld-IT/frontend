@@ -759,23 +759,38 @@ test.describe('cycle 6 모달 정밀화', () => {
  * dev DB 만 변경 (tw-dev-postgres). production 영향 없음.
  * 사용자 명시 승인 phrase 통과 후 진행.
  */
-async function seedCurrentUserState(page: Page) {
-  const meResp = await page.request.get(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'}/api/v1/users/me`)
-  if (!meResp.ok()) return null
-  const me = await meResp.json() as { id?: string }
-  const userId = me.id
-  if (!userId) return null
-  const sql = `UPDATE users SET level=10, total_exp=4500 WHERE id='${userId}'; `
+async function seedCurrentUserState(_page: Page, opts: { admin?: boolean } = {}) {
+  // 가장 최근 가입 user id 를 docker 직접 추출 (frontend 5555 path 404 회피)
+  let userId: string | null = null
+  try {
+    userId = execSync(
+      `docker exec tw-dev-postgres psql -U terraworld -d terraworld -t -A -c "SELECT id FROM users ORDER BY created_at DESC LIMIT 1"`,
+      { encoding: 'utf-8' },
+    ).trim()
+  }
+  catch (e) {
+    console.warn('[seed] user_id fetch fail:', (e as Error).message)
+    return null
+  }
+  if (!userId) {
+    console.warn('[seed] no recent user found')
+    return null
+  }
+  console.log('[seed] user_id:', userId, 'admin:', opts.admin === true)
+  const rolePart = opts.admin ? `UPDATE users SET role='ADMIN' WHERE id='${userId}'; ` : ''
+  const sql = rolePart
+    + `UPDATE users SET level=10, total_exp=4500 WHERE id='${userId}'; `
     + `UPDATE terrariums SET evolution_stage='PALUDARIUM' WHERE user_id='${userId}'; `
     + `INSERT INTO activity_records (user_id, category_id, memo, recorded_date, created_at) `
     + `SELECT '${userId}', (1+(gs%4))::bigint, 'memo '||gs, `
     + `  CURRENT_DATE - (gs||' days')::interval, NOW() - (gs||' days')::interval `
-    + `FROM generate_series(0,29) gs;`
+    + `FROM generate_series(0,29) gs ON CONFLICT DO NOTHING;`
   try {
-    execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { stdio: 'pipe' })
+    const out = execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
+    console.log('[seed] applied:', out.split('\n').slice(0, 5).join(' | '))
   }
   catch (e) {
-    console.warn('seed fail:', (e as Error).message)
+    console.warn('[seed] sql fail:', (e as Error).message)
   }
   return userId
 }
@@ -1089,5 +1104,362 @@ test.describe('cycle 7 onboarding step + UX', () => {
       await page.waitForTimeout(300)
     }
     await shot(page, 'flow-30-record-memo-typed')
+  })
+})
+
+// ─────────────────────────────────────────────────────────
+// 8) cycle 11 — 자잘한 미캡처 (login 에러 / friends 발급완료 / record form 정밀 / 사진첨부 / shop 필터)
+// ─────────────────────────────────────────────────────────
+
+test.describe('cycle 11 자잘한 미캡처', () => {
+  test('flow-41-login-에러-비밀번호-fail', async ({ page }) => {
+    // 가입 안 한 user 로 로그인 시도 → 에러 토스트
+    await page.goto('/auth/login')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('input[type="email"]').first().fill('nonexistent@terraworld.test')
+    await page.locator('input[type="password"]').first().fill('WrongPassword123')
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForTimeout(1500)
+    await shot(page, 'flow-41-login-error-password-fail')
+  })
+
+  test('flow-42-signup-에러-만14세-미만', async ({ page }) => {
+    // 만 14세 미만 birthDate → LEGAL-001 차단 에러
+    await page.goto('/auth/login')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const toggleBtn = page.locator('button[type="button"]', {
+      hasText: /계정이 없으신가요|가입하기/,
+    }).first()
+    if (await toggleBtn.isVisible().catch(() => false)) {
+      await toggleBtn.click()
+      await page.waitForTimeout(300)
+    }
+    await page.locator('input[type="email"]').first().fill('underage@terraworld.test')
+    await page.locator('input[type="password"]').first().fill('TestPassword!1234')
+    const nameInput = page.locator('input[placeholder*="닉네임"]').first()
+    if (await nameInput.isVisible().catch(() => false)) {
+      await nameInput.fill('미성년')
+    }
+    // 13세 (2014 년생) — 만 14세 미만
+    const birthInput = page.locator('input[type="date"]').first()
+    if (await birthInput.isVisible().catch(() => false)) {
+      await birthInput.fill('2014-01-01')
+    }
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForTimeout(1500)
+    await shot(page, 'flow-42-signup-error-under-14')
+  })
+
+  test('flow-43-signup-에러-이메일-중복', async ({ page }) => {
+    // 같은 email 두 번 가입 시도 → 중복 에러
+    const dupUser = freshUser()
+    // 첫 가입
+    await page.goto('/auth/login')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const toggleBtn = page.locator('button[type="button"]', {
+      hasText: /계정이 없으신가요|가입하기/,
+    }).first()
+    if (await toggleBtn.isVisible().catch(() => false)) {
+      await toggleBtn.click()
+    }
+    await page.locator('input[type="email"]').first().fill(dupUser.email)
+    await page.locator('input[type="password"]').first().fill(dupUser.password)
+    const nameInput = page.locator('input[placeholder*="닉네임"]').first()
+    if (await nameInput.isVisible().catch(() => false)) {
+      await nameInput.fill(dupUser.name)
+    }
+    const birthInput = page.locator('input[type="date"]').first()
+    if (await birthInput.isVisible().catch(() => false)) {
+      await birthInput.fill(dupUser.birthDate)
+    }
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForTimeout(2000)
+    // 두 번째 가입 시도
+    await page.goto('/auth/login')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    if (await toggleBtn.isVisible().catch(() => false)) {
+      await toggleBtn.click()
+    }
+    await page.locator('input[type="email"]').first().fill(dupUser.email)
+    await page.locator('input[type="password"]').first().fill(dupUser.password)
+    const nameInput2 = page.locator('input[placeholder*="닉네임"]').first()
+    if (await nameInput2.isVisible().catch(() => false)) {
+      await nameInput2.fill(dupUser.name)
+    }
+    const birthInput2 = page.locator('input[type="date"]').first()
+    if (await birthInput2.isVisible().catch(() => false)) {
+      await birthInput2.fill(dupUser.birthDate)
+    }
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForTimeout(1500)
+    await shot(page, 'flow-43-signup-error-email-duplicate')
+  })
+
+  test('flow-44-friends-코드-발급-완료', async ({ page }) => {
+    // flow-14 의 "발급 중" loading 이 아닌 발급 완료 후 코드 + 복사/공유 button
+    await signUpAndLogin(page)
+    await page.goto('/friends')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const createBtn = page.locator('[data-testid="friends-create-code"]').first()
+    if (await createBtn.isVisible().catch(() => false)) {
+      await createBtn.click()
+      await page.waitForTimeout(3500) // 충분히 대기 — 발급 완료 후 코드 표시
+    }
+    await shot(page, 'flow-44-friends-code-created-complete')
+  })
+
+  test('flow-45-record-form-마운트', async ({ page }) => {
+    // 카테고리 선택 → RecordForm (duration + memo + 저장) 표시
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // CategoryGrid 의 첫 카테고리 (산책) — div.font-bold 의 정확한 text 매칭
+    const walkCard = page.locator('button:has(div.font-bold:text-is("산책"))').first()
+    if (await walkCard.isVisible().catch(() => false)) {
+      await walkCard.click()
+      await page.waitForTimeout(800)
+    }
+    else {
+      // fallback — 첫 카테고리 카드
+      const firstCat = page.locator('div.grid > button').first()
+      if (await firstCat.isVisible().catch(() => false)) {
+        await firstCat.click()
+        await page.waitForTimeout(800)
+      }
+    }
+    // RecordForm scroll 영역으로 이동
+    const formArea = page.locator('label[for="record-duration"]').first()
+    if (await formArea.isVisible().catch(() => false)) {
+      await formArea.scrollIntoViewIfNeeded()
+      await page.waitForTimeout(300)
+    }
+    await shot(page, 'flow-45-record-form-mounted')
+  })
+
+  test('flow-46-record-사진첨부-button', async ({ page }) => {
+    // 사진 첨부 area visible (default 상태)
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 사진 첨부 button 영역으로 scroll
+    const photoBtn = page.locator('button', { hasText: /사진 추가/ }).first()
+    if (await photoBtn.isVisible().catch(() => false)) {
+      await photoBtn.scrollIntoViewIfNeeded()
+      await page.waitForTimeout(300)
+    }
+    await shot(page, 'flow-46-record-photo-attach-button')
+  })
+
+  test('flow-47-shop-피규어-레어', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const figureTab = page.locator('button', { hasText: /피규어/ }).first()
+    if (await figureTab.isVisible().catch(() => false)) {
+      await figureTab.click()
+      await page.waitForTimeout(500)
+    }
+    const rareBtn = page.locator('button', { hasText: /^레어$/ }).first()
+    if (await rareBtn.isVisible().catch(() => false)) {
+      await rareBtn.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-47-shop-figure-rare-filter')
+  })
+
+  test('flow-48-shop-피규어-에픽', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/shop')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const figureTab = page.locator('button', { hasText: /피규어/ }).first()
+    if (await figureTab.isVisible().catch(() => false)) {
+      await figureTab.click()
+      await page.waitForTimeout(500)
+    }
+    const epicBtn = page.locator('button', { hasText: /^에픽$/ }).first()
+    if (await epicBtn.isVisible().catch(() => false)) {
+      await epicBtn.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-48-shop-figure-epic-filter')
+  })
+
+  test('flow-49-calendar-메모-작성', async ({ page }) => {
+    // calendar 날짜 클릭 → 일별 카드 → "작성" button
+    await signUpAndLogin(page)
+    await page.goto('/calendar')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const dayBtn = page.locator('button:has-text("15")').first()
+    if (await dayBtn.isVisible().catch(() => false)) {
+      await dayBtn.click()
+      await page.waitForTimeout(500)
+    }
+    const writeBtn = page.locator('button', { hasText: /^작성$/ }).first()
+    if (await writeBtn.isVisible().catch(() => false)) {
+      await writeBtn.click()
+      await page.waitForTimeout(500)
+    }
+    await shot(page, 'flow-49-calendar-memo-input-active')
+  })
+
+  test('flow-50-profile-커스텀카테고리-form', async ({ page }) => {
+    // profile 의 CustomCategoryManager — 이름 입력 + 추가 button
+    await signUpAndLogin(page)
+    await page.goto('/profile')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    // 커스텀 카테고리 영역으로 scroll
+    const customSection = page.locator('h3:has-text("커스텀")').first()
+    if (await customSection.isVisible().catch(() => false)) {
+      await customSection.scrollIntoViewIfNeeded()
+      await page.waitForTimeout(300)
+    }
+    // input fill
+    const nameInput = page.locator('input[placeholder*="명상"]').first()
+    if (await nameInput.isVisible().catch(() => false)) {
+      await nameInput.fill('명상')
+    }
+    await page.waitForTimeout(300)
+    await shot(page, 'flow-50-profile-custom-category-form')
+  })
+
+  test('flow-51-record-partner-input', async ({ page }) => {
+    // record 친구함께 탭 → PartnerSelect checkbox 활성 + input fill
+    await signUpAndLogin(page)
+    await page.goto('/record')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const friendTab = page.locator('button', { hasText: /친구와 함께/ }).first()
+    if (await friendTab.isVisible().catch(() => false)) {
+      await friendTab.click()
+      await page.waitForTimeout(400)
+    }
+    // PartnerSelect 의 checkbox + input
+    const partnerCheck = page.locator('input[type="checkbox"]').first()
+    if (await partnerCheck.isVisible().catch(() => false)) {
+      await partnerCheck.check()
+      await page.waitForTimeout(300)
+    }
+    const partnerInput = page.locator('input[type="text"]').first()
+    if (await partnerInput.isVisible().catch(() => false)) {
+      await partnerInput.fill('PartnerUserId123')
+    }
+    await shot(page, 'flow-51-record-partner-input-active')
+  })
+
+  test('flow-52-share-valid-타인-코드', async ({ page }) => {
+    // 다른 user 로 코드 발급 → 신규 user 로 그 코드 share 페이지 접근
+    // (각 test 는 fresh user 라 본인 코드 = self-invite. 다른 user 의 코드 생성 후 신규 user 가 접근)
+    const userA = freshUser()
+    // userA signup + 코드 발급
+    await page.goto('/auth/login')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const toggleBtn = page.locator('button[type="button"]', {
+      hasText: /계정이 없으신가요|가입하기/,
+    }).first()
+    if (await toggleBtn.isVisible().catch(() => false)) {
+      await toggleBtn.click()
+    }
+    await page.locator('input[type="email"]').first().fill(userA.email)
+    await page.locator('input[type="password"]').first().fill(userA.password)
+    const nameA = page.locator('input[placeholder*="닉네임"]').first()
+    if (await nameA.isVisible().catch(() => false)) {
+      await nameA.fill(userA.name)
+    }
+    const birthA = page.locator('input[type="date"]').first()
+    if (await birthA.isVisible().catch(() => false)) {
+      await birthA.fill(userA.birthDate)
+    }
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForTimeout(2500)
+    // 코드 발급
+    await page.goto('/friends')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const createBtn = page.locator('[data-testid="friends-create-code"]').first()
+    if (await createBtn.isVisible().catch(() => false)) {
+      await createBtn.click()
+      await page.waitForTimeout(3000)
+    }
+    const codeEl = page.locator('code.font-mono').first()
+    const code = await codeEl.textContent().catch(() => null)
+    if (!code) {
+      await shot(page, 'flow-52-share-valid-other-skipped')
+      return
+    }
+    // 새 context (userB) 로 share 접근
+    await page.context().clearCookies()
+    await page.context().setExtraHTTPHeaders({})
+    await page.goto(`/share/${code.trim()}`)
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-52-share-valid-other-code')
+  })
+
+  test('flow-54-admin-index-with-role', async ({ page }) => {
+    // admin user seed → admin 페이지 (현재 비 admin 은 redirect home, ADMIN role 이면 실 페이지)
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page, { admin: true })
+    // JWT TTL 5분이라 role 갱신 위해 새 JWT 받기
+    await page.goto('/')
+    await page.waitForTimeout(1000)
+    await page.goto('/admin')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-54-admin-index-real')
+  })
+
+  test('flow-55-admin-items-with-role', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page, { admin: true })
+    await page.goto('/')
+    await page.waitForTimeout(1000)
+    await page.goto('/admin/items')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-55-admin-items-real')
+  })
+
+  test('flow-56-admin-categories-with-role', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page, { admin: true })
+    await page.goto('/')
+    await page.waitForTimeout(1000)
+    await page.goto('/admin/categories')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-56-admin-categories-real')
+  })
+
+  test('flow-57-admin-exchange-with-role', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page, { admin: true })
+    await page.goto('/')
+    await page.waitForTimeout(1000)
+    await page.goto('/admin/exchange')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-57-admin-exchange-real')
+  })
+
+  test('flow-58-admin-levels-with-role', async ({ page }) => {
+    await signUpAndLogin(page)
+    await seedCurrentUserState(page, { admin: true })
+    await page.goto('/')
+    await page.waitForTimeout(1000)
+    await page.goto('/admin/levels')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForTimeout(800)
+    await shot(page, 'flow-58-admin-levels-real')
+  })
+
+  test('flow-53-홈-하트-클릭', async ({ page }) => {
+    // 하트 button (data-testid="home-heart") 클릭 → +0.1 이슬 floating
+    await signUpAndLogin(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const heartBtn = page.locator('[data-testid="home-heart"]').first()
+    if (await heartBtn.isVisible().catch(() => false)) {
+      await heartBtn.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-53-home-heart-clicked')
   })
 })
