@@ -1213,21 +1213,13 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await signUpAndLogin(page)
     await page.goto('/record')
     await page.waitForLoadState('networkidle').catch(() => {})
-    // CategoryGrid 의 첫 카테고리 (산책) — div.font-bold 의 정확한 text 매칭
-    const walkCard = page.locator('button:has(div.font-bold:text-is("산책"))').first()
+    // CategoryGrid button data-testid="record-category-1" (산책)
+    const walkCard = page.locator('[data-testid="record-category-1"]').first()
     if (await walkCard.isVisible().catch(() => false)) {
       await walkCard.click()
       await page.waitForTimeout(800)
     }
-    else {
-      // fallback — 첫 카테고리 카드
-      const firstCat = page.locator('div.grid > button').first()
-      if (await firstCat.isVisible().catch(() => false)) {
-        await firstCat.click()
-        await page.waitForTimeout(800)
-      }
-    }
-    // RecordForm scroll 영역으로 이동
+    // RecordForm scroll
     const formArea = page.locator('label[for="record-duration"]').first()
     if (await formArea.isVisible().catch(() => false)) {
       await formArea.scrollIntoViewIfNeeded()

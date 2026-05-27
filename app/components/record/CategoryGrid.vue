@@ -4,6 +4,8 @@
       v-for="cat in categories"
       :key="cat.id"
       type="button"
+      :data-testid="`record-category-${cat.id}`"
+      :data-category-name="cat.name"
       class="bg-white rounded-[16px] border border-black/10 p-[19px] text-left transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]"
       :class="modelValue === cat.id ? 'ring-2 ring-riso-pink' : ''"
       @click="$emit('update:modelValue', cat.id)"
