@@ -1,0 +1,2 @@
+UPDATE items SET asset_url = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI0IwRDlBNyIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjMwIiBmaWxsPSIjN0E5RjY2Ii8+PHRleHQgeD0iNTAiIHk9IjU1IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSI+VFdEPC90ZXh0Pjwvc3ZnPg==';
+SELECT count(*) FROM items WHERE asset_url LIKE 'data:image/svg+xml%';

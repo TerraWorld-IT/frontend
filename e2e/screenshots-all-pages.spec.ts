@@ -1209,22 +1209,18 @@ test.describe('cycle 11 자잘한 미캡처', () => {
   })
 
   test('flow-45-record-form-마운트', async ({ page }) => {
-    // 카테고리 선택 → RecordForm (duration + memo + 저장) 표시
+    // 카테고리 선택 → RecordForm 마운트 + duration input visible
     await signUpAndLogin(page)
     await page.goto('/record')
     await page.waitForLoadState('networkidle').catch(() => {})
-    // CategoryGrid button data-testid="record-category-1" (산책)
     const walkCard = page.locator('[data-testid="record-category-1"]').first()
-    if (await walkCard.isVisible().catch(() => false)) {
-      await walkCard.click()
-      await page.waitForTimeout(800)
-    }
-    // RecordForm scroll
-    const formArea = page.locator('label[for="record-duration"]').first()
-    if (await formArea.isVisible().catch(() => false)) {
-      await formArea.scrollIntoViewIfNeeded()
-      await page.waitForTimeout(300)
-    }
+    await walkCard.waitFor({ timeout: 10_000 }).catch(() => {})
+    await walkCard.click().catch(() => {})
+    // RecordForm 의 label[for="record-duration"] 까지 명시 wait
+    await page.locator('label[for="record-duration"]').first().waitFor({ timeout: 10_000 }).catch(() => {})
+    await page.waitForTimeout(800)
+    await page.locator('label[for="record-duration"]').first().scrollIntoViewIfNeeded().catch(() => {})
+    await page.waitForTimeout(300)
     await shot(page, 'flow-45-record-form-mounted')
   })
 
@@ -1355,9 +1351,11 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await shot(page, 'flow-49b-calendar-memo-input-active-v2')
   })
 
-  test('flow-52-share-valid-타인-코드', async ({ page }) => {
+  test('flow-52-share-valid-타인-코드', async ({ browser }) => {
     test.setTimeout(60_000)
-    // 다른 user 로 코드 발급 → 신규 user 로 그 코드 share 페이지 접근
+    // 다른 user 로 코드 발급 → 별 context (userB 미인증) 로 share 페이지 접근
+    const ctxA = await browser.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul' })
+    const page = await ctxA.newPage()
     const userA = freshUser()
     // userA signup + 코드 발급
     await page.goto('/auth/login')
@@ -1392,15 +1390,18 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     const code = await codeEl.textContent().catch(() => null)
     if (!code) {
       await shot(page, 'flow-52-share-valid-other-skipped')
+      await ctxA.close()
       return
     }
-    // 새 context (userB) 로 share 접근
-    await page.context().clearCookies()
-    await page.context().setExtraHTTPHeaders({})
-    await page.goto(`/share/${code.trim()}`)
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(800)
-    await shot(page, 'flow-52-share-valid-other-code')
+    // 별 context (userB, 미인증) 로 share 접근
+    const ctxB = await browser.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul' })
+    const pageB = await ctxB.newPage()
+    await pageB.goto(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'}/share/${code.trim()}`)
+    await pageB.waitForLoadState('networkidle').catch(() => {})
+    await pageB.waitForTimeout(800)
+    await shot(pageB, 'flow-52-share-valid-other-code')
+    await ctxA.close()
+    await ctxB.close()
   })
 
   /**
