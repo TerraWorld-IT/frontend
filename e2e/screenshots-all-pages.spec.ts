@@ -1337,9 +1337,27 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await shot(page, 'flow-51-record-partner-input-active')
   })
 
+  test('flow-49b-calendar-메모-작성', async ({ page }) => {
+    // calendar 날짜 클릭 → 일별 카드 → "작성" link/button (text 정밀 매칭)
+    await signUpAndLogin(page)
+    await page.goto('/calendar')
+    await page.waitForLoadState('networkidle').catch(() => {})
+    const dayBtn = page.locator('button:has-text("15")').first()
+    if (await dayBtn.isVisible().catch(() => false)) {
+      await dayBtn.click()
+      await page.waitForTimeout(500)
+    }
+    const writeBtn = page.locator('button:has-text("작성"), a:has-text("작성"), button:has-text("메모 작성")').first()
+    if (await writeBtn.isVisible().catch(() => false)) {
+      await writeBtn.click()
+      await page.waitForTimeout(800)
+    }
+    await shot(page, 'flow-49b-calendar-memo-input-active-v2')
+  })
+
   test('flow-52-share-valid-타인-코드', async ({ page }) => {
+    test.setTimeout(60_000)
     // 다른 user 로 코드 발급 → 신규 user 로 그 코드 share 페이지 접근
-    // (각 test 는 fresh user 라 본인 코드 = self-invite. 다른 user 의 코드 생성 후 신규 user 가 접근)
     const userA = freshUser()
     // userA signup + 코드 발급
     await page.goto('/auth/login')
@@ -1567,9 +1585,10 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await page.goto('/')
     await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(2000)
     await page.goto('/admin/exchange')
     await page.reload()
+    await page.locator('h1').first().waitFor({ timeout: 10_000 }).catch(() => {})
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
     await shot(page, 'flow-57-admin-exchange-real')
@@ -1582,9 +1601,10 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await page.goto('/')
     await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(2000)
     await page.goto('/admin/levels')
     await page.reload()
+    await page.locator('h1').first().waitFor({ timeout: 10_000 }).catch(() => {})
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
     await shot(page, 'flow-58-admin-levels-real')
