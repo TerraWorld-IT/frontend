@@ -108,6 +108,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         navigateTo(route)
       }
     })
+
+    // 권한 요청 + 등록 트리거 — 리스너가 부착된 뒤에 호출해야 'registration' 이벤트를 놓치지 않음.
+    // 이 호출이 없으면 위 registration 리스너가 영원히 발화하지 않아 디바이스 토큰이 등록되지 않는다.
+    // 로그인 세션이 있으면 위 리스너의 registerDevice 가 성공, 미로그인 시 토큰은 localStorage 에
+    // 보존되고 다음 부팅(로그인 후)에서 재등록된다 (SEC-008 silent 처리).
+    const perm = await PushNotifications.requestPermissions()
+    if (perm.receive === 'granted') {
+      await PushNotifications.register()
+    }
   } catch {
     // Push not available — ignore (e.g., iOS simulator)
   }

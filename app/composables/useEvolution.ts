@@ -2,12 +2,15 @@ import type { EvolutionStage, TerrariumResponse, UpgradeTerrariumResponse } from
 
 export type { EvolutionStage }
 
+// unlockLevel 은 백엔드 SoT (Terrarium.EvolutionStage, N4 수정 2026-05-21) 와 일치해야 한다.
+// 잠금 판정 자체는 isUnlocked() 가 backend unlockedStages 로 하지만, UpgradeModal 의
+// "🔒 Lv N+" 라벨이 이 값으로 표시되므로 불일치 시 라벨이 실 잠금과 어긋난다.
 export const EVOLUTION_STAGE_META: Record<EvolutionStage, { label: string, description: string, unlockLevel: number }> = {
   POT: { label: '토분', description: '작은 화분 — 시작 단계', unlockLevel: 1 },
-  BOTTLE: { label: '유리병', description: '기본 테라리움', unlockLevel: 5 },
-  PALUDARIUM: { label: '팔루다리움', description: '수중 + 육상 — 산소방울 효과', unlockLevel: 10 },
-  WORLD: { label: '나만의 세계', description: '확장 배경 — 4종 해금', unlockLevel: 20 },
-  CUSTOM: { label: '자유 배치', description: '슬롯 제약 없음 — 유료 권리 필요', unlockLevel: 30 },
+  BOTTLE: { label: '유리병', description: '기본 테라리움', unlockLevel: 2 },
+  PALUDARIUM: { label: '팔루다리움', description: '수중 + 육상 — 산소방울 효과', unlockLevel: 5 },
+  WORLD: { label: '나만의 세계', description: '확장 배경 — 4종 해금', unlockLevel: 8 },
+  CUSTOM: { label: '자유 배치', description: '슬롯 제약 없음 — 유료 권리 필요', unlockLevel: 10 },
 }
 
 /**
