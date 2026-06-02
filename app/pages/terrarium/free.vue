@@ -1,16 +1,12 @@
 <!--
-  자유배치 PoC. 5슬롯 grid 가 아닌 임의 위치(posX/posY 0~1) 에 아이템 배치.
+  자유배치. 5슬롯 grid 가 아닌 임의 위치(posX/posY 0~1) 에 아이템 배치.
   PointerEvent 기반 직접 구현으로 mouse + touch 모두 지원.
 
-  현재 미구현 (인벤토리 통합 의존):
-    - 인벤토리에서 아이템 가져오기 (현재는 더미 3개)
-    - 회전/크기 조절 핸들
-
-  N6 (구현 계획서 v4, 2026-05-21): backend 자유배치 저장 endpoint 완성.
-    PUT /api/v1/terrarium/free-placement/{placementId} 가 free_x_pixel / free_y_pixel /
-    is_free_placement 를 실제 persist 함 (PlacementController + TerrariumPlacement entity).
-    본 PoC 페이지가 실 placement 데이터 (real placementId) 를 로드하면 onSave 에서 호출 가능 —
-    real placementId 는 인벤토리 통합 후 제공됨. 그 전까지 본 페이지는 메모리 PoC 유지.
+  N6 (구현 계획서 v4) + 2026-06-02 실 배선:
+    - GET  /api/v1/terrarium/free-placement      → 현재 배치 아이템 + 자유 위치 로드
+    - PUT  /api/v1/terrarium/free-placement/{id}  → posX/posY(0~1) 저장 (entitlement 필요)
+    둘 다 @Hidden internal endpoint → useInternalApi raw fetch.
+    좌표는 0~1 비율로 통신 (해상도 독립). 자유배치 권리(entitlement) 없으면 preview 모드 — 저장 시 403.
 -->
 <template>
   <div class="riso-grain min-h-screen px-4 py-4 space-y-4">
@@ -34,21 +30,41 @@
       <!-- 배경 그라데이션 (placeholder) -->
       <div class="absolute inset-0 bg-gradient-to-b from-riso-sky/30 to-riso-cream/0 pointer-events-none" />
 
+      <!-- 로딩 -->
+      <div
+        v-if="loading"
+        class="absolute inset-0 flex items-center justify-center text-riso-dark/40 text-sm"
+      >
+        {{ $t('common.loading') }}
+      </div>
+
+      <!-- 빈 상태: 배치된 아이템 없음 -->
+      <div
+        v-else-if="items.length === 0"
+        class="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center"
+      >
+        <p class="text-riso-dark/55 text-sm">{{ $t('terrarium.freePlacementEmpty') }}</p>
+        <NuxtLink to="/terrarium" class="px-3 py-1.5 text-sm bg-riso-sage text-white rounded-md">
+          {{ $t('terrarium.freePlacementGoPlace') }}
+        </NuxtLink>
+      </div>
+
       <!-- 아이템 -->
       <div
         v-for="item in items"
-        :key="item.id"
+        :key="item.placementId"
         class="absolute touch-none cursor-grab active:cursor-grabbing transition-transform"
-        :class="{ 'scale-110 z-50': dragId === item.id }"
+        :class="{ 'scale-110 z-50': dragId === item.placementId }"
         :style="{
           left: `${item.posX * 100}%`,
           top: `${item.posY * 100}%`,
-          transform: `translate(-50%, -50%) rotate(${item.rotation}deg) scale(${item.scale})`,
-          zIndex: dragId === item.id ? 100 : item.zIndex,
+          transform: `translate(-50%, -50%)`,
+          zIndex: dragId === item.placementId ? 100 : item.zIndex,
         }"
+        :aria-label="item.name"
         @pointerdown="(e) => onPointerDown(e, item)"
       >
-        <span class="text-[64px] leading-none drop-shadow-md">{{ item.emoji }}</span>
+        <span class="text-[64px] leading-none drop-shadow-md">{{ item.image }}</span>
       </div>
     </div>
 
@@ -56,7 +72,8 @@
     <div class="flex gap-2">
       <button
         type="button"
-        class="flex-1 h-12 rounded-xl bg-riso-sage text-white font-semibold text-[14px] riso-shadow-sm active:scale-95"
+        class="flex-1 h-12 rounded-xl bg-riso-sage text-white font-semibold text-[14px] riso-shadow-sm active:scale-95 disabled:opacity-50"
+        :disabled="saving || items.length === 0"
         @click="onSave"
       >
         {{ $t('terrarium.freePlacementSave') }}
@@ -69,10 +86,6 @@
         {{ $t('terrarium.freePlacementReset') }}
       </button>
     </div>
-
-    <p class="text-[11px] text-riso-dark/45 text-center">
-      {{ $t('terrarium.freePlacementPocNote') }}
-    </p>
 
     <div
       v-if="!entitled"
@@ -95,52 +108,93 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
 
-// 자유배치 entitlement 체크 — false 면 PoC 모드, true 면 정식 모드
+interface FreeItem {
+  placementId: number
+  itemId: number
+  image: string
+  name: string
+  posX: number // 0~1
+  posY: number // 0~1
+  isFreePlacement: boolean
+  zIndex: number
+}
+
+interface FreePlacementApiItem {
+  placementId: number
+  itemId: number
+  itemName: string
+  itemImage: string
+  itemLayout: string
+  posX: number
+  posY: number
+  isFreePlacement: boolean
+}
+interface FreePlacementListResponse {
+  items: FreePlacementApiItem[]
+}
+
 const { sdk, client } = useOpenApi()
-const entitled = ref(false)
-;(async () => {
+const { request } = useInternalApi()
+const toast = useToast()
+const { t } = useI18n()
+const { trackFreePlacementSaved } = useGtagEvents()
+
+const canvasRef = ref<HTMLDivElement | null>(null)
+const entitled = ref<boolean>(false)
+const loading = ref<boolean>(true)
+const saving = ref<boolean>(false)
+const items = ref<FreeItem[]>([])
+
+// 아직 자유배치되지 않은 아이템에 줄 기본 시작 위치 (격자로 펼침).
+function defaultPos(index: number): { x: number, y: number } {
+  const col = index % 3
+  const row = Math.floor(index / 3)
+  return { x: 0.25 + col * 0.25, y: 0.3 + row * 0.22 }
+}
+
+async function load() {
+  loading.value = true
   try {
     const { data } = await sdk.getMe({ client })
     const me = castData<{ entitlements?: { freePlacement?: boolean } }>(data)
     entitled.value = Boolean(me?.entitlements?.freePlacement)
-  } catch {
-    entitled.value = false
-  }
-})()
 
-interface FreeItem {
-  id: number
-  emoji: string
-  posX: number // 0~1
-  posY: number // 0~1
-  rotation: number
-  scale: number
-  zIndex: number
+    const res = await request<FreePlacementListResponse>('/api/v1/terrarium/free-placement')
+    items.value = (res.items ?? []).map((it, i): FreeItem => {
+      const fallback = defaultPos(i)
+      return {
+        placementId: it.placementId,
+        itemId: it.itemId,
+        image: it.itemImage,
+        name: it.itemName,
+        posX: it.isFreePlacement ? it.posX : fallback.x,
+        posY: it.isFreePlacement ? it.posY : fallback.y,
+        isFreePlacement: it.isFreePlacement,
+        zIndex: i + 1,
+      }
+    })
+  }
+  catch (e) {
+    toast.error(errMsg(e, '불러오기 실패'))
+  }
+  finally {
+    loading.value = false
+  }
 }
 
-const toast = useToast()
-const { t } = useI18n()
-const { trackFreePlacementSaved } = useGtagEvents()
-const canvasRef = ref<HTMLDivElement | null>(null)
-
-const initialItems: FreeItem[] = [
-  { id: 1, emoji: '🌿', posX: 0.3, posY: 0.7, rotation: -5, scale: 1, zIndex: 1 },
-  { id: 2, emoji: '🌸', posX: 0.6, posY: 0.55, rotation: 8, scale: 0.9, zIndex: 2 },
-  { id: 3, emoji: '🐱', posX: 0.5, posY: 0.85, rotation: 0, scale: 1.1, zIndex: 3 },
-]
-const items = ref<FreeItem[]>(JSON.parse(JSON.stringify(initialItems)))
+onMounted(load)
 
 const dragId = ref<number | null>(null)
-let dragState: { startX: number; startY: number; baseX: number; baseY: number } | null = null
+let dragState: { startX: number, startY: number, baseX: number, baseY: number } | null = null
 
 function onPointerDown(e: PointerEvent, item: FreeItem) {
   if (!canvasRef.value) return
   e.preventDefault()
   const target = e.currentTarget as HTMLElement
   target.setPointerCapture(e.pointerId)
-  dragId.value = item.id
+  dragId.value = item.placementId
   // z-index 를 가장 위로
-  const maxZ = Math.max(...items.value.map((i) => i.zIndex), 0)
+  const maxZ = Math.max(...items.value.map(i => i.zIndex), 0)
   item.zIndex = maxZ + 1
   dragState = {
     startX: e.clientX,
@@ -155,7 +209,7 @@ function onPointerMove(e: PointerEvent) {
   const rect = canvasRef.value.getBoundingClientRect()
   const dxRatio = (e.clientX - dragState.startX) / rect.width
   const dyRatio = (e.clientY - dragState.startY) / rect.height
-  const target = items.value.find((i) => i.id === dragId.value)
+  const target = items.value.find(i => i.placementId === dragId.value)
   if (!target) return
   target.posX = Math.max(0, Math.min(1, dragState.baseX + dxRatio))
   target.posY = Math.max(0, Math.min(1, dragState.baseY + dyRatio))
@@ -167,33 +221,35 @@ function onPointerUp() {
 }
 
 async function onSave() {
-  if (!import.meta.client) return
+  if (!import.meta.client || saving.value) return
+  if (!entitled.value) {
+    toast.info(t('terrarium.freePlacementPreviewMode'))
+    return
+  }
+  saving.value = true
   try {
-    // PoC 의 더미 emoji 는 실제 inventory itemId 가 없어 sdk 호출은 건너뜀.
-    // inventory 통합 후 아래 코드를 활성화한다.
-    //
-    // const { sdk, client } = useOpenApi()
-    // const placedItems = items.value.map((it) => ({
-    //   itemId: it.inventoryItemId, // 실제 inventory 아이템 ID (PoC 미구현)
-    //   slotId: 0,                  // 자유배치는 slot 무관 (BE schema 보강 필요)
-    //   posX: it.posX,
-    //   posY: it.posY,
-    //   rotation: it.rotation,
-    //   scale: it.scale,
-    //   zIndex: it.zIndex,
-    // }))
-    // const { error } = await sdk.updateTerrariumPlacements({ client, body: { placedItems } })
-    // if (error) throw new Error(errMsg(error, '배치 저장 실패'))
+    await Promise.all(
+      items.value.map(it =>
+        request(`/api/v1/terrarium/free-placement/${it.placementId}`, {
+          method: 'PUT',
+          body: { posX: it.posX, posY: it.posY },
+        }),
+      ),
+    )
+    items.value.forEach((it) => { it.isFreePlacement = true })
     toast.success(t('terrarium.freePlacementSaved', { n: items.value.length }))
     trackFreePlacementSaved({ itemCount: items.value.length })
   }
   catch (e) {
-    toast.error((e as Error).message)
+    toast.error(errMsg(e, '저장 실패'))
+  }
+  finally {
+    saving.value = false
   }
 }
 
 function onReset() {
-  items.value = JSON.parse(JSON.stringify(initialItems))
+  load()
   toast.info(t('terrarium.freePlacementResetDone'))
 }
 </script>
