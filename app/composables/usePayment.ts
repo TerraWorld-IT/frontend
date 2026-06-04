@@ -1,174 +1,196 @@
+import { useUserStore } from '~/stores/user'
+
 /**
- * usePayment — 결제 상태 머신 스켈레톤
+ * usePayment — Play Billing IAP(인앱결제) 연동. (fullstack-ultraplan WP-1, 2026-06-04)
  *
- * 실제 PG SDK 연동은 Phase 3 이후. 현재는 상태 머신 + 인터페이스만 정의.
- * SIMULATE=true 플래그로 모든 결제를 mock resolve 한다.
+ * 흐름:
+ *   1. client 가 cordova-plugin-purchase(v13) 로 Play Billing 구매 → `approved` 트랜잭션 획득
+ *   2. 트랜잭션의 purchaseToken 을 backend `POST /api/v1/billing/iap/verify`(@Hidden) 로 전달
+ *   3. 서버가 (test-mode) 즉시 또는 (live) Google Play Developer API 검증 후 entitlement 부여
+ *   4. 검증/지급 성공 시에만 `transaction.finish()` (실패 시 미완료 유지 → 재처리)
+ *
+ * - 플러그인은 mobile/ 네이티브 셸에 포함(cap sync)되어 WebView 전역 `window.CdvPurchase` 로 노출.
+ *   frontend 웹 빌드는 별도 npm 의존성 불요(런타임 global 접근) — remote WebView 구조와 정합.
+ * - 웹/미지원 플랫폼: "앱에서만 구매" 안내 후 false.
+ *
+ * ⚠️ 실 결제 흐름은 실기기 + Play Console 상품 등록 후 검증 필요(.env-ready). debug 는 정적 SKU
+ *   `android.test.purchased` 또는 license tester + 백엔드 BILLING_TEST_MODE=true 로 테스트.
+ *   (cordova-plugin-purchase 의 정확한 트랜잭션 필드/리스너 수명은 실기기 검증 항목.)
  */
 
-export type PaymentStatus = 'idle' | 'loading' | 'processing' | 'success' | 'failed'
-
-export interface PaymentRequest {
-  /** 고유 주문 ID (멱등성 키로 활용) */
-  orderId: string
-  /** 결제 금액 (원) */
-  amount: number
-  /** 결제 항목명 */
-  name: string
-  /** 구매자 이메일 (optional) */
-  buyerEmail?: string
+interface IapVerifyResponse {
+  granted: boolean
+  entitlementKey: string
 }
 
-export interface PaymentResult {
-  orderId: string
-  /** PG 거래 고유 ID (시뮬레이션: 'sim_' + orderId) */
-  pgTxId: string
-  amount: number
-  paidAt: string
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// 네이티브 런타임 global(타입 패키지 미설치) — any 접근. 실기기 검증 대상.
+type AnyCdv = any
+
+// 등록 1회 가드(productId 별) + 단일 approved 리스너 라우팅.
+const registered = new Set<string>()
+const pendingResolvers = new Map<string, (tx: AnyCdv) => void>()
+let approvedListenerBound = false
+
+function bindApprovedListener(store: AnyCdv) {
+  if (approvedListenerBound) return
+  approvedListenerBound = true
+  store.when().approved((tx: AnyCdv) => {
+    // 트랜잭션의 상품 ID 추출(v13: products[].id) → 대기 중 resolver 라우팅.
+    const pid: string | undefined = tx?.products?.[0]?.id ?? tx?.productId
+    const resolver = pid ? pendingResolvers.get(pid) : undefined
+    if (resolver && pid) {
+      pendingResolvers.delete(pid)
+      resolver(tx)
+    }
+  })
 }
 
-export interface RefundRequest {
-  orderId: string
-  /** 부분 환불 금액 (없으면 전액 환불) */
-  amount?: number
-  reason: string
+async function ensureRegistered(Cdv: AnyCdv, store: AnyCdv, productId: string) {
+  bindApprovedListener(store)
+  if (registered.has(productId)) return
+  store.register([
+    {
+      id: productId,
+      // free_placement_unlock 은 1회 영구 → NON_CONSUMABLE.
+      type: Cdv.ProductType.NON_CONSUMABLE,
+      platform: Cdv.Platform.GOOGLE_PLAY,
+    },
+  ])
+  await store.initialize([Cdv.Platform.GOOGLE_PLAY])
+  registered.add(productId)
 }
 
-/** 시뮬레이션 모드 — PG SDK 없이 즉시 성공으로 처리 */
-const SIMULATE = true
+function extractPurchaseToken(tx: AnyCdv): string {
+  // Google Play purchase token 위치는 v13 버전별 상이 — 다중 fallback(실기기 검증).
+  return (
+    tx?.nativePurchase?.purchaseToken
+    ?? tx?.purchaseId
+    ?? tx?.transactionId
+    ?? ''
+  )
+}
 
 export function usePayment() {
-  const status = ref<PaymentStatus>('idle')
-  const lastResult = ref<PaymentResult | null>(null)
+  const loading = ref<boolean>(false)
   const lastError = ref<string | null>(null)
 
   /**
-   * 결제 초기화 및 실행
-   * SIMULATE=true 면 1초 후 success 반환.
-   * 실제 PG 연동 시 이 함수에서 SDK load + checkout 호출.
+   * 단일 상품 IAP 구매. entitlement 부여 성공 시 true.
+   * @param productId Play Console 상품 ID. 백엔드 ProductEntitlementMapper 와 정합 필수
+   *   (예: `free_placement_unlock`).
    */
-  async function initPayment(req: PaymentRequest): Promise<PaymentResult> {
-    status.value = 'loading'
-    lastError.value = null
-
-    try {
-      if (SIMULATE) {
-        await _sleep(800)
-        status.value = 'processing'
-        await _sleep(400)
-
-        const result: PaymentResult = {
-          orderId: req.orderId,
-          pgTxId: `sim_${req.orderId}`,
-          amount: req.amount,
-          paidAt: new Date().toISOString(),
-        }
-        lastResult.value = result
-        status.value = 'success'
-        return result
-      }
-
-      // TODO(Phase-3): 실제 PG SDK 로딩 및 checkout 호출
-      // const pg = await loadPgSdk()
-      // const result = await pg.requestPayment({ ... })
-      // ...
-      throw new Error('PG SDK not integrated yet')
-    }
-    catch (err) {
-      status.value = 'failed'
-      lastError.value = err instanceof Error ? err.message : String(err)
-      throw err
-    }
-  }
-
-  /**
-   * 결제 승인 (3DS 또는 서버 검증 단계)
-   * SIMULATE=true 면 즉시 성공 반환.
-   */
-  async function confirmPayment(_orderId: string): Promise<void> {
-    if (status.value !== 'processing' && status.value !== 'success') {
-      throw new Error(`Invalid state for confirmation: ${status.value}`)
-    }
-
-    if (SIMULATE) {
-      await _sleep(200)
-      status.value = 'success'
-      return
-    }
-
-    // TODO(Phase-3): 서버 검증 API 호출
-    // await useOpenApi().confirmPayment({ body: { orderId: _orderId } })
-  }
-
-  /**
-   * 환불 요청 스켈레톤
-   * SIMULATE=true 면 즉시 성공 처리 (실제 환불 실행 없음).
-   */
-  async function refund(_req: RefundRequest): Promise<void> {
-    status.value = 'loading'
-    lastError.value = null
-
-    try {
-      if (SIMULATE) {
-        await _sleep(600)
-        status.value = 'idle'
-        lastResult.value = null
-        return
-      }
-
-      // TODO(Phase-3): 환불 API 호출
-      // await useOpenApi().refundPayment({ body: { orderId: _req.orderId, amount: _req.amount, reason: _req.reason } })
-      throw new Error('Refund API not integrated yet')
-    }
-    catch (err) {
-      status.value = 'failed'
-      lastError.value = err instanceof Error ? err.message : String(err)
-      throw err
-    }
-  }
-
-  function reset() {
-    status.value = 'idle'
-    lastResult.value = null
-    lastError.value = null
-  }
-
-  /**
-   * 단일 상품 구매 — IAP/Play Billing 통합 전 placeholder.
-   * Tier 3 scaffold: 현재는 항상 false 반환 (결제 모듈 미통합).
-   * Phase 4 통합 시 productId → Capacitor InAppPurchase plugin → 서버 검증 흐름.
-   */
-  const loading = ref(false)
   async function startPurchase(productId: string): Promise<boolean> {
+    if (!import.meta.client) return false
+    const { isNative } = useNative()
+    if (!isNative) {
+      useToast().info('구매는 앱에서만 가능합니다')
+      return false
+    }
+    const Cdv = (window as unknown as { CdvPurchase?: AnyCdv }).CdvPurchase
+    if (!Cdv?.store) {
+      useToast().error('결제 모듈을 불러오지 못했습니다')
+      return false
+    }
+
     loading.value = true
+    lastError.value = null
     try {
-      if (SIMULATE) {
-        await _sleep(400)
-        // Phase 4 까지는 항상 false (entitlement 변경 없음). 사용자에게 안내 메시지 유도.
+      const store = Cdv.store
+      await ensureRegistered(Cdv, store, productId)
+
+      // Codex 보안 HIGH: 구매를 로그인 userId 에 바인딩 → 서버 verifier 가 Google 의
+      // obfuscatedExternalAccountId(=userId) 와 cross-check(다른 user token replay 차단).
+      const userStore = useUserStore()
+      if (!userStore.me) await userStore.fetchMe()
+      const userId = userStore.me?.userId
+      if (!userId) {
+        lastError.value = 'no_user_id'
         return false
       }
-      // TODO(Phase-4): native IAP / Play Billing
-      // const result = await capacitorPurchase.purchase({ productId })
-      // await sdk.confirmPurchase({ ... })
-      void productId
+
+      const transaction = await orderAndAwaitApproval(Cdv, store, productId, userId)
+      const purchaseToken = extractPurchaseToken(transaction)
+      if (!purchaseToken) {
+        lastError.value = 'no_purchase_token'
+        return false
+      }
+
+      // 서버 검증 + entitlement 부여 (off-spec @Hidden endpoint → useInternalApi).
+      const res = await useInternalApi().request<IapVerifyResponse>(
+        '/api/v1/billing/iap/verify',
+        { method: 'POST', body: { productId, purchaseToken, platform: 'ANDROID' } },
+      )
+
+      if (res?.granted) {
+        await safeFinish(transaction)
+        await useUserStore().fetchMe()
+        return true
+      }
+      // 검증 실패 — 트랜잭션 미완료 유지(재시도 가능). 보상/권리 미지급.
       return false
-    } finally {
+    }
+    catch (e) {
+      lastError.value = e instanceof Error ? e.message : String(e)
+      return false
+    }
+    finally {
       loading.value = false
     }
   }
 
   return {
-    status: readonly(status),
-    lastResult: readonly(lastResult),
-    lastError: readonly(lastError),
-    initPayment,
-    confirmPayment,
-    refund,
-    reset,
     loading: readonly(loading),
+    lastError: readonly(lastError),
     startPurchase,
   }
 }
 
-function _sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+/** 주문 트리거 후 해당 productId 의 approved 트랜잭션 1건을 대기(45s timeout). */
+function orderAndAwaitApproval(Cdv: AnyCdv, store: AnyCdv, productId: string, userId: string): Promise<AnyCdv> {
+  return new Promise<AnyCdv>((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true
+        pendingResolvers.delete(productId)
+        reject(new Error('purchase_timeout'))
+      }
+    }, 45_000)
+
+    pendingResolvers.set(productId, (tx: AnyCdv) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(tx)
+    })
+
+    const product = store.get(productId, Cdv.Platform.GOOGLE_PLAY)
+    const offer = product?.getOffer?.()
+    if (!offer) {
+      settled = true
+      clearTimeout(timer)
+      pendingResolvers.delete(productId)
+      reject(new Error('offer_not_found'))
+      return
+    }
+    // applicationUsername → Google Play obfuscatedAccountId (서버 user-binding 검증용).
+    Promise.resolve(offer.order({ applicationUsername: userId })).catch((e: unknown) => {
+      if (!settled) {
+        settled = true
+        clearTimeout(timer)
+        pendingResolvers.delete(productId)
+        reject(e instanceof Error ? e : new Error('order_failed'))
+      }
+    })
+  })
+}
+
+async function safeFinish(transaction: AnyCdv) {
+  try {
+    await transaction.finish()
+  }
+  catch {
+    // finish 실패는 다음 store 동기화에서 재처리 — 무시.
+  }
 }

@@ -156,10 +156,10 @@ async function load() {
   pending.value = true
   fetchError.value = ''
   try {
-    const { client } = useOpenApi()
-    // SDK 자동 생성 전이라 client 의 generic GET 사용. spec sync 후 sdk.getMonthlyRanking 으로 마이그레이션.
-    const { data: result, error } = await client.get<RankingResponse>({
-      url: '/rankings/monthly',
+    const { sdk, client } = useOpenApi()
+    // 2026-06-04: 생성 SDK getMonthlyRanking 으로 마이그레이션 (off-spec raw GET 제거).
+    const { data: result, error } = await sdk.getMonthlyRanking({
+      client,
       query: {
         type: activeType.value,
         yearMonth: activeYearMonth.value,
@@ -167,7 +167,8 @@ async function load() {
       },
     })
     if (error) throw new Error(errMsg(error, t('ranking.loadError')))
-    data.value = result ?? null
+    // hey-api union unwrap → castData 로 로컬 RankingResponse shape 으로 정규화
+    data.value = castData<RankingResponse>(result) ?? null
     trackRankingViewed({ type: activeType.value, yearMonth: activeYearMonth.value })
   }
   catch (e) {

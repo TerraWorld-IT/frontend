@@ -43,7 +43,9 @@ const toast = useToast()
 const { t } = useI18n()
 
 async function onPurchase() {
-  const ok = await startPurchase('free-placement')
+  // 상품 ID 단일 SoT = 백엔드 mapProductIdToEntitlementKey (free_placement_unlock → free_placement).
+  // (기존 'free-placement' 하이픈은 백엔드 매핑과 불일치 — 2026-06-04 fix)
+  const ok = await startPurchase('free_placement_unlock')
   if (ok) toast.success(t('upgrade.purchaseSuccess'))
   else toast.info(t('upgrade.purchasePhase4'))
 }

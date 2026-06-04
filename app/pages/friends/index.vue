@@ -181,7 +181,6 @@ definePageMeta({ middleware: 'auth' })
 
 const { t } = useI18n()
 const { sdk, client } = useOpenApi()
-const { request } = useInternalApi()
 const toast = useToast()
 const { share: nativeShare } = useNative()
 const userStore = useUserStore()
@@ -212,7 +211,9 @@ const visitTerrarium = ref<TerrariumResponse | null>(null)
 async function loadFriends() {
   friendsLoading.value = true
   try {
-    const list = await request<FriendItem[]>('/api/v1/social/friends')
+    // 2026-06-04: off-spec raw fetch → 생성 SDK(listFriends). spec/codegen 편입.
+    const { data } = await sdk.listFriends({ client })
+    const list = castData<FriendItem[]>(data)
     friends.value = (list ?? []).map(f => ({ ...f, liked: f.liked ?? false }))
   }
   catch {
@@ -227,12 +228,12 @@ async function onToggleLike(friend: FriendItem) {
   if (likingId.value) return
   likingId.value = friend.userId
   try {
-    const result = await request<{ liked: boolean, likeCount: number }>(
-      `/api/v1/social/friends/${friend.userId}/like`,
-      { method: 'POST' },
-    )
-    friend.liked = result.liked
-    friend.likeCount = result.likeCount
+    const { data } = await sdk.toggleFriendLike({ client, path: { friendId: friend.userId } })
+    const result = castData<{ liked: boolean, likeCount: number }>(data)
+    if (result) {
+      friend.liked = result.liked
+      friend.likeCount = result.likeCount
+    }
   }
   catch {
     toast.error(t('friends.likeError'))
@@ -249,10 +250,8 @@ async function onVisit(friend: FriendItem) {
   visitTerrarium.value = null
   visitModalOpen.value = true
   try {
-    const terrarium = await request<TerrariumResponse>(
-      `/api/v1/social/friends/${friend.userId}/terrarium`,
-    )
-    visitTerrarium.value = terrarium
+    const { data } = await sdk.visitFriendTerrarium({ client, path: { friendId: friend.userId } })
+    visitTerrarium.value = castData<TerrariumResponse>(data) ?? null
   }
   catch {
     visitModalOpen.value = false

@@ -108,8 +108,9 @@ async function saveLevel(level: number) {
   }
   saving.value = level
   try {
-    await request(`/api/v1/admin/levels/${level}`, {
-      method: 'PUT',
+    await sdk.updateLevelConfig({
+      client,
+      path: { level },
       body: {
         requiredExp: form.requiredExp,
         maxItems: form.maxItems,

@@ -120,8 +120,9 @@ async function saveRewards(categoryId: number) {
   }
   saving.value = categoryId
   try {
-    await request(`/api/v1/admin/categories/${categoryId}/rewards`, {
-      method: 'PUT',
+    await sdk.updateCategoryRewards({
+      client,
+      path: { categoryId },
       body: {
         baseCoinReward: form.baseCoinReward,
         baseTokenReward: form.baseTokenReward,

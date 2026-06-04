@@ -61,24 +61,114 @@
       </div>
     </div>
 
-    <!-- Create dialog placeholder -->
-    <CommonModal :model-value="showCreateDialog" @update:model-value="showCreateDialog = false">
-      <div class="space-y-4">
+    <!-- Create dialog -->
+    <CommonModal :model-value="showCreateDialog" @update:model-value="closeCreate">
+      <form class="space-y-3" @submit.prevent="submitCreate">
         <h3 class="font-bold text-lg text-riso-dark">{{ $t('admin.items.createTitle') }}</h3>
-        <p class="text-sm text-riso-dark/40">{{ $t('admin.items.createNotice') }}</p>
+
+        <label class="block">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldName') }}</span>
+          <input
+            v-model="form.name"
+            type="text"
+            required
+            maxlength="100"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+          >
+        </label>
+
+        <label class="block">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldAsset') }}</span>
+          <input
+            v-model="form.assetUrl"
+            type="text"
+            required
+            maxlength="500"
+            placeholder="🌵"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+          >
+        </label>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldPriceType') }}</span>
+            <select v-model="form.priceType" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+              <option v-for="opt in priceTypeOptions" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldPriceAmount') }}</span>
+            <input
+              v-model.number="form.priceAmount"
+              type="number"
+              min="0"
+              required
+              class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+            >
+          </label>
+        </div>
+
+        <label v-if="form.priceType === 'MIXED'" class="block">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldTokenPrice') }}</span>
+          <input
+            v-model.number="form.tokenPrice"
+            type="number"
+            min="0"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+          >
+        </label>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldRarity') }}</span>
+            <select v-model="form.rarity" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+              <option v-for="opt in rarityOptions" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldLayout') }}</span>
+            <select v-model="form.layout" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+              <option v-for="opt in layoutOptions" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="block">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldCategory') }}</span>
+          <select v-model="form.categoryId" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <option :value="null">{{ $t('admin.items.categoryNone') }}</option>
+            <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldDescription') }}</span>
+          <input
+            v-model="form.description"
+            type="text"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+          >
+        </label>
+
         <button
-          class="w-full h-11 rounded-full bg-riso-navy text-white font-medium text-sm"
-          @click="showCreateDialog = false"
+          type="submit"
+          :disabled="creating"
+          class="w-full h-11 rounded-full bg-riso-navy text-white font-medium text-sm disabled:opacity-40"
         >
-          {{ $t('common.confirm') }}
+          {{ creating ? $t('admin.items.submitting') : $t('admin.items.submit') }}
         </button>
-      </div>
+      </form>
     </CommonModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { ItemResponse } from '@terraworld-it/openapi-frontend'
+import type {
+  AdminItemCreateRequest,
+  CategoryListResponse,
+  CategoryResponse,
+  ItemResponse,
+} from '@terraworld-it/openapi-frontend'
 import { useItemsStore } from '~/stores/items'
 
 interface ItemRow {
@@ -90,14 +180,36 @@ interface ItemRow {
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const itemsStore = useItemsStore()
-const { request } = useInternalApi()
+const { sdk, client } = useOpenApi()
 const { t } = useI18n()
 const toast = useToast()
 
 const loading = ref(true)
 const showCreateDialog = ref(false)
 const toggling = ref<number | null>(null)
+const creating = ref<boolean>(false)
 const rows = ref<ItemRow[]>([])
+const categories = ref<CategoryResponse[]>([])
+
+const priceTypeOptions: AdminItemCreateRequest['priceType'][] = ['BASIC', 'SPECIAL', 'MIXED', 'TOKEN']
+const rarityOptions: NonNullable<AdminItemCreateRequest['rarity']>[] = ['COMMON', 'RARE', 'EPIC']
+const layoutOptions: NonNullable<AdminItemCreateRequest['layout']>[] = ['FOREGROUND', 'BACKGROUND', 'FIGURE']
+
+function emptyForm(): AdminItemCreateRequest {
+  return {
+    name: '',
+    assetUrl: '',
+    priceType: 'BASIC',
+    priceAmount: 0,
+    tokenPrice: null,
+    rarity: 'COMMON',
+    layout: 'FOREGROUND',
+    categoryId: null,
+    description: '',
+  }
+}
+
+const form = ref<AdminItemCreateRequest>(emptyForm())
 
 async function toggleActive(itemId: number) {
   const row = rows.value.find((r) => r.item.id === itemId)
@@ -105,8 +217,9 @@ async function toggleActive(itemId: number) {
   const next = !row.active
   toggling.value = itemId
   try {
-    await request(`/api/v1/admin/items/${itemId}/active`, {
-      method: 'PUT',
+    await sdk.setItemActive({
+      client,
+      path: { itemId },
       body: { active: next },
     })
     row.active = next
@@ -120,8 +233,54 @@ async function toggleActive(itemId: number) {
   }
 }
 
+function closeCreate() {
+  showCreateDialog.value = false
+  form.value = emptyForm()
+}
+
+async function submitCreate() {
+  const name = form.value.name.trim()
+  const assetUrl = form.value.assetUrl.trim()
+  if (!name || !assetUrl || form.value.priceAmount < 0) {
+    toast.error(t('admin.items.validation'))
+    return
+  }
+  creating.value = true
+  try {
+    const { data, error } = await sdk.createItem({
+      client,
+      body: {
+        ...form.value,
+        name,
+        assetUrl,
+        // MIXED 가 아니면 보조 토큰 가격 무의미 — null 정리
+        tokenPrice: form.value.priceType === 'MIXED' ? form.value.tokenPrice : null,
+        description: form.value.description?.trim() || null,
+      },
+    })
+    if (error) throw error
+    const created = castData<ItemResponse>(data)
+    if (created) rows.value.unshift({ item: created, active: true })
+    toast.success(t('admin.items.created'))
+    closeCreate()
+  }
+  catch {
+    toast.error(t('admin.items.createError'))
+  }
+  finally {
+    creating.value = false
+  }
+}
+
+async function loadCategories() {
+  const { data, error } = await sdk.listCategories({ client })
+  if (!error && data) {
+    categories.value = castData<CategoryListResponse>(data)?.categories ?? []
+  }
+}
+
 onMounted(async () => {
-  await itemsStore.fetchAll()
+  await Promise.all([itemsStore.fetchAll(), loadCategories()])
   rows.value = itemsStore.items.map((item) => ({ item, active: true }))
   loading.value = false
 })

@@ -44,7 +44,6 @@
       "loadError": "대시보드를 불러오지 못했습니다"
     },
     "items": {
-      "createNotice": "아이템 생성 폼은 Phase 4 출시 후 어드민 도구 정비 단계에 추가됩니다.",
       "createTitle": "새 아이템 등록",
       "empty": "등록된 아이템이 없습니다",
       "newItem": "+ 새 아이템",
@@ -52,7 +51,22 @@
       "active": "활성",
       "inactive": "비활성",
       "activated": "아이템을 활성화했습니다",
-      "deactivated": "아이템을 비활성화했습니다"
+      "deactivated": "아이템을 비활성화했습니다",
+      "created": "아이템을 등록했습니다",
+      "createError": "아이템 등록에 실패했습니다",
+      "fieldName": "이름",
+      "fieldAsset": "에셋 (이모지 또는 URL)",
+      "fieldPriceType": "결제 재화",
+      "fieldPriceAmount": "가격",
+      "fieldTokenPrice": "보조 토큰 가격 (MIXED)",
+      "fieldRarity": "희귀도",
+      "fieldLayout": "레이어",
+      "fieldCategory": "카테고리 (선택)",
+      "fieldDescription": "설명 (선택)",
+      "categoryNone": "범용 (없음)",
+      "submit": "등록",
+      "submitting": "등록 중...",
+      "validation": "이름·에셋·가격을 확인해 주세요"
     },
     "levels": {
       "empty": "레벨 설정 없음",

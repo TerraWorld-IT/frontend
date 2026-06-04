@@ -43,7 +43,9 @@ export function useAdMob() {
     try {
       const { AdMob } = await import('@capacitor-community/admob')
       await AdMob.initialize({
-        initializeForTesting: true,
+        // 운영(PROD) 빌드는 실 광고, dev/test 빌드만 Google 테스트 광고(어뷰징 정책 준수).
+        // 2026-06-04 fix: 기존 하드코딩 true → PROD 기준 분기 (운영 빌드 실광고 노출).
+        initializeForTesting: !import.meta.env.PROD,
       })
       initialized = true
     }

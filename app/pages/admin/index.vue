@@ -51,7 +51,7 @@ interface AdminDashboard {
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const { t } = useI18n()
-const { request } = useInternalApi()
+const { sdk, client } = useOpenApi()
 const toast = useToast()
 
 const dashboardLoading = ref(true)
@@ -73,7 +73,8 @@ const menus = computed(() => [
 
 onMounted(async () => {
   try {
-    dashboard.value = await request<AdminDashboard>('/api/v1/admin/dashboard')
+    const { data } = await sdk.getAdminDashboard({ client })
+    dashboard.value = castData<AdminDashboard>(data) ?? null
   }
   catch {
     toast.error(t('admin.index.loadError'))

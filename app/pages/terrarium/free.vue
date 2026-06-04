@@ -134,7 +134,6 @@ interface FreePlacementListResponse {
 }
 
 const { sdk, client } = useOpenApi()
-const { request } = useInternalApi()
 const toast = useToast()
 const { t } = useI18n()
 const { trackFreePlacementSaved } = useGtagEvents()
@@ -159,8 +158,10 @@ async function load() {
     const me = castData<{ entitlements?: { freePlacement?: boolean } }>(data)
     entitled.value = Boolean(me?.entitlements?.freePlacement)
 
-    const res = await request<FreePlacementListResponse>('/api/v1/terrarium/free-placement')
-    items.value = (res.items ?? []).map((it, i): FreeItem => {
+    // 2026-06-04: off-spec raw fetch → 생성 SDK(listFreePlacements). spec/codegen 편입.
+    const { data: listData } = await sdk.listFreePlacements({ client })
+    const res = castData<FreePlacementListResponse>(listData)
+    items.value = (res?.items ?? []).map((it, i): FreeItem => {
       const fallback = defaultPos(i)
       return {
         placementId: it.placementId,
@@ -230,8 +231,9 @@ async function onSave() {
   try {
     await Promise.all(
       items.value.map(it =>
-        request(`/api/v1/terrarium/free-placement/${it.placementId}`, {
-          method: 'PUT',
+        sdk.updateFreePosition({
+          client,
+          path: { placementId: it.placementId },
           body: { posX: it.posX, posY: it.posY },
         }),
       ),

@@ -52,7 +52,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
-const { request } = useInternalApi()
+const { sdk, client } = useOpenApi()
 const { t } = useI18n()
 const toast = useToast()
 
@@ -75,8 +75,9 @@ async function saveRate() {
   }
   saving.value = true
   try {
-    await request(`/api/v1/admin/exchange-rates/${form.rateId}`, {
-      method: 'PUT',
+    await sdk.updateExchangeRate({
+      client,
+      path: { rateId: form.rateId },
       body: {
         rate: form.rate,
         isActive: form.isActive,
