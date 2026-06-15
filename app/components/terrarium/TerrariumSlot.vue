@@ -50,7 +50,7 @@ const SLOT_LABEL_KEYS: Record<number, string> = {
   4: 'terrarium.foreground',
 }
 
-const slotLabel = computed(() => {
+const slotLabel = computed<string>(() => {
   const key = SLOT_LABEL_KEYS[props.slotId]
   return key ? t(key) : ''
 })

@@ -77,7 +77,7 @@ defineEmits<{
 }>()
 
 // Zoom
-const zoom = ref(1)
+const zoom = ref<number>(1)
 function onWheel(e: WheelEvent) {
   zoom.value = Math.min(2, Math.max(0.5, zoom.value + (e.deltaY > 0 ? -0.1 : 0.1)))
 }

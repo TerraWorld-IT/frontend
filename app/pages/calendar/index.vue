@@ -246,18 +246,18 @@ const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { t } = useI18n()
 
-const DAYS = computed(() => [
+const DAYS = computed<string[]>(() => [
   t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'),
   t('calendar.thu'), t('calendar.fri'), t('calendar.sat'),
 ])
 
-const pending = ref(true)
+const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 
 // Calendar state
 const now = new Date()
-const viewYear = ref(now.getFullYear())
-const viewMonth = ref(now.getMonth()) // 0-indexed
+const viewYear = ref<number>(now.getFullYear())
+const viewMonth = ref<number>(now.getMonth()) // 0-indexed
 
 // Records for current view month
 const monthRecords = ref<RecordResponse[]>([])
@@ -269,21 +269,21 @@ const stats = ref<StatisticsResponse | null>(null)
 // Selected date state
 const selectedDate = ref<Date | null>(null)
 const selectedNote = ref<string | null>(null)
-const isEditingNote = ref(false)
-const editingNoteText = ref('')
-const noteSaving = ref(false)
+const isEditingNote = ref<boolean>(false)
+const editingNoteText = ref<string>('')
+const noteSaving = ref<boolean>(false)
 
-const showDetailedStats = ref(false)
+const showDetailedStats = ref<boolean>(false)
 
 // Computed calendar info
-const currentYear = computed(() => viewYear.value)
-const currentMonth = computed(() => viewMonth.value)
+const currentYear = computed<number>(() => viewYear.value)
+const currentMonth = computed<number>(() => viewMonth.value)
 
-const firstDayOfMonth = computed(() => new Date(viewYear.value, viewMonth.value, 1))
-const daysInMonth = computed(() => new Date(viewYear.value, viewMonth.value + 1, 0).getDate())
-const startingDayOfWeek = computed(() => firstDayOfMonth.value.getDay())
+const firstDayOfMonth = computed<Date>(() => new Date(viewYear.value, viewMonth.value, 1))
+const daysInMonth = computed<number>(() => new Date(viewYear.value, viewMonth.value + 1, 0).getDate())
+const startingDayOfWeek = computed<number>(() => firstDayOfMonth.value.getDay())
 
-const selectedDayRecords = computed(() => {
+const selectedDayRecords = computed<RecordResponse[]>(() => {
   if (!selectedDate.value) return []
   const selKey = toDateKey(selectedDate.value)
   return monthRecords.value.filter(r => r.recordedDate.slice(0, 10) === selKey)

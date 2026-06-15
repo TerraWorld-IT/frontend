@@ -78,7 +78,7 @@ defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
-const step = ref(0)
+const step = ref<number>(0)
 
 const steps = computed(() => [
   {

@@ -104,15 +104,15 @@ const { trackLogin, trackSignup } = useGtagEvents()
 const { registerPush } = useNative()
 
 const mode = ref<'login' | 'signup'>('login')
-const email = ref('')
-const password = ref('')
-const nickname = ref('')
-const birthDate = ref('')
-const submitting = ref(false)
+const email = ref<string>('')
+const password = ref<string>('')
+const nickname = ref<string>('')
+const birthDate = ref<string>('')
+const submitting = ref<boolean>(false)
 
 // LEGAL-001 fix (Codex audit HIGH, 2026-05-18):
 // date input 의 max 속성 — 14년 전 오늘. 브라우저 native 검증으로 만 14세 미만 자동 차단.
-const maxBirthDate = computed(() => {
+const maxBirthDate = computed<string>(() => {
   const today = new Date()
   const cutoff = new Date(today.getFullYear() - 14, today.getMonth(), today.getDate())
   return cutoff.toISOString().slice(0, 10)

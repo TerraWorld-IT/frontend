@@ -54,7 +54,7 @@ const { t } = useI18n()
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 
-const dashboardLoading = ref(true)
+const dashboardLoading = ref<boolean>(true)
 const dashboard = ref<AdminDashboard | null>(null)
 
 const stats = computed(() => [

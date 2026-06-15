@@ -24,8 +24,8 @@
 </template>
 
 <script setup lang="ts">
-const enabled = ref(false)
-const partnerUserId = ref('')
+const enabled = ref<boolean>(false)
+const partnerUserId = ref<string>('')
 
 const emit = defineEmits<{
   change: [value: string | null]

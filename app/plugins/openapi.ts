@@ -34,6 +34,11 @@ import { createClient, createConfig } from '@hey-api/client-fetch'
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
 
+  // 주의: 5xx / 네트워크 오류 사용자 알림은 인터셉터에서 처리하지 않는다.
+  // call-site 들이 이미 구체적인 메시지로 toast.error 를 띄우므로(예: '기록 저장 실패'),
+  // 인터셉터가 generic 토스트를 추가하면 double/triple toast 가 된다(코드리뷰 2026-06-15).
+  // 전역 fatal/네비게이션 오류는 error.vue(500-class 분기 + 재시도)가 담당.
+
   const apiClient = createClient(
     createConfig({
       baseUrl: config.public.apiBaseUrl as string,
@@ -114,7 +119,7 @@ export default defineNuxtPlugin(() => {
     retryHeaders.set('x-tw-retried', '1')
 
     try {
-      return await fetch(
+      const retried = await fetch(
         new Request(retryBase.url, {
           method: retryBase.method,
           headers: retryHeaders,
@@ -125,6 +130,7 @@ export default defineNuxtPlugin(() => {
           duplex: retryBase.body ? 'half' : undefined,
         }),
       )
+      return retried
     }
     catch (e) {
       // Dev visibility — stripped from prod by vite esbuild `drop`.

@@ -9,7 +9,7 @@ export function useRecord() {
   const { sdk, client } = useOpenApi()
 
   const records = ref<RecordResponse[]>([])
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
 
   async function fetchRecords(params?: { categoryId?: number; year?: number; month?: number; page?: number; size?: number }) {
     loading.value = true

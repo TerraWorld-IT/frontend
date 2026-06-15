@@ -18,7 +18,7 @@ type Rarity = 'COMMON' | 'RARE' | 'EPIC' | 'common' | 'rare' | 'epic'
 
 const props = defineProps<{ rarity: Rarity }>()
 
-const normalized = computed(() => props.rarity.toUpperCase() as 'COMMON' | 'RARE' | 'EPIC')
+const normalized = computed<'COMMON' | 'RARE' | 'EPIC'>(() => props.rarity.toUpperCase() as 'COMMON' | 'RARE' | 'EPIC')
 
 const cls = computed(() => {
   switch (normalized.value) {
@@ -33,7 +33,7 @@ const cls = computed(() => {
 
 const { t } = useI18n()
 
-const label = computed(() => {
+const label = computed<string>(() => {
   switch (normalized.value) {
     case 'RARE': return t('rarity.rare')
     case 'EPIC': return t('rarity.fantasy')

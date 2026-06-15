@@ -4,10 +4,10 @@ export const useTerrariumStore = defineStore('terrarium', () => {
   const { sdk, client } = useOpenApi()
 
   const data = ref<TerrariumResponse | null>(null)
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
 
   const placedItems = computed<PlacedItemDetail[]>(() => data.value?.placedItems ?? [])
-  const maxSlots = computed(() => data.value?.maxSlots ?? 5)
+  const maxSlots = computed<number>(() => data.value?.maxSlots ?? 5)
 
   async function fetch() {
     loading.value = true

@@ -121,10 +121,10 @@ const activeType = ref<'engagement' | 'decoration'>('engagement')
 const activeYearMonth = ref<string>(currentYearMonth())
 
 const data = ref<RankingResponse | null>(null)
-const pending = ref(false)
+const pending = ref<boolean>(false)
 const fetchError = ref<string>('')
 
-const isCurrentMonth = computed(() => activeYearMonth.value === currentYearMonth())
+const isCurrentMonth = computed<boolean>(() => activeYearMonth.value === currentYearMonth())
 
 function currentYearMonth(): string {
   const now = new Date()

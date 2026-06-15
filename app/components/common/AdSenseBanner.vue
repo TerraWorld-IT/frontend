@@ -33,7 +33,7 @@ const slot = (config.public.adsenseSlot as string | undefined) ?? ''
 // 모바일 네이티브 앱(Capacitor) 에서는 AdMob 사용. AdSense 는 PC 웹만.
 const isNativeApp = import.meta.client ? Capacitor.isNativePlatform() : false
 
-const enabled = computed(() => {
+const enabled = computed<boolean>(() => {
   if (isNativeApp) return false
   if (!client || !slot) return false
   return true

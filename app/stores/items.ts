@@ -4,7 +4,7 @@ export const useItemsStore = defineStore('items', () => {
   const { sdk, client } = useOpenApi()
 
   const items = ref<ItemResponse[]>([])
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
 
   async function fetchAll() {
     loading.value = true

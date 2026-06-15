@@ -86,6 +86,20 @@ export function useNative() {
     URL.revokeObjectURL(url)
   }
 
+  /**
+   * Instagram 공유.
+   *
+   * Capacitor 표준 플러그인으로는 이미지를 Instagram(Stories pasteboard / feed)에 직접 주입할 수
+   * 없다. 딥링크로 빈 Instagram 을 띄운 뒤 시스템 공유 시트까지 함께 노출하면 이중 공유가 되어
+   * UX 가 나빠진다(코드리뷰 2026-06-15). 가장 신뢰성 있는 경로인 시스템 공유 시트(shareFile)로
+   * 위임한다 — 공유 시트에 Instagram 이 타겟으로 노출되어 사용자가 이미지를 첨부한 채 선택할 수 있다.
+   * (이미지를 실은 네이티브 Stories 딥링크는 별도 pasteboard 플러그인이 필요 — 후속 과제)
+   */
+  async function shareToInstagram(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}) {
+    if (!import.meta.client) return
+    await shareFile(blob, filename, opts)
+  }
+
   // --- Haptics ---
   async function hapticImpact(style: 'Heavy' | 'Medium' | 'Light' = 'Medium') {
     if (!isNative) return
@@ -165,6 +179,7 @@ export function useNative() {
     isAndroid,
     share,
     shareFile,
+    shareToInstagram,
     hapticImpact,
     hapticNotification,
     takePhoto,

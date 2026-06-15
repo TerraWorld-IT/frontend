@@ -7,7 +7,7 @@ import type { CategoryListResponse, CategoryResponse, CreateCategoryRequest } fr
  * - remove(id): soft-delete
  */
 export function useCustomCategory() {
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
   const { sdk, client } = useOpenApi()
 

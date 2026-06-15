@@ -34,10 +34,10 @@ const { t } = useI18n()
 const { state, loading, refresh, checkIn } = useAttendance()
 const toast = useToast()
 
-const checkedIn = computed(() => Boolean(state.value?.today))
-const streak = computed(() => state.value?.streak ?? 0)
-const reward = computed(() => state.value?.rewardBasicCoins ?? 5)
-const status = computed(() => (checkedIn.value ? t('attendance.checkedIn') : t('attendance.checkIn')))
+const checkedIn = computed<boolean>(() => Boolean(state.value?.today))
+const streak = computed<number>(() => state.value?.streak ?? 0)
+const reward = computed<number>(() => state.value?.rewardBasicCoins ?? 5)
+const status = computed<string>(() => (checkedIn.value ? t('attendance.checkedIn') : t('attendance.checkIn')))
 
 async function onCheckIn() {
   const result = await checkIn()

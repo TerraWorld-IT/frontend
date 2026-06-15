@@ -371,7 +371,7 @@ const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardC
 const { hapticImpact, share: nativeShare } = useNative()
 
 // Onboarding — show on first visit
-const showOnboarding = ref(false)
+const showOnboarding = ref<boolean>(false)
 onMounted(() => {
   if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
     showOnboarding.value = true
@@ -379,18 +379,18 @@ onMounted(() => {
 })
 
 // --- State ---
-const pending = ref(true)
+const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 const user = ref<UserMeResponse | null>(null)
 const terrarium = ref<TerrariumResponse | null>(null)
 const allItems = ref<ItemResponse[]>([])
-const heartBusy = ref(false)
+const heartBusy = ref<boolean>(false)
 const heartFloats = ref<{ id: number }[]>([])
 const selectedSlot = ref<number | null>(null)
-const placementBusy = ref(false)
-const showLevelUpDialog = ref(false)
-const showFreeCoinDialog = ref(false)
-const showUpgradeModal = ref(false)
+const placementBusy = ref<boolean>(false)
+const showLevelUpDialog = ref<boolean>(false)
+const showFreeCoinDialog = ref<boolean>(false)
+const showUpgradeModal = ref<boolean>(false)
 
 // P-EFFECT-001 (구현 계획서 v4): 파티클 자동 분기 (시간대 + 진화 단계) + 수동 override.
 // manualEffect = null 이면 autoEffect (시간대/진화단계 자동) 사용. 헤더 버튼이 manual 순환.
@@ -421,14 +421,14 @@ function onTerrariumUpgraded(updated: import('@terraworld-it/openapi-frontend').
 }
 
 // --- Computed ---
-const terrariumName = computed(() => {
+const terrariumName = computed<string>(() => {
   const nick = user.value?.nickname
   return nick ? t('home.terrariumNameOf', { nickname: nick }) : t('home.terrariumNameDefault')
 })
 
-const maxSlots = computed(() => terrarium.value?.maxSlots ?? 5)
+const maxSlots = computed<number>(() => terrarium.value?.maxSlots ?? 5)
 
-const ownedSlugs = computed(() => new Set(user.value?.ownedItems ?? []))
+const ownedSlugs = computed<Set<string>>(() => new Set(user.value?.ownedItems ?? []))
 
 const dialogItems = computed<ItemResponse[]>(() => {
   if (selectedSlot.value === null) return []
@@ -641,9 +641,10 @@ async function onShareClick() {
       toast.error(t('home.imageConvertFail'))
       return
     }
-    // useNative.shareFile : native = filesystem + share sheet, web = Share API or download
-    const { shareFile } = useNative()
-    await shareFile(blob, filename, {
+    // useNative.shareToInstagram : 시스템 공유 시트로 위임(공유 시트에 Instagram 노출).
+    //   Capacitor 표준으로는 이미지 직접 주입 불가라 딥링크 대신 신뢰성 있는 공유 시트 사용.
+    const { shareToInstagram } = useNative()
+    await shareToInstagram(blob, filename, {
       title: 'TerraWorld',
       text: t('home.shareText'),
     })

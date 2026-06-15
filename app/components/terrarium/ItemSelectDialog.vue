@@ -92,14 +92,14 @@ const SLOT_TYPE_LABEL_KEYS: Record<string, string> = {
   FIGURE: 'terrarium.figure',
 }
 
-const slotType = computed(() => SLOT_TYPE_MAP[props.slotId] ?? 'FOREGROUND')
-const slotTypeLabel = computed(() => {
+const slotType = computed<string>(() => SLOT_TYPE_MAP[props.slotId] ?? 'FOREGROUND')
+const slotTypeLabel = computed<string>(() => {
   const key = SLOT_TYPE_LABEL_KEYS[slotType.value]
   return key ? t(key) : ''
 })
 
 // Filter: owned + matching layout type
-const compatibleItems = computed(() => {
+const compatibleItems = computed<ItemResponse[]>(() => {
   return props.items.filter(item =>
     props.ownedItemSlugs.includes(item.slug ?? '') &&
     item.layout === slotType.value,

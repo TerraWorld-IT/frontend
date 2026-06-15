@@ -56,7 +56,7 @@ const { sdk, client } = useOpenApi()
 const { t } = useI18n()
 const toast = useToast()
 
-const saving = ref(false)
+const saving = ref<boolean>(false)
 const form = reactive({
   rateId: 1,
   rate: 2,

@@ -13,7 +13,7 @@ import type { AttendanceCheckInResponse, AttendanceResponse } from '@terraworld-
 export function useAttendance() {
   const { sdk, client } = useOpenApi()
   const state = ref<AttendanceResponse | null>(null)
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
 
   async function refresh() {

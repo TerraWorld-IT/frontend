@@ -188,24 +188,24 @@ const toast = useToast()
 const { t } = useI18n()
 const { trackRecordCreated } = useGtagEvents()
 
-const pending = ref(true)
+const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 const categories = ref<CategoryResponse[]>([])
 const recentRecords = ref<RecordResponse[]>([])
 const recordType = ref<'solo' | 'friend'>('solo')
 const selectedCategoryId = ref<number | null>(null)
-const duration = ref('')
-const note = ref('')
-const submitting = ref(false)
+const duration = ref<string>('')
+const note = ref<string>('')
+const submitting = ref<boolean>(false)
 const partnerUserId = ref<string | null>(null)
-const invitePending = ref(false)
+const invitePending = ref<boolean>(false)
 
 // 사진 첨부 — POST /uploads/photo 응답의 photoUrl 보관. 저장 시 createRecord body 에 포함.
 const photoUrl = ref<string>('')
-const uploadingPhoto = ref(false)
+const uploadingPhoto = ref<boolean>(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-const selectedCategory = computed(
+const selectedCategory = computed<CategoryResponse | null>(
   () => categories.value.find((c) => c.id === selectedCategoryId.value) ?? null,
 )
 
