@@ -641,9 +641,10 @@ async function onShareClick() {
       toast.error(t('home.imageConvertFail'))
       return
     }
-    // useNative.shareFile : native = filesystem + share sheet, web = Share API or download
-    const { shareFile } = useNative()
-    await shareFile(blob, filename, {
+    // useNative.shareToInstagram : native = Instagram 딥링크 시도 후 실패 시 시스템 공유 시트,
+    //   web = Web Share API 또는 다운로드로 graceful fallback
+    const { shareToInstagram } = useNative()
+    await shareToInstagram(blob, filename, {
       title: 'TerraWorld',
       text: t('home.shareText'),
     })
