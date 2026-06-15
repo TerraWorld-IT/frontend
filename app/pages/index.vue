@@ -641,8 +641,8 @@ async function onShareClick() {
       toast.error(t('home.imageConvertFail'))
       return
     }
-    // useNative.shareToInstagram : native = Instagram 딥링크 시도 후 실패 시 시스템 공유 시트,
-    //   web = Web Share API 또는 다운로드로 graceful fallback
+    // useNative.shareToInstagram : 시스템 공유 시트로 위임(공유 시트에 Instagram 노출).
+    //   Capacitor 표준으로는 이미지 직접 주입 불가라 딥링크 대신 신뢰성 있는 공유 시트 사용.
     const { shareToInstagram } = useNative()
     await shareToInstagram(blob, filename, {
       title: 'TerraWorld',

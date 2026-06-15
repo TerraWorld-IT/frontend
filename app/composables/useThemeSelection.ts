@@ -8,6 +8,10 @@
  * - `basic` 테마는 항상 해금 (premium=false).
  * - premium 테마는 `entitlements.premiumThemes === true` 일 때만 적용 가능.
  * - 선택값은 localStorage(STORAGE_KEYS.THEME) + useState 로 SSR-safe 하게 persist.
+ *
+ * 보안(코드리뷰 2026-06-15): entitlement 검증은 컴포넌트 클릭 핸들러뿐 아니라
+ * loadPersisted/selectTheme 내부에도 둔다. 해금 취소(revoke) 또는 localStorage 변조로
+ * 잠금 테마가 저장돼 있어도 복원/적용되지 않고 basic 으로 리셋된다.
  */
 
 export interface ThemeOption {
@@ -32,24 +36,42 @@ export const THEME_OPTIONS: ThemeOption[] = [
 
 const DEFAULT_THEME_ID = 'basic'
 
-export function useThemeSelection() {
+/**
+ * @param premiumUnlocked entitlements.premiumThemes — 프리미엄 테마 해금 여부.
+ *   loadPersisted/selectTheme 가 이 값으로 잠금 테마 적용/복원을 차단한다.
+ *   ref/getter 모두 허용 (반응형).
+ */
+export function useThemeSelection(premiumUnlocked?: MaybeRefOrGetter<boolean>) {
   const selectedThemeId = useState<string>('tw-theme', () => DEFAULT_THEME_ID)
+
+  function isAllowed(id: string): boolean {
+    const option = THEME_OPTIONS.find((t) => t.id === id)
+    if (!option) return false
+    if (!option.premium) return true
+    return toValue(premiumUnlocked) === true
+  }
 
   function loadPersisted() {
     if (!import.meta.client) return
     const stored = window.localStorage.getItem(STORAGE_KEYS.THEME)
-    if (stored && THEME_OPTIONS.some((t) => t.id === stored)) {
+    if (!stored) return
+    if (isAllowed(stored)) {
       selectedThemeId.value = stored
+    }
+    else {
+      // revoke / 변조로 적용 불가한 테마 → basic 으로 리셋 + 저장값 정정.
+      selectedThemeId.value = DEFAULT_THEME_ID
+      window.localStorage.setItem(STORAGE_KEYS.THEME, DEFAULT_THEME_ID)
     }
   }
 
-  function selectTheme(id: string) {
-    const option = THEME_OPTIONS.find((t) => t.id === id)
-    if (!option) return
+  function selectTheme(id: string): boolean {
+    if (!isAllowed(id)) return false
     selectedThemeId.value = id
     if (import.meta.client) {
       window.localStorage.setItem(STORAGE_KEYS.THEME, id)
     }
+    return true
   }
 
   return {

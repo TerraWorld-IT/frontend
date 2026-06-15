@@ -82,7 +82,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const toast = useToast()
-const { selectedThemeId, selectTheme, loadPersisted } = useThemeSelection()
+const { selectedThemeId, selectTheme, loadPersisted } = useThemeSelection(() => Boolean(props.premiumUnlocked))
 
 const unlocked = computed<boolean>(() => Boolean(props.premiumUnlocked))
 

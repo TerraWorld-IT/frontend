@@ -87,62 +87,17 @@ export function useNative() {
   }
 
   /**
-   * Instagram 우선 공유 — 네이티브에서 Instagram 딥링크(Stories/feed)를 시도하고,
-   * Instagram 미설치 / iOS / 웹 등 사용 불가 상황에서는 기존 generic shareFile() 로 graceful fallback.
+   * Instagram 공유.
    *
-   * 플랫폼별 동작:
-   *  - Android(native): Instagram 설치 여부를 `instagram://` URL 스킴으로 확인 후, 설치돼 있으면
-   *    이미지를 캐시에 저장하고 시스템 공유 시트에 Instagram 패키지를 우선 노출(Share 플러그인은 특정 앱
-   *    타겟팅을 지원하지 않으므로, 공유 시트가 뜬 상태에서 사용자가 Instagram 을 선택). 미설치면 shareFile().
-   *  - iOS(native): Instagram 은 Stories 전용 pasteboard 스킴(instagram-stories://share)을 쓰는데
-   *    Capacitor 표준 플러그인으로 pasteboard 주입이 불가하므로, instagram-stories:// 스킴 호출만 시도하고
-   *    실패 시 즉시 generic shareFile() 로 fallback (사용자는 공유 시트에서 Instagram 선택 가능).
-   *  - web: Instagram 웹 공유 API 가 없으므로 항상 shareFile() (Web Share / 다운로드) 로 fallback.
+   * Capacitor 표준 플러그인으로는 이미지를 Instagram(Stories pasteboard / feed)에 직접 주입할 수
+   * 없다. 딥링크로 빈 Instagram 을 띄운 뒤 시스템 공유 시트까지 함께 노출하면 이중 공유가 되어
+   * UX 가 나빠진다(코드리뷰 2026-06-15). 가장 신뢰성 있는 경로인 시스템 공유 시트(shareFile)로
+   * 위임한다 — 공유 시트에 Instagram 이 타겟으로 노출되어 사용자가 이미지를 첨부한 채 선택할 수 있다.
+   * (이미지를 실은 네이티브 Stories 딥링크는 별도 pasteboard 플러그인이 필요 — 후속 과제)
    */
   async function shareToInstagram(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}) {
     if (!import.meta.client) return
-
-    // 웹: Instagram 딥링크 불가 → 바로 generic 공유로 위임
-    if (!isNative) {
-      await shareFile(blob, filename, opts)
-      return
-    }
-
-    // iOS Stories / Android feed 딥링크 스킴
-    const scheme = isIOS ? 'instagram-stories://share' : 'instagram://library'
-
-    const opened = await tryOpenUrl(scheme)
-    if (!opened) {
-      // Instagram 미설치 또는 스킴 호출 거부 → 시스템 공유 시트로 안전하게 폴백
-      await shareFile(blob, filename, opts)
-      return
-    }
-
-    // Instagram 이 열렸더라도 이미지 전달은 표준 플러그인으로 보장되지 않으므로,
-    // 사용자가 Instagram 에서 직접 첨부할 수 있도록 시스템 공유 시트도 함께 띄운다.
     await shareFile(blob, filename, opts)
-  }
-
-  /**
-   * 네이티브에서 URL 스킴 열기 시도. 성공 여부를 boolean 으로 반환 (앱 미설치 시 false).
-   * @capacitor/app 의 openUrl 은 일부 버전에서 미지원이라 window.location fallback 을 둔다.
-   */
-  async function tryOpenUrl(url: string): Promise<boolean> {
-    if (!isNative) return false
-    try {
-      const { App } = await import('@capacitor/app')
-      const maybeOpen = (App as unknown as { openUrl?: (o: { url: string }) => Promise<{ completed: boolean }> }).openUrl
-      if (typeof maybeOpen === 'function') {
-        const res = await maybeOpen({ url })
-        return res.completed === true
-      }
-      // openUrl 미지원 버전: 직접 navigation 시도 (미설치 시 no-op 이라 false 로 간주)
-      window.location.href = url
-      return false
-    }
-    catch {
-      return false
-    }
   }
 
   // --- Haptics ---

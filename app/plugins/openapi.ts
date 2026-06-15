@@ -34,43 +34,15 @@ import { createClient, createConfig } from '@hey-api/client-fetch'
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
 
-  // User-friendly Korean copy for transient backend / connectivity failures.
-  // Surfaced via the shared toast so every SDK call site gets consistent
-  // feedback without each caller having to handle 5xx / network errors.
-  const GENERIC_FAILURE_MESSAGE = '일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.'
-
-  /**
-   * Show the generic failure toast (client only). useToast() is SSR-safe
-   * (useState-backed) but the toast UI only matters in the browser, and we
-   * never want to spam it during SSR self-fetches.
-   */
-  function notifyTransientFailure() {
-    if (!import.meta.client) return
-    useToast().error(GENERIC_FAILURE_MESSAGE)
-  }
-
-  /**
-   * Network-error surface: hey-api does NOT wrap the underlying fetch in a
-   * try/catch, so a rejected fetch (offline / DNS / connection reset) skips
-   * both the response and error interceptors and propagates straight to the
-   * caller. Wrapping fetch here is the single choke point that lets us toast
-   * connectivity failures while preserving the original throw for callers.
-   */
-  async function fetchWithFailureToast(input: Request): Promise<Response> {
-    try {
-      return await globalThis.fetch(input)
-    }
-    catch (e) {
-      notifyTransientFailure()
-      throw e
-    }
-  }
+  // 주의: 5xx / 네트워크 오류 사용자 알림은 인터셉터에서 처리하지 않는다.
+  // call-site 들이 이미 구체적인 메시지로 toast.error 를 띄우므로(예: '기록 저장 실패'),
+  // 인터셉터가 generic 토스트를 추가하면 double/triple toast 가 된다(코드리뷰 2026-06-15).
+  // 전역 fatal/네비게이션 오류는 error.vue(500-class 분기 + 재시도)가 담당.
 
   const apiClient = createClient(
     createConfig({
       baseUrl: config.public.apiBaseUrl as string,
       credentials: 'include',
-      fetch: fetchWithFailureToast,
     }),
   )
 
@@ -113,12 +85,6 @@ export default defineNuxtPlugin(() => {
   // --- Response interceptor: single retry on 401, loop-guarded ---
   apiClient.interceptors.response.use(async (response, request) => {
     if (response.status !== 401 || !import.meta.client) {
-      // 5xx (and anything the server reports as a hard failure) gets a
-      // friendly toast. 401 is intentionally excluded — it has its own
-      // refresh+retry flow below and only surfaces UI on terminal failure.
-      if (import.meta.client && response.status >= 500) {
-        notifyTransientFailure()
-      }
       return response
     }
     if (request?.headers.get('x-tw-retried') === '1') {
@@ -164,16 +130,9 @@ export default defineNuxtPlugin(() => {
           duplex: retryBase.body ? 'half' : undefined,
         }),
       )
-      // The manual retry bypasses the response interceptor above, so mirror
-      // the 5xx toast here to keep failure feedback consistent.
-      if (retried.status >= 500) {
-        notifyTransientFailure()
-      }
       return retried
     }
     catch (e) {
-      // Network failure on the retry — surface the same friendly toast.
-      notifyTransientFailure()
       // Dev visibility — stripped from prod by vite esbuild `drop`.
       // eslint-disable-next-line no-console
       console.error('[auth] 401 retry failed', e)
