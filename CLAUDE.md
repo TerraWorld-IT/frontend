@@ -82,7 +82,7 @@ frontend/
 │   ├── components/
 │   │   ├── common/                 # Toast, Modal, Loading, WalletBar, CurrencyDisplay,
 │   │   │                           #   ExchangeModal, RewardToast, Onboarding,
-│   │   │                           #   AdSenseBanner, AttendanceWidget, CustomCategoryManager
+│   │   │                           #   AdSenseBanner, AttendanceWidget, CustomCategoryManager, ThemeGallery
 │   │   ├── icons/                  # JamjarSvg, PpJamjar (SVG 컴포넌트)
 │   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
 │   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog,
@@ -96,14 +96,15 @@ frontend/
 │   │   ├── useCustomCategory.ts    # 커스텀 카테고리 CRUD (사용자당 10개 한도)
 │   │   ├── useEvolution.ts         # 5단계 진화 (POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM, 레벨 1/5/10/20/30)
 │   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (15개 이벤트 헬퍼)
-│   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, haptics, camera, push)
+│   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, shareToInstagram, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
 │   │   ├── usePayment.ts           # startPurchase() IAP — cordova-plugin-purchase + 백엔드 verify 배선 (2026-06-04, 키 대기)
 │   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse, partnerUserId 지원)
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
-│   │   └── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
-│   ├── error.vue                   # 전역 에러 페이지 (404 등)
+│   │   ├── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
+│   │   └── useThemeSelection.ts    # 프리미엄 테마 선택 + localStorage persist (entitlements.premiumThemes 게이트, SoT 레이어 검증)
+│   ├── error.vue                   # 전역 에러 페이지 (404 / 500-class 분기 + 재시도 버튼)
 │   ├── layouts/
 │   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + Toast + haptic
 │   ├── lib/
@@ -565,7 +566,7 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 
 ### 함정 (2026-05-18 analyze 발견)
 
-- **WalletBar.vue progressPercent 곡선 mismatch (HIGH)** — `(totalExp - lvl×100) / 100 × 100` 선형 hardcoded 계산이 V2 seed 의 2차 곡선 (`required_exp(n) = 100×(n-1)×n/2`, 만렙 4500 EXP) 과 불일치. V2 ground truth (V12 ON CONFLICT skip) 시 음수 / 100% 초과 출력 가능 → `Math.max(0, Math.min(100, …))` clamp 또는 backend 가 progressPercent 직접 내려주기. § 12 sub-cycle 미해결.
+- **WalletBar.vue progressPercent (RESOLVED 2026-06-15)** — 과거 선형 hardcoded 계산이 음수/100%+ 출력 가능했던 함정. 현재 `WalletBar.vue:69-77` 는 선형 컨벤션((N-1)×100) + `Math.min(100, Math.max(0, …))` clamp + MAX_LEVEL 가드 적용으로 **해결됨**. (backend EXP 곡선이 2차면 표시 의미만 달라질 뿐 음수/초과는 clamp 로 차단.)
 - **`useUserStore` 자동 import 미작동** — Pinia `defineStore('user', …)` 의 export 이름 또는 `stores/` 디렉토리 자동 등록 timing 에 따라 컴파일 타임 `Cannot find name 'useUserStore'` 가능. `import { useUserStore } from '~/stores/user'` 명시 import 로 회피.
 - **better-auth hook `return user` 직접 반환 금지** — § 10 만 14세 차단 3중 방어 참조. `return { data: user }` / `return true` / throw 중 하나로 작성.
 
@@ -659,6 +660,6 @@ bun run typecheck   # TypeScript 체크
 - [x] Capacitor 모바일 래핑 (Android 빌드 완료, AdMob + Filesystem plugin)
 - [x] 네이티브 브릿지 (useNative: share, shareFile, haptics, camera, push)
 - [x] 딥 링크 (AASA + assetlinks + App Links)
-- [ ] 인스타 공유 최적화
+- [△] 인스타 공유 — `useNative.shareToInstagram` 시스템 공유 시트 위임(공유 시트에 Instagram 노출). 네이티브 Stories 딥링크(이미지 주입)는 표준 Capacitor 로 불가 → 별도 pasteboard 플러그인 필요 (후속)
 - [ ] 시즌/이벤트 스탬프
-- [ ] 메모지/테마 해금 UI (`entitlements.premiumThemes` 노출 완료, 카탈로그/적용 UI 미구현)
+- [△] 메모지/테마 해금 UI — `ThemeGallery.vue` + `useThemeSelection` 기본형 구현 (카탈로그/미리보기/적용/localStorage persist, `entitlements.premiumThemes` 게이트). 실제 테마 색/레이아웃은 디자이너 검토 대기
