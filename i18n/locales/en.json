@@ -183,7 +183,10 @@
     "goHome": "홈으로 돌아가기",
     "notFoundDesc": "요청하신 페이지가 존재하지 않습니다",
     "notFoundTitle": "페이지를 찾을 수 없어요",
+    "retry": "다시 시도하기",
     "retryLater": "잠시 후 다시 시도해주세요",
+    "serverErrorDesc": "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
+    "serverErrorTitle": "잠시 문제가 생겼어요",
     "unexpectedTitle": "앗, 문제가 발생했어요"
   },
   "exchange": {
@@ -358,6 +361,22 @@
     "totalItems": "총 아이템",
     "totalRecords": "총 기록",
     "wallet": "지갑"
+  },
+  "theme": {
+    "title": "Note Themes",
+    "subtitle": "Pick colors that suit your records and background",
+    "locked": "Premium locked",
+    "applied": "Applied",
+    "appliedToast": "Applied the {name} theme",
+    "lockedToast": "Premium themes unlock with a theme pack",
+    "unlockHint": "Premium themes unlock via the season pass or limited packs",
+    "name": {
+      "basic": "Basic",
+      "sunset": "Sunset",
+      "twilight": "Twilight",
+      "meadow": "Meadow",
+      "blossom": "Blossom"
+    }
   },
   "ranking": {
     "decorationNotice": "※ 꾸미기 랭킹은 곧 시작될 예정이에요",
