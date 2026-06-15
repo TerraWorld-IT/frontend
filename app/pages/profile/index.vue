@@ -38,6 +38,9 @@
       <!-- Custom categories -->
       <CommonCustomCategoryManager />
 
+      <!-- Premium theme gallery -->
+      <CommonThemeGallery :premium-unlocked="user?.entitlements?.premiumThemes" />
+
       <!-- Owned items card -->
       <div class="bg-white rounded-[16px] border border-black/10 p-5">
         <div class="flex items-center justify-between mb-4">
