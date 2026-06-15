@@ -98,7 +98,7 @@ const { isLoggedIn } = useAuth()
 const toast = useToast()
 const { t } = useI18n()
 
-const code = computed(() => route.params.code as string)
+const code = computed<string>(() => route.params.code as string)
 
 // N16 (구현 계획서 v4, 2026-05-21): 전용 public share API 연동.
 // `GET /api/v1/share/{code}` — invite code 의 발신자(초대자) terrarium + nickname 을 반환.
@@ -123,17 +123,17 @@ const { data: sharedData, pending, error } = await useAsyncData(
 
 // OG meta tags (SSR)
 useHead({
-  title: computed(() => `${sharedData.value ? t('share.ogTitle') : 'TerraWorld'} | TerraWorld`),
+  title: computed<string>(() => `${sharedData.value ? t('share.ogTitle') : 'TerraWorld'} | TerraWorld`),
   meta: [
-    { property: 'og:title', content: computed(() => t('share.ogSocialTitle')) },
-    { property: 'og:description', content: computed(() => t('share.ogDesc')) },
+    { property: 'og:title', content: computed<string>(() => t('share.ogSocialTitle')) },
+    { property: 'og:description', content: computed<string>(() => t('share.ogDesc')) },
     { property: 'og:type', content: 'website' },
-    { name: 'description', content: computed(() => t('share.ogDesc')) },
+    { name: 'description', content: computed<string>(() => t('share.ogDesc')) },
   ],
 })
 
 // Accept invite
-const accepting = ref(false)
+const accepting = ref<boolean>(false)
 async function acceptInvite() {
   accepting.value = true
   try {

@@ -61,12 +61,12 @@ const MAX_LEVEL = 10
 
 // V12/V14 seed 컨벤션: level N 의 required_exp = (N-1)×100.
 // 현재 level N → 다음 level (N+1) 의 required_exp = N×100.
-const nextLevelExp = computed(() => {
+const nextLevelExp = computed<number>(() => {
   const lvl = props.level ?? 1
   return lvl >= MAX_LEVEL ? (lvl - 1) * 100 : lvl * 100
 })
 
-const progressPercent = computed(() => {
+const progressPercent = computed<number>(() => {
   const lvl = props.level ?? 1
   const exp = props.totalExp ?? 0
   if (lvl >= MAX_LEVEL) return 100

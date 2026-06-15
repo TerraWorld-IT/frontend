@@ -66,13 +66,13 @@ const props = defineProps<{
   duration?: number
 }>()
 
-const visible = ref(false)
+const visible = ref<boolean>(false)
 let timer: ReturnType<typeof setTimeout> | null = null
 
 // WCAG 2.1 SC 4.1.3 (Status Messages) — screen reader 사용자에게 보상 공지.
 // aria-live="assertive" 선택 이유: 보상은 사용자 행동의 직접 결과 (시각/청각 동시 피드백 필요).
 // Loading 은 polite, Toast 도 polite, RewardToast 만 assertive (importance 차등).
-const ariaLabel = computed(() => {
+const ariaLabel = computed<string>(() => {
   const parts: string[] = []
   if (props.coin) parts.push(t('reward.coinEarned', { n: props.coin }))
   if (props.token) parts.push(t('reward.tokenEarned', { n: props.token }))

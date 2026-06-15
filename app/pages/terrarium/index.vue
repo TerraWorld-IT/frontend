@@ -137,7 +137,7 @@ const modes = computed(() => [
 ])
 
 // Loading
-const fetchError = ref(false)
+const fetchError = ref<boolean>(false)
 
 async function loadData() {
   fetchError.value = false
@@ -158,8 +158,8 @@ onMounted(loadData)
 // Item selection
 const selectedSlot = ref<number | null>(null)
 const pendingChanges = ref<PlacementItem[]>([])
-const hasChanges = computed(() => pendingChanges.value.length > 0)
-const saving = ref(false)
+const hasChanges = computed<boolean>(() => pendingChanges.value.length > 0)
+const saving = ref<boolean>(false)
 
 function onSlotClick(slotId: number) {
   if (mode.value !== 'edit') return

@@ -36,7 +36,7 @@ const props = defineProps<{
   state: WiltingState | null | undefined
 }>()
 
-const stateRef = computed(() => props.state)
+const stateRef = computed<WiltingState | null | undefined>(() => props.state)
 const { visual } = useWilting(stateRef)
 
 const stageIcon = computed(() => {

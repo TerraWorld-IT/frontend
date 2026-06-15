@@ -49,5 +49,5 @@ const props = withDefaults(defineProps<{
   ariaLabel: undefined,
 })
 
-const resolvedAriaLabel = computed(() => props.ariaLabel ?? t('common.loading'))
+const resolvedAriaLabel = computed<string>(() => props.ariaLabel ?? t('common.loading'))
 </script>

@@ -100,7 +100,7 @@ function activeStyle(tab: Tab): Record<string, string> {
   return { backgroundColor: tab.color }
 }
 
-const currentBgColor = computed(() => {
+const currentBgColor = computed<string>(() => {
   const match = tabs.value.find((tab) => tab.to === route.path)
   return match?.bgColor ?? '#ffffff'
 })

@@ -30,7 +30,7 @@ const props = defineProps<{
   record: RecordResponse
 }>()
 
-const formattedDate = computed(() => {
+const formattedDate = computed<string>(() => {
   const src = props.record.recordedDate || props.record.createdAt
   const d = new Date(src)
   if (Number.isNaN(d.getTime())) return src

@@ -79,7 +79,7 @@ interface LevelFormRow {
   form: LevelForm
 }
 
-const loading = ref(true)
+const loading = ref<boolean>(true)
 const saving = ref<number | null>(null)
 const rows = ref<LevelFormRow[]>([])
 

@@ -84,7 +84,7 @@ const { t } = useI18n()
 const { listMine, create, remove, loading, error } = useCustomCategory()
 const toast = useToast()
 const mine = ref<CategoryResponse[]>([])
-const errorMsg = computed(() => error.value)
+const errorMsg = computed<string | null>(() => error.value)
 
 const form = reactive({
   name: '',

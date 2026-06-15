@@ -161,14 +161,14 @@ const tabs = computed(() => [
   { key: 'tokenBasic' as const, label: t('exchange.tabTokenBasic') },
 ])
 
-const specialAmount = ref('')
+const specialAmount = ref<string>('')
 const fromCategoryId = ref<number | null>(null)
 const toCategoryId = ref<number | null>(null)
-const tokenAmount = ref('')
+const tokenAmount = ref<string>('')
 // N15: 토큰→이슬 교환 상태
 const tbCategoryId = ref<number | null>(null)
-const tbAmount = ref('')
-const exchanging = ref(false)
+const tbAmount = ref<string>('')
+const exchanging = ref<boolean>(false)
 
 async function exchangeSpecial() {
   if (!specialAmount.value) return

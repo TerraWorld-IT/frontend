@@ -4,12 +4,12 @@ export const useUserStore = defineStore('user', () => {
   const { sdk, client } = useOpenApi()
 
   const me = ref<UserMeResponse | null>(null)
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
 
   const currency = computed<CurrencyResponse | null>(() => me.value?.currency ?? null)
   const progress = computed<ProgressResponse | null>(() => me.value?.progress ?? null)
-  const nickname = computed(() => me.value?.nickname ?? '')
-  const ownedItems = computed(() => me.value?.ownedItems ?? [])
+  const nickname = computed<string>(() => me.value?.nickname ?? '')
+  const ownedItems = computed<string[]>(() => me.value?.ownedItems ?? [])
 
   async function fetchMe() {
     loading.value = true

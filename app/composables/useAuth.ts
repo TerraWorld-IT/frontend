@@ -29,7 +29,7 @@ const JWT_REFRESH_INTERVAL_MS = 4 * 60 * 1000
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 export function useAuth() {
-  const isLoggedIn = useState('auth.isLoggedIn', () => false)
+  const isLoggedIn = useState<boolean>('auth.isLoggedIn', () => false)
 
   async function loadJwt(): Promise<string | null> {
     // SEC-006: never cache JWT during SSR. SSR traffic carries the

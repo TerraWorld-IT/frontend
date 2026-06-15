@@ -189,8 +189,8 @@ const { trackInviteCreated, trackInviteAccepted } = useGtagEvents()
 const myCode = ref<string>('')
 const myExpiresAt = ref<string>('')
 const inputCode = ref<string>('')
-const creating = ref(false)
-const accepting = ref(false)
+const creating = ref<boolean>(false)
+const accepting = ref<boolean>(false)
 
 // --- 친구 목록 (P-FRIEND, @Hidden endpoint → useInternalApi) ---
 interface FriendItem {
@@ -201,10 +201,10 @@ interface FriendItem {
 }
 
 const friends = ref<FriendItem[]>([])
-const friendsLoading = ref(false)
+const friendsLoading = ref<boolean>(false)
 const likingId = ref<string | null>(null)
 const visitingId = ref<string | null>(null)
-const visitModalOpen = ref(false)
+const visitModalOpen = ref<boolean>(false)
 const visitFriend = ref<FriendItem | null>(null)
 const visitTerrarium = ref<TerrariumResponse | null>(null)
 

@@ -19,7 +19,7 @@ export const EVOLUTION_STAGE_META: Record<EvolutionStage, { label: string, descr
  */
 export function useEvolution() {
   const { sdk, client } = useOpenApi()
-  const loading = ref(false)
+  const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
 
   async function upgrade(targetStage: EvolutionStage): Promise<UpgradeTerrariumResponse | null> {

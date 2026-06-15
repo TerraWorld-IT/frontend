@@ -81,7 +81,7 @@ const emit = defineEmits<{
 
 const { upgrade, loading: pending } = useEvolution()
 const errorMsg = ref<string | null>(null)
-const entitled = computed(() => Boolean(props.entitledFreePlacement))
+const entitled = computed<boolean>(() => Boolean(props.entitledFreePlacement))
 
 const allStageIds: EvolutionStage[] = [
   EvolutionStage.POT,
@@ -95,7 +95,7 @@ const current = computed<EvolutionStage>(() =>
   ((props.terrarium?.evolutionStage as EvolutionStage) ?? 'BOTTLE'),
 )
 
-const currentLabel = computed(() => EVOLUTION_STAGE_META[current.value].label)
+const currentLabel = computed<string>(() => EVOLUTION_STAGE_META[current.value].label)
 
 const stages = computed(() => {
   const unlocked = new Set((props.terrarium?.unlockedStages ?? []) as readonly EvolutionStage[])

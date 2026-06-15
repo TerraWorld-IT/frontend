@@ -179,22 +179,22 @@ const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { t } = useI18n()
 
-const pending = ref(true)
+const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 const user = ref<UserMeResponse | null>(null)
 const levels = ref<LevelConfigResponse[]>([])
-const loggingOut = ref(false)
+const loggingOut = ref<boolean>(false)
 
-const ownedCount = computed(() => user.value?.ownedItems?.length ?? 0)
-const placedCount = computed(() => user.value?.placedItems?.length ?? 0)
+const ownedCount = computed<number>(() => user.value?.ownedItems?.length ?? 0)
+const placedCount = computed<number>(() => user.value?.placedItems?.length ?? 0)
 
-const nextLevelExp = computed(() => {
+const nextLevelExp = computed<number>(() => {
   const cur = user.value?.progress?.level ?? 1
   const nextLvl = levels.value.find((l) => l.level === cur + 1)
   return nextLvl?.requiredExp ?? 100
 })
 
-const expPercent = computed(() => {
+const expPercent = computed<number>(() => {
   const exp = user.value?.progress?.experience ?? 0
   const target = nextLevelExp.value
   if (target <= 0) return 100

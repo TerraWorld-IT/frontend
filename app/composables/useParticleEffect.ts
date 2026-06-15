@@ -38,7 +38,7 @@ export function useParticleEffect(evolutionStage: Ref<string | null | undefined>
   // code-review CDX-003 (2026-05-21): 시간을 reactive source 로 — 1분마다 tick 갱신.
   // 이전엔 computed 가 `new Date()` 를 읽되 reactive dependency 가 없어, 페이지를
   // 06:00/18:00 KST 경계에 걸쳐 유지 시 파티클이 구시간 결과로 고정됐다.
-  const nowTick = ref(Date.now())
+  const nowTick = ref<number>(Date.now())
   // useIntervalFn — @vueuse/nuxt auto-import, 컴포넌트 unmount 시 자동 정리
   useIntervalFn(() => {
     nowTick.value = Date.now()

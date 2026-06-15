@@ -60,7 +60,7 @@ const props = defineProps<{
   stage: number
 }>()
 
-const clampedStage = computed(() => Math.max(1, Math.min(5, Math.round(props.stage))))
+const clampedStage = computed<number>(() => Math.max(1, Math.min(5, Math.round(props.stage))))
 
 interface StageVisual {
   filter: string

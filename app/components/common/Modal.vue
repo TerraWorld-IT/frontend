@@ -71,8 +71,8 @@ const props = withDefaults(defineProps<{
   variant: 'primary',
 })
 
-const resolvedConfirmText = computed(() => props.confirmText ?? t('common.confirm'))
-const resolvedCancelText = computed(() => props.cancelText ?? t('common.cancel'))
+const resolvedConfirmText = computed<string>(() => props.confirmText ?? t('common.confirm'))
+const resolvedCancelText = computed<string>(() => props.cancelText ?? t('common.cancel'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]

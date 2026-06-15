@@ -247,18 +247,18 @@ const fetchError = ref<Error | null>(null)
 const currency = ref<CurrencyResponse | null>(null)
 const categories = ref<CategoryResponse[]>([])
 const items = ref<ItemResponse[]>([])
-const ownedSlugs = ref(new Set<string>())
+const ownedSlugs = ref<Set<string>>(new Set<string>())
 
 // Interaction state
 const shopType = ref<'plant' | 'figure'>('plant')
-const activeTab = ref('common')
+const activeTab = ref<string>('common')
 const purchasing = ref<number | null>(null)
-const showExchange = ref(false)
-const exchanging = ref(false)
-const exchSpecialAmt = ref(1)
-const exchFromCat = ref(1)
-const exchToCat = ref(2)
-const exchTokenAmt = ref(1)
+const showExchange = ref<boolean>(false)
+const exchanging = ref<boolean>(false)
+const exchSpecialAmt = ref<number>(1)
+const exchFromCat = ref<number>(1)
+const exchToCat = ref<number>(2)
+const exchTokenAmt = ref<number>(1)
 
 // --- Async setup: triggers Suspense fallback until resolved ---
 try {
@@ -299,7 +299,7 @@ const figureTabs = computed(() => [
 
 const currentTabs = computed(() => shopType.value === 'plant' ? plantTabs.value : figureTabs.value)
 
-const filteredItems = computed(() => {
+const filteredItems = computed<ItemResponse[]>(() => {
   const isFigure = shopType.value === 'figure'
   const tab = activeTab.value
 
