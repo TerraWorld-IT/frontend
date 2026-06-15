@@ -37,9 +37,12 @@ import type { NuxtError } from '#app'
 const props = defineProps<{ error: NuxtError }>()
 const { t } = useI18n()
 
-const statusCode = computed<number>(() => props.error?.statusCode ?? 500)
-const isNotFound = computed<boolean>(() => statusCode.value === 404)
-const isServerError = computed<boolean>(() => statusCode.value >= 500)
+// statusCode 가 명시된 경우만 분기. client 렌더 에러는 statusCode 가 없어 화면엔 500 으로
+// 표시하되 "서버 에러"로 분류하지 않는다 — Retry(reload) 버튼을 숨겨 동일 렌더 에러 reload 루프를 피함.
+const rawStatus = computed<number | undefined>(() => props.error?.statusCode)
+const statusCode = computed<number>(() => rawStatus.value ?? 500)
+const isNotFound = computed<boolean>(() => rawStatus.value === 404)
+const isServerError = computed<boolean>(() => rawStatus.value !== undefined && rawStatus.value >= 500)
 
 const emoji = computed<string>(() => {
   if (isNotFound.value) return '🔍'
@@ -64,10 +67,9 @@ function handleGoHome() {
 }
 
 function handleRetry() {
-  // Clear the error overlay, then hard-reload the current route so the failed
-  // SSR/data fetch runs again. Reload is client-only (the button is never
-  // interactive during SSR); clearError keeps the SPA state consistent first.
-  clearError()
+  // 명시적 5xx(일시적 서버/SSR 실패)에서만 노출되는 버튼. 현재 라우트를 hard-reload 해
+  // 실패한 SSR/data fetch 를 재실행한다. client 전용(SSR 중 버튼 비활성).
+  // 곧바로 reload 하므로 clearError() 는 no-op → 생략.
   if (import.meta.client) {
     window.location.reload()
   }
