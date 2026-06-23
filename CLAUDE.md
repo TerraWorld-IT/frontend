@@ -98,7 +98,7 @@ frontend/
 │   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (15개 이벤트 헬퍼)
 │   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, shareToInstagram, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
-│   │   ├── usePayment.ts           # startPurchase() IAP — cordova-plugin-purchase + 백엔드 verify 배선 (2026-06-04, 키 대기)
+│   │   ├── usePayment.ts           # startPurchase() IAP — Play(Android) + App Store(iOS) 플랫폼 분기 + 백엔드 verify (2026-06-23 iOS 추가, 키 대기)
 │   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse, partnerUserId 지원)
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
@@ -656,7 +656,7 @@ bun run typecheck   # TypeScript 체크
 - [x] 사진 첨부 (record/index.vue + multipart 업로드, magic byte 검증)
 - [x] 다크모드 시간 연동 (useTimeAwareColorMode, 06:00~18:00)
 - [△] 소셜 로그인 (Google, Kakao) — better-auth `socialProviders` env-gated 활성 (AUTH_GOOGLE_*, AUTH_KAKAO_*); OAuth 콘솔 등록 + 환경변수 설정 필요
-- [△] 결제 연동 (IAP/Play Billing) — cordova-plugin-purchase IAP 배선 완료 (`usePayment.startPurchase` → 백엔드 `/billing/iap/verify` → entitlement, 2026-06-04); Play Console 상품 등록 + service account 주입 시 실작동
+- [△] 결제 연동 (IAP — Play Billing + Apple App Store) — `usePayment.startPurchase` 플랫폼 분기(Android→Play purchaseToken / iOS→StoreKit transactionId+receipt) → 백엔드 `/billing/iap/verify`(platform 라우팅: PlayPurchaseVerifier / AppStorePurchaseVerifier verifyReceipt) → entitlement (2026-06-23 iOS 추가); Play Console + App Store Connect 상품 등록 + 키 주입 시 실작동
 - [x] Capacitor 모바일 래핑 (Android 빌드 완료, AdMob + Filesystem plugin)
 - [x] 네이티브 브릿지 (useNative: share, shareFile, haptics, camera, push)
 - [x] 딥 링크 (AASA + assetlinks + App Links)
