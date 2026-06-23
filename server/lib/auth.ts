@@ -95,8 +95,8 @@ export const auth = betterAuth({
    * `input: true` — client signup payload 에서 받음. `required: true` — DB schema 에
    * NOT NULL column 강제 (002_better_auth_user_birthDate.sql migration 동반).
    *
-   * 저장된 birthDate 는 hook (만 14세 차단) 외에 광고 타겟팅 / 보호자 동의 등
-   * 후속 기능에서 활용. privacy.md §8 retention policy 준수 (가입 후 N년 후 hash 변환).
+   * 저장된 birthDate 는 만 14세 미만 차단 검증 목적으로만 사용 (privacy.md §2.1
+   * 목적 한정). privacy.md §8 retention policy 준수 (가입 후 N년 후 hash 변환).
    */
   user: {
     additionalFields: {
@@ -105,6 +105,18 @@ export const auth = betterAuth({
         required: true,
         input: true,
       },
+      // P1-3 (PIPA 제15조): 분리 동의 이력 — signup payload 로 전달돼 user row 에 기록.
+      // required: false (기존 row backfill 안전). 필수 동의 강제는 create.before 에서.
+      // (003_consent_fields.sql 마이그레이션 동반 — auth.user 컬럼 추가)
+      agreeTerms: { type: 'boolean', required: false, input: true },
+      agreePrivacy: { type: 'boolean', required: false, input: true },
+      marketingConsent: { type: 'boolean', required: false, input: true },
+      analyticsConsent: { type: 'boolean', required: false, input: true },
+      adConsent: { type: 'boolean', required: false, input: true },
+      photoConsent: { type: 'boolean', required: false, input: true },
+      pushConsent: { type: 'boolean', required: false, input: true },
+      consentVersion: { type: 'string', required: false, input: true },
+      consentedAt: { type: 'string', required: false, input: true },
     },
   },
 
@@ -168,7 +180,7 @@ export const auth = betterAuth({
       create: {
         /**
          * LEGAL-001 fix (Codex audit HIGH, 2026-05-18):
-         * 만 14세 미만 가입 차단 (정보통신망법 제50조의2 + 개인정보보호법).
+         * 만 14세 미만 가입 차단 (개인정보보호법 — 만 14세 미만 아동의 개인정보).
          * privacy.md §8 의 선언과 정합 — birthDate 가 추가 field 로 signup form 에서 전달.
          *
          * birthDate 형식: ISO YYYY-MM-DD (frontend 의 signup form 에서 검증 + 본 hook 에서 재검증).
@@ -180,17 +192,28 @@ export const auth = betterAuth({
         before: async (user) => {
           const birthDate = (user as { birthDate?: string }).birthDate
           if (!birthDate) {
-            throw new Error('birthDate is required (만 14세 미만 차단 — 정보통신망법 제50조의2)')
+            throw new Error('birthDate is required (만 14세 미만 차단 — 개인정보보호법)')
           }
-          const dob = new Date(birthDate)
-          if (Number.isNaN(dob.getTime())) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
             throw new Error('invalid birthDate format (expected ISO YYYY-MM-DD)')
           }
+          // M6 (code-review): 나이 비교를 `new Date(birthDate)`(UTC parse) vs local cutoff 의
+          // timezone 불일치(±1일 오판) 대신 YYYY-MM-DD 문자열 사전식 비교(=달력일 비교)로 수행.
           const today = new Date()
-          const age14CutoffYear = today.getFullYear() - 14
-          const age14Cutoff = new Date(age14CutoffYear, today.getMonth(), today.getDate())
-          if (dob > age14Cutoff) {
-            throw new Error('만 14세 미만은 가입할 수 없습니다 (정보통신망법 제50조의2)')
+          const cutoff = `${today.getFullYear() - 14}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+          if (birthDate > cutoff) {
+            throw new Error('만 14세 미만은 가입할 수 없습니다 (개인정보보호법)')
+          }
+          // P1-3 (PIPA 제15조): 필수 동의(이용약관·개인정보 수집·이용) 서버측 최종 검증.
+          // client(login.vue)가 1차 차단하나, UI 우회(직접 signup API 호출) 시에도 가입 거절.
+          //
+          // ⚠️ H5 (code-review): 본 게이트는 email/password 가입(consent 필드 전달)을 전제한다.
+          //   socialProviders(google/kakao, 현재 env-gated 비활성) 활성화 시 OAuth 가입은
+          //   agreeTerms 를 전달하지 않아 본 hook 에서 거절된다(fail-closed — 미동의 가입 차단).
+          //   소셜 로그인 도입 시 OAuth 콜백/온보딩에서 분리 동의를 먼저 수집해 user 에 심어야 한다.
+          const consentUser = user as { agreeTerms?: boolean; agreePrivacy?: boolean }
+          if (consentUser.agreeTerms !== true || consentUser.agreePrivacy !== true) {
+            throw new Error('필수 약관 및 개인정보 수집·이용 동의가 필요합니다')
           }
           // better-auth `before` hook signature: Promise<boolean | void | { data: Optional<User> & Record<string, any> }>.
           // 통과 시 `return true` (passthrough) — user 객체 수정 없음, transaction 진행.

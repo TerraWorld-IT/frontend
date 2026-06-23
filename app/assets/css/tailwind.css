@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* P4-4: 클래스 기반 다크모드 — @nuxtjs/color-mode 가 html 에 .dark 클래스 토글(classSuffix:'').
+   `dark:` 유틸리티가 .dark 안에서 적용되도록 변형 등록. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================
    TerraWorld — Riso-paint Design System (Tailwind v4)
    ============================================ */
@@ -148,3 +152,66 @@
 @utility tab-active-bg {
   background: color-mix(in srgb, currentColor 16%, transparent);
 }
+
+/* ============================================
+   P4-4 Dark mode — 표면색 override (warm-dark riso 팔레트)
+   클래스 기반 유틸리티(bg-white/text-black/border-black/회색 hex)를 .dark 에서 일괄 재매핑.
+   강조색(riso-sage/poppy·neon·pastel)·text-white(컬러 버튼 위)·bg-black(모달 백드롭)은 유지.
+   unlayered 규칙이라 @layer utilities 보다 우선 적용. 실 시각 QA 는 인간 게이트.
+   ============================================ */
+.dark {
+  --color-riso-cream: #1b1814; /* 페이지/표면 기본 (bg-riso-cream → warm dark) */
+}
+
+/* 표면 (흰색 계열) */
+.dark .bg-white,
+.dark .focus\:bg-white:focus,
+.dark .hover\:bg-white:hover { background-color: #262019; }
+.dark .bg-white\/85 { background-color: rgba(38, 32, 25, 0.92); }
+.dark .bg-white\/60 { background-color: rgba(38, 32, 25, 0.6); }
+.dark .bg-white\/40 { background-color: rgba(38, 32, 25, 0.45); }
+.dark .bg-white\/30,
+.dark .hover\:bg-white\/30:hover { background-color: rgba(38, 32, 25, 0.35); }
+.dark .bg-\[\#f5f5f5\],
+.dark .hover\:bg-\[\#f5f5f5\]:hover { background-color: #2f2920; }
+.dark .bg-\[\#e5e5e5\] { background-color: #352e24; }
+
+/* 텍스트 (검정/riso-dark → warm light) */
+.dark .text-black,
+.dark .hover\:text-black:hover { color: #ece3d2; }
+.dark .text-black\/60 { color: rgba(236, 227, 210, 0.6); }
+.dark .text-black\/30 { color: rgba(236, 227, 210, 0.35); }
+.dark .text-riso-dark { color: #ece3d2; }
+.dark .text-riso-dark\/70 { color: rgba(236, 227, 210, 0.72); }
+.dark .text-riso-dark\/60 { color: rgba(236, 227, 210, 0.62); }
+.dark .text-riso-dark\/50 { color: rgba(236, 227, 210, 0.52); }
+.dark .text-riso-dark\/40 { color: rgba(236, 227, 210, 0.42); }
+.dark .text-riso-dark\/30 { color: rgba(236, 227, 210, 0.32); }
+.dark .text-\[\#525252\] { color: #b5ab98; }
+.dark .text-\[\#595757\] { color: #b0a693; }
+.dark .text-\[\#737373\] { color: #9b927f; }
+.dark .text-\[\#a1a1a1\] { color: #8b8275; }
+.dark .text-\[\#dedede\] { color: #4f493f; }
+
+/* 테두리 (검정 계열 → light, 미세) */
+.dark .border-black { border-color: rgba(236, 227, 210, 0.28); }
+.dark .border-black\/20 { border-color: rgba(236, 227, 210, 0.2); }
+.dark .border-black\/10 { border-color: rgba(236, 227, 210, 0.12); }
+.dark .border-black\/5 { border-color: rgba(236, 227, 210, 0.07); }
+.dark .border-\[\#dedede\] { border-color: rgba(236, 227, 210, 0.12); }
+.dark .border-riso-dark\/10 { border-color: rgba(236, 227, 210, 0.12); }
+
+/* P4-4: Tailwind 기본 gray/neutral 스케일도 .dark 재매핑 (카드/보조텍스트/테두리). */
+.dark .bg-gray-50 { background-color: #2a241d; }
+.dark .bg-gray-100,
+.dark .bg-neutral-100 { background-color: #2f2920; }
+.dark .bg-gray-200,
+.dark .bg-neutral-200 { background-color: #352e24; }
+.dark .text-gray-700 { color: #cfc6b5; }
+.dark .text-gray-600,
+.dark .text-neutral-600 { color: #b5ab98; }
+.dark .text-gray-500,
+.dark .text-neutral-500 { color: #9b927f; }
+.dark .text-gray-400,
+.dark .text-neutral-400 { color: #8b8275; }
+.dark .border-gray-300 { border-color: rgba(236, 227, 210, 0.14); }

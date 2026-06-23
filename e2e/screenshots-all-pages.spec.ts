@@ -104,6 +104,13 @@ async function signUpAndLogin(page: Page) {
     await birthInput.fill(user.birthDate)
   }
 
+  // P1-2 (PIPA 제15조): 가입 동의 분리 — "전체 동의" 체크 시 필수(약관·개인정보) 포함 일괄 동의.
+  // 필수 동의 미체크 시 client/서버 모두 가입 차단되므로 e2e 도 반드시 체크.
+  const agreeAllBox = page.locator('label', { hasText: '전체 동의' }).locator('input[type="checkbox"]').first()
+  if (await agreeAllBox.isVisible().catch(() => false)) {
+    await agreeAllBox.check().catch(() => {})
+  }
+
   // 응답 모니터 — better-auth signup endpoint 응답 대기
   const signupResp = page.waitForResponse(
     (r) => r.url().includes('/api/auth/sign-up') && r.request().method() === 'POST',

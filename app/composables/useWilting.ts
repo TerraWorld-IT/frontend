@@ -23,28 +23,30 @@ export interface WiltingVisual {
   showOverlay: boolean
 }
 
-const STAGE_MAP: Record<StageKey, Omit<WiltingVisual, 'stage'>> = {
+// P4-3 (i18n): message 는 i18n 키로 보관하고 composable 에서 t() 로 해석(다국어 대응).
+type StageMeta = { filter: string; messageKey: string | null; extraClass: string; showOverlay: boolean }
+const STAGE_MAP: Record<StageKey, StageMeta> = {
   0: {
     filter: 'none',
-    message: null,
+    messageKey: null,
     extraClass: '',
     showOverlay: false,
   },
   1: {
     filter: 'saturate(0.78)',
-    message: '오늘 기록이 비어 있어요',
+    messageKey: 'terrarium.wiltMessage1',
     extraClass: '',
     showOverlay: true,
   },
   2: {
     filter: 'saturate(0.52) brightness(0.96)',
-    message: '물 좀 줘…',
+    messageKey: 'terrarium.wiltMessage2',
     extraClass: '',
     showOverlay: true,
   },
   3: {
     filter: 'saturate(0.32) brightness(0.9)',
-    message: '위기: 기록이 필요해요',
+    messageKey: 'terrarium.wiltMessage3',
     extraClass: 'animate-pulse',
     showOverlay: true,
   },
@@ -58,9 +60,19 @@ function clampStage(raw: number | undefined | null): StageKey {
 }
 
 export function useWilting(source: Ref<WiltingState | null | undefined>) {
+  // setup 밖(직접 단위테스트 등)에서도 안전하도록 useI18n() 대신 nuxtApp.$i18n (useEvolution/usePayment 와 일관).
+  const { $i18n } = useNuxtApp()
+  const t = (key: string): string => $i18n.t(key)
   const visual = computed<WiltingVisual>(() => {
     const stage = clampStage(source.value?.stage)
-    return { stage, ...STAGE_MAP[stage] }
+    const m = STAGE_MAP[stage]
+    return {
+      stage,
+      filter: m.filter,
+      message: m.messageKey ? t(m.messageKey) : null,
+      extraClass: m.extraClass,
+      showOverlay: m.showOverlay,
+    }
   })
 
   return { visual }

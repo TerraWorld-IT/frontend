@@ -80,12 +80,29 @@
     "bonus": "보너스!",
     "checkedIn": "오늘 출석 완료",
     "checkIn": "출석하기",
+    "checkInError": "출석 체크인 실패",
     "dewReward": "이슬 +{n}",
+    "loadError": "출석 정보를 불러오지 못했습니다",
     "streakDays": "연속 {n}일"
   },
   "auth": {
     "birthDateLabel": "생년월일",
     "birthDatePlaceholder": "생년월일 (만 14세 이상)",
+    "consent": {
+      "legend": "가입 동의 항목",
+      "agreeAll": "전체 동의",
+      "required": "필수",
+      "optional": "선택",
+      "terms": "이용약관 동의",
+      "privacy": "개인정보 수집·이용 동의",
+      "photo": "사진 첨부(저장) 동의",
+      "push": "푸시 알림 수신 동의",
+      "adId": "광고 식별자 수집·맞춤광고 동의",
+      "analytics": "서비스 이용 분석(GA4) 동의",
+      "marketing": "마케팅·이벤트 정보 수신 동의",
+      "view": "보기",
+      "requiredError": "필수 항목(이용약관·개인정보 수집·이용)에 동의해 주세요"
+    },
     "email": "이메일",
     "emailPlaceholder": "이메일을 입력하세요",
     "hasAccount": "이미 계정이 있으신가요?",
@@ -102,7 +119,7 @@
     "submitting": "잠시만...",
     "tagline": "유리병 속 작은 세계",
     "tokenError": "인증 토큰 발급에 실패했습니다",
-    "underageError": "만 14세 미만은 가입할 수 없습니다 (정보통신망법 제50조의2)",
+    "underageError": "만 14세 미만은 가입할 수 없습니다 (개인정보보호법)",
     "welcome": "{name}님 환영합니다!",
     "welcomeBack": "환영합니다!"
   },
@@ -145,10 +162,12 @@
   "category": {
     "add": "추가",
     "colorLabel": "색상",
+    "createError": "카테고리 생성 실패",
     "created": "'{name}' 카테고리가 생성되었습니다",
     "creating": "생성 중...",
     "customCategory": "커스텀 카테고리",
     "deleteConfirm": "이 카테고리를 삭제하시겠습니까?",
+    "deleteError": "카테고리 삭제 실패",
     "deleted": "카테고리가 삭제되었습니다",
     "emojiPlaceholder": "이모지 (선택)",
     "empty": "아직 커스텀 카테고리가 없습니다",
@@ -330,8 +349,17 @@
       "title": "친구에게 공유"
     }
   },
+  "payment": {
+    "appOnly": "구매는 앱에서만 가능합니다",
+    "moduleLoadFail": "결제 모듈을 불러오지 못했습니다",
+    "paidButFailed": "결제는 확인됐지만 처리에 실패했어요. 잠시 후 다시 시도하거나 고객센터로 문의해 주세요"
+  },
   "profile": {
     "accountSection": "계정",
+    "consentSection": "동의 항목 관리",
+    "consentDesc": "마케팅·분석·광고 동의를 언제든 변경할 수 있어요.",
+    "consentSaved": "동의 설정이 저장되었어요",
+    "consentSaveFail": "동의 설정 저장에 실패했어요",
     "currencySection": "보유 재화",
     "currentLevel": "현재 레벨",
     "email": "이메일",
@@ -556,7 +584,17 @@
     "title": "My Terrarium",
     "unlockAt": "Lv.{n}에 해제",
     "viewMode": "감상",
-    "wiltAriaLabel": "시들기 단계 {stage}: {message}"
+    "wiltAriaLabel": "시들기 단계 {stage}: {message}",
+    "wiltMessage1": "오늘 기록이 비어 있어요",
+    "wiltMessage2": "물 좀 줘…",
+    "wiltMessage3": "위기: 기록이 필요해요",
+    "evolution": {
+      "POT": { "label": "토분", "desc": "작은 화분 — 시작 단계" },
+      "BOTTLE": { "label": "유리병", "desc": "기본 테라리움" },
+      "PALUDARIUM": { "label": "팔루다리움", "desc": "수중 + 육상 — 산소방울 효과" },
+      "WORLD": { "label": "나만의 세계", "desc": "확장 배경 — 4종 해금" },
+      "CUSTOM": { "label": "자유 배치", "desc": "슬롯 제약 없음 — 유료 권리 필요" }
+    }
   },
   "upgrade": {
     "backToProfile": "← 프로필로 돌아가기",

@@ -14,8 +14,9 @@ describe('useEvolution', () => {
     for (const s of stages) {
       const meta = EVOLUTION_STAGE_META[s]
       expect(meta).toBeDefined()
-      expect(typeof meta.label).toBe('string')
-      expect(typeof meta.description).toBe('string')
+      // P4-3: label/description → i18n 키(labelKey/descKey)로 변경 (consumer 가 t() 해석)
+      expect(typeof meta.labelKey).toBe('string')
+      expect(typeof meta.descKey).toBe('string')
       expect(meta.unlockLevel).toBeGreaterThan(0)
     }
     // 진화 단계 unlockLevel 은 단조 증가여야 함 (1 < 5 < 10 < 20 < 30)

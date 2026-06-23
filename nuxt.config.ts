@@ -97,6 +97,10 @@ export default defineNuxtConfig({
     defaultLocale: 'ko',
     langDir: 'locales/',
     strategy: 'no_prefix',
+    // P4-2: en.json 번역 완료(다국어 ready)이나 ADR-005 단계적 도입상 언어 전환 UI 는 Phase 5+.
+    // 그 전까지 브라우저 언어 자동 감지를 끄고 전 사용자 ko 고정(미검수 영문 UX 조기 노출 방지).
+    // Phase 5+ 언어 전환 도입 시 본 옵션 해제 + switcher 연결.
+    detectBrowserLanguage: false,
   },
 
   vite: {
@@ -163,12 +167,20 @@ export default defineNuxtConfig({
   gtag: {
     id: process.env.NUXT_PUBLIC_GA_ID || '',
     enabled: process.env.NODE_ENV === 'production',
+    // P2-2 (PIPA): GA4 는 '선택' 동의 항목 — 자동 로드 금지(opt-in 게이트).
+    // initMode:'manual' 이면 gtag.js 스크립트를 부팅 시 주입하지 않음. analyticsConsent=true
+    // 일 때만 plugins/analytics-consent.client.ts 가 useGtag().initialize() 호출.
+    initMode: 'manual',
     // Runtime access: useRuntimeConfig().public.gaId
   },
 
   colorMode: {
     preference: 'light',
     fallback: 'light',
+    // P4-4: html 클래스를 'dark'/'light' 로 (기본 classSuffix '-mode' 제거) — Tailwind v4
+    // @custom-variant dark(.dark) 및 .dark CSS override 와 정합. useTimeAwareColorMode 의
+    // 18:00~06:00 KST 자동 전환이 실제 다크 테마로 렌더된다.
+    classSuffix: '',
   },
 
   typescript: {

@@ -12,6 +12,9 @@ import type { AttendanceCheckInResponse, AttendanceResponse } from '@terraworld-
  */
 export function useAttendance() {
   const { sdk, client } = useOpenApi()
+  // setup 밖(직접 단위테스트 등)에서도 안전하도록 useI18n() 대신 nuxtApp.$i18n (useEvolution/usePayment 와 일관).
+  const { $i18n } = useNuxtApp()
+  const t = (key: string): string => $i18n.t(key)
   const state = ref<AttendanceResponse | null>(null)
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
@@ -24,7 +27,7 @@ export function useAttendance() {
       if (res.error) throw res.error
       state.value = castData<AttendanceResponse>(res.data) ?? null
     } catch (e) {
-      error.value = errMsg(e, '출석 정보를 불러오지 못했습니다')
+      error.value = errMsg(e, t('attendance.loadError'))
     } finally {
       loading.value = false
     }
@@ -40,7 +43,7 @@ export function useAttendance() {
       if (result) state.value = result.attendance
       return result
     } catch (e) {
-      error.value = errMsg(e, '출석 체크인 실패')
+      error.value = errMsg(e, t('attendance.checkInError'))
       return null
     } finally {
       loading.value = false

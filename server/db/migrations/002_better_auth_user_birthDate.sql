@@ -37,4 +37,4 @@ BEGIN
 END $$;
 
 COMMENT ON COLUMN "user"."birthDate"
-    IS 'LEGAL-001 — ISO YYYY-MM-DD. 만 14세 미만 차단 검증 + 광고 타겟팅 / 보호자 동의 등 후속 기능에 사용. privacy.md §8 retention policy 준수.';
+    IS 'LEGAL-001 — ISO YYYY-MM-DD. 만 14세 미만 차단 검증 목적으로만 사용 (privacy.md §2.1 목적 한정). privacy.md §8 retention policy 준수.';

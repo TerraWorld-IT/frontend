@@ -105,6 +105,9 @@ function extractAppStoreReceipt(tx: AnyCdv): string {
 export function usePayment() {
   const loading = ref<boolean>(false)
   const lastError = ref<string | null>(null)
+  // setup 컨텍스트 밖(직접 단위테스트 등)에서도 동작하도록 useI18n() 대신 nuxtApp.$i18n 사용.
+  const { $i18n } = useNuxtApp()
+  const t = (key: string): string => $i18n.t(key)
 
   /**
    * 단일 상품 IAP 구매. entitlement 부여 성공 시 true.
@@ -115,12 +118,12 @@ export function usePayment() {
     if (!import.meta.client) return false
     const { isNative } = useNative()
     if (!isNative) {
-      useToast().info('구매는 앱에서만 가능합니다')
+      useToast().info(t('payment.appOnly'))
       return false
     }
     const Cdv = (window as unknown as { CdvPurchase?: AnyCdv }).CdvPurchase
     if (!Cdv?.store) {
-      useToast().error('결제 모듈을 불러오지 못했습니다')
+      useToast().error(t('payment.moduleLoadFail'))
       return false
     }
 
@@ -145,7 +148,7 @@ export function usePayment() {
       const transaction = await orderAndAwaitApproval(Cdv, store, productId, userId, cdvPlatform)
 
       // 스토어 결제 승인(approved) 이후의 실패는 "과금됐는데 미지급" 이므로 사용자에게 명시 안내(리뷰 silent-M2).
-      const paidButFailed = '결제는 확인됐지만 처리에 실패했어요. 잠시 후 다시 시도하거나 고객센터로 문의해 주세요'
+      const paidButFailed = t('payment.paidButFailed')
 
       // platform 별 토큰/영수증 추출.
       let purchaseToken: string

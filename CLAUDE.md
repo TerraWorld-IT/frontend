@@ -486,7 +486,7 @@ Spring Boot /api/v1/*
 
 ### 만 14세 차단 3중 방어 (LEGAL-001, 2026-05-18)
 
-정보통신망법 §50조의2 준수. signup form 에서 birthDate (ISO YYYY-MM-DD) 추가 필드를 수집해 3 layer 로 검증:
+개인정보보호법(만 14세 미만 아동의 개인정보 보호) 준수. signup form 에서 birthDate (ISO YYYY-MM-DD) 추가 필드를 수집해 3 layer 로 검증:
 
 1. **Frontend UI 게이트** — `pages/auth/login.vue:43-52` `<input type="date" :max="maxBirthDate">` + computed `maxBirthDate` (오늘 - 14년) + `isAtLeast14()` 함수 (`:127-134`)
 2. **Backend before hook** — `server/lib/auth.ts:156` `databaseHooks.user.create.before(user, context)` 에서 birthDate 재검증 + `throw new Error('만 14세 미만은 가입할 수 없습니다 …')` 시 transaction rollback

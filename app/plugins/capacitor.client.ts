@@ -39,6 +39,18 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     await StatusBar.setBackgroundColor({ color: '#FFF8EB' }) // riso-cream
   }
 
+  // --- iOS App Tracking Transparency (P3-3) ---
+  // IDFA(광고 식별자) 접근 전 ATT 동의 prompt 를 요청(Apple 정책). 광고 SDK 가 IDFA 를 쓰기 전에
+  // 1회 호출돼야 함. Info.plist NSUserTrackingUsageDescription 동반.
+  if (Capacitor.getPlatform() === 'ios') {
+    try {
+      await useAdMob().requestTrackingAuthorization()
+    }
+    catch {
+      // ATT plugin 미가용 — 무시
+    }
+  }
+
   // --- Deep Link Handler ---
   const { App } = await import('@capacitor/app')
   App.addListener('appUrlOpen', (event) => {

@@ -1,6 +1,7 @@
 <!--
-  자유배치 권리(freePlacement entitlement) 안내 + 결제 플로우 placeholder.
-  Phase 4 IAP/Play Billing 통합 전까지는 안내 페이지로 작동.
+  자유배치 권리(freePlacement entitlement) 안내 + 결제 플로우.
+  usePayment().startPurchase('free_placement_unlock') → 백엔드 IAP verify → entitlement 부여.
+  (실 결제 검증은 Play/App Store 상품 등록 + 키 주입 시 동작 — 코드 배선 완료.)
 -->
 <template>
   <div class="min-h-screen px-4 py-6 max-w-md mx-auto space-y-4">
