@@ -151,7 +151,7 @@
           <!-- Special → Basic -->
           <div class="mb-4">
             <div class="text-sm font-semibold text-gray-700 mb-2">{{ $t('shop.specialToBasic') }}</div>
-            <div class="flex items-center gap-3 p-3 rounded-xl" style="background-color: #fef9e7">
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-[#fef9e7] dark:bg-[#2c2820]">
               <span class="text-2xl">💎</span>
               <input
                 v-model.number="exchSpecialAmt"

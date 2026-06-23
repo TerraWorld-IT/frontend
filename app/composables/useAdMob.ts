@@ -1,5 +1,10 @@
 import { Capacitor } from '@capacitor/core'
 
+// H3 (code-review): iOS ATT 결과를 모듈 스코프에 보존한다. ATT 요청은 앱 시작 시
+// (capacitor.client.ts) 의 useAdMob() 인스턴스에서, 광고 표시는 별도 useAdMob() 인스턴스에서
+// 일어나므로 인스턴스 변수로는 공유 불가. 미인증/오류 시 fail-closed(개인화 광고 미요청).
+let iosTrackingAuthorized = false
+
 /**
  * AdMob 보상형 광고 composable.
  *
@@ -20,21 +25,58 @@ import { Capacitor } from '@capacitor/core'
 export function useAdMob() {
   const isNative = import.meta.client ? Capacitor.isNativePlatform() : false
   const isAndroid = import.meta.client ? Capacitor.getPlatform() === 'android' : false
+  const isIos = import.meta.client ? Capacitor.getPlatform() === 'ios' : false
 
   let initialized = false
+  let attRequested = false
+
+  /**
+   * P3-3 (iOS App Tracking Transparency): IDFA(광고 식별자) 접근 전 ATT 동의 prompt 를 요청한다.
+   * Apple 정책상 추적 전 필수 — Info.plist NSUserTrackingUsageDescription 동반.
+   * iOS 에서만 동작(1회), Android/web 은 no-op. 반환: ATT status 또는 null.
+   */
+  async function requestTrackingAuthorization(): Promise<string | null> {
+    if (!import.meta.client || !isIos || attRequested) return null
+    attRequested = true
+    try {
+      const { AdMob } = await import('@capacitor-community/admob')
+      // requestTrackingAuthorization() 가 ATT prompt 를 띄움(핵심). 반환 타입은 플러그인 버전에 따라
+      // void 또는 { status } — 런타임에서 status 가 있으면 반환, 없으면 null (as unknown 으로 양쪽 호환).
+      const res = await AdMob.requestTrackingAuthorization()
+      const status = (res as unknown as { status?: string } | undefined)?.status ?? null
+      // H3: status 를 버리지 않고 보존 — authorized 일 때만 IDFA 기반 개인화. denied/restricted/
+      // notDetermined/null(미상)은 fail-closed 로 비개인화 유지.
+      iosTrackingAuthorized = status === 'authorized'
+      return status
+    }
+    catch {
+      // 오류 = prompt 미표시 가능성 포함 → fail-closed (개인화 안 함).
+      iosTrackingAuthorized = false
+      return null
+    }
+  }
 
   /**
    * N9: 광고 보상 nonce 발급 (UUID v4). 광고 시청 직전 호출 → 시청 완료 후 backend
    * `/rewards/ad` 에 body.nonce 로 전달. 같은 nonce 로 두 번 호출 시 backend 가 409.
    *
-   * crypto.randomUUID() 는 모던 브라우저 / Node 14.17+ 표준. dev/SSR 에서 미지원 시
-   * `Math.random` fallback (보안 강도 낮음 — 운영은 secure context 만 사용).
+   * 암호학적으로 안전한 nonce 만 발급 — replay 방어가 client nonce 예측 불가능성에 의존.
+   * 우선순위: crypto.randomUUID() → crypto.getRandomValues() (둘 다 CSPRNG).
+   * Math.random 기반 예측가능 fallback 은 secure context 아닌 환경의 최후 수단
+   * (운영 빌드는 HTTPS 강제로 도달 불가). 출력 길이는 spec nonce 16~64 범위 내.
    */
   function generateNonce(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID()
+    if (typeof crypto !== 'undefined') {
+      if (typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID() // 36자 (CSPRNG)
+      }
+      if (typeof crypto.getRandomValues === 'function') {
+        // 16바이트 → 32자 hex (CSPRNG). randomUUID 미지원 secure context 대비.
+        const bytes = crypto.getRandomValues(new Uint8Array(16))
+        return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+      }
     }
-    // fallback — non-secure context. 운영 빌드는 HTTPS 강제로 도달 불가.
+    // 최후 fallback — secure context 아님(예측가능). 운영 빌드는 HTTPS 강제로 도달 불가.
     return `nonce-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
   }
 
@@ -42,6 +84,8 @@ export function useAdMob() {
     if (!import.meta.client || !isNative || initialized) return
     try {
       const { AdMob } = await import('@capacitor-community/admob')
+      // P3-3: iOS 는 IDFA 접근 전 ATT 동의 요청(Apple 정책). Android/web no-op.
+      if (isIos) await requestTrackingAuthorization()
       await AdMob.initialize({
         // 운영(PROD) 빌드는 실 광고, dev/test 빌드만 Google 테스트 광고(어뷰징 정책 준수).
         // 2026-06-04 fix: 기존 하드코딩 true → PROD 기준 분기 (운영 빌드 실광고 노출).
@@ -76,6 +120,9 @@ export function useAdMob() {
       // 광고 준비 (prepare) → 표시 (show). @capacitor-community/admob v7.2.0 API.
       await AdMob.prepareRewardVideoAd({
         adId: adId || 'ca-app-pub-3940256099942544/5224354917', // Google 공식 테스트 보상형 광고 ID
+        // H3: iOS 에서 ATT 미인증이면 비개인화 광고(npa) 요청. 현재 iOS 는 위 isAndroid 게이트로
+        //     이 경로 미도달이라 사실상 false(Android 개인화)지만, iOS 광고 도입 시 ATT 정합 보장.
+        npa: isIos && !iosTrackingAuthorized,
       })
 
       return await new Promise<boolean>((resolve) => {
@@ -99,7 +146,9 @@ export function useAdMob() {
   return {
     isNative,
     isAndroid,
+    isIos,
     initialize,
+    requestTrackingAuthorization,
     showRewardedAd,
     generateNonce,
   }

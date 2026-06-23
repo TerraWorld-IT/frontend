@@ -51,11 +51,11 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          <div class="p-4 rounded-[12px] text-center" style="background-color: #fef3ed">
+          <div class="p-4 rounded-[12px] text-center bg-[#fef3ed] dark:bg-[#2e2820]">
             <div class="text-3xl font-bold text-black mb-1">{{ ownedCount }}</div>
             <div class="text-sm text-[#525252] font-medium">{{ $t('profile.owned') }}</div>
           </div>
-          <div class="p-4 rounded-[12px] text-center" style="background-color: #fef3ed">
+          <div class="p-4 rounded-[12px] text-center bg-[#fef3ed] dark:bg-[#2e2820]">
             <div class="text-3xl font-bold text-black mb-1">{{ placedCount }}</div>
             <div class="text-sm text-[#525252] font-medium">{{ $t('profile.placed') }}</div>
           </div>
@@ -93,6 +93,31 @@
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- P3-2 (PIPA): 동의 항목 관리 — 마케팅/분석/광고 식별자 동의 철회·재동의 -->
+      <div class="bg-white rounded-[16px] border border-black/10 p-5">
+        <h3 class="font-bold mb-1 flex items-center gap-2 text-black">
+          <Icon name="lucide:shield-check" class="w-5 h-5" />
+          {{ $t('profile.consentSection') }}
+        </h3>
+        <p class="text-xs text-[#525252] mb-4">{{ $t('profile.consentDesc') }}</p>
+        <div class="space-y-2">
+          <label
+            v-for="item in consentToggles"
+            :key="`${item.key}-${consentRenderKey}`"
+            class="w-full flex items-center justify-between p-3 bg-white border border-black/10 rounded-[12px] cursor-pointer"
+          >
+            <span class="text-sm font-medium text-black">{{ t(`auth.consent.${item.key}`) }}</span>
+            <input
+              type="checkbox"
+              :checked="item.value"
+              :disabled="consentSaving"
+              class="w-5 h-5 accent-riso-sage disabled:opacity-50"
+              @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
+            >
+          </label>
         </div>
       </div>
 
@@ -172,6 +197,7 @@ import type {
   LevelConfigResponse,
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
+import { authClient } from '~/lib/auth-client'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -184,6 +210,56 @@ const fetchError = ref<Error | null>(null)
 const user = ref<UserMeResponse | null>(null)
 const levels = ref<LevelConfigResponse[]>([])
 const loggingOut = ref<boolean>(false)
+
+// P3-2 (PIPA): 동의 항목 관리 — better-auth session 의 동의 필드를 읽어 토글, 변경 시 updateUser.
+const session = authClient.useSession()
+const consentSaving = ref<boolean>(false)
+// H1 (code-review): 저장 시도마다 증가시켜 체크박스를 re-mount → 실패 시 DOM 의 토글된 상태를
+// persisted item.value 로 되돌린다(uncontrolled :checked 가 실패 후 갱신 안 되는 divergence 차단).
+const consentRenderKey = ref<number>(0)
+// code-review: 철회 토글은 마케팅/분석/광고식별자 3종만. 사진(photo)·푸시(push)는 앱 내 토글이
+// 아니라 단말 OS 권한(카메라/알림)으로 관리·철회되므로 본 화면에서 의도적으로 제외(가입 시점엔
+// 분리 동의로 기록하되, 철회는 OS 설정 경로).
+const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
+  { key: 'marketing', field: 'marketingConsent', value: false },
+  { key: 'analytics', field: 'analyticsConsent', value: false },
+  { key: 'adId', field: 'adConsent', value: false },
+])
+
+watch(
+  () => session.value?.data?.user,
+  (u) => {
+    const cu = u as { marketingConsent?: boolean; analyticsConsent?: boolean; adConsent?: boolean } | undefined
+    if (!cu) return
+    consentToggles.value = [
+      { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
+      { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
+      { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
+    ]
+  },
+  { immediate: true },
+)
+
+async function onConsentToggle(key: string, checked: boolean) {
+  const item = consentToggles.value.find((c) => c.key === key)
+  if (!item || consentSaving.value) return
+  consentSaving.value = true
+  try {
+    const { error } = await authClient.updateUser(
+      { [item.field]: checked } as unknown as Parameters<typeof authClient.updateUser>[0],
+    )
+    if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
+    item.value = checked
+    toast.success(t('profile.consentSaved'))
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+  }
+  finally {
+    consentSaving.value = false
+    consentRenderKey.value++ // 성공·실패 모두 checkbox re-mount → :checked 가 item.value 와 동기
+  }
+}
 
 const ownedCount = computed<number>(() => user.value?.ownedItems?.length ?? 0)
 const placedCount = computed<number>(() => user.value?.placedItems?.length ?? 0)

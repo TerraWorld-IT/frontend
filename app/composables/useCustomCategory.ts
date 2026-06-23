@@ -10,6 +10,9 @@ export function useCustomCategory() {
   const loading = ref<boolean>(false)
   const error = ref<string | null>(null)
   const { sdk, client } = useOpenApi()
+  // setup 밖(직접 단위테스트 등)에서도 안전하도록 useI18n() 대신 nuxtApp.$i18n (useEvolution/usePayment 와 일관).
+  const { $i18n } = useNuxtApp()
+  const t = (key: string): string => $i18n.t(key)
 
   async function fetchAll(): Promise<CategoryResponse[]> {
     const res = await sdk.listCategories({ client })
@@ -29,7 +32,7 @@ export function useCustomCategory() {
       if (res.error) throw res.error
       return castData<CategoryResponse>(res.data) ?? null
     } catch (e) {
-      error.value = errMsg(e, '카테고리 생성 실패')
+      error.value = errMsg(e, t('category.createError'))
       return null
     } finally {
       loading.value = false
@@ -44,7 +47,7 @@ export function useCustomCategory() {
       if (res.error) throw res.error
       return true
     } catch (e) {
-      error.value = errMsg(e, '카테고리 삭제 실패')
+      error.value = errMsg(e, t('category.deleteError'))
       return false
     } finally {
       loading.value = false

@@ -29,11 +29,11 @@
           >
             <div>
               <div class="font-semibold text-riso-dark flex items-center gap-2">
-                {{ stage.meta.label }}
+                {{ $t(stage.meta.labelKey) }}
                 <span v-if="stage.locked" class="text-xs text-riso-dark/50">🔒 Lv {{ stage.meta.unlockLevel }}+</span>
                 <span v-else-if="stage.id === 'CUSTOM' && !entitled" class="text-xs text-riso-poppy">{{ $t('terrarium.paid') }}</span>
               </div>
-              <div class="text-xs text-riso-dark/60">{{ stage.meta.description }}</div>
+              <div class="text-xs text-riso-dark/60">{{ $t(stage.meta.descKey) }}</div>
             </div>
             <button
               type="button"
@@ -92,10 +92,12 @@ const allStageIds: EvolutionStage[] = [
 ]
 
 const current = computed<EvolutionStage>(() =>
-  ((props.terrarium?.evolutionStage as EvolutionStage) ?? 'BOTTLE'),
+  // M7 (code-review): terrarium 부재(로딩/에러) 시 fallback 을 스펙상 초기 단계 POT 로
+  // (이전 'BOTTLE' 은 unlockLevel 2 — 초기 단계와 불일치).
+  ((props.terrarium?.evolutionStage as EvolutionStage) ?? EvolutionStage.POT),
 )
 
-const currentLabel = computed<string>(() => EVOLUTION_STAGE_META[current.value].label)
+const currentLabel = computed<string>(() => t(EVOLUTION_STAGE_META[current.value].labelKey))
 
 const stages = computed(() => {
   const unlocked = new Set((props.terrarium?.unlockedStages ?? []) as readonly EvolutionStage[])

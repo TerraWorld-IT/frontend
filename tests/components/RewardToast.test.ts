@@ -62,13 +62,13 @@ describe('RewardToast (common)', () => {
     expect((bar as HTMLElement | null)?.style.width).toBe('73%')
   })
 
-  // UX-003 — prefers-reduced-motion 대응 (scoped style 의 @media block)
-  // jsdom 은 matchMedia stub 불완전 — style content presence 만 검증
-  it('component <style> 가 @media (prefers-reduced-motion: reduce) block 포함', async () => {
-    // RewardToast.vue 소스 인용 — vite 가 scoped style 을 head 에 inject.
-    // jsdom 환경에서 styleSheet 접근 어려우니 raw source 가 build artifact 에 포함됨을
-    // 보장하는 sanity test 만. 실 동작은 e2e (Playwright `emulateMedia({ reducedMotion: 'reduce' })`) 로 검증.
-    // 본 test 는 unit 단계의 minimum guard.
-    expect(true).toBe(true)
+  // P4-7 (a11y assertion 보강): 더미 assert(expect(true)) 제거 → 소스 raw 로 a11y 속성 + reduced-motion 검증.
+  // jsdom 은 scoped style/matchMedia stub 불완전 → RewardToast.vue 소스에 SC 4.1.3(status messages)
+  // 속성과 prefers-reduced-motion(SC 2.3.3) 미디어 쿼리가 존재함을 보장. 실 동작은 e2e 로 검증.
+  it('a11y — role=status + aria-live(SC 4.1.3) + prefers-reduced-motion block(SC 2.3.3) 포함', async () => {
+    const src = (await import('~/components/common/RewardToast.vue?raw')).default
+    expect(src).toContain('role="status"')
+    expect(src).toContain('aria-live')
+    expect(src).toContain('prefers-reduced-motion')
   })
 })
