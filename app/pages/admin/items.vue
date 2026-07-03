@@ -167,19 +167,18 @@ import type {
   AdminItemCreateRequest,
   CategoryListResponse,
   CategoryResponse,
+  ItemListResponse,
   ItemResponse,
 } from '@terraworld-it/openapi-frontend'
-import { useItemsStore } from '~/stores/items'
 
 interface ItemRow {
   item: ItemResponse
-  // ItemResponse 에 active 필드가 없어 로컬 상태로 추적 (기본 활성)
+  // 서버 상태(item.isActive) 미러 — 토글 시 낙관적 갱신. (M2: admin 전용 GET /admin/items 로 비활성 포함 로드)
   active: boolean
 }
 
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
-const itemsStore = useItemsStore()
 const { sdk, client } = useOpenApi()
 const { t } = useI18n()
 const toast = useToast()
@@ -217,11 +216,15 @@ async function toggleActive(itemId: number) {
   const next = !row.active
   toggling.value = itemId
   try {
-    await sdk.setItemActive({
+    // ADMIN-TOGGLE-FAIL-OPEN: @hey-api client 는 throwOnError 미설정 → 서버 거부(404/500)가 {error} 로 resolve.
+    // error 미확인 시 낙관 flip + 성공 토스트가 무조건 실행돼 서버 미반영을 '성공'으로 오도(fail-open).
+    // 명시 체크로 catch 라우팅 + 낙관 flip 은 성공 후에만.
+    const { error } = await sdk.setItemActive({
       client,
       path: { itemId },
       body: { active: next },
     })
+    if (error) throw error
     row.active = next
     toast.success(next ? t('admin.items.activated') : t('admin.items.deactivated'))
   }
@@ -260,7 +263,7 @@ async function submitCreate() {
     })
     if (error) throw error
     const created = castData<ItemResponse>(data)
-    if (created) rows.value.unshift({ item: created, active: true })
+    if (created) rows.value.unshift({ item: created, active: created.isActive })
     toast.success(t('admin.items.created'))
     closeCreate()
   }
@@ -280,8 +283,16 @@ async function loadCategories() {
 }
 
 onMounted(async () => {
-  await Promise.all([itemsStore.fetchAll(), loadCategories()])
-  rows.value = itemsStore.items.map((item) => ({ item, active: true }))
+  // M2: 공개 목록(listItems)은 활성만 반환 → 비활성 아이템 재활성화 불가.
+  // admin 전용 listAllItems 로 비활성 포함 전체를 로드하고, 서버의 isActive 로 토글 상태를 시드한다.
+  const [itemsRes] = await Promise.all([sdk.listAllItems({ client }), loadCategories()])
+  if (itemsRes.error) {
+    toast.error(t('admin.common.saveError'))
+  }
+  else {
+    const list = castData<ItemListResponse>(itemsRes.data)?.items ?? []
+    rows.value = list.map((item) => ({ item, active: item.isActive }))
+  }
   loading.value = false
 })
 </script>

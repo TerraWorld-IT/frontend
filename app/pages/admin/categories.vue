@@ -120,7 +120,9 @@ async function saveRewards(categoryId: number) {
   }
   saving.value = categoryId
   try {
-    await sdk.updateCategoryRewards({
+    // ADMIN-TOGGLE-FAIL-OPEN class: @hey-api client 는 throwOnError 미설정 → 서버 거부(400/500)가 {error} 로
+    // resolve. error 미확인 시 성공 토스트가 무조건 떠 fail-open(오도). 명시 체크로 catch 라우팅.
+    const { error } = await sdk.updateCategoryRewards({
       client,
       path: { categoryId },
       body: {
@@ -129,6 +131,7 @@ async function saveRewards(categoryId: number) {
         dailyLimit: form.dailyLimit,
       },
     })
+    if (error) throw error
     toast.success(t('admin.common.saveSuccess'))
     await loadCategories()
   }

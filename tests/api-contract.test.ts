@@ -10,7 +10,7 @@ import type {
   UserMeResponse,
   ItemListResponse,
   ItemResponse,
-  ExchangeResponse,
+  ExchangeResult,
   InviteResponse,
   InviteAcceptResponse,
 } from '@terraworld-it/openapi-frontend'
@@ -20,6 +20,9 @@ import type {
  *
  * Validate that the generated SDK types match what the frontend expects.
  * These are compile-time + runtime shape checks to catch spec drift.
+ *
+ * 낙서장 리팩토링(2026-07): 화폐 모델이 개별 필드(basicCoins/specialCoins/…토큰)에서
+ * 정규화 balances[] 로, 레벨/경험치·구 ExchangeResponse 는 제거로 바뀜 — 본 계약 테스트도 갱신.
  */
 describe('API contract: response shapes', () => {
   describe('Records API', () => {
@@ -35,15 +38,18 @@ describe('API contract: response shapes', () => {
       expect(mock).toHaveProperty('totalElements')
     })
 
-    it('CreateRecordResponse has record + reward + updatedCurrency', () => {
+    it('CreateRecordResponse has record + reward + updatedCurrency(balances)', () => {
       const mock: CreateRecordResponse = {
         record: { id: 1, categoryId: 1, categoryName: '산책', recordedDate: '2026-04-11', createdAt: '2026-04-11T00:00:00Z' },
-        reward: { basicCoins: 5, categoryTokens: 3, experienceGained: 10 },
-        updatedCurrency: { basicCoins: 105, specialCoins: 10, walkTokens: 13, readTokens: 0, runTokens: 0, drawTokens: 0 },
+        reward: { basicCoins: 5, categoryTokens: 3 },
+        updatedCurrency: { balances: [{ code: 'COIN', amount: 105 }, { code: 'DEW', amount: 13 }] },
       }
       expect(mock.record).toHaveProperty('id')
       expect(mock.reward).toHaveProperty('basicCoins')
-      expect(mock.updatedCurrency).toHaveProperty('basicCoins')
+      expect(mock.reward).toHaveProperty('categoryTokens')
+      // 낙서장: reward 에 experienceGained(경험치) 없음 (레벨/EXP 제거)
+      expect(mock.reward).not.toHaveProperty('experienceGained')
+      expect(mock.updatedCurrency.balances).toBeInstanceOf(Array)
     })
 
     it('StatisticsResponse has byCategory array', () => {
@@ -87,32 +93,36 @@ describe('API contract: response shapes', () => {
     })
   })
 
-  describe('Currency API', () => {
-    it('CurrencyResponse uses plural field names (basicCoins, not basicCoin)', () => {
+  describe('Currency API (낙서장 7화폐 balances[])', () => {
+    it('CurrencyResponse uses normalized balances[] (not per-field basicCoins)', () => {
       const mock: CurrencyResponse = {
-        basicCoins: 100,
-        specialCoins: 10,
-        walkTokens: 5,
-        readTokens: 3,
-        runTokens: 2,
-        drawTokens: 1,
+        balances: [
+          { code: 'COIN', amount: 100 },
+          { code: 'RUBY', amount: 10 },
+          { code: 'SPARKLE', amount: 5 },
+          { code: 'DEW', amount: 3 },
+        ],
       }
-      expect(mock).toHaveProperty('basicCoins')
-      expect(mock).not.toHaveProperty('basicCoin') // singular would be wrong
+      expect(mock.balances).toBeInstanceOf(Array)
+      expect(mock.balances[0]).toHaveProperty('code')
+      expect(mock.balances[0]).toHaveProperty('amount')
+      // 구 모델의 개별 필드는 제거됨
+      expect(mock).not.toHaveProperty('basicCoins')
+      expect(mock).not.toHaveProperty('walkTokens')
     })
 
-    it('UserMeResponse.currency is CurrencyResponse', () => {
+    it('UserMeResponse.currency is CurrencyResponse(balances); no level/exp progress', () => {
       const mock: UserMeResponse = {
-        userId: 1,
+        userId: 'cld-abc123',
         email: 'test@test.com',
         nickname: 'tester',
-        currency: { basicCoins: 100, specialCoins: 10, walkTokens: 0, readTokens: 0, runTokens: 0, drawTokens: 0 },
-        progress: { level: 1, experience: 0, experienceToNext: 100 },
+        role: 'USER',
+        currency: { balances: [{ code: 'COIN', amount: 100 }] },
         ownedItems: [],
-        placedItems: [],
       }
-      expect(mock.currency).toHaveProperty('basicCoins')
-      expect(mock.currency).toHaveProperty('walkTokens')
+      expect(mock.currency).toHaveProperty('balances')
+      // 레벨/경험치 제거 → progress 필드 없음
+      expect(mock).not.toHaveProperty('progress')
     })
   })
 
@@ -138,14 +148,21 @@ describe('API contract: response shapes', () => {
     })
   })
 
-  describe('Exchange API', () => {
-    it('ExchangeResponse has exchanged + updatedCurrency', () => {
-      const mock: ExchangeResponse = {
-        exchanged: { fromType: 'SPECIAL_COIN', fromAmount: 5, toType: 'BASIC_COIN', toAmount: 10, rate: 2 },
-        updatedCurrency: { basicCoins: 110, specialCoins: 5, walkTokens: 0, readTokens: 0, runTokens: 0, drawTokens: 0 },
+  describe('Exchange API (낙서장 directed exchange)', () => {
+    it('ExchangeResult has from/to + fromAmount/grossToAmount/feeAmount/toAmount', () => {
+      const mock: ExchangeResult = {
+        from: 'RUBY',
+        to: 'COIN',
+        fromAmount: 5,
+        grossToAmount: 10,
+        feeAmount: 0,
+        toAmount: 10,
       }
-      expect(mock.exchanged).toHaveProperty('rate')
-      expect(mock.updatedCurrency).toHaveProperty('basicCoins')
+      expect(mock).toHaveProperty('from')
+      expect(mock).toHaveProperty('to')
+      expect(mock).toHaveProperty('toAmount')
+      // 구 필드(fromType/rate) 제거
+      expect(mock).not.toHaveProperty('fromType')
     })
   })
 

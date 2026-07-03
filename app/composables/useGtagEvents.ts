@@ -9,13 +9,12 @@
 export function useGtagEvents() {
   const { gtag } = useGtag()
 
-  function trackRecordCreated(params: { categoryId: number; categoryName: string; basicCoins: number; categoryTokens: number; experienceGained: number }) {
+  function trackRecordCreated(params: { categoryId: number; categoryName: string; basicCoins: number; categoryTokens: number }) {
     gtag('event', 'record_created', {
       category_id: params.categoryId,
       category_name: params.categoryName,
       coin_reward: params.basicCoins,
       token_reward: params.categoryTokens,
-      exp_reward: params.experienceGained,
     })
   }
 

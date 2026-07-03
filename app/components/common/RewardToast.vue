@@ -28,27 +28,6 @@
           <span class="font-bold text-sm">+{{ token }}</span>
         </div>
 
-        <!-- EXP reward -->
-        <div
-          v-if="exp"
-          class="flex items-center gap-1.5 bg-riso-sage/90 text-white px-4 py-2 rounded-full riso-shadow-sm animate-bounce-in"
-          style="animation-delay: 0.3s"
-        >
-          <span class="text-lg">⭐</span>
-          <span class="font-bold text-sm">+{{ exp }} EXP</span>
-        </div>
-
-        <!-- EXP progress bar (optional) -->
-        <div
-          v-if="exp && expProgress !== undefined"
-          class="w-40 h-2 bg-white/60 rounded-full overflow-hidden border border-riso-walnut/10 animate-bounce-in"
-          style="animation-delay: 0.5s"
-        >
-          <div
-            class="h-full bg-gradient-to-r from-riso-sage to-riso-green rounded-full transition-all duration-700 ease-out"
-            :style="{ width: expProgress + '%' }"
-          />
-        </div>
       </div>
     </Transition>
   </Teleport>
@@ -61,8 +40,6 @@ const props = defineProps<{
   coin?: number
   token?: number
   tokenEmoji?: string
-  exp?: number
-  expProgress?: number
   duration?: number
 }>()
 
@@ -76,7 +53,6 @@ const ariaLabel = computed<string>(() => {
   const parts: string[] = []
   if (props.coin) parts.push(t('reward.coinEarned', { n: props.coin }))
   if (props.token) parts.push(t('reward.tokenEarned', { n: props.token }))
-  if (props.exp) parts.push(t('reward.expEarned', { n: props.exp }))
   return parts.length ? parts.join(', ') : t('reward.earned')
 })
 

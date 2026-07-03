@@ -61,8 +61,8 @@
   --radius-xl: calc(var(--radius) + 4px);   /* 20px */
   --radius-2xl: calc(var(--radius) + 8px);  /* 24px */
 
-  /* Fonts */
-  --font-sans: 'Pretendard', system-ui, sans-serif;
+  /* Fonts — req1 (2026-07-02): TERRAWORLD2(Figma) 정확 이전. Inter(라틴)+Noto Sans KR(한글). */
+  --font-sans: 'Inter', 'Noto Sans KR', 'Pretendard', system-ui, sans-serif;
 
   /* Animations */
   --animate-drift: drift 20s linear infinite;

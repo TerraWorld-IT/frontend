@@ -13,7 +13,7 @@
  * 사용:
  *   const { request } = useInternalApi()
  *   const dash = await request<AdminDashboard>('/api/v1/admin/dashboard')
- *   await request('/api/v1/admin/levels/3', { method: 'PUT', body: {...} })
+ *   await request('/api/v1/admin/categories/1', { method: 'PUT', body: {...} })
  */
 export function useInternalApi() {
   const config = useRuntimeConfig()

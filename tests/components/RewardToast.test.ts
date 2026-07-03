@@ -28,9 +28,9 @@ describe('RewardToast (common)', () => {
     expect(coinNode!.textContent).toContain('+50')
   })
 
-  it('coin / token / exp 셋 다 prop 전달 시 3 노드 모두 렌더', async () => {
+  it('coin / token 프롭 전달 시 두 노드 모두 렌더 (낙서장: EXP 제거)', async () => {
     const wrapper = await mountSuspended(RewardToast, {
-      props: { coin: 1, token: 2, tokenEmoji: '🚶', exp: 3 },
+      props: { coin: 1, token: 2, tokenEmoji: '🚶' },
     })
     ;(wrapper.vm as unknown as { show: () => void }).show()
     await wrapper.vm.$nextTick()
@@ -38,7 +38,6 @@ describe('RewardToast (common)', () => {
     expect(body).toContain('+1')
     expect(body).toContain('+2')
     expect(body).toContain('🚶')
-    expect(body).toContain('+3 EXP')
   })
 
   it('default duration (2500ms) 후 자동 hidden', async () => {
@@ -50,16 +49,6 @@ describe('RewardToast (common)', () => {
     vi.advanceTimersByTime(2500)
     await wrapper.vm.$nextTick()
     expect(document.body.querySelector('.bg-riso-butter\\/95')).toBeNull()
-  })
-
-  it('expProgress 가 width inline style 로 반영', async () => {
-    const wrapper = await mountSuspended(RewardToast, {
-      props: { exp: 5, expProgress: 73 },
-    })
-    ;(wrapper.vm as unknown as { show: () => void }).show()
-    await wrapper.vm.$nextTick()
-    const bar = document.body.querySelector('.bg-gradient-to-r')
-    expect((bar as HTMLElement | null)?.style.width).toBe('73%')
   })
 
   // P4-7 (a11y assertion 보강): 더미 assert(expect(true)) 제거 → 소스 raw 로 a11y 속성 + reduced-motion 검증.

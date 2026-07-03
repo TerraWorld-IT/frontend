@@ -68,6 +68,9 @@ function buildRouteRules() {
       headers: { 'Cache-Control': 'public, max-age=86400' },
     },
     '/**': { headers: buildSecurityHeaders() },
+    // R7: /terrarium/free 는 홈(index.vue)의 자유배치(scale/flip/zIndex + {error} 처리)로 대체된 구 PoC.
+    //   Figma(TW2)에도 별도 화면이 없어, 중복·divergent(필드 누락/fail-open save) 페이지를 홈으로 redirect.
+    '/terrarium/free': { redirect: '/' },
   }
 }
 
@@ -151,6 +154,9 @@ export default defineNuxtConfig({
       adsenseSlot: process.env.NUXT_PUBLIC_ADSENSE_SLOT || '',
       // AdMob (Android 모바일 앱). dev 빌드는 Capacitor 설정의 testing 모드로 자동 우회.
       admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
+      // 아이템 에셋 base (낙서장 req4/8). 로컬 `/items` 기본 → R2 CDN 은 env 로만 교체.
+      // slug→`${assetBase}/${slug}.png` 규약이라 나중에 png 파일만 바꾸면 코드 변경 0.
+      assetBase: process.env.NUXT_PUBLIC_ASSET_BASE || '/items',
     },
   },
 
@@ -159,7 +165,11 @@ export default defineNuxtConfig({
   },
 
   fonts: {
+    // req1 (2026-07-02): TERRAWORLD2(Figma) 디자인 폰트 정확 이전.
+    // 화면 본문/UI 는 Inter(라틴) + Noto Sans KR(한글). Pretendard 는 fallback 유지.
     families: [
+      { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700], subsets: ['latin'] },
+      { name: 'Noto Sans KR', provider: 'google', weights: [400, 500, 700], subsets: ['korean', 'latin'] },
       { name: 'Pretendard', provider: 'local' },
     ],
   },

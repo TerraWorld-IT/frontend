@@ -55,12 +55,13 @@ const pool = new Pool({
  * SEC-003: we never send `role` here — Spring always creates profiles
  * as USER. Admin promotion is a separate manual operation.
  */
-async function provisionDomainProfile(userId: string, email: string): Promise<void> {
+async function provisionDomainProfile(userId: string, email: string, nickname?: string): Promise<void> {
   try {
     await $fetch(`${internalApiBaseUrl}/api/v1/internal/users/bootstrap`, {
       method: 'POST',
       headers: { 'X-Internal-Token': internalApiToken },
-      body: { userId, email },
+      // 가입 시 입력한 닉네임(better-auth user.name)을 Spring 도메인 프로필에 반영.
+      body: { userId, email, nickname },
       retry: 2,
       retryDelay: 250,
       timeout: 5_000,
@@ -79,6 +80,11 @@ export const auth = betterAuth({
   database: pool,
 
   secret,
+
+  // 감사 finding: trustedOrigins 미설정 시 baseURL default 에만 의존 → 브라우저 요청(Sec-Fetch 헤더)이
+  // origin-check(forceValidate)를 거치며 서빙 origin 이 baseURL 과 다르면 signup/login 403.
+  // 서빙 origin 을 env 로 명시 신뢰 (기본 localhost:3000). 실 배포는 NUXT_PUBLIC_AUTH_BASE_URL 로 도메인 주입.
+  trustedOrigins: [process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000'],
 
   emailAndPassword: {
     enabled: true,
@@ -221,7 +227,8 @@ export const auth = betterAuth({
           return true
         },
         after: async (user) => {
-          await provisionDomainProfile(user.id, user.email)
+          // user.name = 가입 폼의 닉네임(signUp payload name). Spring 도메인 프로필 nickname 으로 전달.
+          await provisionDomainProfile(user.id, user.email, user.name)
         },
       },
     },

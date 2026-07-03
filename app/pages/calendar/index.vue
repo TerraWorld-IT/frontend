@@ -24,7 +24,7 @@
         </p>
       </div>
 
-      <!-- 활동 통계 -->
+      <!-- 활동 통계 (FE 실 통계 — TW2 디자인엔 없으나 실기능 보존) -->
       <div class="bg-white rounded-[16px] border border-black/10 p-5">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold flex items-center gap-2 text-black">
@@ -84,7 +84,7 @@
         <div class="flex items-center justify-between mb-5">
           <button
             type="button"
-            class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
+            class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors active:scale-[0.97]"
             @click="prevMonth"
           >
             <Icon name="lucide:chevron-left" class="w-4 h-4" />
@@ -92,7 +92,7 @@
           <h3 class="text-lg font-bold text-black">{{ $t('calendar.yearMonth', { year: currentYear, month: currentMonth + 1 }) }}</h3>
           <button
             type="button"
-            class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
+            class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors active:scale-[0.97]"
             @click="nextMonth"
           >
             <Icon name="lucide:chevron-right" class="w-4 h-4" />
@@ -114,15 +114,14 @@
             v-for="day in daysInMonth"
             :key="day"
             type="button"
-            class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold hover:shadow-md"
+            class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold hover:shadow-md hover:scale-105 active:scale-95"
             :class="[
               isSelectedDay(day)
                 ? 'bg-black text-white shadow-lg'
-                : isToday(day)
-                  ? 'border-2 border-black bg-white text-black'
-                  : hasRecords(day)
-                    ? 'border border-black/10 text-black'
-                    : 'border border-black/10 bg-white text-black',
+                : hasRecords(day)
+                  ? 'border border-black/10'
+                  : 'border border-black/10 bg-white',
+              isToday(day) && !isSelectedDay(day) ? 'border-2 border-black' : '',
             ]"
             :style="!isSelectedDay(day) && hasRecords(day) ? 'background-color: #e8ecfc' : undefined"
             @click="selectDay(day)"
@@ -134,101 +133,155 @@
           </button>
         </div>
       </div>
+    </template>
 
-      <!-- 선택된 날짜 상세 -->
-      <div v-if="selectedDate" class="bg-white rounded-[16px] border border-black/10 p-5">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold flex items-center gap-2 text-black">
-            <Icon name="lucide:calendar" class="w-5 h-5" />
-            {{ $t('calendar.monthDay', { month: selectedDate.getMonth() + 1, day: selectedDate.getDate() }) }}
-          </h3>
-          <button
-            type="button"
-            class="w-8 h-8 rounded-[12px] flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
-            @click="selectedDate = null"
-          >
-            <Icon name="lucide:x" class="w-4 h-4" />
-          </button>
+    <!-- 선택된 날짜 상세 — 바텀 시트 -->
+    <Transition name="cal-dim">
+      <div
+        v-if="selectedDate"
+        class="fixed inset-0 bg-black/30 z-40"
+        @click="selectedDate = null"
+      />
+    </Transition>
+    <Transition name="cal-sheet">
+      <div
+        v-if="selectedDate"
+        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex flex-col rounded-t-3xl shadow-2xl bg-white"
+        style="max-height: calc(100vh - 98px - 20px)"
+      >
+        <!-- 핸들 -->
+        <div class="flex justify-center pt-3 pb-1 shrink-0">
+          <div class="w-10 h-1 rounded-full bg-gray-200" />
         </div>
-
-        <!-- 해당 날짜 기록 -->
-        <div class="mb-4">
-          <div class="text-sm font-bold mb-3 text-black">{{ $t('calendar.completedActivities') }}</div>
-          <div v-if="selectedDayRecords.length > 0" class="space-y-2">
-            <div
-              v-for="record in selectedDayRecords"
-              :key="record.id"
-              class="flex items-center gap-3 p-3 rounded-[12px]"
-              style="background-color: #e8ecfc"
-            >
-              <div class="w-8 h-8 flex items-center justify-center text-xl">
-                {{ record.categoryEmoji ?? '🏷️' }}
-              </div>
-              <div class="flex-1">
-                <div class="font-semibold text-sm text-black">{{ record.categoryName }}</div>
-                <div class="text-xs text-[#525252]">
-                  {{ formatTime(record.recordedDate) }}
-                  <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
-                </div>
-              </div>
-              <div class="px-3 py-1 rounded-[8px] text-xs font-bold text-white" style="background-color: #97a8f1">
-                {{ $t('calendar.done') }}
-              </div>
-            </div>
-          </div>
-          <div v-else class="text-sm text-[#a1a1a1] text-center py-6 bg-[#f5f5f5] rounded-[12px]">
-            {{ $t('calendar.noRecords') }}
-          </div>
-        </div>
-
-        <!-- 메모 -->
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <div class="text-sm font-bold text-black">{{ $t('calendar.memo') }}</div>
-            <button
-              v-if="!isEditingNote"
-              type="button"
-              class="flex items-center gap-1 text-xs font-medium text-[#525252] hover:text-black transition-colors"
-              @click="startEdit"
-            >
-              <Icon name="lucide:edit-2" class="w-3 h-3" />
-              {{ selectedNote ? $t('calendar.memoEdit') : $t('calendar.memoWrite') }}
-            </button>
-          </div>
-
-          <div v-if="isEditingNote" class="space-y-2">
-            <textarea
-              v-model="editingNoteText"
-              rows="3"
-              :placeholder="$t('calendar.memoPlaceholder')"
-              class="w-full rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 py-3 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-[#97a8f1] resize-none text-sm"
-            />
-            <div class="flex gap-2">
+        <div class="flex-1 overflow-y-auto px-5 pb-8 pt-1">
+          <div class="bg-white rounded-[16px] border border-black/10 p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold flex items-center gap-2 text-black">
+                <Icon name="lucide:calendar" class="w-5 h-5" />
+                {{ $t('calendar.monthDay', { month: selectedDate.getMonth() + 1, day: selectedDate.getDate() }) }}
+              </h3>
               <button
                 type="button"
-                class="flex-1 h-10 rounded-[12px] bg-black text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
-                :disabled="noteSaving"
-                @click="saveNote"
-              >
-                <Icon name="lucide:check" class="w-4 h-4" />
-                {{ noteSaving ? $t('calendar.saving') : $t('common.save') }}
-              </button>
-              <button
-                type="button"
-                class="w-10 h-10 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
-                @click="cancelEdit"
+                class="w-8 h-8 rounded-[12px] flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
+                @click="selectedDate = null"
               >
                 <Icon name="lucide:x" class="w-4 h-4" />
               </button>
             </div>
-          </div>
-          <div v-else class="p-4 bg-[#f5f5f5] rounded-[12px] text-sm min-h-[60px] text-[#525252]">
-            <span v-if="selectedNote">{{ selectedNote }}</span>
-            <span v-else class="text-[#a1a1a1]">{{ $t('calendar.noMemo') }}</span>
+
+            <!-- 해당 날짜 기록 -->
+            <div class="mb-4">
+              <div class="text-sm font-bold mb-3 text-black">{{ $t('calendar.completedActivities') }}</div>
+              <div v-if="selectedDayRecords.length > 0" class="space-y-2">
+                <div
+                  v-for="record in selectedDayRecords"
+                  :key="record.id"
+                  class="p-3 rounded-[12px] relative"
+                  style="background-color: #e8ecfc"
+                >
+                  <div class="flex items-center gap-3">
+                    <div class="w-6 h-6 flex items-center justify-center text-xl shrink-0">
+                      {{ record.categoryEmoji ?? '🏷️' }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-semibold text-sm text-black">{{ record.categoryName }}</div>
+                      <div class="text-xs text-[#525252]">
+                        {{ formatTime(record.recordedDate) }}
+                        <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="px-3 py-1 rounded-[8px] text-xs font-bold text-white" style="background-color: #97a8f1">
+                        {{ $t('calendar.done') }}
+                      </div>
+                      <div class="relative">
+                        <button
+                          type="button"
+                          class="w-8 h-8 rounded-full hover:bg-[#d4dcf9] flex items-center justify-center text-[#525252] transition-colors"
+                          @click="openMenuId = openMenuId === record.id ? null : record.id"
+                        >
+                          ⋯
+                        </button>
+                        <div v-if="openMenuId === record.id" class="fixed inset-0 z-10" @click="openMenuId = null" />
+                        <Transition name="cal-menu">
+                          <div
+                            v-if="openMenuId === record.id"
+                            class="absolute right-0 top-10 bg-white rounded-[12px] shadow-lg border border-black/10 overflow-hidden z-20 min-w-[120px]"
+                          >
+                            <button
+                              type="button"
+                              class="w-full px-4 py-2.5 text-left text-sm hover:bg-[#e8ecfc] flex items-center gap-2 text-[#97a8f1] font-semibold transition-colors"
+                              :disabled="deletingId === record.id"
+                              @click="removeRecord(record)"
+                            >
+                              <Icon name="lucide:trash-2" class="w-4 h-4" />
+                              {{ $t('common.delete') }}
+                            </button>
+                          </div>
+                        </Transition>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="record.memo" class="text-sm text-[#525252] mt-2 pl-9">
+                    {{ record.memo }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-sm text-[#a1a1a1] text-center py-6 bg-[#f5f5f5] rounded-[12px]">
+                {{ $t('calendar.noRecords') }}
+              </div>
+            </div>
+
+            <!-- 메모 -->
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <div class="text-sm font-bold text-black">{{ $t('calendar.memo') }}</div>
+                <button
+                  v-if="!isEditingNote"
+                  type="button"
+                  class="flex items-center gap-1 text-xs font-medium text-[#525252] hover:text-black transition-colors"
+                  @click="startEdit"
+                >
+                  <Icon name="lucide:edit-2" class="w-3 h-3" />
+                  {{ selectedNote ? $t('calendar.memoEdit') : $t('calendar.memoWrite') }}
+                </button>
+              </div>
+
+              <div v-if="isEditingNote" class="space-y-2">
+                <textarea
+                  v-model="editingNoteText"
+                  rows="3"
+                  :placeholder="$t('calendar.memoPlaceholder')"
+                  class="w-full rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 py-3 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-[#97a8f1] resize-none text-sm"
+                />
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="flex-1 h-10 rounded-[12px] bg-black text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                    :disabled="noteSaving"
+                    @click="saveNote"
+                  >
+                    <Icon name="lucide:check" class="w-4 h-4" />
+                    {{ noteSaving ? $t('calendar.saving') : $t('common.save') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="w-10 h-10 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
+                    @click="cancelEdit"
+                  >
+                    <Icon name="lucide:x" class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div v-else class="p-4 bg-[#f5f5f5] rounded-[12px] text-sm min-h-[60px] text-[#525252]">
+                <span v-if="selectedNote">{{ selectedNote }}</span>
+                <span v-else class="text-[#a1a1a1]">{{ $t('calendar.noMemo') }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </template>
+    </Transition>
   </div>
 </template>
 
@@ -272,6 +325,10 @@ const selectedNote = ref<string | null>(null)
 const isEditingNote = ref<boolean>(false)
 const editingNoteText = ref<string>('')
 const noteSaving = ref<boolean>(false)
+
+// Record row menu / delete
+const openMenuId = ref<number | null>(null)
+const deletingId = ref<number | null>(null)
 
 const showDetailedStats = ref<boolean>(false)
 
@@ -378,6 +435,7 @@ function prevMonth() {
     viewMonth.value -= 1
   }
   selectedDate.value = null
+  openMenuId.value = null
   noteMap.value = {}
   loadMonth()
 }
@@ -391,6 +449,7 @@ function nextMonth() {
     viewMonth.value += 1
   }
   selectedDate.value = null
+  openMenuId.value = null
   noteMap.value = {}
   loadMonth()
 }
@@ -401,6 +460,7 @@ async function selectDay(day: number) {
   isEditingNote.value = false
   editingNoteText.value = ''
   selectedNote.value = null
+  openMenuId.value = null
 
   // Fetch note if not cached
   if (noteMap.value[key] !== undefined) {
@@ -464,5 +524,57 @@ async function saveNote() {
   }
 }
 
+async function removeRecord(record: RecordResponse) {
+  if (deletingId.value !== null) return
+  openMenuId.value = null
+  deletingId.value = record.id
+  try {
+    const { error } = await sdk.deleteRecord({ client, path: { recordId: record.id } })
+    if (error) throw new Error(errMsg(error, '기록 삭제 실패'))
+    monthRecords.value = monthRecords.value.filter(r => r.id !== record.id)
+    // i18n: calendar.recordDeleted 키 미존재 (shared) → TW2 카피 직접 사용
+    toast.success('기록이 삭제되었습니다')
+  }
+  catch (e) {
+    toast.error(errMsg(e, '기록 삭제 실패'))
+  }
+  finally {
+    deletingId.value = null
+  }
+}
+
 onMounted(load)
 </script>
+
+<style scoped>
+/* 딤 배경 페이드 */
+.cal-dim-enter-active,
+.cal-dim-leave-active {
+  transition: opacity 0.2s ease;
+}
+.cal-dim-enter-from,
+.cal-dim-leave-to {
+  opacity: 0;
+}
+
+/* 바텀 시트 슬라이드업 (spring 근사) */
+.cal-sheet-enter-active {
+  transition: transform 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.15);
+}
+.cal-sheet-leave-active {
+  transition: transform 0.28s ease-in;
+}
+.cal-sheet-enter-from,
+.cal-sheet-leave-to {
+  transform: translate(-50%, 100%);
+}
+
+/* 기록 메뉴 팝오버 */
+.cal-menu-enter-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.cal-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+</style>

@@ -106,7 +106,15 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ middleware: 'auth' })
+// L4: 구 자유배치 페이지. 홈(index.vue)이 이미 자유배치(scale/flip/zIndex 영속)를
+// 제공하므로 이 페이지는 중복/divergent(scale/flip/zIndex 누락). 링크 안전을 위해
+// 페이지를 제거하는 대신 홈으로 redirect 한다.
+definePageMeta({
+  middleware: [
+    'auth',
+    () => navigateTo('/', { replace: true }),
+  ],
+})
 
 interface FreeItem {
   placementId: number

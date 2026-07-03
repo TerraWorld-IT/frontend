@@ -221,6 +221,7 @@
     "tabSpecial": "Special→Basic",
     "tabToken": "Token↔Token",
     "tabTokenBasic": "Token→Dew",
+    "tokenSwapRetired": "Token-to-token exchange is no longer supported. Tokens can be exchanged for coins.",
     "title": "Token exchange",
     "tokenAmountPlaceholder": "Amount of tokens to exchange",
     "tokenToBasicDesc": "Category token → Basic coin (Dew) (1:1 ratio)",
@@ -318,6 +319,7 @@
   },
   "nav": {
     "calendar": "Calendar",
+    "grow": "Grow",
     "profile": "Drawer",
     "record": "Record",
     "shop": "Shop",

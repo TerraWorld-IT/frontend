@@ -1,40 +1,32 @@
 <template>
   <div>
-    <!-- Coins 2-col grid -->
-    <div class="grid grid-cols-2 gap-2 mb-2">
+    <!-- 코인 / 루비 / 반짝이 3-col -->
+    <div class="grid grid-cols-3 gap-2 mb-2">
       <div
+        v-for="m in coinMetas"
+        :key="m.code"
         class="flex items-center gap-2 px-3 py-3 rounded-xl"
         :style="{ backgroundColor: coinCellBg }"
       >
-        <Icon name="lucide:star" class="w-5 h-5 text-[#595757] shrink-0" />
+        <Icon :name="m.icon" class="w-5 h-5 text-[#595757] shrink-0" />
         <div>
-          <div class="text-xs text-neutral-500 font-medium">{{ $t('currency.basicCoin') }}</div>
-          <div class="font-bold text-black tabular-nums text-sm">{{ fmt(currency?.basicCoins) }}</div>
-        </div>
-      </div>
-      <div
-        class="flex items-center gap-2 px-3 py-3 rounded-xl"
-        :style="{ backgroundColor: coinCellBg }"
-      >
-        <Icon name="lucide:gem" class="w-5 h-5 text-[#595757] shrink-0" />
-        <div>
-          <div class="text-xs text-neutral-500 font-medium">{{ $t('currency.specialCoin') }}</div>
-          <div class="font-bold text-black tabular-nums text-sm">{{ fmt(currency?.specialCoins) }}</div>
+          <div class="text-xs text-neutral-500 font-medium">{{ m.labelKo }}</div>
+          <div class="font-bold text-black tabular-nums text-sm">{{ fmt(balanceOf(currency, m.code)) }}</div>
         </div>
       </div>
     </div>
 
-    <!-- Tokens 4-col grid -->
+    <!-- 토큰 4종 (이슬/햇살/번개/바람) 4-col -->
     <div class="grid grid-cols-4 gap-2">
       <div
-        v-for="tk in tokens"
-        :key="tk.label"
+        v-for="m in tokenMetas"
+        :key="m.code"
         class="flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-center"
         :style="{ backgroundColor: coinCellBg }"
       >
-        <Icon :name="tk.icon" class="w-4 h-4 text-[#595757]" />
-        <div class="text-[11px] text-neutral-500 font-medium">{{ tk.label }}</div>
-        <div class="font-bold text-black tabular-nums text-xs">{{ fmt(tk.value) }}</div>
+        <Icon :name="m.icon" class="w-4 h-4 text-[#595757]" />
+        <div class="text-[11px] text-neutral-500 font-medium">{{ m.labelKo }}</div>
+        <div class="font-bold text-black tabular-nums text-xs">{{ fmt(balanceOf(currency, m.code)) }}</div>
       </div>
     </div>
   </div>
@@ -42,8 +34,9 @@
 
 <script setup lang="ts">
 import type { CurrencyResponse } from '@terraworld-it/openapi-frontend'
+import { balanceOf, CURRENCY_META, type CurrencyCode } from '~/utils/currency'
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     currency?: CurrencyResponse | null
     coinCellBg?: string
@@ -54,21 +47,12 @@ const props = withDefaults(
   },
 )
 
-const { t } = useI18n()
+// 낙서장 리팩토링 req 1: 7화폐 balances[] 표시 (코인/루비/반짝이 + 이슬/햇살/번개/바람).
+const TOKEN_CODES: CurrencyCode[] = ['DEW', 'SUN', 'BOLT', 'WIND']
+const coinMetas = CURRENCY_META.filter(m => !TOKEN_CODES.includes(m.code))
+const tokenMetas = CURRENCY_META.filter(m => TOKEN_CODES.includes(m.code))
 
-const tokens = computed(() => {
-  const c = props.currency
-  if (!c) return []
-  return [
-    { icon: 'lucide:footprints', label: t('record.walk'), value: c.walkTokens },
-    { icon: 'lucide:book-open', label: t('record.read'), value: c.readTokens },
-    { icon: 'lucide:zap', label: t('record.run'), value: c.runTokens },
-    { icon: 'lucide:palette', label: t('record.doodle'), value: c.drawTokens },
-  ]
-})
-
-function fmt(n: number | undefined | null): string {
-  if (n === null || n === undefined) return '0'
+function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 </script>

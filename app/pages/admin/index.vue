@@ -61,14 +61,13 @@ const stats = computed(() => [
   { key: 'users', label: t('admin.index.totalUsers'), value: dashboard.value?.totalUsers ?? 0 },
   { key: 'items', label: t('admin.index.totalItems'), value: dashboard.value?.totalItems ?? 0 },
   { key: 'categories', label: t('admin.index.totalCategories'), value: dashboard.value?.totalCategories ?? 0 },
-  { key: 'levels', label: t('admin.index.totalLevels'), value: dashboard.value?.totalLevels ?? 0 },
 ])
 
 const menus = computed(() => [
   { path: '/admin/items', icon: '🎨', label: t('admin.index.items'), desc: t('admin.index.itemsDesc'), bg: '#E8A0BF22' },
   { path: '/admin/categories', icon: '📂', label: t('admin.index.categories'), desc: t('admin.index.categoriesDesc'), bg: '#7B9E6B22' },
-  { path: '/admin/exchange', icon: '💱', label: t('admin.index.exchange'), desc: t('admin.index.exchangeDesc'), bg: '#A8D8EA22' },
-  { path: '/admin/levels', icon: '📊', label: t('admin.index.levels'), desc: t('admin.index.levelsDesc'), bg: '#F4E4BA44' },
+  // H2 (code-review R1): 구 admin 환전 화면 제거 — 편집 대상(token_exchange_rates)이 실 환전(exchange_rates, 7화폐)과
+  //   무관해 no-op(오도). 실 환전 비율/수수료/일일캡은 백엔드 exchange_rates SoT(V28 시드 관리).
 ])
 
 onMounted(async () => {

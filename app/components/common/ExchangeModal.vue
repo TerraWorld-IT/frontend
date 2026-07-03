@@ -7,11 +7,11 @@
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-riso-butter/30 rounded-xl p-3 text-center">
           <p class="text-[10px] text-riso-dark/40 mb-1">{{ $t('currency.basicCoin') }}</p>
-          <p class="font-bold text-riso-dark">{{ currency?.basicCoins?.toFixed(1) ?? '0' }}</p>
+          <p class="font-bold text-riso-dark">{{ balanceOf(currency, 'COIN').toFixed(1) }}</p>
         </div>
         <div class="bg-riso-lavender/20 rounded-xl p-3 text-center">
           <p class="text-[10px] text-riso-dark/40 mb-1">{{ $t('currency.specialCoin') }}</p>
-          <p class="font-bold text-riso-dark">{{ currency?.specialCoins?.toFixed(1) ?? '0' }}</p>
+          <p class="font-bold text-riso-dark">{{ balanceOf(currency, 'RUBY').toFixed(1) }}</p>
         </div>
       </div>
 
@@ -137,6 +137,7 @@
 
 <script setup lang="ts">
 import type { CategoryResponse, CurrencyResponse } from '@terraworld-it/openapi-frontend'
+import type { CurrencyCode } from '~/utils/currency'
 
 const props = defineProps<{
   show: boolean
@@ -170,11 +171,15 @@ const tbCategoryId = ref<number | null>(null)
 const tbAmount = ref<string>('')
 const exchanging = ref<boolean>(false)
 
+// 낙서장 P1: 카테고리 ID → 활동 화폐 코드 (WalletBuilder 매핑과 동일: 1산책/2독서/3러닝/4낙서)
+const CATEGORY_TO_CURRENCY: Record<number, CurrencyCode> = { 1: 'DEW', 2: 'SUN', 3: 'BOLT', 4: 'WIND' }
+
 async function exchangeSpecial() {
   if (!specialAmount.value) return
   exchanging.value = true
   try {
-    const { error } = await sdk.exchangeSpecialToBasic({ client, body: { amount: Number(specialAmount.value) } })
+    // 스페셜(RUBY) → 기본(COIN). 낙서장 7화폐 directed exchange
+    const { error } = await sdk.exchange({ client, body: { from: 'RUBY', to: 'COIN', amount: Number(specialAmount.value) } })
     if (error) throw error
     toast.success(t('exchange.success'))
     specialAmount.value = ''
@@ -184,39 +189,20 @@ async function exchangeSpecial() {
   finally { exchanging.value = false }
 }
 
-async function exchangeToken() {
-  if (!fromCategoryId.value || !toCategoryId.value || !tokenAmount.value) return
-  exchanging.value = true
-  try {
-    const { error } = await sdk.exchangeTokens({
-      client,
-      body: {
-        fromCategoryId: fromCategoryId.value,
-        toCategoryId: toCategoryId.value,
-        amount: Number(tokenAmount.value),
-      },
-    })
-    if (error) throw error
-    toast.success(t('exchange.success'))
-    tokenAmount.value = ''
-    emit('exchanged')
-  }
-  catch { toast.error(t('exchange.failed')) }
-  finally { exchanging.value = false }
+// 낙서장 P1: 활동토큰 상호변환(token↔token)은 신 경제에서 폐지 — 활동토큰은 COIN 으로 단방향만.
+// 전체 모달 재디자인(신 Figma)은 FE 트랙에서 진행. 임시로 폐지 안내.
+function exchangeToken() {
+  toast.info(t('exchange.tokenSwapRetired'))
 }
 
-// N15 (구현 계획서 v4): 카테고리 토큰 → 이슬(기본 코인) 교환
+// 활동 토큰 → COIN 교환 (낙서장 §1 one-way)
 async function exchangeTokenBasic() {
   if (!tbCategoryId.value || !tbAmount.value) return
+  const from = CATEGORY_TO_CURRENCY[tbCategoryId.value]
+  if (!from) { toast.error(t('exchange.failed')); return }
   exchanging.value = true
   try {
-    const { error } = await sdk.exchangeTokenToBasic({
-      client,
-      body: {
-        fromCategoryId: tbCategoryId.value,
-        amount: Number(tbAmount.value),
-      },
-    })
+    const { error } = await sdk.exchange({ client, body: { from, to: 'COIN', amount: Number(tbAmount.value) } })
     if (error) throw error
     toast.success(t('exchange.success'))
     tbAmount.value = ''

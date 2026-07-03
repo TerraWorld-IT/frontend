@@ -221,6 +221,7 @@
     "tabSpecial": "스페셜→기본",
     "tabToken": "토큰↔토큰",
     "tabTokenBasic": "토큰→이슬",
+    "tokenSwapRetired": "활동 토큰 간 교환은 더 이상 지원하지 않아요. 토큰은 코인으로 바꿀 수 있어요.",
     "title": "토큰 교환",
     "tokenAmountPlaceholder": "교환할 토큰 수량",
     "tokenToBasicDesc": "카테고리 토큰 → 기본 코인(이슬) (1:1 비율)",
@@ -318,10 +319,11 @@
   },
   "nav": {
     "calendar": "캘린더",
-    "profile": "서랍",
-    "record": "기록",
+    "grow": "키우기",
+    "profile": "더보기",
+    "record": "기록하기",
     "shop": "상점",
-    "terrarium": "테라"
+    "terrarium": "나의테라"
   },
   "onboarding": {
     "next": "다음",

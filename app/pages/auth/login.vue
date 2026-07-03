@@ -1,150 +1,202 @@
 <template>
-  <div class="min-h-screen bg-riso-cream flex items-center justify-center px-4">
-    <div class="w-full max-w-sm">
-      <!-- Glass jar container -->
-      <div class="relative">
-        <!-- Jar lid -->
-        <div class="mx-auto w-32 h-5 bg-riso-walnut/30 rounded-t-lg border-2 border-riso-walnut/20" />
-        <div class="mx-auto w-40 h-3 bg-riso-walnut/20 rounded-b-sm -mt-px" />
+  <div
+    class="min-h-screen flex items-center justify-center relative overflow-hidden"
+    style="background: linear-gradient(135deg, #e8f4fd 0%, #f0e8ff 40%, #ffe8f4 100%)"
+  >
+    <!-- 배경 장식 -->
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute top-16 left-12 text-5xl opacity-20 rotate-12">🌵</div>
+      <div class="absolute top-32 right-16 text-4xl opacity-20 -rotate-6">🌸</div>
+      <div class="absolute bottom-24 left-20 text-4xl opacity-20 rotate-6">🐱</div>
+      <div class="absolute bottom-16 right-12 text-5xl opacity-20 -rotate-12">🌈</div>
+      <div class="absolute top-1/2 left-6 text-3xl opacity-15">🍄</div>
+      <div class="absolute top-1/4 right-6 text-3xl opacity-15">🐶</div>
+    </div>
 
-        <!-- Jar body -->
-        <!-- M4 (code-review): 인라인 white 그라데이션을 Tailwind gradient + dark: 변형으로 교체
-             (인라인 style 은 .dark override 가 안 먹어 다크모드에서 흰 유리병이 남던 누수 차단). -->
-        <div
-          class="relative mx-auto w-full backdrop-blur-md border-2 border-white/50 dark:border-white/15 rounded-[2rem] rounded-t-[1rem] px-8 pt-10 pb-10 riso-shadow bg-gradient-to-br from-white/45 to-white/20 dark:from-white/10 dark:to-white/[0.04]"
-        >
-          <!-- Glass highlights -->
-          <div class="absolute top-6 left-6 w-16 h-2 bg-white/60 rounded-full rotate-[-20deg]" />
-          <div class="absolute top-12 left-4 w-8 h-1.5 bg-white/40 rounded-full rotate-[-20deg]" />
+    <div class="w-full max-w-sm mx-4 relative z-10">
+      <!-- 로고 영역 -->
+      <div class="text-center mb-8">
+        <div class="text-6xl mb-3">🌍</div>
+        <h1 class="text-3xl font-bold tracking-tight" style="color: #5b6fa6">
+          TERRAWORLD
+        </h1>
+        <p class="text-sm mt-1" style="color: #8a9bc4">
+          {{ $t('auth.tagline') }}
+        </p>
+      </div>
 
-          <!-- Logo -->
-          <div class="text-center mb-8">
-            <div class="text-4xl mb-2">🪻</div>
-            <h1 class="text-xl font-bold text-riso-dark">TerraWorld</h1>
-            <p class="text-xs text-riso-dark/40 mt-1">{{ $t('auth.tagline') }}</p>
-          </div>
+      <!-- 로그인 / 회원가입 폼 -->
+      <div
+        class="rounded-3xl p-7 shadow-lg"
+        style="background: rgba(255,255,255,0.75); backdrop-filter: blur(16px)"
+      >
+        <h2 class="text-lg font-semibold mb-5 text-center" style="color: #5b6fa6">
+          {{ mode === 'login' ? $t('auth.login') : $t('auth.signup') }}
+        </h2>
 
-          <!-- Form -->
-          <form class="space-y-3" @submit.prevent="onSubmit">
-            <!-- Signup fields (only visible in signup mode) -->
+        <form class="flex flex-col gap-3" @submit.prevent="onSubmit">
+          <!-- 닉네임 (가입 전용) -->
+          <div v-if="mode === 'signup'">
+            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+              {{ $t('auth.nicknamePlaceholder') }}
+            </label>
             <input
-              v-if="mode === 'signup'"
               v-model="nickname"
               type="text"
               :placeholder="t('auth.nicknamePlaceholder')"
               required
-              class="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-white/80 rounded-xl text-sm text-riso-dark placeholder-riso-dark/30 focus:outline-none focus:border-riso-sage focus:ring-2 focus:ring-riso-sage/20 transition"
+              maxlength="50"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
+              @focus="onFieldFocus"
+              @blur="onFieldBlur"
             >
+          </div>
 
-            <!--
-              LEGAL-001 fix (Codex audit HIGH, 2026-05-18):
-              만 14세 미만 가입 차단 (개인정보보호법 — 만 14세 미만 아동의 개인정보).
-              date input 의 max 속성 = 14년 전 오늘 (브라우저 native 검증) + onSubmit 의 추가 검증 + backend better-auth before hook 의 최종 검증 (3중 방어).
-            -->
+          <!--
+            LEGAL-001 fix (Codex audit HIGH, 2026-05-18):
+            만 14세 미만 가입 차단 (개인정보보호법 — 만 14세 미만 아동의 개인정보).
+            date input 의 max 속성 = 14년 전 오늘 (브라우저 native 검증) + onSubmit 의 추가 검증 +
+            backend better-auth before hook 의 최종 검증 (3중 방어).
+          -->
+          <div v-if="mode === 'signup'">
+            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+              {{ $t('auth.birthDateLabel') }}
+            </label>
             <input
-              v-if="mode === 'signup'"
               v-model="birthDate"
               type="date"
               :max="maxBirthDate"
               :placeholder="t('auth.birthDatePlaceholder')"
               required
               :aria-label="t('auth.birthDateLabel')"
-              class="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-white/80 rounded-xl text-sm text-riso-dark placeholder-riso-dark/30 focus:outline-none focus:border-riso-sage focus:ring-2 focus:ring-riso-sage/20 transition"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
+              @focus="onFieldFocus"
+              @blur="onFieldBlur"
             >
+          </div>
 
+          <!-- 이메일 -->
+          <div>
+            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+              {{ $t('auth.email') }}
+            </label>
             <input
               v-model="email"
               type="email"
-              :placeholder="t('auth.email')"
+              :placeholder="t('auth.emailPlaceholder')"
               required
-              class="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-white/80 rounded-xl text-sm text-riso-dark placeholder-riso-dark/30 focus:outline-none focus:border-riso-sage focus:ring-2 focus:ring-riso-sage/20 transition"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
+              @focus="onFieldFocus"
+              @blur="onFieldBlur"
             >
+          </div>
 
+          <!-- 비밀번호 -->
+          <div>
+            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+              {{ $t('auth.password') }}
+            </label>
             <input
               v-model="password"
               type="password"
-              :placeholder="t('auth.password')"
+              :placeholder="t('auth.passwordPlaceholder')"
               required
-              class="w-full px-4 py-3 bg-white/60 backdrop-blur-sm border border-white/80 rounded-xl text-sm text-riso-dark placeholder-riso-dark/30 focus:outline-none focus:border-riso-sage focus:ring-2 focus:ring-riso-sage/20 transition"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
+              @focus="onFieldFocus"
+              @blur="onFieldBlur"
             >
-
-            <!--
-              P1-2 (PIPA 제15조): 가입 동의 분리 — 약관/필수 개인정보/선택 항목을 각각 구분 동의.
-              필수(이용약관·개인정보 수집·이용) 미동의 시 가입 차단. 동의 항목·버전·시각은
-              signUp payload 로 전달돼 서버에 기록(P1-3).
-            -->
-            <fieldset
-              v-if="mode === 'signup'"
-              class="rounded-xl bg-white/40 border border-white/70 p-3 space-y-2 text-left"
-            >
-              <legend class="sr-only">{{ t('auth.consent.legend') }}</legend>
-
-              <!-- 전체 동의 -->
-              <label class="flex items-center gap-2 cursor-pointer pb-2 border-b border-white/60">
-                <input
-                  type="checkbox"
-                  :checked="agreeAll"
-                  class="w-4 h-4 accent-riso-sage rounded"
-                  @change="toggleAgreeAll(($event.target as HTMLInputElement).checked)"
-                >
-                <span class="text-sm font-semibold text-riso-dark">{{ t('auth.consent.agreeAll') }}</span>
-              </label>
-
-              <!-- 필수 -->
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input v-model="agreeTerms" type="checkbox" class="w-4 h-4 accent-riso-sage rounded">
-                <span class="text-xs text-riso-dark">
-                  <span class="text-riso-poppy font-medium">[{{ t('auth.consent.required') }}]</span>
-                  {{ t('auth.consent.terms') }}
-                </span>
-                <NuxtLink to="/legal/terms" target="_blank" class="ml-auto shrink-0 text-[11px] text-riso-sage underline">
-                  {{ t('auth.consent.view') }}
-                </NuxtLink>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input v-model="agreePrivacy" type="checkbox" class="w-4 h-4 accent-riso-sage rounded">
-                <span class="text-xs text-riso-dark">
-                  <span class="text-riso-poppy font-medium">[{{ t('auth.consent.required') }}]</span>
-                  {{ t('auth.consent.privacy') }}
-                </span>
-                <NuxtLink to="/legal/privacy" target="_blank" class="ml-auto shrink-0 text-[11px] text-riso-sage underline">
-                  {{ t('auth.consent.view') }}
-                </NuxtLink>
-              </label>
-
-              <!-- 선택 -->
-              <label
-                v-for="opt in optionalConsents"
-                :key="opt.key"
-                class="flex items-center gap-2 cursor-pointer"
-              >
-                <input v-model="opt.value" type="checkbox" class="w-4 h-4 accent-riso-sage rounded">
-                <span class="text-xs text-riso-dark/80">
-                  <span class="text-riso-dark/40 font-medium">[{{ t('auth.consent.optional') }}]</span>
-                  {{ t(`auth.consent.${opt.key}`) }}
-                </span>
-              </label>
-            </fieldset>
-
-            <button
-              type="submit"
-              class="w-full py-3 bg-riso-sage text-white font-semibold rounded-xl riso-shadow-sm hover:brightness-110 active:riso-shadow-press transition disabled:opacity-50"
-              :disabled="submitting"
-            >
-              {{ submitting ? $t('auth.submitting') : (mode === 'login' ? $t('auth.login') : $t('auth.signupAction')) }}
-            </button>
-          </form>
-
-          <!-- Toggle mode -->
-          <div class="mt-6 text-center">
-            <button
-              type="button"
-              class="text-xs text-riso-dark/40 hover:text-riso-sage transition"
-              @click="toggleMode"
-            >
-              {{ mode === 'login' ? $t('auth.noAccount') + ' ' + $t('auth.signupAction') : $t('auth.hasAccount') + ' ' + $t('auth.login') }}
-            </button>
           </div>
+
+          <!--
+            P1-2 (PIPA 제15조): 가입 동의 분리 — 약관/필수 개인정보/선택 항목을 각각 구분 동의.
+            필수(이용약관·개인정보 수집·이용) 미동의 시 가입 차단. 동의 항목·버전·시각은
+            signUp payload 로 전달돼 서버에 기록(P1-3).
+          -->
+          <fieldset
+            v-if="mode === 'signup'"
+            class="rounded-xl p-3 space-y-2 text-left"
+            style="background: rgba(240,236,255,0.6); border: 1.5px solid rgba(151,168,241,0.3)"
+          >
+            <legend class="sr-only">{{ t('auth.consent.legend') }}</legend>
+
+            <!-- 전체 동의 -->
+            <label
+              class="flex items-center gap-2 cursor-pointer pb-2 border-b"
+              style="border-color: rgba(151,168,241,0.25)"
+            >
+              <input
+                type="checkbox"
+                :checked="agreeAll"
+                class="w-4 h-4 rounded"
+                style="accent-color: #97a8f1"
+                @change="toggleAgreeAll(($event.target as HTMLInputElement).checked)"
+              >
+              <span class="text-sm font-semibold" style="color: #4a5580">{{ t('auth.consent.agreeAll') }}</span>
+            </label>
+
+            <!-- 필수 -->
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input v-model="agreeTerms" type="checkbox" class="w-4 h-4 rounded" style="accent-color: #97a8f1">
+              <span class="text-xs" style="color: #4a5580">
+                <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
+                {{ t('auth.consent.terms') }}
+              </span>
+              <NuxtLink to="/legal/terms" target="_blank" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
+                {{ t('auth.consent.view') }}
+              </NuxtLink>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input v-model="agreePrivacy" type="checkbox" class="w-4 h-4 rounded" style="accent-color: #97a8f1">
+              <span class="text-xs" style="color: #4a5580">
+                <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
+                {{ t('auth.consent.privacy') }}
+              </span>
+              <NuxtLink to="/legal/privacy" target="_blank" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
+                {{ t('auth.consent.view') }}
+              </NuxtLink>
+            </label>
+
+            <!-- 선택 -->
+            <label
+              v-for="opt in optionalConsents"
+              :key="opt.key"
+              class="flex items-center gap-2 cursor-pointer"
+            >
+              <input v-model="opt.value" type="checkbox" class="w-4 h-4 rounded" style="accent-color: #97a8f1">
+              <span class="text-xs" style="color: #7683a8">
+                <span class="font-medium" style="color: #a0afd8">[{{ t('auth.consent.optional') }}]</span>
+                {{ t(`auth.consent.${opt.key}`) }}
+              </span>
+            </label>
+          </fieldset>
+
+          <button
+            type="submit"
+            class="w-full rounded-xl py-3 text-sm font-semibold text-white mt-2 transition-all active:scale-95 disabled:opacity-60"
+            :style="submitButtonStyle"
+            :disabled="submitting"
+          >
+            {{ submitting ? $t('auth.submitting') : (mode === 'login' ? $t('auth.login') : $t('auth.signupAction')) }}
+          </button>
+        </form>
+
+        <!-- 모드 전환 -->
+        <div class="text-center mt-5">
+          <button
+            type="button"
+            class="text-xs transition-all hover:opacity-70"
+            style="color: #a0afd8"
+            @click="toggleMode"
+          >
+            <template v-if="mode === 'login'">
+              {{ $t('auth.noAccount') }}
+              <span class="font-semibold underline underline-offset-2" style="color: #97a8f1">{{ $t('auth.signupAction') }}</span>
+            </template>
+            <template v-else>
+              {{ $t('auth.hasAccount') }}
+              <span class="font-semibold underline underline-offset-2" style="color: #97a8f1">{{ $t('auth.login') }}</span>
+            </template>
+          </button>
         </div>
       </div>
     </div>
@@ -186,6 +238,27 @@ const optionalConsents = ref<Array<{ key: string; value: boolean }>>([
 const agreeAll = computed<boolean>(
   () => agreeTerms.value && agreePrivacy.value && optionalConsents.value.every((o) => o.value),
 )
+
+// TW2 제출 버튼 그라데이션 — 로그인은 블루→퍼플, 가입은 핑크→퍼플.
+const submitButtonStyle = computed<Record<string, string>>(() =>
+  mode.value === 'login'
+    ? {
+        background: 'linear-gradient(135deg, #97a8f1 0%, #c4a0f0 100%)',
+        boxShadow: '0 4px 16px rgba(151,168,241,0.4)',
+      }
+    : {
+        background: 'linear-gradient(135deg, #f092f0 0%, #c4a0f0 100%)',
+        boxShadow: '0 4px 16px rgba(240,146,240,0.35)',
+      },
+)
+
+// TW2 input focus/blur border 색 전환 (인라인 style 재현).
+function onFieldFocus(e: FocusEvent) {
+  ;(e.target as HTMLInputElement).style.borderColor = '#97a8f1'
+}
+function onFieldBlur(e: FocusEvent) {
+  ;(e.target as HTMLInputElement).style.borderColor = 'rgba(151,168,241,0.3)'
+}
 
 function toggleAgreeAll(checked: boolean) {
   agreeTerms.value = checked
@@ -295,3 +368,16 @@ async function onSubmit() {
   }
 }
 </script>
+
+<style scoped>
+/* TW2 Login.tsx input 스타일 재현 (rgba lavender bg + 1.5px border + #4a5580 텍스트).
+   date input 등 여러 필드에 공통 적용하기 위해 scoped 클래스로 추출. */
+.tw-field {
+  background: rgba(240, 236, 255, 0.6);
+  border: 1.5px solid rgba(151, 168, 241, 0.3);
+  color: #4a5580;
+}
+.tw-field::placeholder {
+  color: #a0afd8;
+}
+</style>

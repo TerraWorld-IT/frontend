@@ -32,8 +32,9 @@ export function useRecord() {
     })
     if (error) throw error
     const paged = data as PagedRecordResponse | undefined
-    // Client-side filter for today only
-    const todayStr = now.toISOString().slice(0, 10)
+    // 감사 MED#14: '오늘' 판정은 KST 기준 (UTC toISOString 은 KST 자정~오전9시 하루 밀림 → 당일 기록 누락).
+    const kst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000)
+    const todayStr = `${kst.getFullYear()}-${String(kst.getMonth() + 1).padStart(2, '0')}-${String(kst.getDate()).padStart(2, '0')}`
     records.value = (paged?.content ?? []).filter(r => r.recordedDate?.startsWith(todayStr))
   }
 

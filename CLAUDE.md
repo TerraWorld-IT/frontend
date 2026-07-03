@@ -10,7 +10,7 @@
 ### 핵심 경험 루프
 
 ```
-기록(행동 입력) → 보상(코인/토큰/EXP) → 수집(아이템 구매) → 꾸미기(스탬프 연출 배치) → 공유 → 재방문
+기록(행동 입력) → 보상(코인/토큰/반짝이) → 수집(아이템 구매) → 꾸미기(스탬프 연출 배치) → 공유 → 재방문
 ```
 
 - **기록**이 본체, 꾸미기/리워드는 기록 지속 동기 장치
@@ -174,40 +174,42 @@ frontend/
 > `app/types/` 디렉토리는 삭제됨. 모든 타입은 OpenAPI SDK에서 import.
 > SDK 반환값은 hey-api union unwrap 이슈로 `castData<T>(data)` 유틸리티 사용.
 
-```typescript
-// 사용자
-User { id, email, nickname, role, level, totalExp, basicCoin }
+> 낙서장 리팩토링(2026-07)으로 레벨/경험치(EXP)·진화(evolution)·구 2층 재화(basicCoin/카테고리토큰)는 **제거**되고
+> 7화폐 정규화 substrate + 티어(화폐 잠금해제)로 대체됨. 아래는 현재(생성 SDK) 기준.
 
-// 카테고리 (산책, 독서, 러닝, 낙서)
+```typescript
+// 사용자 (level/totalExp/basicCoin 제거)
+UserMeResponse { userId, email, nickname, role, currency: CurrencyResponse, ownedItems: string[] }
+
+// 카테고리 (산책, 독서, 러닝, 낙서 + 커스텀)
 Category { id, name, iconUrl, color, tokenName, baseCoinReward, baseTokenReward, dailyLimit }
 
-// 기록
-ActivityRecord { id, userId, categoryId, memo, recordedDate, createdAt }
+// 기록 (dailyType: PHOTO/DIARY/FOCUS/DISTANCE — 일상 하위타입별 토큰 라우팅)
+RecordResponse { id, categoryId, categoryName, categoryEmoji?, memo?, duration?, photoUrl?, recordedDate, createdAt }
+RewardInfo { basicCoins, categoryTokens }   // EXP 없음
 
-// 재화
-WalletInfo { basicCoin, tokens: CategoryToken[] }
-CategoryToken { categoryId, categoryName, amount }
-WalletTransaction { id, currencyType, amount, balanceAfter, reason, createdAt }
+// 재화 (정규화 balances[])
+CurrencyResponse { balances: CurrencyBalance[] }
+CurrencyBalance { code, amount }            // code ∈ COIN/RUBY/SPARKLE/DEW/SUN/BOLT/WIND
 
 // 아이템
 Item { id, name, categoryId?, priceType, priceAmount, rarity, assetUrl, width, height }
 UserItem { id, itemId, quantity, acquiredAt, item: Item }
 
-// 테라리움
-Terrarium { id, backgroundId, items: TerrariumItem[] }
-TerrariumItem { id, itemId, posX(0~1), posY(0~1), rotation, scale, zIndex }
-TerrariumBackground { id, name, assetUrl, unlockCondition, unlockValue }
+// 테라리움 (진화 → 티어: 화폐로 슬롯 잠금해제)
+TerrariumResponse { terrariumId, background, placedItems, maxSlots, tier }
+// 티어: GLASS_JAR/LARGE_JAR/GRAND_TANK/HOUSE_TANK (GET /terrarium/tiers, POST /terrarium/tier)
 
-// 레벨
-LevelConfig { level, requiredExp, rewardType, rewardValue, maxItems }
+// 습관 (7일 cycle → SPARKLE)
+HabitTrackerResponse { id, title, currentStreakDays, cycleLengthDays, completedCycles, status, lastCheckedDate?, friendLinked? }
 ```
 
-### 재화 구조 (2층)
+### 재화 구조 (7화폐 정규화)
 
 ```
-기본 코인 — 범용 구매, 기본 행동 보상
-카테고리 토큰 — 행동별 전용 (산책토큰, 독서토큰, 러닝토큰, 낙서토큰)
-토큰 교환: 1:2 비율 (어드민 조정 가능)
+COIN 코인 — 범용 구매/기본 행동 보상    RUBY 루비 — 유료 소비성(IAP)    SPARKLE 반짝이 — 습관 7일 완주 / 정령 육성
+DEW 이슬(산책) · SUN 햇살(독서) · BOLT 번개(러닝) · WIND 바람(낙서) — 활동별 토큰
+교환: directed exchange (GET /currencies, POST /exchange) — 비율/수수료/일일캡은 백엔드 exchange_rates SoT (어드민 조정)
 ```
 
 ### 희귀도

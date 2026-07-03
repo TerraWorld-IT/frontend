@@ -1,4 +1,4 @@
-import type { CurrencyResponse, ProgressResponse, UserMeResponse } from '@terraworld-it/openapi-frontend'
+import type { CurrencyResponse, UserMeResponse } from '@terraworld-it/openapi-frontend'
 
 export const useUserStore = defineStore('user', () => {
   const { sdk, client } = useOpenApi()
@@ -7,7 +7,6 @@ export const useUserStore = defineStore('user', () => {
   const loading = ref<boolean>(false)
 
   const currency = computed<CurrencyResponse | null>(() => me.value?.currency ?? null)
-  const progress = computed<ProgressResponse | null>(() => me.value?.progress ?? null)
   const nickname = computed<string>(() => me.value?.nickname ?? '')
   const ownedItems = computed<string[]>(() => me.value?.ownedItems ?? [])
 
@@ -34,7 +33,6 @@ export const useUserStore = defineStore('user', () => {
   return {
     me: readonly(me),
     currency,
-    progress,
     nickname,
     ownedItems,
     loading: readonly(loading),

@@ -106,7 +106,7 @@
     />
 
     <!-- Reward toast -->
-    <CommonRewardToast ref="rewardToastRef" :coin="lastReward.coin" :exp="lastReward.exp" />
+    <CommonRewardToast ref="rewardToastRef" :coin="lastReward.coin" />
   </div>
 </template>
 
@@ -157,8 +157,10 @@ onMounted(loadData)
 
 // Item selection
 const selectedSlot = ref<number | null>(null)
-const pendingChanges = ref<PlacementItem[]>([])
-const hasChanges = computed<boolean>(() => pendingChanges.value.length > 0)
+// TERRA-REMOVE-LAST-NOOP: null = "스테이징된 변경 없음", [] = "전체 제거"(마지막 아이템 제거 포함).
+// length 로 판별하면 []("전체 제거")를 "변경 없음"으로 오인해 마지막 아이템 제거가 불가했음.
+const pendingChanges = ref<PlacementItem[] | null>(null)
+const hasChanges = computed<boolean>(() => pendingChanges.value !== null)
 const saving = ref<boolean>(false)
 
 function onSlotClick(slotId: number) {
@@ -167,6 +169,7 @@ function onSlotClick(slotId: number) {
 }
 
 function onItemSelect(itemId: number) {
+  if (saving.value) return
   if (selectedSlot.value === null) return
 
   // Build new placement: replace or add to current slot
@@ -183,6 +186,7 @@ function onItemSelect(itemId: number) {
 }
 
 function onItemRemove(slotId: number) {
+  if (saving.value) return
   const currentPlacements = terrariumStore.placedItems
     .filter(p => p.slotId !== slotId)
     .map(p => ({ itemId: p.itemId, slotId: p.slotId! }))
@@ -193,18 +197,19 @@ function onItemRemove(slotId: number) {
 }
 
 async function savePlacements() {
-  if (pendingChanges.value.length === 0 && terrariumStore.placedItems.length === 0) return
+  // staged 는 최종 배치 목록 SoT — 빈 배열([]) = 전체 제거. null 이면 스테이징된 변경이 없음.
+  // 스토어 재구성으로 덮어쓰지 않는다(그럴 경우 방금 제거한 항목이 되살아남).
+  const staged = pendingChanges.value
+  if (staged === null) return
   saving.value = true
   try {
-    const placements = pendingChanges.value.length > 0
-      ? pendingChanges.value
-      : terrariumStore.placedItems
-          .filter(p => p.slotId !== null && p.slotId !== undefined)
-          .map(p => ({ itemId: p.itemId, slotId: p.slotId! }))
-
-    await sdk.updateTerrariumPlacements({ client, body: { placedItems: placements } })
+    // TERRA-SAVE-FAIL-OPEN: @hey-api client 는 throwOnError 미설정이라 400/409/500 이 throw 아닌 {error} 로
+    // resolve 된다. error 무시 시 catch 미발동 → pendingChanges=null(변경 폐기) + 성공 토스트 → silent data loss.
+    // 명시 체크로 서버 거부를 catch 로 라우팅하고 pendingChanges 는 보존(재시도 가능).
+    const { error } = await sdk.updateTerrariumPlacements({ client, body: { placedItems: staged } })
+    if (error) throw error
     await terrariumStore.fetch()
-    pendingChanges.value = []
+    pendingChanges.value = null
     toast.success(t('terrarium.saveDone'))
   }
   catch {
@@ -215,8 +220,8 @@ async function savePlacements() {
   }
 }
 
-// Heart click → earn coins
-const lastReward = reactive({ coin: 0, exp: 0 })
+// Heart click → earn coins (낙서장: EXP 개념 제거 — 코인만)
+const lastReward = reactive({ coin: 0 })
 
 async function onHeartClick() {
   try {
@@ -229,7 +234,6 @@ async function onHeartClick() {
     // backend reward=1 정합 (BIGINT), spec example=1.0. fallback 0 = 응답 부재 시 안전.
     const heart = castData<HeartResponse>(data)
     lastReward.coin = heart?.reward ?? 0
-    lastReward.exp = 0
     rewardToastRef.value?.show()
 
     // Refresh user wallet after reward

@@ -262,11 +262,7 @@ test.describe('인증 후 페이지', () => {
     await shot(page, '07-terrarium')
   })
 
-  test('08-terrarium-free', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/terrarium/free')
-    await shot(page, '08-terrarium-free')
-  })
+  // R7: /terrarium/free 는 홈으로 redirect (구 PoC — 홈 index.vue 가 정식 자유배치 제공). 별도 스샷 테스트 제거.
 
   test('09-shop', async ({ page }) => {
     await signUpAndLogin(page)
@@ -297,6 +293,19 @@ test.describe('인증 후 페이지', () => {
     await page.goto('/upgrade/free-placement')
     await shot(page, '13-upgrade-free-placement')
   })
+
+  // 낙서장 신규 페이지 (req9 미탐색 해소 + req6 시각 캡처)
+  test('14-grow', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/grow')
+    await shot(page, '14-grow')
+  })
+
+  test('15-habits', async ({ page }) => {
+    await signUpAndLogin(page)
+    await page.goto('/habits')
+    await shot(page, '15-habits')
+  })
 })
 
 // ─────────────────────────────────────────────────────────
@@ -321,18 +330,8 @@ test.describe('Admin 페이지 (비 admin user 진입 동작 캡처)', () => {
     await page.goto('/admin/categories')
     await shot(page, '16-admin-categories')
   })
-
-  test('17-admin-exchange', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/admin/exchange')
-    await shot(page, '17-admin-exchange')
-  })
-
-  test('18-admin-levels', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/admin/levels')
-    await shot(page, '18-admin-levels')
-  })
+  // E2E-ADMIN-STALE-PAGES: /admin/exchange(R2 제거)·/admin/levels(EXP 리팩토링 시 제거) 페이지 삭제됨 →
+  //   17-admin-exchange / 18-admin-levels 테스트 제거(존재하지 않는 라우트 goto = Nuxt 에러 페이지 스냅샷).
 })
 
 // ─────────────────────────────────────────────────────────
@@ -740,14 +739,14 @@ test.describe('cycle 6 모달 정밀화', () => {
     await shot(page, 'M-C2-freecoin-ad-modal')
   })
 
-  test('M-H-홈-레벨업-안내-modal', async ({ page }) => {
-    // 레벨업 안내 button (data-testid="home-levelup") — showLevelUpDialog=true
+  test('M-H-홈-공간넓히기-tier-modal', async ({ page }) => {
+    // 낙서장: 레벨업 대체 — 테라리움 공간(tier) 잠금해제 모달 (data-testid="home-tier")
     await signUpAndLogin(page)
     await page.goto('/')
     await page.waitForLoadState('networkidle').catch(() => {})
-    await page.locator('[data-testid="home-levelup"]').click().catch(() => {})
+    await page.locator('[data-testid="home-tier"]').click().catch(() => {})
     await page.waitForTimeout(800)
-    await shot(page, 'M-H-levelup-info-modal')
+    await shot(page, 'M-H-tier-modal')
   })
 })
 
@@ -1586,37 +1585,8 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await shot(page, 'flow-56-admin-categories-real')
   })
 
-  test('flow-57-admin-exchange-with-role', async ({ page }) => {
-    await signUpAndLogin(page)
-    await seedCurrentUserState(page, { admin: true })
-    await refreshJwtAfterRoleChange(page)
-    await page.goto('/')
-    await page.reload()
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(2000)
-    await page.goto('/admin/exchange')
-    await page.reload()
-    await page.locator('h1').first().waitFor({ timeout: 10_000 }).catch(() => {})
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(800)
-    await shot(page, 'flow-57-admin-exchange-real')
-  })
-
-  test('flow-58-admin-levels-with-role', async ({ page }) => {
-    await signUpAndLogin(page)
-    await seedCurrentUserState(page, { admin: true })
-    await refreshJwtAfterRoleChange(page)
-    await page.goto('/')
-    await page.reload()
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(2000)
-    await page.goto('/admin/levels')
-    await page.reload()
-    await page.locator('h1').first().waitFor({ timeout: 10_000 }).catch(() => {})
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(800)
-    await shot(page, 'flow-58-admin-levels-real')
-  })
+  // E2E-ADMIN-STALE-PAGES: flow-57-admin-exchange / flow-58-admin-levels 제거 — 대상 라우트(/admin/exchange,
+  //   /admin/levels)가 삭제되어 goto 시 Nuxt 에러 페이지가 스냅샷됨.
 
   test('flow-53-홈-하트-클릭', async ({ page }) => {
     // 하트 button (data-testid="home-heart") 클릭 → +0.1 이슬 floating

@@ -89,8 +89,11 @@ function getPlacedItem(slotId: number): PlacedItemDetail | undefined {
 
 // Heart click animation
 const heartAnimations = ref<Array<{ id: number }>>([])
+// TERRA-HEART-DUP-KEY: Date.now() 는 같은 ms 연타 시 TransitionGroup key 중복 + 공유 setTimeout 이 두 항목을
+// 함께 제거 → 단조 카운터로 매 호출 유일 key 보장 (표시용 UI 상태라 module-scope let 무방).
+let heartSeq = 0
 function addHeartAnimation() {
-  const id = Date.now()
+  const id = ++heartSeq
   heartAnimations.value.push({ id })
   setTimeout(() => {
     heartAnimations.value = heartAnimations.value.filter(a => a.id !== id)
