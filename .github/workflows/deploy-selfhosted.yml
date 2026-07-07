@@ -1,0 +1,42 @@
+name: Deploy (self-hosted Mac)
+
+# 맥 self-hosted 러너에서 로컬 재빌드 + 재배포 (Cloudflare Tunnel 호스팅).
+# push(main) 전용 — fork PR 에서는 절대 실행 안 함(self-hosted 보안).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-selfhosted
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, terraworld]
+    steps:
+      - name: Rebuild image, redeploy frontend
+        run: |
+          set -euo pipefail
+          export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+          FE=/Users/jaeseok/TerraWorld-IT/frontend
+          DEPLOY=/Users/jaeseok/TerraWorld-IT/deploy
+
+          cd "$FE"
+          git fetch origin
+          git reset --hard origin/main
+          git submodule update --init --recursive
+
+          docker build -t ghcr.io/terraworld-it/terraworld-frontend:latest .
+
+          cd "$DEPLOY"
+          docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --no-deps frontend
+
+          echo "frontend 응답 대기..."
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/ || echo 000)
+            [ "$code" = 200 ] && { echo "✅ frontend 200"; exit 0; }
+            sleep 5
+          done
+          echo "❌ frontend 미응답"; docker logs --tail 50 tw-frontend; exit 1
