@@ -185,7 +185,7 @@
           <div
             v-for="placed in placedItems"
             :key="placed.placementId"
-            class="absolute flex items-center justify-center select-none"
+            class="absolute flex items-center justify-center select-none touch-none"
             :class="animClass(placed)"
             :style="itemStyle(placed)"
             @pointerdown="(e) => onItemPointerDown(e, placed)"
@@ -960,6 +960,9 @@ function onItemPointerDown(e: PointerEvent, placed: PlacedFreeItem) {
   if (!editMode.value) return
   // 버튼/핸들에서 시작한 pointerdown 은 각자 stop 처리 — 여기는 본체 드래그.
   e.stopPropagation()
+  // free.vue 패턴과 동일 — 네이티브 앱에서 드래그 중 브라우저 스크롤/선택 제스처가
+  // 끼어드는 것을 방지 (터치 디바이스에서 preventDefault 없으면 드래그 중 스크롤 발생 가능).
+  e.preventDefault()
   const el = e.currentTarget as HTMLElement
   el.setPointerCapture(e.pointerId)
   dragState = { placementId: placed.placementId, startX: e.clientX, startY: e.clientY, baseX: placed.x, baseY: placed.y, moved: false }
