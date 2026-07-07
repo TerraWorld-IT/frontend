@@ -6,14 +6,22 @@
       :style="{ backgroundColor: currentBgColor }"
     >
       <!-- Main content -->
-      <main class="flex-1 px-5 py-4 pb-[98px] overflow-y-auto bg-white">
+      <main
+        class="flex-1 px-5 py-4 overflow-y-auto bg-white"
+        :style="{ paddingBottom: 'calc(98px + env(safe-area-inset-bottom, 0px))' }"
+      >
         <slot />
       </main>
 
-      <!-- Bottom nav (Figma BottomNav 정확 이관) -->
+      <!-- Bottom nav (Figma BottomNav 정확 이관).
+           safe-area-inset-bottom: viewport-fit=cover 라 콘텐츠가 세이프에어리어까지
+           확장되는데, 이게 없으면 아이폰 홈 인디케이터가 네비게이션 위에 겹친다. -->
       <nav
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white shadow-[0_-1px_0_rgba(0,0,0,0.06)] z-40"
-        :style="{ height: '98px' }"
+        :style="{
+          height: 'calc(98px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }"
       >
         <div class="absolute left-[10px] right-[10px] top-[20px] h-[38px] flex items-center">
           <NuxtLink

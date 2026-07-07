@@ -74,6 +74,13 @@
       </div>
       <p v-if="errorMsg" class="text-xs text-riso-poppy">{{ errorMsg }}</p>
     </form>
+
+    <CommonModal
+      v-model="showDeleteConfirm"
+      :message="t('category.deleteConfirm')"
+      variant="danger"
+      @confirm="confirmDelete"
+    />
   </section>
 </template>
 
@@ -118,8 +125,18 @@ async function onCreate() {
   }
 }
 
-async function onDelete(id: number) {
-  if (!window.confirm(t('category.deleteConfirm'))) return
+const showDeleteConfirm = ref<boolean>(false)
+const pendingDeleteId = ref<number | null>(null)
+
+function onDelete(id: number) {
+  pendingDeleteId.value = id
+  showDeleteConfirm.value = true
+}
+
+async function confirmDelete() {
+  const id = pendingDeleteId.value
+  pendingDeleteId.value = null
+  if (id === null) return
   if (await remove(id)) {
     toast.success(t('category.deleted'))
     await refresh()

@@ -141,7 +141,7 @@
                 <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
                 {{ t('auth.consent.terms') }}
               </span>
-              <NuxtLink to="/legal/terms" target="_blank" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
+              <NuxtLink to="/legal/terms" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
                 {{ t('auth.consent.view') }}
               </NuxtLink>
             </label>
@@ -151,7 +151,7 @@
                 <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
                 {{ t('auth.consent.privacy') }}
               </span>
-              <NuxtLink to="/legal/privacy" target="_blank" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
+              <NuxtLink to="/legal/privacy" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
                 {{ t('auth.consent.view') }}
               </NuxtLink>
             </label>
