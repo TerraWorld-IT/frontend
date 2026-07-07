@@ -141,6 +141,21 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
       ],
+      // 구형 Android WebView(Chrome <93, 예: Chrome 91) 는 ES2022 `Object.hasOwn`/
+      // `Array.prototype.at` 을 지원하지 않는다. Nuxt 코어의 SSR payload 파서(devalue)와
+      // Vue Router 가 앱 초기화 경로에서 이 둘을 사용해 TypeError 로 크래시 → 하이드레이션이
+      // 영구히 완료되지 않고 빈 화면만 남는다(네트워크/콘솔 에러 없이 조용히 멈춤 — 실기기가
+      // 아니면 원인 추적이 매우 어려움). Vite 는 이 프로젝트에서 legacy 빌드 타겟을 안 쓰므로,
+      // 모듈 스크립트보다 먼저 동기 실행되는 head 인라인 스크립트로 최소 polyfill 을 주입한다.
+      script: [
+        {
+          innerHTML: `
+            if(typeof Object.hasOwn!=="function"){Object.hasOwn=function(o,p){return Object.prototype.hasOwnProperty.call(o,p)}}
+            if(typeof Array.prototype.at!=="function"){Array.prototype.at=function(n){n=Math.trunc(n)||0;if(n<0)n+=this.length;return(n<0||n>=this.length)?undefined:this[n]}}
+          `.trim(),
+          tagPosition: 'head',
+        },
+      ],
     },
   },
 
