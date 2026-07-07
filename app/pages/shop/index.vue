@@ -186,7 +186,7 @@
           class="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm"
           @click.self="showExchange = false"
         >
-          <div class="bg-white rounded-2xl shadow-2xl p-5 w-[92%] max-w-md mx-4 max-h-[88vh] flex flex-col overflow-y-auto">
+          <div class="bg-white rounded-2xl shadow-2xl p-5 w-[92%] max-w-md mx-4 max-h-[88dvh] flex flex-col overflow-y-auto">
             <!-- 헤더 -->
             <div class="flex items-center justify-between mb-5">
               <h3 class="text-base font-bold flex items-center gap-2" style="color: #b8960a">
@@ -267,7 +267,9 @@ import type {
 } from '@terraworld-it/openapi-frontend'
 import { balanceOf } from '~/utils/currency'
 
-definePageMeta({ layout: 'default' })
+// loadShop() 이 게스트용 분기 없이 무조건 sdk.getMe() 를 호출·실패 시 throw 하므로
+// 실질적으로 로그인 필요 — '/shop' 을 middleware/auth.ts PUBLIC_EXACT 에서도 제거함.
+definePageMeta({ layout: 'default', middleware: 'auth' })
 
 type ShopCat = 'plant' | 'background'
 type RarityKey = 'common' | 'rare' | 'epic'

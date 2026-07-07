@@ -4,7 +4,7 @@
       <div
         v-if="modelValue"
         ref="modalRoot"
-        class="fixed inset-0 z-[9997] flex items-center justify-center p-4"
+        class="fixed inset-0 z-[9997] flex items-start justify-center p-4 overflow-y-auto"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="title ? 'modal-title' : undefined"
@@ -16,8 +16,16 @@
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-riso-dark/30 backdrop-blur-sm" />
 
-        <!-- Modal card -->
-        <div class="relative bg-riso-cream rounded-2xl p-6 w-full max-w-sm riso-shadow border border-riso-walnut/10">
+        <!--
+          Modal card — max-height + overflow-y-auto (Codex 감사 지적): 이전엔 높이 제약이
+          전혀 없어서 slot 콘텐츠가 긴 사용처(ExchangeModal/ItemSelectDialog/friends 페이지 등)에서
+          작은 화면 세로 방향에 카드가 뷰포트를 넘어도 스크롤할 방법이 없었다. items-start + my-auto
+          로 safe centering(짧을 땐 중앙, 길면 상단부터 스크롤 가능) 적용.
+        -->
+        <div
+          class="relative bg-riso-cream rounded-2xl p-6 w-full max-w-sm riso-shadow border border-riso-walnut/10 my-auto overflow-y-auto"
+          style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)"
+        >
           <h3 v-if="title" id="modal-title" class="text-lg font-bold mb-2">{{ title }}</h3>
           <p v-if="message" id="modal-message" class="text-sm text-riso-dark/60 mb-5">{{ message }}</p>
           <slot />

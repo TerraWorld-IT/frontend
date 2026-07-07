@@ -1,6 +1,6 @@
 <template>
   <div
-    class="min-h-screen flex items-center justify-center relative overflow-hidden"
+    class="h-dvh w-full relative overflow-hidden"
     style="background: linear-gradient(135deg, #e8f4fd 0%, #f0e8ff 40%, #ffe8f4 100%)"
   >
     <!-- 배경 장식 -->
@@ -13,7 +13,19 @@
       <div class="absolute top-1/4 right-6 text-3xl opacity-15">🐶</div>
     </div>
 
-    <div class="w-full max-w-sm mx-4 relative z-10">
+    <!--
+      h-dvh(고정 높이) 컨테이너 안에서 실제 로그인/가입 폼만 자체 스크롤 영역으로 분리.
+      가입 모드(닉네임+생년월일+동의 5종)는 작은 화면에서 뷰포트보다 콘텐츠가 길어질 수 있는데,
+      이전엔 바깥 div가 min-h-screen(하한만 있고 상한 없음)이라 그대로 늘어나며 body 전체가
+      스크롤돼 iOS에서 화면 전체가 밀리는 오류가 있었다(default.vue 의 <main overflow-y-auto>
+      패턴과 동일하게 스크롤 영역을 명시적으로 감싼다).
+
+      items-start + 자식의 my-auto = "safe centering" (Codex 감사 지적): overflow-y-auto 컨테이너에
+      items-center(unsafe alignment)를 그대로 쓰면 콘텐츠가 컨테이너보다 클 때 상단이 음수 방향으로
+      밀려 스크롤해도 닿을 수 없어진다. 콘텐츠가 짧을 땐 my-auto 가 기존과 동일하게 중앙 정렬한다.
+    -->
+    <div class="h-full w-full flex items-start justify-center overflow-y-auto py-6">
+    <div class="w-full max-w-sm mx-4 relative z-10 my-auto">
       <!-- 로고 영역 -->
       <div class="text-center mb-8">
         <div class="text-6xl mb-3">🌍</div>
@@ -199,6 +211,7 @@
           </button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>

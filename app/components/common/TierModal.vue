@@ -46,7 +46,7 @@
               </div>
 
               <!-- 티어 목록 -->
-              <div v-if="catalog" class="space-y-2 max-h-[42vh] overflow-y-auto">
+              <div v-if="catalog" class="space-y-2 max-h-[42dvh] overflow-y-auto">
                 <div
                   v-for="tier in catalog.tiers"
                   :key="tier.tier"

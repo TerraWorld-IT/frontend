@@ -1,13 +1,18 @@
 <template>
-  <div class="min-h-screen bg-riso-cream flex flex-col items-center justify-center p-6">
+  <!-- login.vue 와 동일한 이유로 h-dvh + 내부 overflow-y-auto 스크롤 영역 분리
+       (min-h-screen 은 하한만 있고 상한이 없어, 작은 화면에서 콘텐츠가 뷰포트보다
+       길어지면 body 전체가 스크롤되는 오류가 있었다).
+       flex-col 이라 justify-center(메인축=세로)가 unsafe alignment 위험 — justify-start +
+       각 분기 자식의 my-auto 로 safe centering (Codex 감사 지적, login.vue 와 동일 패턴). -->
+  <div class="h-dvh w-full bg-riso-cream overflow-y-auto flex flex-col items-center justify-start p-6">
     <!-- Loading -->
-    <div v-if="pending" class="text-center space-y-3">
+    <div v-if="pending" class="text-center space-y-3 my-auto">
       <CommonLoading />
       <p class="text-sm text-riso-dark/40">{{ $t('share.loading') }}</p>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="text-center space-y-4">
+    <div v-else-if="error" class="text-center space-y-4 my-auto">
       <p class="text-6xl">🫧</p>
       <p class="text-riso-dark font-bold text-lg">{{ $t('share.notFound') }}</p>
       <p class="text-sm text-riso-dark/40">{{ $t('share.notFoundDesc') }}</p>
@@ -22,7 +27,7 @@
     <!-- Terrarium Preview -->
     <template v-else>
       <!-- OG-friendly card -->
-      <div class="w-full max-w-sm space-y-5">
+      <div class="w-full max-w-sm space-y-5 my-auto">
         <!-- User info -->
         <div class="text-center space-y-1">
           <p class="text-sm text-riso-dark/40">{{ $t('share.userTerrarium', { nickname: sharedData?.nickname }) }}</p>

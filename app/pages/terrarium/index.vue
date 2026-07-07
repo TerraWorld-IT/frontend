@@ -117,6 +117,11 @@ import { useTerrariumStore } from '~/stores/terrarium'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
 
+// 개인화된 테라리움 데이터를 다루는데 middleware 선언이 아예 없었음 — named middleware(auth.ts)는
+// pageMeta 에 명시해야 실행되므로, 이 페이지는 미로그인 상태에서도 미들웨어 단계 리다이렉트 없이
+// 그대로 렌더링을 시작하는 gap 이 있었다 (index.vue 와 같은 클래스, Codex 감사로 발견).
+definePageMeta({ middleware: 'auth' })
+
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { t } = useI18n()

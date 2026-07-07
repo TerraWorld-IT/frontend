@@ -298,7 +298,7 @@
         <div class="fixed inset-0 bg-black/30" @click="showItemPicker = false" />
         <div
           class="sheet-panel fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md rounded-t-3xl shadow-2xl flex flex-col"
-          style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100vh - 98px - 20px)"
+          style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px - 20px)"
         >
           <div class="flex justify-center pt-3 pb-1">
             <div class="w-10 h-1 rounded-full bg-gray-200" />
@@ -571,7 +571,7 @@
   <!-- ═══════════════ 피드 바텀시트 ═══════════════ -->
   <!-- 스와이프 핸들 — 항상 바텀 nav 위 -->
   <Teleport to="body">
-    <div class="fixed left-1/2 -translate-x-1/2 w-full max-w-md z-40" style="bottom: 98px">
+    <div class="fixed left-1/2 -translate-x-1/2 w-full max-w-md z-40" style="bottom: calc(98px + env(safe-area-inset-bottom, 0px))">
       <div
         class="flex justify-center items-center cursor-grab"
         style="height: 28px; touch-action: none; background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); border-radius: 16px 16px 0 0; border: 1px solid rgba(0,0,0,0.08); border-bottom: none"
@@ -588,11 +588,14 @@
         <div class="fixed inset-0 bg-black/20" @click="feedPanelOpen = false" />
         <div
           class="sheet-panel fixed left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col"
-          style="bottom: 98px"
+          style="bottom: calc(98px + env(safe-area-inset-bottom, 0px))"
         >
+          <!-- bottom nav 와 동일하게 safe-area-inset-bottom 반영(노치 기기에서 nav 와 겹치던 문제) +
+               max-height/overflow-y-auto 로 콘텐츠가 뷰포트를 넘겨도 스크롤 가능(이전엔 overflow-hidden
+               이라 넘치는 콘텐츠가 그냥 잘려 도달 불가능했다 — Codex 감사 지적). -->
           <div
-            class="rounded-tl-[24px] rounded-tr-[24px] flex flex-col overflow-hidden"
-            style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); box-shadow: 0px -8px 25px rgba(0,0,0,0.15)"
+            class="rounded-tl-[24px] rounded-tr-[24px] flex flex-col overflow-y-auto"
+            style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); box-shadow: 0px -8px 25px rgba(0,0,0,0.15); max-height: calc(100dvh - 98px - env(safe-area-inset-bottom, 0px) - 40px)"
           >
             <div class="flex justify-center pt-3 pb-1">
               <div class="w-10 h-1 rounded-full bg-gray-300" />
@@ -1307,7 +1310,11 @@ onMounted(async () => {
   await Promise.all([load(), attendance.refresh()])
 })
 
-definePageMeta({ layout: 'default' })
+// middleware/auth.ts 는 named middleware라 pageMeta 에 명시해야 실행된다. 이게 빠져있어서
+// '/' 를 PUBLIC_EXACT 에서 제거해도 실제로는 미들웨어가 전혀 실행되지 않아 미로그인 상태에서
+// 메인 화면이 그대로 렌더링되고, API 401 인터셉터가 뒤늦게 로그인으로 리다이렉트하는 flash 버그가
+// 그대로 남아있었다 (Codex 감사로 발견).
+definePageMeta({ layout: 'default', middleware: 'auth' })
 </script>
 
 <style scoped>

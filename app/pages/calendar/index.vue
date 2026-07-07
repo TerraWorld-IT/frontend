@@ -147,7 +147,7 @@
       <div
         v-if="selectedDate"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex flex-col rounded-t-3xl shadow-2xl bg-white"
-        style="max-height: calc(100vh - 98px - 20px)"
+        style="max-height: calc(100dvh - 98px - 20px)"
       >
         <!-- 핸들 -->
         <div class="flex justify-center pt-3 pb-1 shrink-0">

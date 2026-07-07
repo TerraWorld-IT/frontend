@@ -332,7 +332,7 @@
       <div
         v-if="openModal === 'todo'"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl flex flex-col"
-        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100vh - 98px)"
+        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px)"
       >
         <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
@@ -421,7 +421,7 @@
       <div
         v-if="openModal === 'diary'"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl flex flex-col"
-        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100vh - 98px)"
+        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px)"
       >
         <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">

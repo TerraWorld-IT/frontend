@@ -368,9 +368,9 @@
       <Transition name="dialog">
         <div
           v-if="showItemsDialog"
-          class="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto max-h-[80vh] overflow-hidden"
+          class="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto max-h-[80dvh] overflow-hidden"
         >
-          <div class="bg-white rounded-[16px] p-6 flex flex-col max-h-[80vh] border border-black/10">
+          <div class="bg-white rounded-[16px] p-6 flex flex-col max-h-[80dvh] border border-black/10">
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-bold text-[18px] text-black">보유 아이템</h3>
               <button type="button" class="text-gray-400 hover:text-gray-600" @click="showItemsDialog = false">✕</button>
