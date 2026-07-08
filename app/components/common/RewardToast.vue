@@ -3,7 +3,8 @@
     <Transition name="reward-slide">
       <div
         v-if="visible"
-        class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none"
+        class="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none"
+        style="top: calc(64px + env(safe-area-inset-top, 0px))"
         role="status"
         aria-live="assertive"
         aria-atomic="true"

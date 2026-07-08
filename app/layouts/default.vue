@@ -7,6 +7,7 @@
     >
       <!-- Main content -->
       <main
+        ref="mainScrollEl"
         class="flex-1 px-5 py-4 overflow-y-auto bg-white"
         :style="{ paddingBottom: 'calc(98px + env(safe-area-inset-bottom, 0px))' }"
       >
@@ -114,8 +115,15 @@ const tabs = computed<Tab[]>(() => [
 
 const route = useRoute()
 const { hapticImpact } = useNative()
+const mainScrollEl = ref<HTMLElement | null>(null)
 
-function onTabTap(): void { void hapticImpact('Light') }
+// 모든 페이지가 이 <main> 하나를 공유하는 단일 스크롤 컨테이너라, 탭 전환 시 이전 페이지의
+// 스크롤 위치가 그대로 남아 새 탭이 중간부터 보이는 것처럼 보일 수 있었다(Codex 감사 지적).
+// 탭별 위치 기억 대신 "탭 전환 시 항상 맨 위로" 정책으로 명시(대부분의 앱의 기본 기대 동작).
+function onTabTap(): void {
+  void hapticImpact('Light')
+  mainScrollEl.value?.scrollTo({ top: 0 })
+}
 
 // TW2: '/' 는 정확 일치, 그 외는 startsWith.
 function isActive(to: string): boolean {

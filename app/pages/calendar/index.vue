@@ -146,14 +146,18 @@
     <Transition name="cal-sheet">
       <div
         v-if="selectedDate"
+        ref="sheetRoot"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 flex flex-col rounded-t-3xl shadow-2xl bg-white"
         style="max-height: calc(100dvh - 98px - 20px)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="날짜 기록"
       >
         <!-- 핸들 -->
         <div class="flex justify-center pt-3 pb-1 shrink-0">
           <div class="w-10 h-1 rounded-full bg-gray-200" />
         </div>
-        <div class="flex-1 overflow-y-auto px-5 pb-8 pt-1">
+        <div class="flex-1 overflow-y-auto px-5 pt-1" style="padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px))">
           <div class="bg-white rounded-[16px] border border-black/10 p-5">
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-bold flex items-center gap-2 text-black">
@@ -325,6 +329,26 @@ const selectedNote = ref<string | null>(null)
 const isEditingNote = ref<boolean>(false)
 const editingNoteText = ref<string>('')
 const noteSaving = ref<boolean>(false)
+
+// bespoke 바텀시트 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
+const sheetRoot = ref<HTMLElement | null>(null)
+useDialogFocusTrap(sheetRoot, computed(() => selectedDate.value !== null))
+
+// Android 하드웨어 뒤로가기 — 날짜 바텀시트가 열려있으면 라우트 이동 전에 먼저 닫는다.
+const { pushBackHandler } = useBackButtonStack()
+let unregisterSheetBackHandler: (() => void) | null = null
+watch(selectedDate, (date) => {
+  if (date) {
+    unregisterSheetBackHandler = pushBackHandler(() => closeSheet())
+  } else {
+    unregisterSheetBackHandler?.()
+    unregisterSheetBackHandler = null
+  }
+})
+onBeforeUnmount(() => {
+  unregisterSheetBackHandler?.()
+  unregisterSheetBackHandler = null
+})
 
 // Record row menu / delete
 const openMenuId = ref<number | null>(null)

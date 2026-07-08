@@ -33,11 +33,9 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   if (!Capacitor.isNativePlatform()) return
 
   // --- Status Bar ---
-  if (Capacitor.getPlatform() === 'android') {
-    const { StatusBar, Style } = await import('@capacitor/status-bar')
-    await StatusBar.setStyle({ style: Style.Light })
-    await StatusBar.setBackgroundColor({ color: '#FFF8EB' }) // riso-cream
-  }
+  // 초기 스타일/배경색은 plugins/colorMode.client.ts 의 watch(immediate:true) 가 담당
+  // (Codex Round 2 지적 — 여기서 Android 전용으로 Light/cream 을 무조건 설정하면, 두 플러그인의
+  // 실행 순서에 따라 실제 다크모드 상태를 다시 덮어써버리는 경합이 생김. 단일 지점으로 통합).
 
   // --- iOS App Tracking Transparency (P3-3) ---
   // IDFA(광고 식별자) 접근 전 ATT 동의 prompt 를 요청(Apple 정책). 광고 SDK 가 IDFA 를 쓰기 전에
@@ -65,12 +63,31 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   })
 
   // --- Back Button (Android) ---
+  const { popTopBackHandler } = useBackButtonStack()
+  let lastExitPressAt = 0
+  const EXIT_CONFIRM_WINDOW_MS = 2000
+
   App.addListener('backButton', ({ canGoBack }) => {
+    // 1) 열린 모달/바텀시트가 있으면 라우트 이동 전에 그것부터 닫는다.
+    if (popTopBackHandler()) return
+
     if (canGoBack) {
       window.history.back()
-    } else {
-      App.exitApp()
+      return
     }
+
+    // 2) 더 이상 뒤로 갈 라우트가 없음 — 실수로 즉시 종료되지 않도록 2초 내 재입력 확인.
+    // useI18n()/useToast() 는 리스너 콜백 안에서 호출 — 플러그인 setup 시점(모듈 등록 순서에
+    // i18n 초기화가 아직 안 끝났을 수 있음)이 아니라 실제 사용자가 뒤로가기를 누른 시점(앱
+    // 초기화가 이미 끝난 뒤)에만 평가되도록 지연시켜 순서 의존성을 없앤다.
+    const now = Date.now()
+    if (now - lastExitPressAt < EXIT_CONFIRM_WINDOW_MS) {
+      App.exitApp()
+      return
+    }
+    lastExitPressAt = now
+    const { t } = useI18n()
+    useToast().info(t('common.pressBackAgainToExit'))
   })
 
   // --- Push Notification Listeners ---
@@ -138,6 +155,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     const { Keyboard } = await import('@capacitor/keyboard')
     Keyboard.addListener('keyboardWillShow', () => {
       document.body.classList.add('keyboard-open')
+      // 포커스된 인풋이 바텀시트/모달 안쪽에 있으면 키보드가 올라온 뒤에도 가려질 수 있음
+      // (capacitor.config.ts 의 scrollAssist 는 body 스크롤만 보정, 중첩 overflow-y-auto
+      // 컨테이너 안까지는 못 미침) — 키보드 애니메이션이 끝날 시간을 준 뒤 보정.
+      setTimeout(() => {
+        const active = document.activeElement
+        if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+          active.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        }
+      }, 300)
     })
     Keyboard.addListener('keyboardWillHide', () => {
       document.body.classList.remove('keyboard-open')
@@ -145,4 +171,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   } catch {
     // Keyboard plugin not available
   }
+
+  // --- Foreground 복귀 (Codex 감사 지적) ---
+  // useAuth 의 4분 주기 setInterval 은 앱이 백그라운드로 가면 JS 실행이 멈춰 함께 멈춘다 —
+  // 오래 백그라운드에 있다가 돌아오면 JWT(5분 TTL)가 만료된 채일 수 있다. resume 시 즉시
+  // best-effort 로 갱신(실패해도 openapi.ts 의 401 인터셉터가 최종 폴백).
+  App.addListener('resume', () => {
+    useAuth().loadJwt().catch(() => {})
+  })
 })

@@ -197,6 +197,23 @@
 }
 
 /* ============================================
+   WCAG 2.1 SC 2.3.3 (Animation from Interactions) — 전역 reduced-motion 폴백.
+   !important 필요(Codex Round 2 지적 — universal selector 는 `.heart-float`/`.item-shake`
+   같은 class selector 애니메이션보다 specificity 가 낮아 !important 없이는 실제로 안 먹힘).
+   RewardToast 의 자체 fade 도 함께 즉시-표시로 줄어들지만 WCAG 상 더 안전한 방향이라 허용.
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
    P4-4 Dark mode — 표면색 override (warm-dark riso 팔레트)
    클래스 기반 유틸리티(bg-white/text-black/border-black/회색 hex)를 .dark 에서 일괄 재매핑.
    강조색(riso-sage/poppy·neon·pastel)·text-white(컬러 버튼 위)·bg-black(모달 백드롭)은 유지.

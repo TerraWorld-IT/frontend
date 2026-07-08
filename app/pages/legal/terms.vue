@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-screen bg-riso-cream px-5 py-8">
+  <main class="min-h-screen bg-riso-cream px-5" style="padding-top: calc(32px + env(safe-area-inset-top, 0px)); padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px))">
     <div class="mx-auto max-w-xl space-y-4 text-riso-dark">
       <header class="space-y-1">
         <h1 class="text-lg font-bold">이용약관</h1>

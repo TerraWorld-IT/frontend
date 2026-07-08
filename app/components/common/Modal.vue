@@ -92,6 +92,8 @@ const modalRoot = ref<HTMLElement | null>(null)
 const confirmBtn = ref<HTMLButtonElement | null>(null)
 const cancelBtn = ref<HTMLButtonElement | null>(null)
 let previousActiveElement: Element | null = null
+const { pushBackHandler } = useBackButtonStack()
+let unregisterBackHandler: (() => void) | null = null
 
 const confirmClass = computed(() =>
   props.variant === 'danger' ? 'bg-riso-poppy' : 'bg-riso-sage',
@@ -130,6 +132,9 @@ watch(() => props.modelValue, async (open) => {
   if (open) {
     previousActiveElement = document.activeElement
     acquireScrollLock()
+    // Android 하드웨어 뒤로가기 — 열려있는 동안은 cancel() 로 이 모달부터 닫는다
+    // (capacitor.client.ts backButton 리스너가 라우트 back/앱종료보다 먼저 이 스택을 소비).
+    unregisterBackHandler = pushBackHandler(cancel)
     await nextTick()
     confirmBtn.value?.focus()
   } else {
@@ -138,6 +143,8 @@ watch(() => props.modelValue, async (open) => {
     // 직접 토글)에서도 slot 안 input 의 키보드가 안 닫히는 문제를 막는다.
     void dismissKeyboard()
     releaseScrollLock()
+    unregisterBackHandler?.()
+    unregisterBackHandler = null
     if (previousActiveElement instanceof HTMLElement) {
       previousActiveElement.focus()
     }
@@ -145,13 +152,18 @@ watch(() => props.modelValue, async (open) => {
   }
 })
 
-// Focus trap — Tab / Shift+Tab 키 가 confirm ↔ cancel 사이만 순환
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+// Focus trap — Tab / Shift+Tab 키가 모달 전체(slot 내부 input/select/link 포함)를 순환.
+// 이전엔 confirm/cancel 버튼 2개 사이만 trap 해서, slot 에 폼 필드가 있는 복잡한 모달
+// (ExchangeModal 등)에서 Tab 이 슬롯 필드를 건너뛰고 두 버튼 사이만 왔다갔다 했다(Codex 감사 지적).
 function handleTabTrap(e: KeyboardEvent) {
   // TYPE-201 — modelValue=false 시 ref 가 null 이라 length 0 으로 early return 되지만,
   // 의도 명시 + cost 절약 위해 modalValue open guard 를 맨 앞에.
   if (!props.modelValue) return
   if (e.key !== 'Tab') return
-  const focusables = [cancelBtn.value, confirmBtn.value].filter((b): b is HTMLButtonElement => b !== null)
+  if (!modalRoot.value) return
+  const focusables = Array.from(modalRoot.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
   if (focusables.length === 0) return
   const first = focusables[0]!
   const last = focusables[focusables.length - 1]!
@@ -167,10 +179,11 @@ function handleTabTrap(e: KeyboardEvent) {
 onMounted(async () => {
   if (!import.meta.client) return
   document.addEventListener('keydown', handleTabTrap)
-  // watch 는 modelValue 변경 시에만 발화 — 이미 열린 채 mount 되면 lock 을 직접 획득.
+  // watch 는 modelValue 변경 시에만 발화 — 이미 열린 채 mount 되면 lock/back-handler 를 직접 획득.
   if (props.modelValue) {
     previousActiveElement = document.activeElement
     acquireScrollLock()
+    unregisterBackHandler = pushBackHandler(cancel)
     await nextTick()
     confirmBtn.value?.focus()
   }
@@ -178,9 +191,11 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (import.meta.client) {
     document.removeEventListener('keydown', handleTabTrap)
-    // unmount 시 본 instance 가 lock 보유 중이었다면 depth 감소 후 0 일 때만 unlock
+    // unmount 시 본 instance 가 lock/back-handler 보유 중이었다면 해제
     if (props.modelValue) {
       releaseScrollLock()
+      unregisterBackHandler?.()
+      unregisterBackHandler = null
     }
   }
 })

@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="tier-modal">
-      <div v-if="show" class="fixed inset-0 z-[9997]">
+      <div v-if="show" ref="rootEl" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="테라리움 업그레이드">
         <!-- Overlay -->
         <div class="fixed inset-0 bg-black/50" @click="$emit('close')" />
 
@@ -113,7 +113,27 @@ import { useUserStore } from '~/stores/user'
 import { balanceOf } from '~/utils/currency'
 
 const props = defineProps<{ show: boolean }>()
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [] }>()
+
+const rootEl = ref<HTMLElement | null>(null)
+useDialogFocusTrap(rootEl, computed(() => props.show))
+
+// Android 하드웨어 뒤로가기 — CommonModal 이 아닌 bespoke 오버레이라 직접 back-stack 에 등록.
+const { pushBackHandler } = useBackButtonStack()
+let unregisterBackHandler: (() => void) | null = null
+watch(() => props.show, (open) => {
+  if (open) {
+    unregisterBackHandler = pushBackHandler(() => emit('close'))
+  } else {
+    unregisterBackHandler?.()
+    unregisterBackHandler = null
+  }
+})
+// 열린 채로 부모(index.vue)가 unmount 되면 watch 의 close 분기가 안 돌아 stale handler 가 남음.
+onBeforeUnmount(() => {
+  unregisterBackHandler?.()
+  unregisterBackHandler = null
+})
 
 const { catalog, loadError, nextTier, load, unlock } = useTier()
 const userStore = useUserStore()

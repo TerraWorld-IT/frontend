@@ -55,6 +55,7 @@
             <input
               v-model="nickname"
               type="text"
+              autocomplete="nickname"
               :placeholder="t('auth.nicknamePlaceholder')"
               required
               maxlength="50"
@@ -77,6 +78,7 @@
             <input
               v-model="birthDate"
               type="date"
+              autocomplete="bday"
               :max="maxBirthDate"
               :placeholder="t('auth.birthDatePlaceholder')"
               required
@@ -93,13 +95,17 @@
               {{ $t('auth.email') }}
             </label>
             <input
+              ref="emailInput"
               v-model="email"
               type="email"
+              autocomplete="email"
               :placeholder="t('auth.emailPlaceholder')"
               required
+              :aria-invalid="formError"
               class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
               @focus="onFieldFocus"
               @blur="onFieldBlur"
+              @input="formError = false"
             >
           </div>
 
@@ -111,11 +117,14 @@
             <input
               v-model="password"
               type="password"
+              :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
               :placeholder="t('auth.passwordPlaceholder')"
               required
+              :aria-invalid="formError"
               class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
               @focus="onFieldFocus"
               @blur="onFieldBlur"
+              @input="formError = false"
             >
           </div>
 
@@ -233,6 +242,12 @@ const password = ref<string>('')
 const nickname = ref<string>('')
 const birthDate = ref<string>('')
 const submitting = ref<boolean>(false)
+// better-auth 에러는 필드 단위 세분화가 없어(예: "잘못된 이메일 또는 비밀번호") 어느 input 이
+// 원인인지 구분 못 함 — 로그인/가입 공통 원인 필드(email/password)를 invalid 로 표시하고
+// 첫 필드로 focus 이동해 스크린리더/키보드 사용자가 토스트 메시지 읽고 수동으로 탭백 안 해도
+// 되게 한다(Codex 감사 지적).
+const formError = ref<boolean>(false)
+const emailInput = ref<HTMLInputElement | null>(null)
 
 // P1-2 (PIPA 제15조): 분리 동의 상태. 필수(약관·개인정보) + 선택 5종.
 // 동의 버전 — privacy.md/terms.md 갱신 시 함께 올려 동의 이력의 정책 버전을 식별.
@@ -381,6 +396,9 @@ async function onSubmit() {
   }
   catch (e) {
     toast.error((e as Error).message)
+    formError.value = true
+    await nextTick()
+    emailInput.value?.focus()
   }
   finally {
     submitting.value = false

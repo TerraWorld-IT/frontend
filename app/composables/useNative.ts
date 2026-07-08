@@ -16,17 +16,38 @@ export function useNative() {
   const isIOS = platform === 'ios'
   const isAndroid = platform === 'android'
 
-  // --- Share ---
-  async function share(opts: { title: string; text: string; url: string }) {
-    if (!import.meta.client) return
+  /** 사용자가 공유 시트를 취소했을 때 흔한 에러 신호 — 실패 토스트를 띄우면 안 되는 정상 경로. */
+  function isShareCancellation(e: unknown): boolean {
+    if (e instanceof DOMException && e.name === 'AbortError') return true
+    const msg = e instanceof Error ? e.message : String(e)
+    return /cancel/i.test(msg)
+  }
 
-    if (isNative) {
-      const { Share } = await import('@capacitor/share')
-      await Share.share(opts)
-    } else if (navigator.share) {
-      await navigator.share(opts)
-    } else {
-      await navigator.clipboard.writeText(opts.url)
+  // --- Share ---
+  // 취소는 조용히 무시하고, 실제 실패만 토스트로 알린다 — 호출부마다 개별 try/catch 를
+  // 강제하지 않고 이 컴포저블 내부에서 일관 처리(Codex 감사 지적 — 이전엔 실패/취소가
+  // unhandled promise rejection 으로만 남고 사용자에게 아무 피드백이 없었음).
+  // 반환값(true=완료/false=취소·실패)은 await 하는 호출부가 성공 후속 동작(토스트/추적)을
+  // 실패 시에도 실행하지 않도록 분기하는 데 쓴다(Codex Round 2 — void 로 fire-and-forget
+  // 하는 호출부는 반환값을 무시해도 안전).
+  async function share(opts: { title: string; text: string; url: string }): Promise<boolean> {
+    if (!import.meta.client) return false
+    try {
+      if (isNative) {
+        const { Share } = await import('@capacitor/share')
+        await Share.share(opts)
+      } else if (navigator.share) {
+        await navigator.share(opts)
+      } else {
+        await navigator.clipboard.writeText(opts.url)
+      }
+      return true
+    }
+    catch (e) {
+      if (isShareCancellation(e)) return false
+      const { error } = useToast()
+      error('공유에 실패했어요')
+      return false
     }
   }
 
@@ -34,56 +55,65 @@ export function useNative() {
    * 이미지 파일 공유 — 네이티브에서는 Cache 디렉토리에 임시 저장 후 시스템 공유 시트 호출,
    * 웹에서는 Web Share API (file 지원 시) 또는 다운로드 폴백.
    */
-  async function shareFile(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}) {
-    if (!import.meta.client) return
+  async function shareFile(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}): Promise<boolean> {
+    if (!import.meta.client) return false
 
-    if (isNative) {
-      // 1) blob → base64 변환 (Capacitor Filesystem 은 base64 string 만 받음)
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const result = reader.result as string
-          resolve(result.split(',')[1] ?? '')
-        }
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-      // 2) 임시 캐시에 PNG 저장
-      const { Filesystem, Directory } = await import('@capacitor/filesystem')
-      const result = await Filesystem.writeFile({
-        path: filename,
-        data: base64,
-        directory: Directory.Cache,
-      })
-      // 3) 네이티브 공유 시트 호출 (files 배열 — Capacitor Share v6+)
-      const { Share } = await import('@capacitor/share')
-      await Share.share({
-        title: opts.title,
-        text: opts.text,
-        files: [result.uri],
-        dialogTitle: opts.title,
-      })
-      return
-    }
-
-    // 웹: Share API 의 file 지원 여부 확인
-    if (navigator.share && 'canShare' in navigator) {
-      const file = new File([blob], filename, { type: blob.type })
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ title: opts.title, text: opts.text, files: [file] })
-        return
+    try {
+      if (isNative) {
+        // 1) blob → base64 변환 (Capacitor Filesystem 은 base64 string 만 받음)
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const result = reader.result as string
+            resolve(result.split(',')[1] ?? '')
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        // 2) 임시 캐시에 PNG 저장
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: base64,
+          directory: Directory.Cache,
+        })
+        // 3) 네이티브 공유 시트 호출 (files 배열 — Capacitor Share v6+)
+        const { Share } = await import('@capacitor/share')
+        await Share.share({
+          title: opts.title,
+          text: opts.text,
+          files: [result.uri],
+          dialogTitle: opts.title,
+        })
+        return true
       }
-    }
 
-    // 폴백: 다운로드 트리거
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+      // 웹: Share API 의 file 지원 여부 확인
+      if (navigator.share && 'canShare' in navigator) {
+        const file = new File([blob], filename, { type: blob.type })
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: opts.title, text: opts.text, files: [file] })
+          return true
+        }
+      }
+
+      // 폴백: 다운로드 트리거
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      return true
+    }
+    catch (e) {
+      if (isShareCancellation(e)) return false
+      const { error } = useToast()
+      error('공유에 실패했어요')
+      return false
+    }
   }
 
   /**
@@ -95,9 +125,9 @@ export function useNative() {
    * 위임한다 — 공유 시트에 Instagram 이 타겟으로 노출되어 사용자가 이미지를 첨부한 채 선택할 수 있다.
    * (이미지를 실은 네이티브 Stories 딥링크는 별도 pasteboard 플러그인이 필요 — 후속 과제)
    */
-  async function shareToInstagram(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}) {
-    if (!import.meta.client) return
-    await shareFile(blob, filename, opts)
+  async function shareToInstagram(blob: Blob, filename: string, opts: { title?: string; text?: string } = {}): Promise<boolean> {
+    if (!import.meta.client) return false
+    return shareFile(blob, filename, opts)
   }
 
   // --- Haptics ---

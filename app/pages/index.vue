@@ -294,7 +294,7 @@
   <!-- ═══════════════ 아이템 추가 바텀시트 ═══════════════ -->
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="showItemPicker" class="fixed inset-0 z-[9997]">
+      <div v-if="showItemPicker" ref="itemPickerRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="아이템 선택">
         <div class="fixed inset-0 bg-black/30" @click="showItemPicker = false" />
         <div
           class="sheet-panel fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md rounded-t-3xl shadow-2xl flex flex-col"
@@ -363,7 +363,7 @@
   <!-- ═══════════════ 공유하기 바텀시트 ═══════════════ -->
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="showShareDialog" class="fixed inset-0 z-[9997]">
+      <div v-if="showShareDialog" ref="shareDialogRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="공유">
         <div class="fixed inset-0 bg-black/40" @click="showShareDialog = false" />
         <div
           class="sheet-panel fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md rounded-t-3xl shadow-2xl"
@@ -420,8 +420,9 @@
               <!-- 이미지 저장 -->
               <button
                 type="button"
-                class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
+                class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50"
                 style="background: linear-gradient(135deg,#f0fff4,#e8f5ff); border: 1.5px solid rgba(126,219,192,0.3)"
+                :disabled="capturingImage"
                 @click="onImageSave"
               >
                 <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(126,219,192,0.25)">
@@ -442,7 +443,7 @@
   <!-- ═══════════════ 랭킹 팝업 (준비중) ═══════════════ -->
   <Teleport to="body">
     <Transition name="dialog">
-      <div v-if="showRankingDialog" class="fixed inset-0 z-[9997]">
+      <div v-if="showRankingDialog" ref="rankingDialogRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="랭킹">
         <div class="fixed inset-0 bg-black/40" @click="showRankingDialog = false" />
         <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
           <div
@@ -469,7 +470,7 @@
   <!-- ═══════════════ 출석체크 팝업 ═══════════════ -->
   <Teleport to="body">
     <Transition name="dialog">
-      <div v-if="showAttendance" class="fixed inset-0 z-[9997]">
+      <div v-if="showAttendance" ref="attendanceRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="출석체크">
         <div class="fixed inset-0 bg-black/40" @click="showAttendance = false" />
         <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
           <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)">
@@ -584,7 +585,7 @@
 
   <Teleport to="body">
     <Transition name="sheet">
-      <div v-if="feedPanelOpen" class="fixed inset-0 z-[9998]">
+      <div v-if="feedPanelOpen" ref="feedPanelRoot" class="fixed inset-0 z-[9998]" role="dialog" aria-modal="true" aria-label="피드">
         <div class="fixed inset-0 bg-black/20" @click="feedPanelOpen = false" />
         <div
           class="sheet-panel fixed left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col"
@@ -597,7 +598,11 @@
             class="rounded-tl-[24px] rounded-tr-[24px] flex flex-col overflow-y-auto"
             style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); box-shadow: 0px -8px 25px rgba(0,0,0,0.15); max-height: calc(100dvh - 98px - env(safe-area-inset-bottom, 0px) - 40px)"
           >
-            <div class="flex justify-center pt-3 pb-1">
+            <div
+              class="flex justify-center pt-3 pb-1 cursor-grab"
+              style="touch-action: none"
+              @pointerdown="onFeedPanelHandlePointerDown"
+            >
               <div class="w-10 h-1 rounded-full bg-gray-300" />
             </div>
             <div class="flex items-center justify-between px-5 py-3">
@@ -763,6 +768,7 @@ const placedItems = ref<PlacedFreeItem[]>([])
 
 const editMode = ref<boolean>(false)
 const selectedItemId = ref<number | null>(null)
+const capturingImage = ref<boolean>(false)
 const zoomLevel = ref<number>(1)
 
 const showItemPicker = ref<boolean>(false)
@@ -773,6 +779,46 @@ const showFreeCoinDialog = ref<boolean>(false)
 const showTierModal = ref<boolean>(false)
 const feedPanelOpen = ref<boolean>(false)
 const showOnboarding = ref<boolean>(false)
+
+// Android 하드웨어 뒤로가기 — CommonModal 을 거치지 않는 이 페이지의 bespoke 오버레이(Teleport
+// v-if 패널)들은 각자 back-stack 에 직접 등록해야 뒤로가기가 라우트 이동/앱종료 대신 오버레이부터
+// 닫는다(showFreeCoinDialog 는 CommonModal 사용이라 Modal.vue 쪽에서 이미 처리됨 — 중복 등록 방지).
+const { pushBackHandler } = useBackButtonStack()
+function registerOverlayBackClose(overlayOpen: Ref<boolean>) {
+  let unregister: (() => void) | null = null
+  watch(overlayOpen, (open) => {
+    if (open) {
+      unregister = pushBackHandler(() => { overlayOpen.value = false })
+    } else {
+      unregister?.()
+      unregister = null
+    }
+  })
+  // Codex 감사 지적 — 오버레이가 열린 채로 라우트 이탈(딥링크/탭 네비게이션)해 이 페이지가
+  // unmount 되면 watch 의 close 분기가 안 돌아 스택에 stale handler 가 영구히 남는다.
+  onBeforeUnmount(() => {
+    unregister?.()
+    unregister = null
+  })
+}
+// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적 —
+// aria-modal 선언만 하고 focus containment 가 없으면 스크린리더에 거짓 계약이 됨).
+const itemPickerRoot = ref<HTMLElement | null>(null)
+const shareDialogRoot = ref<HTMLElement | null>(null)
+const rankingDialogRoot = ref<HTMLElement | null>(null)
+const attendanceRoot = ref<HTMLElement | null>(null)
+const feedPanelRoot = ref<HTMLElement | null>(null)
+useDialogFocusTrap(itemPickerRoot, showItemPicker)
+useDialogFocusTrap(shareDialogRoot, showShareDialog)
+useDialogFocusTrap(rankingDialogRoot, showRankingDialog)
+useDialogFocusTrap(attendanceRoot, showAttendance)
+useDialogFocusTrap(feedPanelRoot, feedPanelOpen)
+
+registerOverlayBackClose(showItemPicker)
+registerOverlayBackClose(showShareDialog)
+registerOverlayBackClose(showRankingDialog)
+registerOverlayBackClose(showAttendance)
+registerOverlayBackClose(feedPanelOpen)
 
 const heartBusy = ref<boolean>(false)
 const heartFloats = ref<{ id: number }[]>([])
@@ -1258,11 +1304,16 @@ function onInviteShare() {
 }
 
 async function onImageSave() {
+  // 다이얼로그가 즉시 닫혀 같은 버튼 재클릭은 막히지만, 사용자가 공유 다이얼로그를 다시 열어
+  // capture 가 끝나기 전에 "이미지 저장"을 또 누르는 재진입은 막히지 않는다(Codex 감사 지적).
+  if (capturingImage.value) return
   showShareDialog.value = false
   if (!import.meta.client) return
+  capturingImage.value = true
   const target = document.getElementById('my-terra-container')
   if (!target) {
     toast.error(t('home.shareAreaNotFound'))
+    capturingImage.value = false
     return
   }
   try {
@@ -1274,13 +1325,19 @@ async function onImageSave() {
       toast.error(t('home.imageConvertFail'))
       return
     }
-    await shareToInstagram(blob, filename, { title: 'TerraWorld', text: t('home.shareText') })
+    // shareToInstagram() 은 취소/실패 시에도 정상 반환하고(내부에서 실패 토스트는 이미 띄움),
+    // false 를 돌려준다 — 여기서 성공 토스트/추적이 실패 뒤에도 나가지 않도록 분기(Codex 감사 지적).
+    const ok = await shareToInstagram(blob, filename, { title: 'TerraWorld', text: t('home.shareText') })
+    if (!ok) return
     toast.success(t('home.shareReady'))
     trackScreenshotSaved({ context: 'home' })
     trackShareCreated({ method: 'screenshot' })
   }
   catch (e) {
     toast.error(t('home.shareFail', { msg: (e as Error).message }))
+  }
+  finally {
+    capturingImage.value = false
   }
 }
 
@@ -1291,6 +1348,26 @@ function onFeedHandlePointerDown(e: PointerEvent) {
   el.setPointerCapture(e.pointerId)
   function onMove(ev: PointerEvent) {
     if (startY - ev.clientY > 30) feedPanelOpen.value = true
+  }
+  function onUp() {
+    el.removeEventListener('pointermove', onMove)
+    el.removeEventListener('pointerup', onUp)
+    el.removeEventListener('pointercancel', onUp)
+  }
+  el.addEventListener('pointermove', onMove)
+  el.addEventListener('pointerup', onUp)
+  el.addEventListener('pointercancel', onUp)
+}
+
+// ─── 피드 패널 내부 핸들 (아래로 스와이프 → 닫기) ───
+// 열기(onFeedHandlePointerDown)의 대칭 — 시각적으로 스와이프 가능하다고 암시하는 핸들 바가
+// 실제로는 아무 동작도 하지 않던 문제(전수 UX 점검에서 발견). 열기와 동일한 임계값(30px).
+function onFeedPanelHandlePointerDown(e: PointerEvent) {
+  const startY = e.clientY
+  const el = e.currentTarget as HTMLElement
+  el.setPointerCapture(e.pointerId)
+  function onMove(ev: PointerEvent) {
+    if (ev.clientY - startY > 30) feedPanelOpen.value = false
   }
   function onUp() {
     el.removeEventListener('pointermove', onMove)

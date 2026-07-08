@@ -183,7 +183,11 @@
       <Transition name="fade">
         <div
           v-if="showExchange"
+          ref="exchangeRoot"
           class="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="재화 환전"
           @click.self="showExchange = false"
         >
           <div class="bg-white rounded-2xl shadow-2xl p-5 w-[92%] max-w-md mx-4 max-h-[88dvh] flex flex-col overflow-y-auto">
@@ -289,6 +293,26 @@ const { trackItemPurchased, trackTokenExchanged } = useGtagEvents()
 const shopCat = ref<ShopCat>('plant')
 const rarity = ref<RarityKey>('common')
 const showExchange = ref<boolean>(false)
+
+// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
+const exchangeRoot = ref<HTMLElement | null>(null)
+useDialogFocusTrap(exchangeRoot, showExchange)
+
+// Android 하드웨어 뒤로가기 — bespoke 오버레이라 직접 back-stack 에 등록.
+const { pushBackHandler } = useBackButtonStack()
+let unregisterExchangeBackHandler: (() => void) | null = null
+watch(showExchange, (open) => {
+  if (open) {
+    unregisterExchangeBackHandler = pushBackHandler(() => { showExchange.value = false })
+  } else {
+    unregisterExchangeBackHandler?.()
+    unregisterExchangeBackHandler = null
+  }
+})
+onBeforeUnmount(() => {
+  unregisterExchangeBackHandler?.()
+  unregisterExchangeBackHandler = null
+})
 
 const currency = ref<CurrencyResponse | null>(null)
 const items = ref<ItemResponse[]>([])

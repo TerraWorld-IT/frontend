@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-screen bg-riso-cream px-5 py-8">
+  <main class="min-h-screen bg-riso-cream px-5" style="padding-top: calc(32px + env(safe-area-inset-top, 0px)); padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px))">
     <div class="mx-auto max-w-xl space-y-4 text-riso-dark">
       <header class="space-y-1">
         <h1 class="text-lg font-bold">개인정보 처리방침</h1>
@@ -37,8 +37,13 @@
           <p class="text-riso-dark/80">개인정보보호법에 따라 만 14세 미만의 가입을 받지 않습니다.</p>
         </div>
         <div>
-          <h2 class="font-semibold mb-1">5. 위치정보는 수집하지 않습니다</h2>
-          <p class="text-riso-dark/80">현재 위치정보를 수집하지 않습니다. 향후 도입 시 별도 동의를 받습니다.</p>
+          <h2 class="font-semibold mb-1">5. 위치정보 이용 안내</h2>
+          <p class="text-riso-dark/80">
+            거리 기록 기능 이용 중에만 위치정보를 기기에서 실시간으로 이용해 이동 거리를 계산합니다.
+            위치 좌표 자체는 서버로 전송되거나 저장되지 않으며, 계산이 끝난 뒤 산출된 총 이동 거리만
+            활동 기록에 저장됩니다. 위치 접근 권한은 언제든 기기 설정에서 철회할 수 있으며, 거부하더라도
+            다른 기능은 정상적으로 이용할 수 있습니다.
+          </p>
         </div>
         <div>
           <h2 class="font-semibold mb-1">6. 권리 행사·문의</h2>

@@ -331,8 +331,12 @@
     <Transition name="sheet">
       <div
         v-if="openModal === 'todo'"
+        ref="todoModalRoot"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl flex flex-col"
         style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="할일 기록"
       >
         <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
@@ -420,8 +424,12 @@
     <Transition name="sheet">
       <div
         v-if="openModal === 'diary'"
+        ref="diaryModalRoot"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl flex flex-col"
         style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="일기 기록"
       >
         <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
@@ -466,8 +474,12 @@
     <Transition name="sheet">
       <div
         v-if="openModal === 'focus'"
+        ref="focusModalRoot"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl"
         style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="집중 기록"
       >
         <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
@@ -561,8 +573,12 @@
     <Transition name="sheet">
       <div
         v-if="openModal === 'distance'"
+        ref="distanceModalRoot"
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl"
         style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px)"
+        role="dialog"
+        aria-modal="true"
+        aria-label="거리 기록"
       >
         <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
@@ -574,7 +590,7 @@
             <Icon name="lucide:x" class="w-4 h-4 text-gray-500" />
           </button>
         </div>
-        <div class="px-5 py-8 flex flex-col items-center gap-6">
+        <div class="px-5 pt-8 flex flex-col items-center gap-6" style="padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px))">
           <div v-if="distError" class="text-red-400 text-sm text-center">{{ distError }}</div>
           <div class="flex flex-col items-center gap-1">
             <div class="text-5xl font-bold text-gray-900">{{ (distance / 1000).toFixed(3) }}</div>
@@ -799,6 +815,28 @@ async function onCheckIn(tr: HabitTrackerResponse) {
 // ─── 일상 기록 (모달) ───
 type DailyModal = 'todo' | 'diary' | 'focus' | 'distance'
 const openModal = ref<DailyModal | null>(null)
+
+// bespoke 모달 4종의 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
+const todoModalRoot = ref<HTMLElement | null>(null)
+const diaryModalRoot = ref<HTMLElement | null>(null)
+const focusModalRoot = ref<HTMLElement | null>(null)
+const distanceModalRoot = ref<HTMLElement | null>(null)
+useDialogFocusTrap(todoModalRoot, computed(() => openModal.value === 'todo'))
+useDialogFocusTrap(diaryModalRoot, computed(() => openModal.value === 'diary'))
+useDialogFocusTrap(focusModalRoot, computed(() => openModal.value === 'focus'))
+useDialogFocusTrap(distanceModalRoot, computed(() => openModal.value === 'distance'))
+
+// Android 하드웨어 뒤로가기 — 일상 기록 모달이 열려있으면 라우트 이동 전에 먼저 닫는다.
+const { pushBackHandler } = useBackButtonStack()
+let unregisterModalBackHandler: (() => void) | null = null
+watch(openModal, (v) => {
+  if (v) {
+    unregisterModalBackHandler = pushBackHandler(() => closeModal())
+  } else {
+    unregisterModalBackHandler?.()
+    unregisterModalBackHandler = null
+  }
+})
 const submitting = ref<boolean>(false)
 const categories = ref<CategoryResponse[]>([])
 const recentRecords = ref<RecordResponse[]>([])
@@ -1062,17 +1100,7 @@ function resetDistance() {
   distPrev = null
 }
 
-function startDistance() {
-  if (!import.meta.client || !navigator.geolocation) {
-    distError.value = '이 기기에서 위치 서비스를 지원하지 않습니다'
-    return
-  }
-  distPhase.value = 'tracking'
-  distance.value = 0
-  distPrev = null
-  distTimer = setInterval(() => {
-    distElapsed.value += 1
-  }, 1000)
+function beginDistanceWatch() {
   distWatchId = navigator.geolocation.watchPosition(
     (pos) => {
       const curr = { lat: pos.coords.latitude, lng: pos.coords.longitude }
@@ -1084,9 +1112,52 @@ function startDistance() {
     },
     (err) => {
       distError.value = `위치 오류: ${err.message}`
+      // PERMISSION_DENIED(1) 은 사용자가 재허용하기 전까지 복구 불가 — 'tracking' 상태로
+      // 타이머만 계속 도는 상태로 방치하지 않고 idle 로 되돌린다(Codex 감사 지적).
+      // TIMEOUT/POSITION_UNAVAILABLE(2/3) 은 일시적일 수 있어 계속 시도.
+      if (err.code === GeolocationPositionError.PERMISSION_DENIED) {
+        clearDistWatch()
+        distPhase.value = 'idle'
+      }
     },
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 },
   )
+}
+
+function startDistance() {
+  if (!import.meta.client || !navigator.geolocation) {
+    distError.value = '이 기기에서 위치 서비스를 지원하지 않습니다'
+    return
+  }
+  distPhase.value = 'tracking'
+  distance.value = 0
+  distPrev = null
+  distTimer = setInterval(() => {
+    distElapsed.value += 1
+  }, 1000)
+  beginDistanceWatch()
+}
+
+// 앱이 백그라운드로 가면 watcher/타이머를 명시적으로 정리(배터리 낭비 방지 — WKWebView 는
+// 백그라운드 시 JS 실행이 멈춰 사실상 자동 정지되지만 Android WebView 는 보장이 약함).
+// 포그라운드 복귀 시 'tracking' 상태였다면 이어서 재개하되, 백그라운드 동안의 좌표 갭으로
+// 거리가 뻥튀기되지 않도록 distPrev 를 리셋(다음 위치부터 다시 기준점 삼음).
+function pauseDistanceWatchForBackground() {
+  if (distPhase.value !== 'tracking') return
+  if (distWatchId !== null) {
+    navigator.geolocation.clearWatch(distWatchId)
+    distWatchId = null
+  }
+  if (distTimer) {
+    clearInterval(distTimer)
+    distTimer = null
+  }
+}
+function resumeDistanceWatchFromBackground() {
+  if (distPhase.value !== 'tracking' || distWatchId !== null) return
+  distPrev = null
+  distTimer = setInterval(() => { distElapsed.value += 1 }, 1000)
+  beginDistanceWatch()
 }
 
 function stopDistance() {
@@ -1113,9 +1184,21 @@ watch(openModal, (next, prev) => {
   if (prev === 'distance' && next !== 'distance') resetDistance()
 })
 
+let removePauseListener: (() => void) | null = null
+let removeResumeListener: (() => void) | null = null
+// App.addListener() 는 비동기라, 등록이 resolve 되기 전에 이 컴포넌트가 이미 unmount 됐을 수
+// 있다(빠른 라우트 이탈). 그 경우 onBeforeUnmount 시점엔 remove 함수가 아직 null 이라 stale
+// listener 가 영구히 남는다(Codex Round 3 지적) — disposed 플래그로 늦게 도착한 등록도 즉시 정리.
+let disposed = false
+
 onBeforeUnmount(() => {
   clearFocusTimer()
   clearDistWatch()
+  unregisterModalBackHandler?.()
+  unregisterModalBackHandler = null
+  disposed = true
+  removePauseListener?.()
+  removeResumeListener?.()
 })
 
 // ─── 초기 로드 ───
@@ -1144,6 +1227,21 @@ async function loadInitial() {
 onMounted(() => {
   loadInitial()
   loadHabits()
+
+  // 거리 추적 중 백그라운드 전환 시 watcher 정리 + 복귀 시 재개(Codex 감사 지적).
+  const { isNative } = useNative()
+  if (isNative) {
+    import('@capacitor/app').then(({ App }) => {
+      App.addListener('pause', pauseDistanceWatchForBackground).then((h) => {
+        if (disposed) { h.remove(); return }
+        removePauseListener = () => h.remove()
+      })
+      App.addListener('resume', resumeDistanceWatchFromBackground).then((h) => {
+        if (disposed) { h.remove(); return }
+        removeResumeListener = () => h.remove()
+      })
+    })
+  }
 })
 </script>
 

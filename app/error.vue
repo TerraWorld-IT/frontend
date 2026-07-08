@@ -1,6 +1,8 @@
 <template>
-  <div class="min-h-screen bg-riso-cream flex items-center justify-center px-4 riso-grain">
-    <div class="text-center max-w-sm">
+  <!-- h-dvh + items-start + overflow-y-auto + my-auto: login.vue 와 동일한 safe-centering
+       패턴 — 접근성 큰글씨/작은 화면에서 긴 에러 메시지가 잘리고 스크롤도 안 되던 문제 방지. -->
+  <div class="h-dvh w-full bg-riso-cream flex items-start justify-center overflow-y-auto px-4 py-6 riso-grain">
+    <div class="text-center max-w-sm my-auto">
       <div class="text-6xl mb-4">{{ emoji }}</div>
       <h1 class="text-2xl font-bold text-riso-dark mb-2">
         {{ title }}

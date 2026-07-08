@@ -3,12 +3,21 @@
     <Transition name="onboarding-fade">
       <div
         v-if="show"
+        ref="rootEl"
         class="fixed inset-0 z-[100] bg-riso-dark/60 flex items-center justify-center p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label="시작하기 안내"
         @click.self="$emit('close')"
       >
         <div class="w-full max-w-sm bg-white rounded-[2rem] overflow-hidden riso-shadow">
-          <!-- Step content -->
-          <div class="relative aspect-[4/3] flex items-center justify-center p-8" :style="{ backgroundColor: currentStep.bg }">
+          <!-- Step content — 좌우 스와이프로도 이전/다음 이동(Codex 감사 지적 — 이전엔 버튼 전용) -->
+          <div
+            class="relative aspect-[4/3] flex items-center justify-center p-8"
+            style="touch-action: pan-y"
+            :style="{ backgroundColor: currentStep.bg }"
+            @pointerdown="onStepPointerDown"
+          >
             <div class="text-center space-y-3">
               <span class="text-6xl block">{{ currentStep.icon }}</span>
               <h3 class="font-bold text-xl text-riso-dark">{{ currentStep.title }}</h3>
@@ -74,8 +83,11 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ show: boolean }>()
+const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
+
+const rootEl = ref<HTMLElement | null>(null)
+useDialogFocusTrap(rootEl, computed(() => props.show))
 
 const { t } = useI18n()
 const step = ref<number>(0)
@@ -119,6 +131,50 @@ function onComplete() {
   localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true')
   emit('close')
 }
+
+// 좌우 스와이프 — 왼쪽으로 스와이프(다음), 오른쪽으로 스와이프(이전). 세로 스크롤/스크롤바운스와
+// 안 겹치게 touch-action:pan-y 로 세로 제스처는 브라우저에 양보하고 가로만 여기서 처리.
+const SWIPE_THRESHOLD_PX = 40
+function onStepPointerDown(e: PointerEvent) {
+  const startX = e.clientX
+  const el = e.currentTarget as HTMLElement
+  el.setPointerCapture(e.pointerId)
+  function onUp(ev: PointerEvent) {
+    const dx = ev.clientX - startX
+    if (dx <= -SWIPE_THRESHOLD_PX && step.value < steps.value.length - 1) {
+      step.value++
+    } else if (dx >= SWIPE_THRESHOLD_PX && step.value > 0) {
+      step.value--
+    }
+    el.removeEventListener('pointerup', onUp)
+    el.removeEventListener('pointercancel', onCancel)
+  }
+  function onCancel() {
+    el.removeEventListener('pointerup', onUp)
+    el.removeEventListener('pointercancel', onCancel)
+  }
+  el.addEventListener('pointerup', onUp)
+  el.addEventListener('pointercancel', onCancel)
+}
+
+// Android 하드웨어 뒤로가기 — 온보딩 중이면 이전 스텝으로, 첫 스텝이면 닫기(skip 과 동일 취급).
+const { pushBackHandler } = useBackButtonStack()
+let unregisterBackHandler: (() => void) | null = null
+watch(() => props.show, (open) => {
+  if (open) {
+    unregisterBackHandler = pushBackHandler(() => {
+      if (step.value > 0) step.value--
+      else onComplete()
+    })
+  } else {
+    unregisterBackHandler?.()
+    unregisterBackHandler = null
+  }
+})
+onBeforeUnmount(() => {
+  unregisterBackHandler?.()
+  unregisterBackHandler = null
+})
 </script>
 
 <style scoped>

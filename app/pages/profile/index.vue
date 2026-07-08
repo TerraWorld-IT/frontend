@@ -368,7 +368,11 @@
       <Transition name="dialog">
         <div
           v-if="showItemsDialog"
+          ref="itemsDialogRoot"
           class="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto max-h-[80dvh] overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="보유 아이템"
         >
           <div class="bg-white rounded-[16px] p-6 flex flex-col max-h-[80dvh] border border-black/10">
             <div class="flex items-center justify-between mb-4">
@@ -415,6 +419,26 @@ const fetchError = ref<Error | null>(null)
 const user = ref<UserMeResponse | null>(null)
 const loggingOut = ref<boolean>(false)
 const showItemsDialog = ref<boolean>(false)
+
+// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
+const itemsDialogRoot = ref<HTMLElement | null>(null)
+useDialogFocusTrap(itemsDialogRoot, showItemsDialog)
+
+// Android 하드웨어 뒤로가기 — bespoke 오버레이라 직접 back-stack 에 등록.
+const { pushBackHandler } = useBackButtonStack()
+let unregisterItemsDialogBackHandler: (() => void) | null = null
+watch(showItemsDialog, (open) => {
+  if (open) {
+    unregisterItemsDialogBackHandler = pushBackHandler(() => { showItemsDialog.value = false })
+  } else {
+    unregisterItemsDialogBackHandler?.()
+    unregisterItemsDialogBackHandler = null
+  }
+})
+onBeforeUnmount(() => {
+  unregisterItemsDialogBackHandler?.()
+  unregisterItemsDialogBackHandler = null
+})
 
 const nickname = computed<string>(() => user.value?.nickname ?? 'TERRA유저')
 const ownedItems = computed<string[]>(() => user.value?.ownedItems ?? [])
