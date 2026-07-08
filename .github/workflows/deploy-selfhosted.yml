@@ -34,15 +34,18 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --no-deps frontend
 
           echo "frontend 응답 대기..."
-          # 실측(2026-07-08): 컨테이너 재생성 후 콜드스타트가 ~100~105초 걸려, 기존
-          # 20회×5초=100초 예산과 거의 같은 시점에 걸쳐 있었다 — 헬스체크가 포기한 지
-          # 130ms 뒤에 앱이 실제로 "Listening on" 로그를 찍는 레이스가 실측됨(deploy 워크플로
-          # run 28961083113 로그). 그 이후 push(main) 7회가 전부 이 레이스로 연속 실패해
-          # main 의 커밋들이 실제로는 한 건도 배포되지 않은 상태였음. 예산을 60회×3초=180초로
-          # 늘려 여유를 확보(간격도 좁혀 실제 기동 시점에 더 가깝게 감지).
-          for i in $(seq 1 60); do
+          # 실측(2026-07-08): 컨테이너 재생성 후 콜드스타트 시간의 편차가 커서(101초 →
+          # 184초, 같은 머신에서 두 번 연속 측정해도 82% 차이) 고정 예산으로는 안정적으로
+          # 못 잡는다. 100초 예산(run 28961083113)과 180초 예산(run 28963064484) 둘 다
+          # "헬스체크가 포기한 직후 컨테이너가 Listening on 로그를 찍는" 동일 패턴으로 실패 —
+          # 실제로는 배포 자체(docker compose up)는 이미 성공해 새 코드가 라이브 서빙되고
+          # 있었음(실측: 배포 "실패" 처리된 직후 프로덕션 번들에서 새 커밋의 코드 확인됨).
+          # 즉 이 스크립트는 배포 성공/실패를 정확히 반영하지 못하는 상태였다 — 실제 배포는
+          # 되는데 CI만 매번 거짓 실패를 보고해온 것. 콜드스타트 편차에 확실히 여유를 두기
+          # 위해 예산을 150회×4초=600초(10분)로 크게 확대.
+          for i in $(seq 1 150); do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/ || echo 000)
             [ "$code" = 200 ] && { echo "✅ frontend 200"; exit 0; }
-            sleep 3
+            sleep 4
           done
           echo "❌ frontend 미응답"; docker logs --tail 50 tw-frontend; exit 1
