@@ -34,17 +34,18 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --no-deps frontend
 
           echo "frontend 응답 대기..."
-          # 실측(2026-07-08): 컨테이너 재생성 후 콜드스타트 시간의 편차가 커서(101초 →
-          # 184초, 같은 머신에서 두 번 연속 측정해도 82% 차이) 고정 예산으로는 안정적으로
-          # 못 잡는다. 100초 예산(run 28961083113)과 180초 예산(run 28963064484) 둘 다
-          # "헬스체크가 포기한 직후 컨테이너가 Listening on 로그를 찍는" 동일 패턴으로 실패 —
-          # 실제로는 배포 자체(docker compose up)는 이미 성공해 새 코드가 라이브 서빙되고
-          # 있었음(실측: 배포 "실패" 처리된 직후 프로덕션 번들에서 새 커밋의 코드 확인됨).
-          # 즉 이 스크립트는 배포 성공/실패를 정확히 반영하지 못하는 상태였다 — 실제 배포는
-          # 되는데 CI만 매번 거짓 실패를 보고해온 것. 콜드스타트 편차에 확실히 여유를 두기
-          # 위해 예산을 150회×4초=600초(10분)로 크게 확대.
+          # 실제 근본 원인(2026-07-08): 100초/180초/600초 세 예산 모두 "정확히 그 예산만큼"
+          # 걸린 뒤 실패 — 콜드스타트가 느린 게 아니라 애초에 성공 조건을 영원히 못 만나고
+          # 있었다. `/`는 app/middleware/auth.ts 의 protect-by-default 라우트 가드 대상이라
+          # 미인증 요청은 항상 /auth/login 으로 302 리다이렉트되는데, 이 스크립트는 정확히
+          # 200 만 성공으로 인정해서 매번 예산을 다 쓰고 실패해왔다(직접 확인:
+          # curl https://terraworld.web-qplay.kr/ → 302, /auth/login → 200). 배포 자체는
+          # 매번 정상 진행됐고(프로덕션 번들에서 새 커밋 코드 확인됨), 이 헬스체크 스크립트만
+          # 잘못된 경로를 확인해 거짓 실패를 보고해온 것. 인증 없이 항상 200 이 보장되는
+          # /auth/login 으로 체크 대상 변경 — 이제 정상 기동 시 몇 초 내 통과해야 하므로
+          # 예산(150회×4초=600초)은 안전 마진으로만 유지.
           for i in $(seq 1 150); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/ || echo 000)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/auth/login || echo 000)
             [ "$code" = 200 ] && { echo "✅ frontend 200"; exit 0; }
             sleep 4
           done
