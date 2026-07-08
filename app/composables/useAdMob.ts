@@ -127,15 +127,34 @@ export function useAdMob() {
 
       return await new Promise<boolean>((resolve) => {
         let rewarded = false
+        let settled = false
         const handle = AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
           rewarded = true
         })
         const dismissHandle = AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
+          if (settled) return
+          settled = true
+          clearTimeout(timeoutId)
           // 정리 후 결과 반환 — Rewarded 이벤트가 먼저 발생했으면 true
           void Promise.all([handle.then((h) => h.remove()), dismissHandle.then((h) => h.remove())])
           resolve(rewarded)
         })
-        void AdMob.showRewardVideoAd().catch(() => resolve(false))
+        // AdMob 네이티브 SDK 문제나 백그라운드 전환 중 Dismissed 이벤트가 아예 안 오면 이 프라미스가
+        // 무기한 대기 — 호출부(pages/index.vue)가 영원히 로딩 상태로 멈춘다(auth.ts 세션체크와
+        // 같은 클래스의 hang 위험). 보상형 광고는 보통 15~30초라 60초 여유를 두고 fail-closed.
+        const REWARD_AD_TIMEOUT_MS = 60_000
+        const timeoutId = setTimeout(() => {
+          if (settled) return
+          settled = true
+          void Promise.all([handle.then((h) => h.remove()), dismissHandle.then((h) => h.remove())])
+          resolve(false)
+        }, REWARD_AD_TIMEOUT_MS)
+        void AdMob.showRewardVideoAd().catch(() => {
+          if (settled) return
+          settled = true
+          clearTimeout(timeoutId)
+          resolve(false)
+        })
       })
     }
     catch {

@@ -288,8 +288,16 @@ async function onCreateInvite() {
 async function copyMyCode() {
   if (!myCode.value || !import.meta.client) return
   if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(myCode.value)
-    toast.success(t('friends.codeCopied'))
+    try {
+      await navigator.clipboard.writeText(myCode.value)
+      toast.success(t('friends.codeCopied'))
+    }
+    catch {
+      // iOS/Android WebView 는 clipboard 권한 프롬프트를 사용자가 거부하거나, gesture 컨텍스트
+      // 밖에서 호출되면 write 가 reject 될 수 있다 — 복사 실패를 조용히 삼키지 않고 코드를
+      // 직접 보여줘 사용자가 수동으로라도 알 수 있게 한다.
+      toast.info(t('friends.codeIs', { code: myCode.value }))
+    }
   }
   else {
     toast.info(t('friends.codeIs', { code: myCode.value }))
