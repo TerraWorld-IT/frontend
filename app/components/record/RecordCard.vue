@@ -6,10 +6,10 @@
           class="w-12 h-12 rounded-[12px] flex items-center justify-center text-xl"
           style="background-color: #f1c3f4"
         >
-          {{ record.categoryEmoji ?? '🏷️' }}
+          {{ displayIcon }}
         </div>
         <div>
-          <div class="font-semibold text-sm text-black">{{ record.categoryName }}</div>
+          <div class="font-semibold text-sm text-black">{{ displayLabel }}</div>
           <div class="text-xs text-[#525252]">{{ formattedDate }}</div>
         </div>
       </div>
@@ -25,10 +25,20 @@
 
 <script setup lang="ts">
 import type { RecordResponse } from '@terraworld-it/openapi-frontend'
+import { DAILY_TYPE_ICONS, DAILY_TYPE_LABELS } from '~/utils/constants'
 
 const props = defineProps<{
   record: RecordResponse
 }>()
+
+// dailyType 이 있는 기록은 보상 토큰 라우팅용 canonical 카테고리(categoryName)가 실제
+// 기록 종류와 다를 수 있어(예: DIARY → "독서" 카테고리) dailyType 라벨을 우선 표시한다.
+const displayLabel = computed<string>(() =>
+  (props.record.dailyType && DAILY_TYPE_LABELS[props.record.dailyType]) || props.record.categoryName,
+)
+const displayIcon = computed<string>(() =>
+  (props.record.dailyType && DAILY_TYPE_ICONS[props.record.dailyType]) || props.record.categoryEmoji || '🏷️',
+)
 
 const formattedDate = computed<string>(() => {
   const src = props.record.recordedDate || props.record.createdAt

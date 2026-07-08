@@ -22,6 +22,27 @@ export const CATEGORY_BG: Record<string, string> = {
   낙서: 'bg-orange-50',
 }
 
+/**
+ * dailyType 표시 라벨/아이콘 맵 — RecordResponse.dailyType(PHOTO/DIARY/FOCUS/DISTANCE) 전용.
+ * dailyType 이 있는 기록은 보상 토큰 라우팅을 위해 categoryId/categoryName 이 canonical
+ * 시스템 카테고리(예: DIARY→독서)로 강제 매핑돼 있어, categoryName 을 그대로 표시하면 실제
+ * 기록 종류와 다르게 보인다("일기"가 "독서"로 표시되는 등) — 화면에는 이 맵을 우선 사용.
+ * PHOTO 는 기록하기 화면상 "투두리스트" 기능명으로 노출(레거시 dailyType 이름 유지, UI만 갱신).
+ */
+export const DAILY_TYPE_LABELS: Record<string, string> = {
+  PHOTO: '투두리스트',
+  DIARY: '일기',
+  FOCUS: '집중',
+  DISTANCE: '거리',
+}
+
+export const DAILY_TYPE_ICONS: Record<string, string> = {
+  PHOTO: '✅',
+  DIARY: '📔',
+  FOCUS: '⏱️',
+  DISTANCE: '🏃',
+}
+
 /** 희귀도 라벨 */
 export const RARITY_LABELS: Record<string, { label: string; class: string }> = {
   COMMON: { label: '일반', class: 'bg-gray-100 text-gray-500' },

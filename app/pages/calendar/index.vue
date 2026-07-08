@@ -185,10 +185,10 @@
                 >
                   <div class="flex items-center gap-3">
                     <div class="w-6 h-6 flex items-center justify-center text-xl shrink-0">
-                      {{ record.categoryEmoji ?? '🏷️' }}
+                      {{ (record.dailyType && DAILY_TYPE_ICONS[record.dailyType]) || record.categoryEmoji || '🏷️' }}
                     </div>
                     <div class="flex-1 min-w-0">
-                      <div class="font-semibold text-sm text-black">{{ record.categoryName }}</div>
+                      <div class="font-semibold text-sm text-black">{{ (record.dailyType && DAILY_TYPE_LABELS[record.dailyType]) || record.categoryName }}</div>
                       <div class="text-xs text-[#525252]">
                         {{ formatTime(record.recordedDate) }}
                         <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
@@ -296,6 +296,7 @@ import type {
   NoteResponse,
   PagedRecordResponse,
 } from '@terraworld-it/openapi-frontend'
+import { DAILY_TYPE_ICONS, DAILY_TYPE_LABELS } from '~/utils/constants'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
