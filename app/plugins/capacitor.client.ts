@@ -172,6 +172,21 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     // Keyboard plugin not available
   }
 
+  // --- 빈 영역 탭 시 키보드 닫기 (실기기 QA 발견) ---
+  // 지금까지는 제출/모달닫기/모드전환 같은 명시적 액션 지점에서만 dismissKeyboard() 를
+  // 호출했다 — "포커스된 인풋 밖 빈 화면을 탭하면 키보드가 닫힌다"는 네이티브 앱의 표준
+  // 동작 자체가 어디에도 없었다. 포커스된 input/textarea 가 있는 상태에서 그 요소 바깥을
+  // 클릭하면 dismissKeyboard() 호출 — 이미 열려있는 다른 명시적 핸들러와 중복 호출돼도
+  // dismissKeyboard() 자체가 멱등이라 안전.
+  document.addEventListener('click', (e) => {
+    const active = document.activeElement
+    if (!(active instanceof HTMLElement)) return
+    if (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA') return
+    const target = e.target
+    if (target instanceof Node && (target === active || active.contains(target))) return
+    void dismissKeyboard()
+  })
+
   // --- Foreground 복귀 (Codex 감사 지적) ---
   // useAuth 의 4분 주기 setInterval 은 앱이 백그라운드로 가면 JS 실행이 멈춰 함께 멈춘다 —
   // 오래 백그라운드에 있다가 돌아오면 JWT(5분 TTL)가 만료된 채일 수 있다. resume 시 즉시

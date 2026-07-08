@@ -131,6 +131,14 @@
   overscroll-behavior: none;
 }
 
+/* overscroll-behavior 는 상속되지 않는다 — <html> 에만 걸어두면 login.vue 등 개별
+   overflow-y-auto 컨테이너는 각자 독립적으로 iOS 바운스를 일으킨다(실기기 QA 발견,
+   콘텐츠가 뷰포트에 정확히 맞아도 WebKit 이 살짝 튕기는 것처럼 보임). 스크롤 가능 여부와
+   무관하게 모든 하위 요소에 적용 — 실제로 스크롤 안 되는 요소엔 no-op 이라 안전. */
+.is-native-app * {
+  overscroll-behavior: contain;
+}
+
 .is-native-app,
 .is-native-app * {
   /* 텍스트 드래그 선택(파란 선택 핸들) 제거 — input/textarea/contenteditable 은
