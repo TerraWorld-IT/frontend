@@ -97,7 +97,14 @@ export default defineNuxtPlugin(() => {
 
     if (!refreshed) {
       // Session cookie is genuinely gone or invalid — bounce to login.
+      // 기능적으로는 수렴돼 있었지만(즉시 리다이렉트), 왜 로그인 화면으로 튕겼는지 설명이
+      // 없어 사용자 입장에선 "갑자기 로그아웃됨"으로 보일 수 있었음(장시간 미조작 후 복귀
+      // 시나리오에서 특히). useI18n()/useToast() 는 캐패시터 백버튼 핸들러와 동일하게 콜백
+      // 안에서 호출 — 이 인터셉터는 실제 API 401 발생 시점(앱 초기화 완료 후)에만 실행되므로
+      // 플러그인 setup 순서 의존성 문제가 없다.
       clearJwt()
+      const { t } = useI18n()
+      useToast().info(t('common.sessionExpired'))
       await navigateTo('/auth/login')
       return response
     }

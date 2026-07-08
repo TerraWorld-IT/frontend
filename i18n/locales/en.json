@@ -193,6 +193,7 @@
     "pressBackAgainToExit": "Press back again to exit",
     "retry": "Retry",
     "save": "Save",
+    "sessionExpired": "Your session has expired — please sign in again",
     "share": "Share",
     "token": "Token"
   },

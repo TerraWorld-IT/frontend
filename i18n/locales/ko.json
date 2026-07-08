@@ -193,6 +193,7 @@
     "pressBackAgainToExit": "한 번 더 누르면 종료됩니다",
     "retry": "다시 시도",
     "save": "저장",
+    "sessionExpired": "세션이 만료되어 다시 로그인해주세요",
     "share": "공유",
     "token": "토큰"
   },
