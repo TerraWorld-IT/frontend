@@ -34,9 +34,15 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --no-deps frontend
 
           echo "frontend 응답 대기..."
-          for i in $(seq 1 20); do
+          # 실측(2026-07-08): 컨테이너 재생성 후 콜드스타트가 ~100~105초 걸려, 기존
+          # 20회×5초=100초 예산과 거의 같은 시점에 걸쳐 있었다 — 헬스체크가 포기한 지
+          # 130ms 뒤에 앱이 실제로 "Listening on" 로그를 찍는 레이스가 실측됨(deploy 워크플로
+          # run 28961083113 로그). 그 이후 push(main) 7회가 전부 이 레이스로 연속 실패해
+          # main 의 커밋들이 실제로는 한 건도 배포되지 않은 상태였음. 예산을 60회×3초=180초로
+          # 늘려 여유를 확보(간격도 좁혀 실제 기동 시점에 더 가깝게 감지).
+          for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/ || echo 000)
             [ "$code" = 200 ] && { echo "✅ frontend 200"; exit 0; }
-            sleep 5
+            sleep 3
           done
           echo "❌ frontend 미응답"; docker logs --tail 50 tw-frontend; exit 1
