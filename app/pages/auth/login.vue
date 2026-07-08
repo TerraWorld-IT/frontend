@@ -295,6 +295,9 @@ const maxBirthDate = computed<string>(() => {
 })
 
 function toggleMode() {
+  // signup 전용 필드(닉네임/생년월일/동의)가 포커스를 유지한 채 mode 전환으로 즉시
+  // 사라지면 키보드가 안 닫힐 수 있음 (utils/keyboard.ts 참조).
+  void dismissKeyboard()
   mode.value = mode.value === 'login' ? 'signup' : 'login'
 }
 
@@ -330,6 +333,8 @@ async function onSubmit() {
       // 인증 상태에서 재등록 (native 전용 — 웹/iOS sim 은 no-op). 네비게이션 차단 방지 위해 fire-and-forget.
       void registerPush().catch(() => {})
       toast.success(t('auth.welcomeBack'))
+      // 로그인 폼 전체가 페이지 이동으로 언마운트되기 전 키보드 해제 (utils/keyboard.ts 참조).
+      void dismissKeyboard()
       await navigateTo('/')
     }
     else {
@@ -370,6 +375,7 @@ async function onSubmit() {
       // FCM: 가입 직후 디바이스 토큰 등록 (위 로그인 분기와 동일 — fire-and-forget, native 전용).
       void registerPush().catch(() => {})
       toast.success(t('auth.signupSuccess'))
+      void dismissKeyboard()
       await navigateTo('/')
     }
   }

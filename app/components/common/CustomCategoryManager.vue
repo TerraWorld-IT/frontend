@@ -118,6 +118,9 @@ async function onCreate() {
   })
   if (result) {
     toast.success(t('category.created', { name: result.name }))
+    // 10번째 생성 직후 mine.length >= 10 이 되어 폼 자체(v-if="mine.length < 10")가
+    // 사라지는 edge case — 그 전에 키보드 해제 (utils/keyboard.ts 참조, Codex 감사 지적).
+    void dismissKeyboard()
     form.name = ''
     form.tokenName = ''
     form.emoji = ''

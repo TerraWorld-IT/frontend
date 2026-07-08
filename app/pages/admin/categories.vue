@@ -133,6 +133,8 @@ async function saveRewards(categoryId: number) {
     })
     if (error) throw error
     toast.success(t('admin.common.saveSuccess'))
+    // rows 전체를 새로 받아 교체하기 전에 키보드 해제 (utils/keyboard.ts 참조).
+    void dismissKeyboard()
     await loadCategories()
   }
   catch {

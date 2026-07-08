@@ -133,6 +133,10 @@ watch(() => props.modelValue, async (open) => {
     await nextTick()
     confirmBtn.value?.focus()
   } else {
+    // 여기서도 명시적으로 처리 — confirm()/cancel() 을 안 거치고 부모가 modelValue 를
+    // 직접 false 로 바꾸는 경로(예: admin/items.vue 의 폼 submit 성공 후 showCreateDialog
+    // 직접 토글)에서도 slot 안 input 의 키보드가 안 닫히는 문제를 막는다.
+    void dismissKeyboard()
     releaseScrollLock()
     if (previousActiveElement instanceof HTMLElement) {
       previousActiveElement.focus()

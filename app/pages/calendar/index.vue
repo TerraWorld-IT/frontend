@@ -140,7 +140,7 @@
       <div
         v-if="selectedDate"
         class="fixed inset-0 bg-black/30 z-40"
-        @click="selectedDate = null"
+        @click="closeSheet()"
       />
     </Transition>
     <Transition name="cal-sheet">
@@ -163,7 +163,7 @@
               <button
                 type="button"
                 class="w-8 h-8 rounded-[12px] flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
-                @click="selectedDate = null"
+                @click="closeSheet()"
               >
                 <Icon name="lucide:x" class="w-4 h-4" />
               </button>
@@ -434,7 +434,7 @@ function prevMonth() {
   else {
     viewMonth.value -= 1
   }
-  selectedDate.value = null
+  closeSheet()
   openMenuId.value = null
   noteMap.value = {}
   loadMonth()
@@ -448,13 +448,16 @@ function nextMonth() {
   else {
     viewMonth.value += 1
   }
-  selectedDate.value = null
+  closeSheet()
   openMenuId.value = null
   noteMap.value = {}
   loadMonth()
 }
 
 async function selectDay(day: number) {
+  // 다른 날짜의 메모를 편집 중(textarea 포커스)이었다면 전환 전에 키보드 해제
+  // (utils/keyboard.ts 참조 — 포커스 유지한 채 즉시 unmount 되면 키보드가 안 닫힐 수 있음).
+  if (isEditingNote.value) void dismissKeyboard()
   const key = dateKey(day)
   selectedDate.value = new Date(viewYear.value, viewMonth.value, day)
   isEditingNote.value = false
@@ -488,8 +491,16 @@ function startEdit() {
 }
 
 function cancelEdit() {
+  void dismissKeyboard()
   isEditingNote.value = false
   editingNoteText.value = selectedNote.value ?? ''
+}
+
+// 날짜 시트를 닫는 모든 경로(백드롭/X/월 전환)가 공유 — 메모 편집 중이었다면 키보드 해제
+// 후 닫는다 (utils/keyboard.ts 참조).
+function closeSheet() {
+  if (isEditingNote.value) void dismissKeyboard()
+  selectedDate.value = null
 }
 
 async function saveNote() {
@@ -514,6 +525,7 @@ async function saveNote() {
       selectedNote.value = null
       toast.success(t('calendar.memoDeleted'))
     }
+    void dismissKeyboard()
     isEditingNote.value = false
   }
   catch (e) {

@@ -17,7 +17,7 @@
           type="button"
           class="h-[40px] px-[12px] rounded-[16px] text-[12px] font-semibold transition-all hover:opacity-80"
           style="background: rgba(126,219,192,0.18); color: #3a9e78"
-          @click="navigateTo('/calendar')"
+          @click="goToCalendar()"
         >
           캘린더
         </button>
@@ -43,7 +43,7 @@
           :style="mode === 'solo'
             ? { background: '#f092f0', boxShadow: '0 10px 7.5px rgba(0,0,0,0.1),0 4px 3px rgba(0,0,0,0.1)' }
             : { background: 'white', border: '1px solid rgba(0,0,0,0.1)' }"
-          @click="mode = 'solo'"
+          @click="setMode('solo')"
         >
           <Icon name="lucide:sparkles" class="w-4 h-4" :style="{ color: mode === 'solo' ? 'white' : '#595757' }" />
           <span class="text-[14px] font-semibold" :style="{ color: mode === 'solo' ? 'white' : 'black' }">
@@ -57,7 +57,7 @@
           :style="mode === 'friend'
             ? { background: '#f092f0', boxShadow: '0 10px 7.5px rgba(0,0,0,0.1),0 4px 3px rgba(0,0,0,0.1)' }
             : { background: 'white', border: '1px solid rgba(0,0,0,0.1)' }"
-          @click="mode = 'friend'"
+          @click="setMode('friend')"
         >
           <Icon name="lucide:users" class="w-4 h-4" :style="{ color: mode === 'friend' ? 'white' : 'black' }" />
           <span class="text-[14px] font-semibold" :style="{ color: mode === 'friend' ? 'white' : 'black' }">
@@ -660,6 +660,21 @@ const { trackers, loaded: habitsLoaded, loadError: habitLoadError, load: loadHab
 // ─── 습관 기록 상태 ───
 type Mode = 'solo' | 'friend'
 const mode = ref<Mode>('solo')
+
+// mode 전환 시 activeTracker 계산이 바뀌며 habitInput textarea 를 가진 생성 폼이
+// 즉시 사라질 수 있음 — 전환 전 키보드 해제 (utils/keyboard.ts 참조, Codex 감사 지적).
+function setMode(next: Mode) {
+  if (mode.value === next) return
+  void dismissKeyboard()
+  mode.value = next
+}
+
+// 캘린더로 페이지 이동 시에도 habitInput 이 포커스된 채 언마운트될 수 있음.
+function goToCalendar() {
+  void dismissKeyboard()
+  navigateTo('/calendar')
+}
+
 const habitInput = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
 const creatingHabit = ref<boolean>(false)
@@ -725,6 +740,9 @@ async function submitHabit() {
     return
   }
   if (creatingHabit.value) return
+  // 생성 성공 시 폼이 tracker 뷰로 교체되며 habitInput textarea 가 사라짐
+  // (utils/keyboard.ts 참조).
+  void dismissKeyboard()
   creatingHabit.value = true
   // friend 모드 여부를 생성 전에 캡처(성공 후 mode 전환으로 값이 바뀔 수 있음).
   const wasFriendMode = mode.value === 'friend'
@@ -826,6 +844,9 @@ function onBackdrop() {
 }
 
 function closeModal() {
+  // todo/diary 모달의 input/textarea 가 포커스를 유지한 채 즉시 unmount 되면 키보드가 안
+  // 닫힐 수 있음 (utils/keyboard.ts 참조).
+  void dismissKeyboard()
   openModal.value = null
 }
 
@@ -967,6 +988,9 @@ function startFocus() {
     toast.error('타이머 이름을 입력해주세요')
     return
   }
+  // 설정 단계의 이름/시간 input 이 포커스를 유지한 채 phase 전환으로 즉시 사라지면
+  // 키보드가 안 닫힐 수 있음 (utils/keyboard.ts 참조).
+  void dismissKeyboard()
   focusRemaining.value = secs
   focusElapsed.value = 0
   focusPhase.value = 'running'
