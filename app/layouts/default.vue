@@ -82,9 +82,6 @@
       </nav>
     </div>
 
-    <!-- Global Toast -->
-    <CommonToast />
-
     <!-- AdSense PC banner (hidden on mobile container width) -->
     <CommonAdSenseBanner />
   </div>
