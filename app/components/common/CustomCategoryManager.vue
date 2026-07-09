@@ -34,6 +34,7 @@
     <form v-if="mine.length < 10" class="space-y-2" @submit.prevent="onCreate">
       <div class="grid grid-cols-2 gap-2">
         <input
+          ref="nameInput"
           v-model="form.name"
           type="text"
           :placeholder="$t('category.namePlaceholder')"
@@ -99,6 +100,7 @@ const form = reactive({
   color: '#A8D8EA',
   emoji: '',
 })
+const nameInput = ref<HTMLInputElement | null>(null)
 
 async function refresh() {
   try {
@@ -125,6 +127,13 @@ async function onCreate() {
     form.tokenName = ''
     form.emoji = ''
     await refresh()
+  }
+  else {
+    // useCustomCategory.create() 는 실패 시 error.value 만 세팅하고(errorMsg 로 하단에
+    // 텍스트 표시) 조용히 null 반환 — 눈에 잘 띄는 toast 로도 알리고, 가장 흔한 실패
+    // 원인(이름 중복 409)인 name 필드로 포커스를 옮겨 사용자가 바로 고칠 수 있게 한다.
+    if (errorMsg.value) toast.error(errorMsg.value)
+    nameInput.value?.focus()
   }
 }
 
