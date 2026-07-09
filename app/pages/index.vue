@@ -7,7 +7,7 @@
 <template>
   <div class="flex flex-col gap-6 min-h-screen w-full px-4 pt-4 pb-24">
     <!-- Loading -->
-    <CommonLoading v-if="pending" variant="spinner" container-class="py-24" />
+    <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">

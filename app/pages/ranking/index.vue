@@ -52,8 +52,8 @@
     </div>
 
     <!-- 리스트 -->
-    <div v-if="pending" class="py-12 flex justify-center">
-      <CommonLoading variant="spinner" />
+    <div v-if="pending" class="py-6">
+      <CommonLoading variant="skeleton" />
     </div>
     <div v-else-if="fetchError" class="py-12 text-center text-riso-poppy text-sm">
       {{ fetchError }}

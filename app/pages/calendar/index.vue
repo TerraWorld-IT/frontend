@@ -1,7 +1,7 @@
 <template>
   <div class="riso-grain min-h-screen space-y-[30px] pb-4">
     <!-- Initial loading -->
-    <CommonLoading v-if="pending" variant="spinner" container-class="py-24" />
+    <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">

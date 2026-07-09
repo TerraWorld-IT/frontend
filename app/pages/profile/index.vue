@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-[20px] pb-4">
-    <CommonLoading v-if="pending" variant="spinner" container-class="py-24" />
+    <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
 
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
       <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>

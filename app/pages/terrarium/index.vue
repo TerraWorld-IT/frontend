@@ -19,7 +19,7 @@
     </div>
 
     <!-- Loading -->
-    <CommonLoading v-if="terrariumStore.loading" />
+    <CommonLoading v-if="terrariumStore.loading" variant="skeleton" />
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center gap-3 py-12">
