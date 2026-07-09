@@ -4,6 +4,7 @@
     <NuxtPage />
   </NuxtLayout>
   <CommonToast />
+  <CommonAppUpdateGate />
 </template>
 
 <script setup lang="ts">

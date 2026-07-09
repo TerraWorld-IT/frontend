@@ -172,6 +172,12 @@ export default defineNuxtConfig({
       // 아이템 에셋 base (낙서장 req4/8). 로컬 `/items` 기본 → R2 CDN 은 env 로만 교체.
       // slug→`${assetBase}/${slug}.png` 규약이라 나중에 png 파일만 바꾸면 코드 변경 0.
       assetBase: process.env.NUXT_PUBLIC_ASSET_BASE || '/items',
+      // 강제 업데이트 게이트(useAppUpdate). 원격 URL 셸이라 웹 배포가 스토어 릴리스보다 앞선다 —
+      // 웹이 새 네이티브 능력에 의존하기 시작하는 배포에서 이 값을 올리면 구버전 셸이 업데이트 안내를 띄운다.
+      // 빈 값 = 게이트 비활성(현재 기본). 스토어 URL 은 출시 후 실 값 주입(iOS 앱ID 확정 전까지 빈 값).
+      minAppVersion: process.env.NUXT_PUBLIC_MIN_APP_VERSION || '',
+      iosStoreUrl: process.env.NUXT_PUBLIC_IOS_STORE_URL || '',
+      androidStoreUrl: process.env.NUXT_PUBLIC_ANDROID_STORE_URL || 'market://details?id=app.terraworld.mobile',
     },
   },
 

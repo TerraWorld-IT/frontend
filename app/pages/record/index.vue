@@ -451,9 +451,44 @@
           <textarea
             v-model="diaryText"
             placeholder="오늘 하루를 기록해보세요..."
-            rows="12"
+            rows="10"
             class="w-full flex-1 text-[14px] text-gray-700 leading-relaxed outline-none resize-none bg-transparent placeholder:text-gray-300"
           />
+          <!-- 사진 첨부 (선택) -->
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[13px] font-semibold text-gray-600">사진 첨부 <span class="text-[11px] font-normal text-gray-400">(선택)</span></span>
+            <button
+              v-if="photoUrl"
+              type="button"
+              class="text-[12px] text-riso-poppy underline"
+              @click="onClearPhoto"
+            >
+              삭제
+            </button>
+          </div>
+          <button
+            v-if="!photoUrl"
+            type="button"
+            class="w-full h-11 rounded-[12px] border border-dashed border-gray-300 text-[13px] font-medium text-gray-500 flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+            :disabled="uploadingPhoto"
+            @click="diaryFileInput?.click()"
+          >
+            <Icon name="lucide:camera" class="w-4 h-4" />
+            <span>{{ uploadingPhoto ? '업로드 중...' : '사진 추가' }}</span>
+          </button>
+          <img
+            v-else
+            :src="photoUrl"
+            alt="첨부한 사진 미리보기"
+            class="w-full max-h-[200px] object-cover rounded-[12px] riso-shadow-sm"
+          >
+          <input
+            ref="diaryFileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            @change="onFileSelected"
+          >
         </div>
         <div class="px-5 pb-6 pt-2">
           <div class="text-xs text-gray-400 text-center mb-2">저장 시 햇살토큰 +10 지급</div>
@@ -659,6 +694,7 @@ import type {
   FriendInfo,
   HabitTrackerResponse,
   PagedRecordResponse,
+  PhotoUploadResponse,
   RecordResponse,
 } from '@terraworld-it/openapi-frontend'
 import { useUserStore } from '~/stores/user'
@@ -970,6 +1006,46 @@ async function saveTodo() {
 const diaryTitle = ref<string>('')
 const diaryText = ref<string>('')
 
+// 사진 첨부 — POST /uploads/photo 응답의 photoUrl 보관. 저장 시 record body 에 포함.
+// WebView 의 <input type=file> 는 네이티브 파일 피커(카메라/갤러리)를 띄우고 File 을 바로 준다.
+const photoUrl = ref<string>('')
+const uploadingPhoto = ref<boolean>(false)
+const diaryFileInput = ref<HTMLInputElement | null>(null)
+
+async function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingPhoto.value = true
+  try {
+    // 인증 헤더는 plugins/openapi.ts 인터셉터가 자동 주입. multipart 직렬화는 SDK 담당.
+    const { data, error } = await sdk.uploadPhoto({ client, body: { file } })
+    if (error) throw new Error(errMsg(error, '업로드 실패'))
+    const typed = castData<PhotoUploadResponse>(data)
+    if (!typed?.photoUrl) throw new Error('photoUrl 누락')
+    // R2/CDN 미설정 시 백엔드(PhotoUploadService)가 base64 `data:` URL 을 반환한다. 이는 records
+    // .photo_url(VARCHAR 2048, V7)을 초과해 record 저장이 실패하므로(업로드는 성공한 뒤 저장만 깨짐)
+    // 첨부하지 않고 우아하게 degrade — 일기는 사진 없이 저장된다. R2 설정되면 실 CDN URL 이라 정상 첨부.
+    if (typed.photoUrl.startsWith('data:')) {
+      toast.info('사진 첨부는 서비스 준비 중이에요. 글은 그대로 저장할 수 있어요.')
+      return
+    }
+    photoUrl.value = typed.photoUrl
+    toast.success('사진을 첨부했어요')
+  }
+  catch (e) {
+    toast.error(`사진 업로드에 실패했어요: ${(e as Error).message}`)
+  }
+  finally {
+    uploadingPhoto.value = false
+    if (diaryFileInput.value) diaryFileInput.value.value = ''
+  }
+}
+
+function onClearPhoto() {
+  photoUrl.value = ''
+}
+
 async function saveDiary() {
   const text = diaryText.value.trim()
   if (!text) {
@@ -977,11 +1053,12 @@ async function saveDiary() {
     return
   }
   const note = diaryTitle.value.trim() ? `${diaryTitle.value.trim()}\n${text}` : text
-  const ok = await saveDailyRecord('DIARY', { note })
+  const ok = await saveDailyRecord('DIARY', { note, photoUrl: photoUrl.value || null })
   if (ok) {
     toast.success('일기가 저장되었어요! 햇살토큰 +10 ☀️')
     diaryTitle.value = ''
     diaryText.value = ''
+    photoUrl.value = ''
     closeModal()
   }
 }

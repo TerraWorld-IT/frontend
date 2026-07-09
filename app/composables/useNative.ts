@@ -202,6 +202,18 @@ export function useNative() {
     }
   }
 
+  /**
+   * 네이티브 셸의 앱 버전/빌드 노출. 원격 URL 셸에서 웹 배포가 스토어 릴리스보다 앞서므로,
+   * 웹이 셸 버전을 읽어 최소 버전 미만이면 업데이트를 유도할 수 있어야 한다(useAppUpdate).
+   * 웹(비네이티브)에서는 null.
+   */
+  async function getAppInfo(): Promise<{ version: string; build: string } | null> {
+    if (!isNative) return null
+    const { App } = await import('@capacitor/app')
+    const info = await App.getInfo()
+    return { version: info.version, build: info.build }
+  }
+
   return {
     isNative,
     platform,
@@ -218,5 +230,6 @@ export function useNative() {
     hideSplash,
     setStatusBarColor,
     clearPushToken,
+    getAppInfo,
   }
 }
