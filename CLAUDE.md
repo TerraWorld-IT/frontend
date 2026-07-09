@@ -77,6 +77,7 @@ Native:         Capacitor 8 (Android + iOS scaffold 완료, 2026-05-07 mobile #4
 ```
 frontend/
 ├── app/
+│   ├── app.vue                     # 루트 — NuxtLayout 형제로 Toast 마운트 (layout:false 페이지에서도 표시되도록, 2026-07-09)
 │   ├── assets/css/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
@@ -106,7 +107,7 @@ frontend/
 │   │   └── useThemeSelection.ts    # 프리미엄 테마 선택 + localStorage persist (entitlements.premiumThemes 게이트, SoT 레이어 검증)
 │   ├── error.vue                   # 전역 에러 페이지 (404 / 500-class 분기 + 재시도 버튼)
 │   ├── layouts/
-│   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + Toast + haptic
+│   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + haptic (Toast는 app.vue 루트로 이동, 2026-07-09)
 │   ├── lib/
 │   │   └── auth-client.ts          # better-auth Vue 클라이언트 (createAuthClient)
 │   ├── middleware/
@@ -184,8 +185,10 @@ UserMeResponse { userId, email, nickname, role, currency: CurrencyResponse, owne
 // 카테고리 (산책, 독서, 러닝, 낙서 + 커스텀)
 Category { id, name, iconUrl, color, tokenName, baseCoinReward, baseTokenReward, dailyLimit }
 
-// 기록 (dailyType: PHOTO/DIARY/FOCUS/DISTANCE — 일상 하위타입별 토큰 라우팅)
-RecordResponse { id, categoryId, categoryName, categoryEmoji?, memo?, duration?, photoUrl?, recordedDate, createdAt }
+// 기록 (dailyType: PHOTO/DIARY/FOCUS/DISTANCE — 일상 하위타입별 토큰 라우팅 + 일일한도 SoT)
+// 주의: categoryId/categoryName 은 라우팅용으로 dailyType→고정 카테고리 강제매핑됨(예: DIARY→"독서") — 화면 표시는
+// dailyType 이 있으면 그걸 우선하고(recordDisplayLabel/Icon, utils/constants.ts) categoryName 은 폴백으로만 사용 (2026-07-09)
+RecordResponse { id, categoryId, categoryName, categoryEmoji?, dailyType?, memo?, duration?, photoUrl?, recordedDate, createdAt }
 RewardInfo { basicCoins, categoryTokens }   // EXP 없음
 
 // 재화 (정규화 balances[])
