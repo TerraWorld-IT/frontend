@@ -29,6 +29,22 @@ const internalApiToken: string = rawInternalApiToken
 
 const internalApiBaseUrl = process.env.INTERNAL_API_BASE_URL ?? 'http://localhost:8080'
 
+const authBaseUrl = process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000'
+
+/**
+ * SEC-A: e2e 스크린샷 스위트는 `signUpAndLogin` 을 80회 호출하는데 better-auth 의
+ * `/sign-up*` 기본 룰이 10초 3회라 limiter 가 켜진 채로는 전 스위트가 429 로 죽는다.
+ * e2e 프로필에서만 끄되, 이 완화 스위치가 실배포로 새어나가면 로그인 무차별 대입 방어가
+ * 통째로 사라지므로 https 대상에서는 부팅을 거부한다 (fail-closed).
+ */
+const isE2EProfile = process.env.DEPLOY_PROFILE === 'e2e'
+if (isE2EProfile && authBaseUrl.startsWith('https://')) {
+  throw new Error(
+    '[auth] DEPLOY_PROFILE=e2e disables auth rate limiting and must never run against an https '
+    + `deployment (NUXT_PUBLIC_AUTH_BASE_URL=${authBaseUrl})`,
+  )
+}
+
 /**
  * Shared pg Pool — used by both better-auth's storage adapter (auth schema)
  * and the `definePayload` hook that reads `public.users.role` to embed the
@@ -84,7 +100,21 @@ export const auth = betterAuth({
   // 감사 finding: trustedOrigins 미설정 시 baseURL default 에만 의존 → 브라우저 요청(Sec-Fetch 헤더)이
   // origin-check(forceValidate)를 거치며 서빙 origin 이 baseURL 과 다르면 signup/login 403.
   // 서빙 origin 을 env 로 명시 신뢰 (기본 localhost:3000). 실 배포는 NUXT_PUBLIC_AUTH_BASE_URL 로 도메인 주입.
-  trustedOrigins: [process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000'],
+  trustedOrigins: [authBaseUrl],
+
+  // SEC-A: `rateLimit` 미지정 시 better-auth 는 `isProduction`(= process.env.NODE_ENV === 'production')
+  // 으로 폴백한다. 그런데 better-auth 는 `.output/server/node_modules/` 로 외부화되어 verbatim 복사되므로
+  // 그 NODE_ENV 는 *런타임* 에 읽히고, 런타임 이미지는 NODE_ENV 를 설정하지 않는다(Dockerfile / deploy
+  // compose 모두 미설정) → 실배포에서 sign-in 무차별 대입 방어가 꺼져 있었다. 라이브 프로브에서 4연속
+  // 로그인 실패에도 429 미발생 (2026-07-09). (대조: 이 파일의 `secure: NODE_ENV === 'production'` 는
+  // 1차 소스라 nitro 가 빌드 타임에 `true` 로 인라인한다 — 같은 표현식인데 한쪽만 살아남는다.)
+  // 보안 컨트롤을 ambient env 에 맡기지 않고 명시한다. /sign-in·/sign-up 의 10초 3회 특수 룰은
+  // better-auth 기본값이 적용되므로 window/max/customRules 는 불필요하다.
+  // storage 기본값은 memory — 프론트 컨테이너 단일 replica 전제. replica 를 늘리면 카운터가
+  // per-replica 가 되어 실효 한도가 replica 배로 느슨해지므로 secondaryStorage 로 옮겨야 한다.
+  rateLimit: {
+    enabled: !isE2EProfile,
+  },
 
   emailAndPassword: {
     enabled: true,

@@ -7,6 +7,14 @@
 // 환경:
 //   BASE_URL 미지정 → http://localhost:3000 (dev server 가정)
 //   BASE_URL=https://terraworld.app → production smoke (manual trigger)
+//
+// ⚠️ SEC-A: auth rate limiting 이 켜진 뒤로 screenshots-all-pages 스위트는
+//   signUpAndLogin 을 80회 호출하므로 /sign-up 3회/10초 룰에 걸려 전 스위트가 429 로 죽는다.
+//   e2e 대상 dev/preview 서버를 반드시 `DEPLOY_PROFILE=e2e` 로 기동할 것:
+//       DEPLOY_PROFILE=e2e bun dev            (또는 preview 서버 동일 env)
+//   이 스위치는 server/lib/auth.ts 에서 https baseURL 에 대해 부팅을 거부(fail-closed)하므로
+//   실배포로 새어나가지 않는다. (DEPLOY_PROFILE 은 auth 서버 프로세스의 env — playwright 프로세스가
+//   아니라 위 dev 서버 쪽에 지정해야 한다.)
 
 import { defineConfig, devices } from '@playwright/test'
 
