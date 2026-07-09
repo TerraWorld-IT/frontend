@@ -132,29 +132,34 @@ export function useAdMob() {
           rewarded = true
         })
         const dismissHandle = AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
-          if (settled) return
-          settled = true
-          clearTimeout(timeoutId)
-          // 정리 후 결과 반환 — Rewarded 이벤트가 먼저 발생했으면 true
-          void Promise.all([handle.then((h) => h.remove()), dismissHandle.then((h) => h.remove())])
-          resolve(rewarded)
+          settle(rewarded)
+        })
+        // Codex 감사 지적: 설치된 @capacitor-community/admob Android 구현은 광고 표시 자체가
+        // 실패하면(예: mRewardedAd == null) onRewardedVideoAdFailedToShow 만 emit하고
+        // Dismissed 는 오지 않는다 — 이 리스너 없이는 매번 60초 타임아웃까지 대기하게 됨.
+        const failedHandle = AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => {
+          settle(false)
         })
         // AdMob 네이티브 SDK 문제나 백그라운드 전환 중 Dismissed 이벤트가 아예 안 오면 이 프라미스가
         // 무기한 대기 — 호출부(pages/index.vue)가 영원히 로딩 상태로 멈춘다(auth.ts 세션체크와
         // 같은 클래스의 hang 위험). 보상형 광고는 보통 15~30초라 60초 여유를 두고 fail-closed.
         const REWARD_AD_TIMEOUT_MS = 60_000
-        const timeoutId = setTimeout(() => {
-          if (settled) return
-          settled = true
-          void Promise.all([handle.then((h) => h.remove()), dismissHandle.then((h) => h.remove())])
-          resolve(false)
-        }, REWARD_AD_TIMEOUT_MS)
-        void AdMob.showRewardVideoAd().catch(() => {
+        const timeoutId = setTimeout(() => settle(false), REWARD_AD_TIMEOUT_MS)
+        // 세 종료 경로(dismiss/failedToShow/timeout/reject) 모두 동일하게 정리 — 이전엔
+        // showRewardVideoAd() 의 .catch() 경로만 리스너 remove 를 빠뜨려(Architecture/Codex
+        // 감사 둘 다 지적) reject 가 반복되면 전역 리스너가 계속 누적됐다.
+        function settle(result: boolean) {
           if (settled) return
           settled = true
           clearTimeout(timeoutId)
-          resolve(false)
-        })
+          void Promise.all([
+            handle.then((h) => h.remove()),
+            dismissHandle.then((h) => h.remove()),
+            failedHandle.then((h) => h.remove()),
+          ])
+          resolve(result)
+        }
+        void AdMob.showRewardVideoAd().catch(() => settle(false))
       })
     }
     catch {
