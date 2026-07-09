@@ -33,8 +33,8 @@
 
     <!-- ── 카테고리 + 등급 탭 (흰 영역) ── -->
     <div
-      class="bg-white px-5 pt-3 pb-3 flex flex-col gap-2 sticky top-0 z-10"
-      style="box-shadow: 0 1px 0 rgba(0,0,0,0.06)"
+      class="bg-white px-5 pt-3 pb-3 flex flex-col gap-2 sticky z-10"
+      style="box-shadow: 0 1px 0 rgba(0,0,0,0.06); top: env(safe-area-inset-top, 0px)"
     >
       <!-- 식물 | 배경 -->
       <div class="flex gap-2">
