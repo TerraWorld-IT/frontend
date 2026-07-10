@@ -169,7 +169,7 @@
     "deleteConfirm": "Delete this category?",
     "deleteError": "Failed to delete category",
     "deleted": "Category deleted",
-    "emojiPlaceholder": "Emoji (optional)",
+    "emojiPlaceholder": "Emoji",
     "empty": "No custom categories yet",
     "namePlaceholder": "Name (e.g. Meditation)",
     "tokenNamePlaceholder": "Token name (e.g. Meditation token)"

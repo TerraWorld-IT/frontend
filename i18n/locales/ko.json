@@ -169,7 +169,7 @@
     "deleteConfirm": "이 카테고리를 삭제하시겠습니까?",
     "deleteError": "카테고리 삭제 실패",
     "deleted": "카테고리가 삭제되었습니다",
-    "emojiPlaceholder": "이모지 (선택)",
+    "emojiPlaceholder": "이모지",
     "empty": "아직 커스텀 카테고리가 없습니다",
     "namePlaceholder": "이름 (예: 명상)",
     "tokenNamePlaceholder": "토큰 이름 (예: 명상토큰)"
