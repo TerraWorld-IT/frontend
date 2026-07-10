@@ -244,6 +244,30 @@ const toast = useToast()
 const { trackLogin, trackSignup } = useGtagEvents()
 const { registerPush } = useNative()
 
+/**
+ * 콜드 스타트 세션 복구.
+ *
+ * `middleware/auth.ts` 의 SSR 분기는 요청 헤더에 세션 쿠키가 없으면 바로 여기로 보낸다.
+ * 그런데 네이티브 WebView 의 **첫** top-level 네비게이션에는 쿠키가 실리지 않을 수 있다
+ * (`server/lib/auth.ts` 의 bearer 플러그인 주석이 "clients that cannot use cookies
+ * (Capacitor WebView on iOS)" 라고 적어 둔 바로 그 상황). 그러면 7일짜리 세션이 멀쩡한데도
+ * 앱을 켤 때마다 로그인 화면에 갇힌다.
+ *
+ * 같은 출처로 나가는 XHR 에는 쿠키가 정상적으로 실리므로, 마운트 직후 세션을 한 번 물어보고
+ * 살아 있으면 원래 가려던 곳으로 되돌린다. 세션이 진짜 없으면 폼이 그대로 남는다.
+ * 오버레이를 두지 않는 이유: SSR 은 폼을 렌더하므로 클라이언트에서 오버레이를 켜면
+ * 하이드레이션 미스매치가 된다.
+ */
+onMounted(async () => {
+  try {
+    const { data } = await authClient.getSession()
+    if (data) await navigateTo('/', { replace: true })
+  }
+  catch {
+    // 세션 확인 실패는 무시한다 — 폼을 그대로 보여주면 된다.
+  }
+})
+
 const mode = ref<'login' | 'signup'>('login')
 const email = ref<string>('')
 const password = ref<string>('')

@@ -199,9 +199,35 @@ export const auth = betterAuth({
     defaultCookieAttributes: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      // SEC-015: strict in dev as well so a cross-site GET to
-      // /api/auth/session cannot carry the session cookie.
-      sameSite: 'strict',
+      // SEC-015 는 원래 'strict' 였다. 되돌린 이유와 그래도 안전한 이유를 남긴다.
+      //
+      // 증상: Capacitor 원격 URL 셸에서 앱을 완전히 껐다 켜면 7일 세션이 살아 있는데도
+      // 곧바로 로그인 화면이 떴다. WebView 의 **첫** top-level 네비게이션은 앱(about:blank)이
+      // 개시하므로 cross-site 로 판정될 수 있고, 그러면 Strict 쿠키가 실리지 않는다.
+      // `middleware/auth.ts` 의 SSR 분기는 쿠키가 없으면 즉시 리다이렉트하므로 클라이언트
+      // 코드가 돌기도 전에 로그아웃처럼 보인다. (같은 파일 아래 bearer 플러그인 주석이
+      // "clients that cannot use cookies (Capacitor WebView on iOS)" 라고 이미 경고하고 있다.)
+      //
+      // 'lax' 는 better-auth 자체 기본값이기도 하다(`dist/cookies/index.mjs`). Strict→Lax 의
+      // 실제 델타는 **cross-site top-level GET 네비게이션 한 가지뿐**이다 —
+      // `<img>`/`<script>`/`<iframe>`/fetch/XHR 에는 Lax 쿠키가 애초에 실리지 않는다.
+      // 그 한 가지 델타가 안전한 이유(보안 리뷰로 라우트 전수 확인):
+      //   - 상태를 바꾸는 GET 은 `/verify-email` 과 `/delete-user/callback` 뿐인데 둘 다
+      //     추측 불가능한 서명 토큰을 요구하고, 후자는 `user.deleteUser` 미설정이라 404 다.
+      //   - 데이터를 주는 GET(`/get-session`, `/token`, `/list-sessions`)은 top-level 이동으로
+      //     열려도 same-origin policy 상 공격자가 응답을 읽을 수 없다.
+      //   - Spring `/api/v1/*` 는 이 쿠키로 인증하지 않는다(Authorization: Bearer RS256).
+      //     따라서 이 쿠키의 CSRF 표면은 `/api/auth/*` 로 한정된다.
+      //   - POST 는 Lax 가 여전히 cross-site 로 보내지 않는다.
+      // 주의: better-auth 의 origin 검사(`origin-check.mjs`)는 GET/HEAD/OPTIONS 에서 조기
+      // 반환하므로 **GET 방어가 아니다**. POST 만 보호한다 — GET 델타의 근거로 인용하지 말 것.
+      //
+      // 남는 위험(수용): 공격 사이트가 피해자를 `/api/auth/get-session` 으로 top-level
+      // 이동시키면 Lax 쿠키가 실리고, `updateAge`(1일)를 지난 세션은 그 GET 이 만료를 갱신한다
+      // (`session.mjs`). 즉 **세션 수명 강제 연장**이 가능하다. 응답 본문은 same-origin policy
+      // 로 못 읽으므로 정보 노출은 없다. 콜드 스타트 로그인 유지와 맞바꾼 값이다.
+      // 향후 `user.deleteUser.enabled` 를 켜거나 토큰 없는 상태변경 GET 을 추가하면 재검토.
+      sameSite: 'lax',
     },
   },
 

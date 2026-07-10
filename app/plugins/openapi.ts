@@ -1,35 +1,33 @@
 import { createClient, createConfig } from '@hey-api/client-fetch'
 
 /**
- * TerraWorld OpenAPI client plugin.
+ * TerraWorld OpenAPI 클라이언트 플러그인.
  *
- * Creates a single `@hey-api/client-fetch` instance configured with the
- * runtime API base URL, and exposes it via `useNuxtApp().$apiClient`.
+ * 런타임 API base URL 로 설정된 `@hey-api/client-fetch` 인스턴스를 하나 만들고
+ * `useNuxtApp().$apiClient` 로 노출한다.
  *
- * JWT flow (post better-auth + SEC review):
- *   - SEC-006: JWT lives only on the client (module-scoped variable
- *     inside `useAuth`). SSR requests from Nitro do not attach a bearer
- *     because Nitro has no browser-side token cache and forwarding the
- *     user's cookie to a self-fetch risks SSR payload poisoning. For
- *     protected routes that need data at SSR time, rely on the session
- *     cookie being forwarded to `/api/*` Nitro handlers — Spring is
- *     only reachable from the browser.
- *   - Request interceptor (client only): pulls the cached JWT from
- *     `useAuth().getJwt()`. On miss, runs `loadJwt()` with in-flight
- *     dedup so parallel calls only hit `/api/auth/token` once.
- *   - SEC-024: the request body is captured by cloning the Request
- *     BEFORE hey-api consumes its stream. The clone is stashed in a
- *     WeakMap keyed by the original Request so the response interceptor
- *     can replay the body verbatim on the retry path. Without this
- *     mutation requests (POST/PUT/PATCH) would retry with an empty
- *     body — Request.body is a one-shot ReadableStream.
- *   - SEC-007: on 401 the interceptor refreshes the JWT once, retries
- *     the original request once with `x-tw-retried: 1`, and only
- *     redirects to /auth/login when the refresh itself fails. Retry
- *     loops are impossible because the flag is checked on entry.
- *   - SEC-022: bearer is ONLY attached when the JWT has a value. Public
- *     endpoints (/share, /items, /categories) do not carry the token
- *     even when the user is signed in, reducing incidental exposure.
+ * JWT 흐름 (better-auth 도입 + 보안 리뷰 이후):
+ *   - SEC-006: JWT 는 클라이언트에만 존재한다 (`useAuth` 안의 모듈 스코프 변수).
+ *     Nitro 의 SSR 요청은 bearer 를 붙이지 않는다. Nitro 에는 브라우저측 토큰 캐시가 없고,
+ *     사용자 쿠키를 self-fetch 로 넘기면 SSR payload 오염 위험이 있기 때문이다.
+ *     SSR 시점에 데이터가 필요한 보호 라우트는 세션 쿠키가 `/api/*` Nitro 핸들러로
+ *     전달되는 것에 의존한다 — Spring 은 브라우저에서만 접근 가능하다.
+ *   - 요청 인터셉터(클라이언트 전용): `useAuth().getJwt()` 로 캐시된 JWT 를 꺼낸다.
+ *     없으면 `loadJwt()` 를 돌린다. in-flight dedup 은 `useAuth` 가 소유하므로 이 경로와
+ *     401 재시도 경로가 그것을 공유하고, 병렬 호출도 `/api/auth/token` 을 한 번만 친다.
+ *   - SEC-024: 요청 본문은 hey-api 가 스트림을 소비하기 **전에** Request 를 clone 해서
+ *     보관한다. 원본 Request 를 키로 하는 WeakMap 에 담아 두어 응답 인터셉터가 재시도
+ *     경로에서 본문을 그대로 재생할 수 있게 한다. 이게 없으면 뮤테이션 요청(POST/PUT/PATCH)이
+ *     빈 본문으로 재시도된다 — `Request.body` 는 일회용 ReadableStream 이다.
+ *   - SEC-007: 401 을 받으면 인터셉터가 JWT 를 한 번 재발급하고 원래 요청을
+ *     `x-tw-retried: 1` 헤더와 함께 한 번만 재시도한다. 진입 시 그 플래그를 검사하므로
+ *     재시도 루프는 불가능하다.
+ *     `/auth/login` 으로 보내는 것은 `/api/auth/token` 자체가 401/403 을 답할 때
+ *     (`status: 'unauthenticated'`), 즉 세션이 진짜로 무효일 때뿐이다. 일시적 실패
+ *     (네트워크 / 429 / 5xx)는 401 을 호출부에 그대로 노출하고 7일 세션은 건드리지 않는다.
+ *     이 둘을 뭉개던 탓에 콜드 부팅 시 한 번의 실패로 사용자가 로그아웃됐다.
+ *   - SEC-022: JWT 에 값이 있을 때만 bearer 를 붙인다. 공개 엔드포인트
+ *     (/share, /items, /categories)는 로그인 상태여도 토큰을 싣지 않아 우발적 노출을 줄인다.
  */
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
@@ -46,8 +44,6 @@ export default defineNuxtPlugin(() => {
     }),
   )
 
-  let inflightRefresh: Promise<string | null> | null = null
-
   /**
    * SEC-024: stash a fresh clone of every outgoing Request so the response
    * interceptor can build a retry without trying to re-read the original
@@ -62,12 +58,9 @@ export default defineNuxtPlugin(() => {
     const { getJwt, loadJwt } = useAuth()
     const cached = getJwt()
     if (cached) return cached
-    if (!inflightRefresh) {
-      inflightRefresh = loadJwt().finally(() => {
-        inflightRefresh = null
-      })
-    }
-    return inflightRefresh
+    // in-flight dedup 은 useAuth 안으로 옮겼다 — 401 인터셉터 경로도 같은 dedup 을 타야
+    // 부팅 시 병렬 API 호출이 `/api/auth/token` 을 한 번만 치기 때문.
+    return loadJwt()
   }
 
   // --- Request interceptor: attach JWT + cache a clone for possible retry ---
@@ -92,23 +85,29 @@ export default defineNuxtPlugin(() => {
       return response
     }
 
-    const { loadJwt, clearJwt } = useAuth()
-    const refreshed = await loadJwt()
+    const { refreshJwt } = useAuth()
+    const result = await refreshJwt()
 
-    if (!refreshed) {
-      // Session cookie is genuinely gone or invalid — bounce to login.
-      // 기능적으로는 수렴돼 있었지만(즉시 리다이렉트), 왜 로그인 화면으로 튕겼는지 설명이
-      // 없어 사용자 입장에선 "갑자기 로그아웃됨"으로 보일 수 있었음(장시간 미조작 후 복귀
-      // 시나리오에서 특히). Architecture 감사 지적 — 이 코드베이스의 확립된 관례
-      // (usePayment/useWilting)는 setup 컨텍스트 밖(인터셉터 콜백 등)에서도 안전하도록
-      // useI18n() 대신 nuxtApp.$i18n 을 쓴다. 인터셉터 콜백도 동일하게 맞춤.
-      clearJwt()
+    if (result.status === 'unauthenticated') {
+      // 세션이 **진짜로** 무효할 때만 로그인으로 보낸다 (`/api/auth/token` 이 401/403).
+      // 왜 로그인 화면으로 튕겼는지 설명이 없으면 사용자 입장에선 "갑자기 로그아웃됨"으로
+      // 보이므로 안내 토스트를 함께 띄운다. 이 코드베이스의 확립된 관례(usePayment/useWilting)는
+      // setup 컨텍스트 밖(인터셉터 콜백 등)에서도 안전하도록 useI18n() 대신 nuxtApp.$i18n 을 쓴다.
+      // (clearJwt 는 refreshJwt 가 이미 수행 — 토큰·타이머·플래그 정리)
       const { $i18n } = useNuxtApp()
       useToast().info($i18n.t('common.sessionExpired'))
       await navigateTo('/auth/login')
       return response
     }
 
+    if (result.status !== 'ok') {
+      // transient (네트워크 오류 / 429 / 5xx). 세션은 살아 있다. 로그아웃하지 말고 401 을
+      // 그대로 호출부에 넘긴다 — 호출부가 자기 문맥에 맞는 에러 메시지를 띄운다.
+      // 부팅 순간의 일시적 실패 하나가 멀쩡한 7일 세션을 날리던 경로가 여기였다.
+      return response
+    }
+
+    const refreshed = result.token
     if (!request) return response
 
     // SEC-024: retry from the cached clone so the body stream is still

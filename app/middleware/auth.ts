@@ -44,6 +44,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
+  // 이미 유효한 JWT 를 들고 있으면(= 이 세션으로 토큰을 발급받은 적이 있으면) 세션을 다시
+  // 묻지 않는다. 이 가드는 라우팅 UX 만 담당하고 실제 검증은 API 호출 시 서버가 수행하므로,
+  // 매 탭 전환마다 `/api/auth/get-session` 왕복(프로덕션 실측 0.24~0.39s)을 앞세울 이유가 없다.
+  // 화면 전환이 그 왕복만큼 통째로 멈춰 보이던 원인이 바로 여기였다.
+  //
+  // 세션이 서버에서 철회되면 다음 API 호출이 401 을 받고 `plugins/openapi.ts` 인터셉터가
+  // `/api/auth/token` 재발급을 시도한다. 거기서 401/403 이면 그때 로그인으로 보낸다.
+  // `clearJwt()`(로그아웃·세션 무효)가 `isLoggedIn` 을 false 로 되돌리므로, 다음 보호 라우트
+  // 진입에서 아래 세션 확인이 다시 돈다.
+  if (useAuth().isLoggedIn.value) return
+
   // CSR: httpOnly 쿠키는 document.cookie 에서 안 보임 → better-auth 세션으로 확인.
   // Promise.race 로 바깥에서 흉내내지 않고 better-fetch 의 fetchOptions.timeout 을 써서
   // 타임아웃 시 실제로 요청 자체가 abort 되도록 한다(진 쪽 요청이 orphan 으로 계속
