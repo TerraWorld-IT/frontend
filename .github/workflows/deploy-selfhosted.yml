@@ -74,9 +74,21 @@ jobs:
           export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
           DEPLOY=/Users/jaeseok/TerraWorld-IT/deploy
 
-          # ghcr 패키지는 private 이므로 pull 전에 로그인해야 한다. 저장되는 토큰은 이 실행에서만
-          # 유효한 단기 토큰이며, 다음 배포가 다시 갱신한다. logout 은 하지 않는다 — 운영자가
-          # 별도로 넣어둔 ghcr 자격증명을 지워버릴 수 있기 때문.
+          # 맥의 docker 자격증명 저장소는 osxkeychain 인데, 비대화형 러너 세션에서는 키체인이
+          # 잠겨 있어 `docker login` 이 `User interaction is not allowed. (-25308)` 로 실패한다.
+          # 이 실행 전용 임시 config 를 써서 credsStore 를 비활성화한다. 자격증명은 러너 로컬
+          # 임시 디렉터리에만 남고 실행 후 지워지며, 운영자의 ~/.docker/config.json 은 그대로다.
+          TMPCFG="$(mktemp -d)"
+          trap 'rm -rf "$TMPCFG"' EXIT
+          printf '{}' > "$TMPCFG/config.json"
+          # compose 는 docker CLI 플러그인이라 $DOCKER_CONFIG/cli-plugins 에서 먼저 찾는다.
+          if [ -d "$HOME/.docker/cli-plugins" ]; then
+            ln -s "$HOME/.docker/cli-plugins" "$TMPCFG/cli-plugins"
+          fi
+          export DOCKER_CONFIG="$TMPCFG"
+          docker compose version >/dev/null || { echo "❌ docker compose 플러그인을 찾지 못함"; exit 1; }
+
+          # ghcr 패키지는 private 이므로 pull 전에 로그인한다. 토큰은 stdin 으로만 전달한다.
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
           cd "$DEPLOY"
