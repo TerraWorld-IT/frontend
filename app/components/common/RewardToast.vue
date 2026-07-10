@@ -79,13 +79,15 @@ onUnmounted(() => {
 .reward-slide-leave-active {
   transition: all 0.3s ease-in;
 }
+/* Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate` 속성으로 컴파일되어 transform 과 합성된다.
+   transform 에 X 축을 다시 넣으면 -50% 가 두 번 걸려 토스트가 왼쪽에서 날아든다. Y 축만 다룬다. */
 .reward-slide-enter-from {
   opacity: 0;
-  transform: translate(-50%, -20px) scale(0.9);
+  transform: translateY(-20px) scale(0.9);
 }
 .reward-slide-leave-to {
   opacity: 0;
-  transform: translate(-50%, -10px);
+  transform: translateY(-10px);
 }
 
 @keyframes bounce-in {
@@ -111,7 +113,7 @@ onUnmounted(() => {
   .reward-slide-enter-from,
   .reward-slide-leave-to {
     opacity: 0;
-    transform: translate(-50%, 0) scale(1);
+    transform: none;
   }
   .animate-bounce-in {
     animation: none;

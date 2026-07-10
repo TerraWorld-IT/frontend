@@ -50,8 +50,11 @@
       <!-- ─── 상단 헤더 ─── -->
       <div class="flex items-center justify-between">
         <!-- 왼쪽: 이름 + 관리하기/편집완료 토글 -->
-        <div class="flex flex-col items-start gap-1">
-          <div class="font-bold text-lg text-black">{{ terrariumName }}</div>
+        <!-- min-w-0 + truncate: 제목이 음절 사이에서 줄바꿈되면(한글은 단어 경계가 없다) 헤더가
+             2행이 되어 오른쪽 버튼 그룹과 세로로 겹친다. truncate 가 nowrap 을 포함해 줄바꿈을
+             막고, min-w-0 는 아주 긴 닉네임일 때 가로 오버플로 대신 말줄임으로 처리한다. -->
+        <div class="flex flex-col items-start gap-1 min-w-0">
+          <div class="font-bold text-lg text-black truncate max-w-full">{{ terrariumName }}</div>
           <button
             type="button"
             class="h-10 flex items-center gap-1.5 text-xs font-semibold px-3 rounded-lg transition-all active:scale-95"
@@ -587,16 +590,16 @@
     <Transition name="sheet">
       <div v-if="feedPanelOpen" ref="feedPanelRoot" class="fixed inset-0 z-[9998]" role="dialog" aria-modal="true" aria-label="피드">
         <div class="fixed inset-0 bg-black/20" @click="feedPanelOpen = false" />
-        <div
-          class="sheet-panel fixed left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col"
-          style="bottom: calc(98px + env(safe-area-inset-bottom, 0px))"
-        >
-          <!-- bottom nav 와 동일하게 safe-area-inset-bottom 반영(노치 기기에서 nav 와 겹치던 문제) +
-               max-height/overflow-y-auto 로 콘텐츠가 뷰포트를 넘겨도 스크롤 가능(이전엔 overflow-hidden
-               이라 넘치는 콘텐츠가 그냥 잘려 도달 불가능했다 — Codex 감사 지적). -->
+        <!-- 모달 시트(role=dialog, aria-modal)는 뷰포트 하단에 밀착해 바텀 nav 를 덮는다.
+             백드롭이 nav 를 가리면서 패널만 nav 위에 떠 있으면, nav 가 "보이지만 눌리지 않는"
+             상태가 된다(탭이 백드롭에 먹혀 시트가 닫힘). 같은 파일의 아이템 선택/공유 시트도
+             bottom-0 이며, Material 3·Apple HIG 모두 모달 시트가 하단 내비를 덮도록 규정한다. -->
+        <div class="sheet-panel fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col">
+          <!-- max-height/overflow-y-auto 로 콘텐츠가 뷰포트를 넘겨도 스크롤 가능(이전엔 overflow-hidden
+               이라 넘치는 콘텐츠가 그냥 잘려 도달 불가능했다). 상단 여백은 아이템 선택 시트와 동일 규약. -->
           <div
             class="rounded-tl-[24px] rounded-tr-[24px] flex flex-col overflow-y-auto"
-            style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); box-shadow: 0px -8px 25px rgba(0,0,0,0.15); max-height: calc(100dvh - 98px - env(safe-area-inset-bottom, 0px) - 40px)"
+            style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); box-shadow: 0px -8px 25px rgba(0,0,0,0.15); max-height: calc(100dvh - 98px - 20px)"
           >
             <div
               class="flex justify-center pt-3 pb-1 cursor-grab"
@@ -616,7 +619,8 @@
                 <Icon name="lucide:x" class="w-4 h-4 text-black" />
               </button>
             </div>
-            <div class="flex flex-col gap-5 px-5 pb-6">
+            <!-- 시트가 뷰포트 하단을 소유하므로 홈 인디케이터 영역만큼 바닥 여백을 더 준다. -->
+            <div class="flex flex-col gap-5 px-5" style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px))">
               <!-- 공지사항 -->
               <button
                 type="button"
@@ -1417,15 +1421,27 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 }
 .item-float { animation: itemFloat 2s ease-in-out infinite; }
 
-/* 바텀시트 slide-up */
+/* 바텀시트 slide-up.
+   Tailwind v4 의 `-translate-x-1/2` 는 `transform` 이 아니라 개별 `translate` 속성을 내보낸다
+   (`translate: var(--tw-translate-x) var(--tw-translate-y)`). CSS 는 개별 translate 를 먼저 적용한 뒤
+   transform 을 합성하므로, 여기서 transform 에 X 축을 또 넣으면 -50% 가 두 번 걸려 패널이 자기 폭만큼
+   왼쪽(-100%)에서 대각선으로 날아든다. X 중앙정렬은 translate 에 맡기고 transform 은 Y 축만 다룬다.
+   root(.sheet-enter-active)의 duration 이 Vue 의 transition 종료 판정 기준이므로 패널과 같게 맞춘다. */
 .sheet-enter-active,
-.sheet-leave-active { transition: opacity 0.28s ease; }
+.sheet-leave-active { transition: opacity 0.3s ease; }
 .sheet-enter-active .sheet-panel,
 .sheet-leave-active .sheet-panel { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
 .sheet-enter-from,
 .sheet-leave-to { opacity: 0; }
 .sheet-enter-from .sheet-panel,
-.sheet-leave-to .sheet-panel { transform: translate(-50%, 100%); }
+.sheet-leave-to .sheet-panel { transform: translateY(100%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-enter-active,
+  .sheet-leave-active,
+  .sheet-enter-active .sheet-panel,
+  .sheet-leave-active .sheet-panel { transition-duration: 0.01ms; }
+}
 
 /* 중앙 다이얼로그 spring 근사 */
 .dialog-enter-active,

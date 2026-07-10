@@ -1335,8 +1335,11 @@ onMounted(() => {
 .sheet-leave-active {
   transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
+/* Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate` 속성으로 컴파일된다. CSS 는 개별 translate 를
+   먼저 적용하고 transform 을 합성하므로, transform 에 X 축을 다시 넣으면 -50% 가 두 번 걸려 시트가
+   자기 폭만큼 왼쪽에서 대각선으로 날아든다. X 중앙정렬은 translate 에 맡기고 Y 축만 다룬다. */
 .sheet-enter-from,
 .sheet-leave-to {
-  transform: translate(-50%, 100%);
+  transform: translateY(100%);
 }
 </style>

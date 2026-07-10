@@ -601,9 +601,11 @@ onMounted(load)
 .cal-sheet-leave-active {
   transition: transform 0.28s ease-in;
 }
+/* Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate` 속성으로 컴파일되어 transform 과 합성된다.
+   transform 에 X 축을 다시 넣으면 -50% 가 두 번 걸려 시트가 왼쪽에서 대각선으로 날아든다. */
 .cal-sheet-enter-from,
 .cal-sheet-leave-to {
-  transform: translate(-50%, 100%);
+  transform: translateY(100%);
 }
 
 /* 기록 메뉴 팝오버 */
