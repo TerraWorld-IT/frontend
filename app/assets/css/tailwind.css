@@ -107,6 +107,14 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* 네이티브 WebView 의 러버밴드(오버스크롤) 영역과 세이프에어리어는 문서 배경색으로 칠해진다.
+     html/body 에 배경이 없으면 그 자리에 시스템 기본색(검정)이 드러난다. --color-riso-cream 은
+     .dark 에서 warm dark 로 재정의되므로 다크 모드에서도 자동으로 맞는 색이 된다. */
+  html,
+  body {
+    background-color: var(--color-riso-cream);
+  }
+
   /* iOS 는 포커스된 input 의 font-size 가 16px 미만이면 자동으로 화면을 확대한다
      (네이티브 앱에서 이러면 "웹처럼" 보임). 더 구체적인 유틸리티 클래스가 있으면
      그쪽이 우선 적용되므로(레이어 순서), 이건 최소 기본값일 뿐이다. */

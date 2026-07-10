@@ -4,7 +4,12 @@
        길어지면 body 전체가 스크롤되는 오류가 있었다).
        flex-col 이라 justify-center(메인축=세로)가 unsafe alignment 위험 — justify-start +
        각 분기 자식의 my-auto 로 safe centering (Codex 감사 지적, login.vue 와 동일 패턴). -->
-  <div class="h-dvh w-full bg-riso-cream overflow-y-auto flex flex-col items-center justify-start p-6">
+  <!-- layout:false 경로라 세이프에어리어를 직접 처리한다 (login.vue 와 동일한 max() 이유).
+       딥링크로 바로 진입할 수 있어 네이티브 셸에서 첫 화면이 될 수 있다. -->
+  <div
+    class="h-dvh w-full bg-riso-cream overflow-y-auto flex flex-col items-center justify-start px-6"
+    style="padding-top: max(1.5rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px))"
+  >
     <!-- Loading -->
     <div v-if="pending" class="text-center space-y-3 my-auto">
       <CommonLoading />

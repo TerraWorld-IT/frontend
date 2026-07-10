@@ -24,7 +24,15 @@
       items-center(unsafe alignment)를 그대로 쓰면 콘텐츠가 컨테이너보다 클 때 상단이 음수 방향으로
       밀려 스크롤해도 닿을 수 없어진다. 콘텐츠가 짧을 땐 my-auto 가 기존과 동일하게 중앙 정렬한다.
     -->
-    <div class="h-full w-full flex items-start justify-center overflow-y-auto py-6">
+    <!-- layout:false 라 default.vue 의 세이프에어리어 패딩을 상속받지 못한다. 네이티브 셸이
+         contentInset:'never' 로 뷰포트를 노치까지 확장하므로 여기서 직접 처리해야 한다.
+         legal/*.vue 는 calc(32px + env(...)) 를 쓰지만 여기서는 max() 를 쓴다 — 현재 배포된 앱은
+         아직 contentInset:'always' 라, calc 면 네이티브 인셋 위에 패딩이 더해져 이중이 된다.
+         max() 는 두 경우 모두 안전하다(env 가 0 이면 기존 24px 유지). -->
+    <div
+      class="h-full w-full flex items-start justify-center overflow-y-auto"
+      style="padding-top: max(1.5rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px))"
+    >
     <div class="w-full max-w-sm mx-4 relative z-10 my-auto">
       <!-- 로고 영역 -->
       <div class="text-center mb-8">
