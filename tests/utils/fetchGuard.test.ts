@@ -11,7 +11,7 @@ function deferred(): { promise: Promise<void>, resolve: () => void } {
 describe('createFetchGuard', () => {
   it('TTL 안이면 fetcher 를 부르지 않는다', async () => {
     const guard = createFetchGuard(60_000)
-    const fetcher = vi.fn(async () => {})
+    const fetcher = vi.fn(async (_isCurrent: () => boolean) => {})
 
     await guard.run(fetcher)
     await guard.run(fetcher)
@@ -21,7 +21,7 @@ describe('createFetchGuard', () => {
 
   it('force 는 TTL 을 무시한다', async () => {
     const guard = createFetchGuard(60_000)
-    const fetcher = vi.fn(async () => {})
+    const fetcher = vi.fn(async (_isCurrent: () => boolean) => {})
 
     await guard.run(fetcher)
     await guard.run(fetcher, true)
@@ -56,7 +56,7 @@ describe('createFetchGuard', () => {
 
   it('invalidate() 후에는 TTL 안이어도 다시 가져온다', async () => {
     const guard = createFetchGuard(60_000)
-    const fetcher = vi.fn(async () => {})
+    const fetcher = vi.fn(async (_isCurrent: () => boolean) => {})
 
     await guard.run(fetcher)
     guard.invalidate()
@@ -91,6 +91,64 @@ describe('createFetchGuard', () => {
     // force 는 첫 요청에 합류하지 않고, 그것이 끝난 뒤 자기 요청을 새로 냈다.
     expect(freshFetcher).toHaveBeenCalledTimes(1)
     expect(calls).toEqual(['stale', 'fresh'])
+  })
+
+  // 회귀 가드 — 로그아웃 교차 사용자 노출. `invalidate()` 가 TTL 만 비우면, 로그아웃 직전에
+  // 출발한 요청이 나중에 도착해 이전 사용자의 데이터를 스토어에 다시 써넣고 신선하다고 도장까지
+  // 찍는다. 다음 사용자가 15초 안에 로그인하면 그 데이터를 본다.
+  it('invalidate() 는 진행 중인 요청의 응답을 무효로 만든다', async () => {
+    const guard = createFetchGuard(60_000)
+    const d = deferred()
+    let wroteState: boolean = false
+
+    // A 의 느린 요청이 출발한다.
+    const pending = guard.run(async (isCurrent) => {
+      await d.promise
+      if (!isCurrent()) return // 스토어가 지켜야 할 규약
+      wroteState = true
+    })
+
+    // A 가 로그아웃 → 스토어 reset → guard.invalidate()
+    guard.invalidate()
+
+    // 그 뒤에야 A 의 응답이 도착한다.
+    d.resolve()
+    await pending
+
+    expect(wroteState).toBe(false)
+  })
+
+  it('invalidate() 후 도착한 응답은 신선도를 갱신하지 못한다', async () => {
+    const guard = createFetchGuard(60_000)
+    const d = deferred()
+    const staleFetcher = vi.fn(async (_isCurrent: () => boolean) => { await d.promise })
+    const nextFetcher = vi.fn(async (_isCurrent: () => boolean) => {})
+
+    const pending = guard.run(staleFetcher)
+    guard.invalidate()
+    d.resolve()
+    await pending
+
+    // 낡은 응답이 fetchedAt 을 갱신했다면 아래 호출이 TTL 에 걸려 skip 된다.
+    await guard.run(nextFetcher)
+    expect(nextFetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('invalidate() 후의 호출은 진행 중인 낡은 요청에 합류하지 않는다', async () => {
+    const guard = createFetchGuard(60_000)
+    const d = deferred()
+    const staleFetcher = vi.fn(async (_isCurrent: () => boolean) => { await d.promise })
+    const freshFetcher = vi.fn(async (_isCurrent: () => boolean) => {})
+
+    const pending = guard.run(staleFetcher)
+    guard.invalidate()
+
+    // 낡은 요청이 아직 진행 중인데도 새 요청이 나가야 한다.
+    const next = guard.run(freshFetcher)
+    expect(freshFetcher).toHaveBeenCalledTimes(1)
+
+    d.resolve()
+    await Promise.all([pending, next])
   })
 
   it('진행 중 요청이 실패해도 force 는 자기 요청을 낸다', async () => {

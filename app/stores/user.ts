@@ -18,11 +18,14 @@ export const useUserStore = defineStore('user', () => {
   const ownedItems = computed<string[]>(() => me.value?.ownedItems ?? [])
 
   async function fetchMe(force: boolean = false) {
-    await guard.run(async () => {
+    await guard.run(async (isCurrent) => {
       loading.value = true
       try {
         const { data, error } = await sdk.getMe({ client })
         if (error) throw new Error('getMe failed')
+        // 이 요청이 출발한 뒤 로그아웃/무효화가 있었다면 응답을 버린다. 그러지 않으면
+        // 로그아웃 직전에 출발한 요청이 나중에 도착해 **이전 사용자의 프로필을 되살린다**.
+        if (!isCurrent()) return
         me.value = (data as UserMeResponse | undefined) ?? null
       }
       finally {

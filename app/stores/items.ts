@@ -11,11 +11,13 @@ export const useItemsStore = defineStore('items', () => {
   const guard = createFetchGuard(5 * 60_000)
 
   async function fetchAll(force: boolean = false) {
-    await guard.run(async () => {
+    await guard.run(async (isCurrent) => {
       loading.value = true
       try {
         const { data, error } = await sdk.listItems({ client })
         if (error) throw new Error('listItems failed')
+        // 어드민 뮤테이션으로 무효화된 뒤 도착한 응답은 버린다 (옛 카탈로그가 다시 신선해짐 방지).
+        if (!isCurrent()) return
         items.value = (data as ItemListResponse | undefined)?.items ?? []
       }
       finally {

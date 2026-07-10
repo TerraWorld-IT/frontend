@@ -204,8 +204,16 @@ export function useAuth() {
     if (refreshTimer) return
     refreshTimer = setInterval(() => {
       if (!clientJwt) return
-      // best-effort. 실패 시 plugins/openapi.ts 의 401 인터셉터 폴백.
-      loadJwt().catch(() => {})
+      // best-effort. 일시적 실패는 plugins/openapi.ts 의 401 인터셉터가 폴백으로 처리한다.
+      void refreshJwt()
+        .then((result) => {
+          // 세션이 진짜로 죽었다면 `refreshJwt` 가 이미 `clearJwt()` 로 캐시를 비웠다. 하지만
+          // 이 경로에는 요청도 인터셉터도 없어 아무도 화면을 바꾸지 않는다. 그러면 스토어는
+          // 비었는데 페이지의 로컬 스냅샷(홈의 테라리움, 최근 기록 등)은 그대로 남아
+          // 이전 사용자의 내용이 계속 보인다. 직접 로그인으로 보낸다.
+          if (result.status === 'unauthenticated') void navigateTo('/auth/login')
+        })
+        .catch(() => {})
     }, JWT_REFRESH_INTERVAL_MS)
   }
 

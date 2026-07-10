@@ -14,11 +14,13 @@ export const useTerrariumStore = defineStore('terrarium', () => {
   const maxSlots = computed<number>(() => data.value?.maxSlots ?? 5)
 
   async function fetch(force: boolean = false) {
-    await guard.run(async () => {
+    await guard.run(async (isCurrent) => {
       loading.value = true
       try {
         const { data: res, error } = await sdk.getTerrarium({ client })
         if (error) throw new Error('getTerrarium failed')
+        // 로그아웃/무효화 이후 도착한 응답은 버린다 (이전 사용자의 테라리움 되살아남 방지).
+        if (!isCurrent()) return
         data.value = (res as TerrariumResponse | undefined) ?? null
       }
       finally {
