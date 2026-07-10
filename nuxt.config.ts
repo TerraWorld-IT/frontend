@@ -195,6 +195,63 @@ export default defineNuxtConfig({
     ],
   },
 
+  // @nuxt/icon 은 기본적으로 런타임에 `/api/_nuxt_icon/<collection>.json` 으로 아이콘을 받아온다.
+  // 프로덕션 nginx 는 `/api/` 를 Spring 으로 프록시하므로 그 요청이 백엔드에 도달해 401 을 받고,
+  // 클라이언트에서 처음 마운트되는 아이콘이 전부 빈 자리로 렌더된다(로컬 dev 는 nginx 가 없어 정상).
+  // 원격 URL WebView 앱이 아이콘마다 네트워크를 왕복하는 구조 자체가 문제라, 실사용 아이콘을
+  // 클라이언트 번들에 굽는다. localApiEndpoint 는 혹시 목록에서 누락된 아이콘이 생겨도 Spring 이
+  // 아니라 Nuxt 로 가도록 하는 2차 방어선.
+  icon: {
+    localApiEndpoint: '/_nuxt_icon',
+    serverBundle: { collections: ['lucide'] },
+    clientBundle: {
+      // scan 은 정적 `<Icon name="...">` 만 잡는다. `:name` 동적 바인딩(CurrencyDisplay, 아이템 편집
+      // 버튼)은 아래 목록으로 명시해야 번들에 포함된다.
+      scan: true,
+      icons: [
+        'lucide:arrow-left-right',
+        'lucide:arrow-right',
+        'lucide:book-open',
+        'lucide:calendar',
+        'lucide:camera',
+        'lucide:check',
+        'lucide:check-circle-2',
+        'lucide:chevron-down',
+        'lucide:chevron-left',
+        'lucide:chevron-right',
+        'lucide:chevron-up',
+        'lucide:circle-dollar-sign',
+        'lucide:edit-2',
+        'lucide:footprints',
+        'lucide:gem',
+        'lucide:gift',
+        'lucide:heart',
+        'lucide:image-down',
+        'lucide:link',
+        'lucide:lock',
+        'lucide:map-pin',
+        'lucide:palette',
+        'lucide:pencil',
+        'lucide:play',
+        'lucide:plus',
+        'lucide:refresh-cw',
+        'lucide:save',
+        'lucide:share-2',
+        'lucide:sparkles',
+        'lucide:square',
+        'lucide:star',
+        'lucide:stop-circle',
+        'lucide:trash-2',
+        'lucide:trending-up',
+        'lucide:trophy',
+        'lucide:users',
+        'lucide:wifi-off',
+        'lucide:x',
+        'lucide:zap',
+      ],
+    },
+  },
+
   gtag: {
     id: process.env.NUXT_PUBLIC_GA_ID || '',
     enabled: process.env.NODE_ENV === 'production',
