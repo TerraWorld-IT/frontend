@@ -67,6 +67,20 @@ function buildRouteRules() {
     '/favicon.ico': {
       headers: { 'Cache-Control': 'public, max-age=86400' },
     },
+    // 약관/개인정보 페이지는 `layout: false` 에 사용자 데이터 참조가 0건인 순수 정적 문서다.
+    // (검증: 두 페이지 모두 userStore/sdk/useAuth 미참조, SSR HTML 이 쿠키에 불변 —
+    //  color-mode 는 storage 기본값이 localStorage 라 SSR 에서 테마 클래스를 붙이지 않는다.)
+    // 따라서 SEC-006 의 전면 `private, no-store` 에서 이 둘만 예외로 둔다.
+    // 나머지 HTML 라우트는 그대로 no-store — 특히 `/` 는 SSR 로 개인화되어 캐싱 불가다.
+    //
+    // `swr` 이 스스로 `Cache-Control: s-maxage=3600, stale-while-revalidate` 를 써서
+    // `/**` 의 no-store 를 덮는다(실측). 여기에 `headers` 로 Cache-Control 을 또 적어도
+    // 무시되므로 적지 않는다. 보안 헤더(CSP·XFO·nosniff·HSTS)는 `/**` 것이 그대로 남는다(실측).
+    //
+    // 와일드카드(`/legal/**`) 대신 두 경로를 명시한다. 나중에 `/legal/` 아래에 개인화된
+    // 페이지가 생기면 와일드카드가 그것까지 조용히 공유 캐시 대상으로 만들기 때문이다.
+    '/legal/terms': { swr: 3600 },
+    '/legal/privacy': { swr: 3600 },
     '/**': { headers: buildSecurityHeaders() },
     // R7: /terrarium/free 는 홈(index.vue)의 자유배치(scale/flip/zIndex + {error} 처리)로 대체된 구 PoC.
     //   Figma(TW2)에도 별도 화면이 없어, 중복·divergent(필드 누락/fail-open save) 페이지를 홈으로 redirect.

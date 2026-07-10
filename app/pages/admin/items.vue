@@ -170,6 +170,7 @@ import type {
   ItemListResponse,
   ItemResponse,
 } from '@terraworld-it/openapi-frontend'
+import { useItemsStore } from '~/stores/items'
 
 interface ItemRow {
   item: ItemResponse
@@ -226,6 +227,9 @@ async function toggleActive(itemId: number) {
     })
     if (error) throw error
     row.active = next
+    // 공개 카탈로그 캐시(itemsStore, 5분 TTL)를 무효화한다. 그러지 않으면 어드민이 상점으로
+    // 넘어갔을 때 방금 비활성화한 아이템이 최대 5분간 계속 팔린다.
+    useItemsStore().invalidate()
     toast.success(next ? t('admin.items.activated') : t('admin.items.deactivated'))
   }
   catch {
@@ -264,6 +268,8 @@ async function submitCreate() {
     if (error) throw error
     const created = castData<ItemResponse>(data)
     if (created) rows.value.unshift({ item: created, active: created.isActive })
+    // 새 아이템이 상점(itemsStore, 5분 TTL)에 즉시 보이도록 캐시를 무효화한다.
+    useItemsStore().invalidate()
     toast.success(t('admin.items.created'))
     closeCreate()
   }

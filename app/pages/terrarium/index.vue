@@ -213,7 +213,9 @@ async function savePlacements() {
     // 명시 체크로 서버 거부를 catch 로 라우팅하고 pendingChanges 는 보존(재시도 가능).
     const { error } = await sdk.updateTerrariumPlacements({ client, body: { placedItems: staged } })
     if (error) throw error
-    await terrariumStore.fetch()
+    // force=true 필수 — 스토어의 15초 TTL 캐시를 무시한다. 페이지를 연 지 15초가 안 지났으면
+    // 캐시 적중으로 재조회가 통째로 생략돼, 저장은 됐는데 화면은 저장 전 배치로 남는다.
+    await terrariumStore.fetch(true)
     pendingChanges.value = null
     toast.success(t('terrarium.saveDone'))
   }
@@ -241,8 +243,8 @@ async function onHeartClick() {
     lastReward.coin = heart?.reward ?? 0
     rewardToastRef.value?.show()
 
-    // Refresh user wallet after reward
-    await userStore.fetchMe()
+    // 하트 보상 지급 반영 — force=true 로 TTL 캐시를 무시해야 잔액이 실제로 갱신된다.
+    await userStore.fetchMe(true)
   }
   catch {
     toast.error(t('terrarium.heartFail'))

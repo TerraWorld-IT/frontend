@@ -28,14 +28,21 @@
       </button>
     </div>
 
+    <!-- 최초 로드 중에는 카드 자리에 스켈레톤을 둔다. 이전엔 헤더만 즉시 렌더되고 카드가
+         나중에 튀어나와, 데이터가 오기 전까지 화면 아래가 비어 있었다.
+         `v-else` 는 `v-for` 와 같은 엘리먼트에 둘 수 없어(Vue 3 는 v-if 가 v-for 보다 우선)
+         template 으로 감싼다. -->
+    <CommonLoading v-if="pending" variant="skeleton" />
+
     <!-- 육성 개체 카드 (GET /growth) -->
-    <div
-      v-for="c in items"
-      :key="c.speciesCode"
-      class="w-full rounded-[20px] overflow-hidden relative flex flex-col items-center justify-between gap-[24px]"
-      :class="c.kind === 'SPIRIT' ? 'py-[24px]' : 'py-[13px]'"
-      :style="{ background: bgOf(c.kind), border: '1px solid #fdf9e9', minHeight: '384px' }"
-    >
+    <template v-else>
+      <div
+        v-for="c in items"
+        :key="c.speciesCode"
+        class="w-full rounded-[20px] overflow-hidden relative flex flex-col items-center justify-between gap-[24px]"
+        :class="c.kind === 'SPIRIT' ? 'py-[24px]' : 'py-[13px]'"
+        :style="{ background: bgOf(c.kind), border: '1px solid #fdf9e9', minHeight: '384px' }"
+      >
       <!-- 진행 바 -->
       <div class="w-full px-[21px]">
         <div class="flex items-start justify-between mb-[6px]">
@@ -90,9 +97,27 @@
           </span>
         </div>
       </div>
+      </div>
+    </template>
+
+    <!-- 실패 — "정령이 없다" 와 반드시 구분한다. 통신 오류를 빈 상태로 보여주면
+         사용자는 키우던 개체가 사라진 줄 안다. -->
+    <div v-if="!pending && loadFailed" class="flex flex-col items-center gap-3 py-10 text-neutral-400">
+      <p class="text-[14px]">정보를 불러오지 못했어요</p>
+      <button
+        type="button"
+        class="px-4 py-2 rounded-full bg-black text-white text-[13px]"
+        @click="loadGrowth()"
+      >
+        다시 시도
+      </button>
     </div>
 
-    <div v-if="!items.length" class="text-center text-[14px] text-neutral-400 py-10">불러오는 중…</div>
+    <!-- 빈 상태 — 로드가 성공했고 정말 0개일 때만. 이전엔 `!items.length` 만 보고
+         "불러오는 중…" 을 띄워, 개체가 0개일 때도 영원히 로딩 중인 것처럼 보였다. -->
+    <div v-else-if="!pending && !items.length" class="text-center text-[14px] text-neutral-400 py-10">
+      아직 키우는 정령이 없어요
+    </div>
   </div>
 </template>
 
@@ -165,9 +190,32 @@ function bgOf(kind: GrowthItem['kind']): string {
   return kind === 'SPIRIT' ? '#518cdb' : '#f092f0'
 }
 
-onMounted(async () => {
-  const { data, error } = await sdk.getGrowth({ client })
-  if (!error && data) items.value = castData<GrowthResponse>(data)?.items ?? []
+const pending = ref<boolean>(true)
+const loadFailed = ref<boolean>(false)
+
+async function loadGrowth(): Promise<void> {
+  pending.value = true
+  loadFailed.value = false
+  try {
+    // hey-api 클라이언트는 4xx/5xx 를 throw 하지 않고 `{error}` 로 resolve 한다.
+    // 이걸 조용히 넘기면 네트워크 오류가 "키우는 개체 0개" 로 보여, 사용자는 자기 정령이
+    // 사라진 줄 안다. 실패는 실패로 표시하고 재시도 버튼을 준다.
+    const { data, error } = await sdk.getGrowth({ client })
+    if (error) throw new Error(errMsg(error, 'getGrowth failed'))
+    items.value = castData<GrowthResponse>(data)?.items ?? []
+  }
+  catch (e) {
+    loadFailed.value = true
+    toast.error((e as Error).message)
+  }
+  finally {
+    // 실패해도 스켈레톤을 영구히 남기지 않는다.
+    pending.value = false
+  }
+}
+
+onMounted(() => {
+  void loadGrowth()
 })
 
 function onSparkleInfo(): void {
@@ -199,7 +247,7 @@ async function onUse(c: GrowthItem): Promise<void> {
       const code = (error as unknown as { code?: string } | null)?.code
       if (code === 'INSUFFICIENT_FUNDS') toast.error(`반짝이 ${BOOSTER_COST} 필요 · 습관 7일 완주로 모아보세요`)
       else toast.error('반짝이 사용에 실패했어요')
-      await userStore.fetchMe()
+      await userStore.fetchMe(true) // 재화 재동기화 — TTL 캐시 무시
       return
     }
     const updated = castData<GrowthItem>(data)
@@ -207,7 +255,7 @@ async function onUse(c: GrowthItem): Promise<void> {
       const idx = items.value.findIndex((it) => it.speciesCode === updated.speciesCode)
       if (idx !== -1) items.value[idx] = updated
     }
-    await userStore.fetchMe()
+    await userStore.fetchMe(true) // 반짝이 차감 반영 — TTL 캐시 무시
     toast.success(`${c.nameKo}가 반짝이로 쑥 자랐어요 ✨`)
   }
   finally {

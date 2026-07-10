@@ -333,8 +333,8 @@ async function onAcceptInvite() {
     toast.success(t('friends.acceptSuccess', { reward }))
     trackInviteAccepted({ specialCoinsRewarded: reward })
     inputCode.value = ''
-    // 사용자 재화 갱신
-    await userStore.fetchMe()
+    // 사용자 재화 갱신 — 초대 보상이 걸려 있으므로 TTL 캐시를 무시한다.
+    await userStore.fetchMe(true)
   }
   catch (e) {
     toast.error((e as Error).message)

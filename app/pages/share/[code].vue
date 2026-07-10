@@ -99,6 +99,7 @@
 
 <script setup lang="ts">
 import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
+import { useUserStore } from '~/stores/user'
 
 definePageMeta({ layout: false })
 
@@ -151,6 +152,9 @@ async function acceptInvite() {
     if (error) throw error
     const result = castData<import('@terraworld-it/openapi-frontend').InviteAcceptResponse>(data)
     toast.success(t('share.acceptSuccess', { n: result?.reward?.specialCoins ?? 0 }))
+    // 보상이 지급됐으니 프로필 캐시(15초 TTL)를 무효화한다. 그러지 않으면 곧바로 이동하는 홈이
+    // 캐시 적중으로 보상 이전 잔액을 그린다. `friends` 의 수락 경로엔 이미 같은 처리가 있다.
+    useUserStore().invalidate()
     await navigateTo('/')
   }
   catch {

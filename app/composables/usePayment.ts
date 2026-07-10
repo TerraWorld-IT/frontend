@@ -178,7 +178,8 @@ export function usePayment() {
 
       if (res?.granted) {
         await safeFinish(transaction)
-        await useUserStore().fetchMe()
+        // 결제 권리/재화 지급 반영 — TTL 캐시를 무시한다.
+        await useUserStore().fetchMe(true)
         return true
       }
       // 검증 실패 — 트랜잭션 미완료 유지(재시도 가능). 보상/권리 미지급.

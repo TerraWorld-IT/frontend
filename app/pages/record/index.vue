@@ -303,8 +303,12 @@
         </button>
       </div>
 
-      <!-- 최근 기록 -->
-      <div v-if="recentRecords.length > 0">
+      <!-- 최근 기록 — 위쪽 카드는 정적이라 즉시 그려진다. 서버 응답을 기다리는 건 이 블록뿐. -->
+      <div v-if="pending">
+        <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
+        <CommonLoading variant="skeleton" container-class="py-2" />
+      </div>
+      <div v-else-if="recentRecords.length > 0">
         <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
         <div class="space-y-2">
           <RecordRecordCard
@@ -834,7 +838,7 @@ async function onCheckIn(tr: HabitTrackerResponse) {
     }
     if (result.cycleCompleted && result.sparkleGranted > 0) {
       toast.success(`7일 완주! 반짝이 ${result.sparkleGranted}개 획득 ⭐`)
-      await userStore.fetchMe()
+      await userStore.fetchMe(true) // 반짝이 지급 반영 — TTL 캐시 무시
     }
     else {
       toast.success('오늘 체크인 완료 ✓')
@@ -874,6 +878,7 @@ watch(openModal, (v) => {
   }
 })
 const submitting = ref<boolean>(false)
+const pending = ref<boolean>(true)
 const categories = ref<CategoryResponse[]>([])
 const recentRecords = ref<RecordResponse[]>([])
 
@@ -958,7 +963,7 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
         basicCoins: rew.basicCoins,
         categoryTokens: rew.categoryTokens,
       })
-      await userStore.fetchMe()
+      await userStore.fetchMe(true) // 기록 보상 지급 반영 — TTL 캐시 무시
     }
     return true
   }
@@ -1299,10 +1304,14 @@ async function loadInitial() {
   catch (e) {
     toast.error((e as Error).message)
   }
+  finally {
+    // 실패해도 스켈레톤을 영구히 남기지 않는다 — 빈 목록이 낫다.
+    pending.value = false
+  }
 }
 
 onMounted(() => {
-  loadInitial()
+  void loadInitial()
   loadHabits()
 
   // 거리 추적 중 백그라운드 전환 시 watcher 정리 + 복귀 시 재개(Codex 감사 지적).

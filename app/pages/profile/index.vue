@@ -411,17 +411,20 @@
 <script setup lang="ts">
 import type { UserMeResponse } from '@terraworld-it/openapi-frontend'
 import { authClient } from '~/lib/auth-client'
+// `useUserStore` 는 auto-import 가 걸리지 않는다 (frontend/CLAUDE.md § 함정) — 명시 import.
+import { useUserStore } from '~/stores/user'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
-const { sdk, client } = useOpenApi()
+const userStore = useUserStore()
 const toast = useToast()
 const { t } = useI18n()
 
 const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
-const user = ref<UserMeResponse | null>(null)
+// 프로필은 스토어의 TTL 캐시(15초) 뷰를 그대로 읽는다 — 탭 왕복마다 getMe 를 다시 치지 않는다.
+const user = computed<UserMeResponse | null>(() => userStore.me as UserMeResponse | null)
 const loggingOut = ref<boolean>(false)
 const showItemsDialog = ref<boolean>(false)
 
@@ -562,9 +565,8 @@ async function load() {
   pending.value = true
   fetchError.value = null
   try {
-    const meRes = await sdk.getMe({ client })
-    if (meRes.error) throw new Error(errMsg(meRes.error, 'getMe failed'))
-    user.value = castData<UserMeResponse>(meRes.data) ?? null
+    // 스토어가 TTL 캐시(15초) + in-flight dedup 을 소유한다. 실패 시 스스로 throw.
+    await userStore.fetchMe()
   }
   catch (e) {
     fetchError.value = e as Error

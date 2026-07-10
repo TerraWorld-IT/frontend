@@ -1,4 +1,11 @@
 <template>
+  <!--
+    화면 전환은 `middleware/auth.ts` 의 세션 확인 왕복이 끝나야 시작되고, 일부 페이지는
+    setup 최상위 await(Suspense) 로 데이터를 기다린다. 그동안 라우터는 **이전 페이지를 그대로
+    두므로**, 피드백이 없으면 탭을 눌러도 앱이 멈춘 것처럼 보인다. NuxtLoadingIndicator 는
+    그 구간을 눈에 보이는 진행으로 바꾼다(웹 방문자와 네이티브 셸 모두에 적용).
+  -->
+  <NuxtLoadingIndicator color="#7edbc0" :height="3" :throttle="120" />
   <CommonOfflineBanner />
   <NuxtLayout>
     <NuxtPage />

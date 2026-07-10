@@ -109,6 +109,7 @@
 
 <script setup lang="ts">
 import type { TierInfo } from '@terraworld-it/openapi-frontend'
+import { useTerrariumStore } from '~/stores/terrarium'
 import { useUserStore } from '~/stores/user'
 import { balanceOf } from '~/utils/currency'
 
@@ -172,11 +173,15 @@ async function onUnlock(t: TierInfo): Promise<void> {
     if (!result.ok) {
       toast.error(unlockErrorMessage(result.error?.code))
       // 실패 시에도 잔액 재동기화(stale 잔액으로 인한 반복 실패 방지 — FP-04)
-      await userStore.fetchMe()
+      // force=true: 재화가 걸린 갱신은 TTL 캐시를 건너뛴다.
+      await userStore.fetchMe(true)
       return
     }
     toast.success(`${t.nameKo} 공간을 열었어요! (슬롯 ${result.data.slots}칸)`)
-    await userStore.fetchMe() // 재화 차감 + 새 티어 반영
+    await userStore.fetchMe(true) // 재화 차감 + 새 티어 반영 (캐시 무시)
+    // 티어가 바뀌면 서버의 terrarium(tier / maxSlots)도 바뀐다. 무효화하지 않으면
+    // 15초 TTL 안에 /terrarium 으로 이동했을 때 캐시 적중으로 예전 슬롯 수가 보인다.
+    useTerrariumStore().invalidate()
   }
   finally {
     busy.value = false

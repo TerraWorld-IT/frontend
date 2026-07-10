@@ -720,14 +720,17 @@ import type {
   AdRewardResponse,
   FreePlacementListResponse,
   HeartResponse,
-  ItemListResponse,
   ItemResponse,
   TerrariumResponse,
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
 import feedSvg from '~/components/icons/jar1/feedSvg'
+import { useItemsStore } from '~/stores/items'
+import { useUserStore } from '~/stores/user'
 
 const { sdk, client } = useOpenApi()
+const userStore = useUserStore()
+const itemsStore = useItemsStore()
 const toast = useToast()
 const { t } = useI18n()
 const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
@@ -765,9 +768,12 @@ interface PlacedFreeItem {
 // ─── 상태 ───
 const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
-const user = ref<UserMeResponse | null>(null)
+// 프로필과 아이템 카탈로그는 Pinia 스토어가 TTL 캐시(각 15초 / 5분)와 in-flight dedup 을
+// 소유한다. 홈이 이 둘을 직접 `sdk` 로 가져오면 탭을 오갈 때마다 같은 응답을 다시 받는다.
+// 테라리움/자유배치는 낙관적 배치와 롤백 스냅샷을 이 페이지가 직접 소유하므로 그대로 둔다.
+const user = computed<UserMeResponse | null>(() => userStore.me as UserMeResponse | null)
+const allItems = computed<ItemResponse[]>(() => itemsStore.items as ItemResponse[])
 const terrarium = ref<TerrariumResponse | null>(null)
-const allItems = ref<ItemResponse[]>([])
 const placedItems = ref<PlacedFreeItem[]>([])
 
 const editMode = ref<boolean>(false)
@@ -918,20 +924,18 @@ async function load() {
   pending.value = true
   fetchError.value = null
   try {
-    const [meRes, terraRes, itemsRes, freeRes] = await Promise.all([
-      sdk.getMe({ client }),
+    // 스토어 두 개(캐시 적중 시 네트워크 0회) + 이 페이지가 소유한 두 요청을 함께 대기.
+    // 스토어 쪽은 실패 시 스스로 throw 하므로 아래 catch 가 그대로 재시도 UI 를 띄운다.
+    const [, terraRes, , freeRes] = await Promise.all([
+      userStore.fetchMe(),
       sdk.getTerrarium({ client }),
-      sdk.listItems({ client }),
+      itemsStore.fetchAll(),
       sdk.listFreePlacements({ client }),
     ])
-    if (meRes.error) throw new Error(errMsg(meRes.error, 'getMe failed'))
     if (terraRes.error) throw new Error(errMsg(terraRes.error, 'getTerrarium failed'))
-    if (itemsRes.error) throw new Error(errMsg(itemsRes.error, 'listItems failed'))
     if (freeRes.error) throw new Error(errMsg(freeRes.error, 'listFreePlacements failed'))
 
-    user.value = castData<UserMeResponse>(meRes.data) ?? null
     terrarium.value = castData<TerrariumResponse>(terraRes.data) ?? null
-    allItems.value = castData<ItemListResponse>(itemsRes.data)?.items ?? []
 
     const free = castData<FreePlacementListResponse>(freeRes.data)
     placedItems.value = (free?.items ?? []).map((it, i): PlacedFreeItem => {
@@ -1229,7 +1233,8 @@ async function onHeartClick() {
     const { data, error } = await sdk.clickTerrariumHeart({ client })
     if (error) throw new Error(errMsg(error, 'heart failed'))
     const heart = castData<HeartResponse>(data)
-    if (heart && user.value) setBalance(user.value.currency, 'COIN', heart.updatedBasicCoins)
+    // `user` 는 스토어의 readonly 뷰 — 직접 setBalance 하면 프록시가 쓰기를 삼킨다.
+    if (heart) userStore.setCurrencyBalance('COIN', heart.updatedBasicCoins)
     trackHeartClick()
     void hapticImpact('Light')
   }
@@ -1246,8 +1251,8 @@ async function onAttendanceCheck() {
   if (alreadyCheckedToday.value) return
   const result = await attendance.checkIn()
   if (result) {
-    // 서버 currency 로 로컬 잔액 동기화 (COIN/DEW 갱신).
-    if (user.value) user.value.currency = result.currency
+    // 서버 currency 로 잔액 동기화 (COIN/DEW 갱신) — 스토어에 반영해 다른 화면과 공유한다.
+    userStore.updateCurrency(result.currency)
     const bonus = result.reward.bonus ? ` (${t('attendance.bonus')})` : ''
     toast.success(`${t('attendance.dewReward', { n: result.reward.basicCoins })}${bonus}`)
     showAttendance.value = false
@@ -1273,7 +1278,7 @@ async function onClaimAdReward() {
     if (res.networkFailed) res = await claimWithNonce(nonce, true)
     if (res.error) throw new Error(errMsg(res.error, '광고 보상 실패'))
     const ad = castData<AdRewardResponse>(res.data)
-    if (ad && user.value) user.value.currency = ad.updatedCurrency
+    if (ad) userStore.updateCurrency(ad.updatedCurrency)
     const reward = ad?.reward.specialCoins ?? 0
     toast.success(t('home.adRewardEarned', { n: reward }))
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })

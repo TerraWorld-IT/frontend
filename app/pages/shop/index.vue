@@ -79,11 +79,14 @@
         <button
           type="button"
           class="mt-2 px-4 py-2 rounded-full bg-black text-white text-sm"
-          @click="reload"
+          @click="reload()"
         >
           다시 시도
         </button>
       </div>
+
+      <!-- 최초 로드 (top-level await 를 걷어낸 뒤의 로딩 표면) -->
+      <CommonLoading v-else-if="pending" variant="skeleton" />
 
       <!-- 빈 상태 -->
       <div
@@ -264,12 +267,12 @@
 import type {
   CurrencyResponse,
   ExchangeResult,
-  ItemListResponse,
   ItemResponse,
   PurchaseResponse,
-  UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
 import { balanceOf } from '~/utils/currency'
+import { useItemsStore } from '~/stores/items'
+import { useUserStore } from '~/stores/user'
 
 // loadShop() 이 게스트용 분기 없이 무조건 sdk.getMe() 를 호출·실패 시 throw 하므로
 // 실질적으로 로그인 필요 — '/shop' 을 middleware/auth.ts PUBLIC_EXACT 에서도 제거함.
@@ -286,6 +289,8 @@ const rarities: RarityKey[] = ['common', 'rare', 'epic']
 const COIN_PATH = 'M5.7625 1.1475C5.78441 1.10323 5.81826 1.06597 5.86023 1.03991C5.90219 1.01386 5.9506 1.00005 6 1.00005C6.0494 1.00005 6.09781 1.01386 6.13977 1.03991C6.18174 1.06597 6.21559 1.10323 6.2375 1.1475L7.3925 3.487C7.46859 3.64098 7.58091 3.7742 7.71981 3.87523C7.85872 3.97625 8.02006 4.04206 8.19 4.067L10.773 4.445C10.8219 4.45209 10.8679 4.47274 10.9057 4.5046C10.9436 4.53646 10.9717 4.57827 10.987 4.6253C11.0023 4.67233 11.0041 4.7227 10.9923 4.77072C10.9805 4.81873 10.9554 4.86248 10.92 4.897L9.052 6.716C8.92881 6.83605 8.83664 6.98424 8.78342 7.14781C8.7302 7.31139 8.71753 7.48544 8.7465 7.655L9.188 10.228C9.19681 10.2769 9.19175 10.3273 9.17337 10.3735C9.155 10.4197 9.12406 10.4599 9.08407 10.4894C9.04408 10.5189 8.99664 10.5367 8.94711 10.5407C8.89757 10.5447 8.84791 10.5348 8.8035 10.512L6.4935 9.298C6.34142 9.21815 6.17227 9.1764 6.0005 9.1764C5.82873 9.1764 5.65958 9.21815 5.5075 9.298L3.1975 10.512C3.15309 10.5348 3.10343 10.5447 3.05389 10.5407C3.00436 10.5367 2.95692 10.5189 2.91693 10.4894C2.87694 10.4599 2.846 10.4197 2.82763 10.3735C2.80925 10.3273 2.80419 10.2769 2.813 10.228L3.254 7.655C3.28297 7.48544 3.2703 7.31139 3.21708 7.14781C3.16386 6.98424 3.07169 6.83605 2.9485 6.716L1.0805 4.897C1.04506 4.86248 1.01999 4.81873 1.00818 4.77072C0.996372 4.7227 0.998165 4.67233 1.01345 4.6253C1.02874 4.57827 1.05685 4.53646 1.09468 4.5046C1.13251 4.47274 1.17855 4.45209 1.2275 4.445L3.8105 4.067C3.98044 4.04206 4.14178 3.97625 4.28069 3.87523C4.41959 3.7742 4.53191 3.64098 4.608 3.487L5.7625 1.1475Z'
 
 const { sdk, client } = useOpenApi()
+const userStore = useUserStore()
+const itemsStore = useItemsStore()
 const toast = useToast()
 const { itemAssetUrl, onAssetError } = useItemAsset()
 const { trackItemPurchased, trackTokenExchanged } = useGtagEvents()
@@ -314,48 +319,52 @@ onBeforeUnmount(() => {
   unregisterExchangeBackHandler = null
 })
 
-const currency = ref<CurrencyResponse | null>(null)
-const items = ref<ItemResponse[]>([])
-const ownedSlugs = ref<Set<string>>(new Set<string>())
+// 재화/소유목록/아이템 카탈로그는 스토어가 TTL 캐시를 소유한다. 홈에서 막 넘어온 경우
+// 두 요청 모두 캐시 적중이라 네트워크 왕복 없이 즉시 그려진다.
+const currency = computed<CurrencyResponse | null>(() => userStore.currency)
+const items = computed<ItemResponse[]>(() => itemsStore.items as ItemResponse[])
+const ownedSlugs = computed<Set<string>>(() => new Set(userStore.ownedItems))
 const purchasing = ref<number | null>(null)
 const fetchError = ref<Error | null>(null)
+const pending = ref<boolean>(true)
 
 const exchanging = ref<boolean>(false)
 const exchangeAmount = ref<number>(1)
 
-// --- 최초 로드 (page-level Suspense fallback) ---
-async function loadShop() {
-  const [meRes, itemRes] = await Promise.all([
-    sdk.getMe({ client }),
-    sdk.listItems({ client }),
+// --- 최초 로드 ---
+//
+// 이전에는 setup 최상단에서 `await loadShop()` 을 했다. 그러면 페이지 컴포넌트가 async 가 되어
+// Nuxt 의 Suspense 가 로드가 끝날 때까지 **직전 화면을 그대로 얼려 둔다** — 사용자에겐 탭을
+// 눌렀는데 아무 반응이 없는 것으로 보인다. onMounted 로 옮기고 스켈레톤을 띄운다.
+async function loadShop(force: boolean = false) {
+  await Promise.all([
+    userStore.fetchMe(force),
+    itemsStore.fetchAll(force),
   ])
-  if (meRes.error) throw new Error(errMsg(meRes.error, 'getMe failed'))
-  if (itemRes.error) throw new Error(errMsg(itemRes.error, 'listItems failed'))
-
-  const me = castData<UserMeResponse>(meRes.data)
-  const itemList = castData<ItemListResponse>(itemRes.data)
-  currency.value = me?.currency ?? null
-  items.value = itemList?.items ?? []
-  ownedSlugs.value = new Set(me?.ownedItems ?? [])
 }
 
-try {
-  await loadShop()
-}
-catch (e) {
-  fetchError.value = e as Error
-}
-
-async function reload() {
+async function reload(force: boolean = true) {
+  const isRetry: boolean = !pending.value
   fetchError.value = null
+  // 재시도 버튼을 눌렀을 때도 로딩 표면을 보여준다. 이걸 빼면 에러 블록만 사라지고
+  // 아무 일도 일어나지 않는 것처럼 보인다.
+  pending.value = true
   try {
-    await loadShop()
+    await loadShop(force)
   }
   catch (e) {
     fetchError.value = e as Error
-    toast.error((e as Error).message)
+    // 최초 진입 실패는 화면의 재시도 블록이 이미 알린다 — 토스트까지 겹치지 않게 한다.
+    if (isRetry) toast.error((e as Error).message)
+  }
+  finally {
+    pending.value = false
   }
 }
+
+onMounted(() => {
+  void reload(false)
+})
 
 // --- 파생 ---
 const rubyBalance = computed<number>(() => balanceOf(currency.value, 'RUBY'))
@@ -416,8 +425,9 @@ async function onPurchase(item: ItemResponse) {
     if (error) throw error
     const purchased = castData<PurchaseResponse>(data)
     if (purchased) {
-      currency.value = purchased.updatedCurrency
-      ownedSlugs.value = new Set(purchased.ownedItems)
+      // 스토어를 갱신하면 홈/테라리움이 다음 진입 때 새 잔액·소유목록을 그대로 본다.
+      userStore.updateCurrency(purchased.updatedCurrency)
+      userStore.updateOwnedItems(purchased.ownedItems)
       trackItemPurchased({
         itemId: item.id,
         itemName: purchased.purchasedItem.name,
@@ -452,7 +462,7 @@ async function onExchangeSpecial() {
     if (error) throw error
     const ex = castData<ExchangeResult>(data)
     if (ex) {
-      currency.value = ex.updatedCurrency
+      userStore.updateCurrency(ex.updatedCurrency)
       trackTokenExchanged({ fromType: ex.from, toType: ex.to, amount: ex.fromAmount })
       // 사후 확정 표시 — 실제 지급량(toAmount)은 백엔드 환율 SoT 기준
       toast.success(`기본 코인 ${ex.toAmount}개를 받았습니다! (환율 ${ex.rate})`)
@@ -487,14 +497,13 @@ function exchangeErrorMessage(e: unknown): string {
   }
 }
 
-// 재화 스냅샷 재조회 (환전/구매 실패 후 로컬 잔액 정합 복구)
+// 재화 스냅샷 재조회 (환전/구매 실패 후 잔액 정합 복구) — TTL 캐시를 무시해야 의미가 있다.
 async function refreshCurrency() {
-  const { data, error } = await sdk.getMe({ client })
-  if (error) return
-  const me = castData<UserMeResponse>(data)
-  if (me) {
-    currency.value = me.currency ?? null
-    ownedSlugs.value = new Set(me.ownedItems ?? [])
+  try {
+    await userStore.fetchMe(true)
+  }
+  catch {
+    // 정합 복구는 best-effort — 실패해도 다음 진입에서 다시 맞춘다.
   }
 }
 </script>
