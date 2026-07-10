@@ -246,7 +246,12 @@
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center gap-[8px]">
             <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-              <path :d="P.user.circle" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <g clip-path="url(#clip_user_c)">
+                <path :d="P.user.circle" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+                <path :d="P.user.head" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+                <path :d="P.user.body" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              </g>
+              <defs><clipPath id="clip_user_c"><rect fill="white" width="20" height="20" /></clipPath></defs>
             </svg>
             <span class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[27px]">{{ $t('profile.consentSection') }}</span>
           </div>
@@ -500,21 +505,33 @@ function formatBalance(amount: number): string {
 const session = authClient.useSession()
 const consentSaving = ref<boolean>(false)
 const consentRenderKey = ref<number>(0)
+// 가입 시 받는 선택 동의 5종(photo/push/adId/analytics/marketing)과 1:1 로 맞춘다.
+// 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
 const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
   { key: 'marketing', field: 'marketingConsent', value: false },
   { key: 'analytics', field: 'analyticsConsent', value: false },
   { key: 'adId', field: 'adConsent', value: false },
+  { key: 'photo', field: 'photoConsent', value: false },
+  { key: 'push', field: 'pushConsent', value: false },
 ])
 
 watch(
   () => session.value?.data?.user,
   (u) => {
-    const cu = u as { marketingConsent?: boolean; analyticsConsent?: boolean; adConsent?: boolean } | undefined
+    const cu = u as {
+      marketingConsent?: boolean
+      analyticsConsent?: boolean
+      adConsent?: boolean
+      photoConsent?: boolean
+      pushConsent?: boolean
+    } | undefined
     if (!cu) return
     consentToggles.value = [
       { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
       { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
       { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
+      { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
+      { key: 'push', field: 'pushConsent', value: cu.pushConsent ?? false },
     ]
   },
   { immediate: true },
