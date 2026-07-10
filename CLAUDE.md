@@ -48,7 +48,8 @@ Styling:        Tailwind CSS v4.2 (CSS-first @theme, @tailwindcss/vite)
 State:          Pinia
 2D Rendering:   PixiJS v8 (multiply blending, stamp animation, RainParticles)
 Auth:           better-auth (Nitro 서버, PostgreSQL 공유 DB)
-Validation:     valibot
+Validation:     미도입 (valibot 없음 — 폼 검증은 네이티브 제약 + 서버측 better-auth hook)
+Icons:          @nuxt/icon + @iconify-json/lucide (clientBundle 로 번들 — 런타임 fetch 없음)
 Date:           dayjs
 Lint:           oxlint (3 rules: no-unused-vars, no-console, eqeqeq)
 Format:         미적용 (Option A) — 상세 결정은 `docs/decisions/ADR-004-prettier-policy.md` 참조 (2026-05-16 격상).
@@ -83,15 +84,16 @@ frontend/
 │   ├── assets/css/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
-│   │   ├── common/                 # Toast, Modal, Loading, WalletBar, CurrencyDisplay,
-│   │   │                           #   ExchangeModal, RewardToast, Onboarding,
-│   │   │                           #   AdSenseBanner, AttendanceWidget, CustomCategoryManager, ThemeGallery
-│   │   ├── icons/                  # JamjarSvg, PpJamjar (SVG 컴포넌트)
+│   │   ├── common/                 # Toast, Modal, Loading, CurrencyDisplay, ExchangeModal,
+│   │   │                           #   RewardToast, Onboarding, AdSenseBanner, AttendanceWidget,
+│   │   │                           #   CustomCategoryManager, ThemeGallery, TierModal, RarityBadge,
+│   │   │                           #   OfflineBanner, AppUpdateGate
+│   │   ├── icons/                  # CurrencyIcon, JamjarSvg, Jar1, PpJamjar (SVG 컴포넌트)
+│   │   │   └── jar1/               #   Jar1.vue 가 쓰는 path 데이터 (jar1Paths.ts, feedSvg.ts)
 │   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
-│   │   ├── terrarium/              # TerrariumCanvas, TerrariumSlot, ItemSelectDialog,
-│   │   │                           #   WiltingOverlay, UpgradeModal (5단계 진화)
-│   │   │                           #   PixiJS 파티클: RainParticles + SnowParticles + FireflyParticles + BubbleParticles
-│   │   └── shop/                   # ShopContent, ShopSkeleton
+│   │   └── terrarium/              # TerrariumCanvas, TerrariumBottle, TerrariumSlot, ItemSelectDialog,
+│   │                               #   WiltingOverlay
+│   │                               #   PixiJS 파티클: RainParticles + SnowParticles + FireflyParticles + BubbleParticles
 │   ├── composables/
 │   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped) + 4분 preemptive refresh timer
 │   │   ├── useAdMob.ts             # AdMob 보상형 광고 (Android native, 웹/iOS dev fallback)
@@ -128,7 +130,7 @@ frontend/
 │   │   ├── ranking/index.vue       # 월간 랭킹 (engagement / decoration)
 │   │   ├── share/[code].vue        # 공유 수신 (SSR + OG 메타 + 초대 수락)
 │   │   ├── upgrade/free-placement.vue # 자유배치 권리 결제 placeholder (Phase 4 IAP)
-│   │   └── admin/                  # 어드민 (index, items, categories, exchange, levels)
+│   │   └── admin/                  # 어드민 (index, items, categories) — ssr:false
 │   ├── plugins/
 │   │   ├── openapi.ts              # @hey-api/client-fetch + 401 리프레시 인터셉터
 │   │   └── capacitor.client.ts     # 네이티브 앱 라이프사이클 (딥링크, 푸시, 키보드)
@@ -164,9 +166,16 @@ frontend/
 ├── .oxlintrc.json
 ├── Dockerfile                      # Multi-stage (build + runtime)
 └── .github/workflows/
-    ├── ci.yml                      # lint → typecheck → build
-    └── deploy.yml                  # docker build → push → SSH deploy
+    ├── ci.yml                      # lint → typecheck → test → build
+    ├── codeql.yml                  # CodeQL 보안 스캔
+    └── deploy-selfhosted.yml       # ubuntu 러너 빌드 → ghcr push → 맥 러너 pull + compose up
 ```
+
+> **배포 모델 (2026-07-10 변경)**: 이미지는 GitHub-hosted ubuntu 러너에서 빌드해 ghcr 로 push 하고,
+> 맥 self-hosted 러너는 그것을 pull 해서 컨테이너만 교체한다.
+> 맥에서 빌드하지 않는 이유는 Docker VM 메모리 한도 안에서 Nitro 빌드가 커널 SIGKILL 을 받기 때문이고,
+> 맥 호스트에서 빌드해 산출물만 넣지 않는 이유는 `.output/server/node_modules` 에 `@img/sharp-*`,
+> `@esbuild/*`, oxc 바인딩 등 **플랫폼 종속 네이티브 패키지**가 포함되기 때문이다(빌드 OS = 배포 OS).
 
 ---
 
@@ -300,8 +309,9 @@ POST   /uploads/photo                  # multipart, magic byte 검증
 | `/admin` | `pages/admin/index.vue` | 어드민 대시보드 | 필수 (ADMIN) |
 | `/admin/items` | `pages/admin/items.vue` | 아이템 관리 | 필수 (ADMIN) |
 | `/admin/categories` | `pages/admin/categories.vue` | 카테고리 보상 관리 | 필수 (ADMIN) |
-| `/admin/exchange` | `pages/admin/exchange.vue` | 교환 비율 관리 | 필수 (ADMIN) |
-| `/admin/levels` | `pages/admin/levels.vue` | 레벨 설정 | 필수 (ADMIN) |
+
+> `/admin/exchange` 와 `/admin/levels` 는 존재하지 않는다. 레벨 체계는 2026-07 개편에서 제거됐고,
+> 교환 비율은 백엔드 `exchange_rates` 가 SoT 다. `/terrarium/free` 도 `routeRules` 로 `/` 에 redirect 된다.
 
 ---
 
@@ -576,6 +586,12 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 - **WalletBar.vue progressPercent (RESOLVED 2026-06-15)** — 과거 선형 hardcoded 계산이 음수/100%+ 출력 가능했던 함정. 현재 `WalletBar.vue:69-77` 는 선형 컨벤션((N-1)×100) + `Math.min(100, Math.max(0, …))` clamp + MAX_LEVEL 가드 적용으로 **해결됨**. (backend EXP 곡선이 2차면 표시 의미만 달라질 뿐 음수/초과는 clamp 로 차단.)
 - **`useUserStore` 자동 import 미작동** — Pinia `defineStore('user', …)` 의 export 이름 또는 `stores/` 디렉토리 자동 등록 timing 에 따라 컴파일 타임 `Cannot find name 'useUserStore'` 가능. `import { useUserStore } from '~/stores/user'` 명시 import 로 회피.
 - **better-auth hook `return user` 직접 반환 금지** — § 10 만 14세 차단 3중 방어 참조. `return { data: user }` / `return true` / throw 중 하나로 작성.
+
+### 함정 (2026-07-10 발견 — 셋 다 빌드·타입체크·테스트 통과 후에만 드러남)
+
+- **Tailwind v4 의 `-translate-x-1/2` 는 `transform` 이 아니라 개별 `translate` 속성** — CSS 는 개별 translate 를 먼저 적용하고 transform 을 합성하므로, 트랜지션 CSS 에 `transform: translate(-50%, 100%)` 를 쓰면 X 가 두 번 걸려 패널이 자기 폭만큼 왼쪽에서 대각선으로 날아든다. `transform: translateY(100%)` 로 쓰고 X 중앙정렬은 `translate` 에 맡긴다. 이 레포에서 5곳 동시 발생(바텀시트 8 + RewardToast). 탐지: `grep -rn "translate(-50%" app/` 후 해당 요소의 `-translate-x-1/2` 여부 확인. 부수: Vue `<Transition>` 은 **루트** 엘리먼트의 computed transition 으로 종료를 판정하므로 자식 duration 이 더 길면 잘린다.
+- **`@nuxt/icon` 은 `/api/_nuxt_icon` 으로 런타임 fetch** — 프로덕션 nginx 가 `/api/` 를 Spring 으로 프록시하므로 401 을 받아 **클라이언트에서 처음 마운트되는 아이콘만** 빈다("일부만 안 보임"이 신호). 로컬 dev 는 nginx 가 없어 재현 안 됨. `nuxt.config.ts` 의 `icon.clientBundle` 로 굽고 `localApiEndpoint` 를 `/api/` 밖으로 옮겨 해결. **동적 `:name` 바인딩은 `scan` 이 못 잡으므로 `icons` 배열에 명시 나열**해야 한다 — 하나라도 빠지면 그 아이콘만 조용히 빈다.
+- **모달 바텀시트는 하단 nav 를 덮어야 한다** — `role="dialog" aria-modal` + 백드롭 `inset-0` 을 선언해 놓고 패널만 nav 위에 띄우면, nav 가 "보이지만 탭이 백드롭에 먹혀 동작하지 않는" 미끼가 된다. Material 3·Apple HIG 모두 모달 시트가 하단 내비를 덮도록 규정한다. `index.vue` 의 시트 3종은 전부 `bottom-0`.
 
 ### 성능
 
