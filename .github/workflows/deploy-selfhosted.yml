@@ -1,6 +1,19 @@
 name: Deploy (self-hosted Mac)
 
-# 맥 self-hosted 러너에서 로컬 재빌드 + 재배포 (Cloudflare Tunnel 호스팅).
+# 이미지는 GitHub-hosted ubuntu 러너에서 빌드해 ghcr 로 push 하고,
+# 맥 self-hosted 러너는 그것을 pull 해서 컨테이너만 교체한다 (Cloudflare Tunnel 호스팅).
+#
+# 왜 맥에서 빌드하지 않는가: 맥 러너의 Docker VM 메모리 한도 안에서 Nitro 빌드가 커널에
+# SIGKILL 당해(`cannot allocate memory`) 배포가 연속 실패했다. NODE_OPTIONS 의 heap 상한은
+# in-process heap 만 줄일 뿐 외부 OOM 을 막지 못한다.
+#
+# 왜 맥 호스트에서 빌드해 산출물만 이미지에 넣지 않는가: `.output/server/node_modules` 에
+# `@img/sharp-*`, `@esbuild/*`, oxc 바인딩 등 플랫폼 종속 네이티브 패키지가 포함되므로
+# darwin-arm64 산출물을 linux 이미지에 넣으면 런타임에 깨진다. 빌드 OS = 배포 OS 여야 한다.
+#
+# 맥은 공인 IP/SSH 가 없어 클라우드에서 배포를 밀어넣을 수 없다. 그래서 맥이 직접 pull 한다
+# (아웃바운드만 필요). deploy 레포가 문서화한 registry pull-and-run 모델과 동일하다.
+#
 # push(main) 전용 — fork PR 에서는 절대 실행 안 함(self-hosted 보안).
 
 on:
@@ -12,55 +25,70 @@ concurrency:
   group: deploy-frontend-selfhosted
   cancel-in-progress: false
 
+env:
+  IMAGE: ghcr.io/terraworld-it/terraworld-frontend
+
 jobs:
-  deploy:
-    runs-on: [self-hosted, terraworld]
+  build-push:
+    name: Build image (ubuntu) → ghcr
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Rebuild image, redeploy frontend
+      # openapi-frontend 는 별도 private repo 라 GITHUB_TOKEN 으로는 서브모듈 fetch 불가.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.OPENAPI_FRONTEND_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
         env:
-          # openapi-frontend 서브모듈은 별도 private repo(TerraWorld-IT/openapi-frontend)라
-          # GITHUB_TOKEN 으로는 fetch 불가 — CI(ci.yml:25)와 동일하게 PAT 을 주입한다.
-          OPENAPI_FRONTEND_TOKEN: ${{ secrets.OPENAPI_FRONTEND_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          # 토큰은 stdin 으로만 전달한다 (argv / 프로세스 목록 노출 방지).
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          # :latest 는 compose 가 참조하는 태그, :<sha> 는 롤백용.
+          docker build -t "$IMAGE:latest" -t "$IMAGE:$GITHUB_SHA" .
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:$GITHUB_SHA"
+
+  deploy:
+    name: Pull and restart (self-hosted Mac)
+    needs: build-push
+    runs-on: [self-hosted, terraworld]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Pull image and restart frontend
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
           set -euo pipefail
           export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
-          FE=/Users/jaeseok/TerraWorld-IT/frontend
           DEPLOY=/Users/jaeseok/TerraWorld-IT/deploy
 
-          cd "$FE"
-          git fetch origin
-          git reset --hard origin/main
-          # 서브모듈 fetch 만 토큰 필요(위 origin fetch/reset 은 Mac 로컬 자격증명으로 동작).
-          # 토큰은 argv 노출을 피해 GIT_CONFIG_* env 로 전달하고, insteadOf 는 이 git 호출(및
-          # 서브모듈 자식 프로세스)에만 스코프되어 Mac 전역 gitconfig 에 남지 않는다.
-          if [ -z "${OPENAPI_FRONTEND_TOKEN:-}" ]; then
-            echo "❌ OPENAPI_FRONTEND_TOKEN 시크릿 미설정 — 서브모듈 fetch 불가"; exit 1
-          fi
-          # GIT_CONFIG_COUNT/KEY/VALUE 는 git 2.31+ 에서만 인식된다. 그 미만이면 조용히 무시되어
-          # 서브모듈 인증이 예전처럼 "could not read Username" 으로 실패하므로, 진단을 위해 버전을 남긴다.
-          git --version
-          GIT_CONFIG_COUNT=1 \
-          GIT_CONFIG_KEY_0="url.https://x-access-token:${OPENAPI_FRONTEND_TOKEN}@github.com/.insteadOf" \
-          GIT_CONFIG_VALUE_0="https://github.com/" \
-          git submodule update --init --recursive
-
-          docker build -t ghcr.io/terraworld-it/terraworld-frontend:latest .
+          # ghcr 패키지는 private 이므로 pull 전에 로그인해야 한다. 저장되는 토큰은 이 실행에서만
+          # 유효한 단기 토큰이며, 다음 배포가 다시 갱신한다. logout 은 하지 않는다 — 운영자가
+          # 별도로 넣어둔 ghcr 자격증명을 지워버릴 수 있기 때문.
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
           cd "$DEPLOY"
+          # compose 의 frontend 이미지는 ${REGISTRY_URL}/terraworld-frontend:${TAG:-latest}
+          # = ghcr.io/terraworld-it/terraworld-frontend:latest (위 build-push 가 올린 그것).
+          docker compose -f docker-compose.yml -f docker-compose.tunnel.yml pull frontend
           docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --no-deps frontend
 
           echo "frontend 응답 대기..."
-          # 실제 근본 원인(2026-07-08): 100초/180초/600초 세 예산 모두 "정확히 그 예산만큼"
-          # 걸린 뒤 실패 — 콜드스타트가 느린 게 아니라 애초에 성공 조건을 영원히 못 만나고
-          # 있었다. `/`는 app/middleware/auth.ts 의 protect-by-default 라우트 가드 대상이라
-          # 미인증 요청은 항상 /auth/login 으로 302 리다이렉트되는데, 이 스크립트는 정확히
-          # 200 만 성공으로 인정해서 매번 예산을 다 쓰고 실패해왔다(직접 확인:
-          # curl https://terraworld.web-qplay.kr/ → 302, /auth/login → 200). 배포 자체는
-          # 매번 정상 진행됐고(프로덕션 번들에서 새 커밋 코드 확인됨), 이 헬스체크 스크립트만
-          # 잘못된 경로를 확인해 거짓 실패를 보고해온 것. 인증 없이 항상 200 이 보장되는
-          # /auth/login 으로 체크 대상 변경 — 이제 정상 기동 시 몇 초 내 통과해야 하므로
-          # 예산(150회×4초=600초)은 안전 마진으로만 유지.
-          for i in $(seq 1 150); do
+          # `/` 는 app/middleware/auth.ts 의 protect-by-default 가드 대상이라 미인증 요청이 항상
+          # /auth/login 으로 302 된다. 인증 없이 200 이 보장되는 /auth/login 으로 확인한다.
+          for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/auth/login || echo 000)
             [ "$code" = 200 ] && { echo "✅ frontend 200"; exit 0; }
             sleep 4
