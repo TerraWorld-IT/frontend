@@ -56,18 +56,25 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (useAuth().isLoggedIn.value) return
 
   // CSR: httpOnly 쿠키는 document.cookie 에서 안 보임 → better-auth 세션으로 확인.
-  // Promise.race 로 바깥에서 흉내내지 않고 better-fetch 의 fetchOptions.timeout 을 써서
-  // 타임아웃 시 실제로 요청 자체가 abort 되도록 한다(진 쪽 요청이 orphan 으로 계속
-  // 진행되며 뒤늦게 세션 쿠키를 갱신하는 걸 방지).
   // better-auth 클라이언트의 내부 proxy 체인(createDynamicPathProxy → betterFetch)은
-  // catchAllError 를 켜지 않아, timeout 에 의한 AbortError 가 {data:null} 이 아니라
-  // 그대로 throw 된다 — try/catch 없이 두면 fail-closed 리다이렉트 대신 미들웨어 자체가
-  // uncaught exception 으로 깨진다. 여기서만 감싸 두 실패 경로(정상 응답의 data 없음 /
+  // catchAllError 를 켜지 않아, 실패가 {data:null} 이 아니라 throw 로 온다. throw 되는 에러는
+  // (a) fetch 자체가 abort 된 AbortError 이거나 (b) withTimeout 데드라인 초과 시의
+  // Error('deadline exceeded') 다. try/catch 없이 두면 fail-closed 리다이렉트 대신 미들웨어
+  // 자체가 uncaught exception 으로 깨진다. 여기서만 감싸 두 실패 경로(정상 응답의 data 없음 /
   // abort 로 인한 throw) 를 동일하게 fail-closed 로 수렴시킨다.
+  // 데드라인에 요청을 실제로 abort 하려고 자체 AbortController 를 쓴다. better-fetch 는 외부
+  // signal 이 있으면 자기 timeout 타이머 대신 이 signal 로 헤더·본문 전 구간을 통제한다.
+  const ac = new AbortController()
   try {
-    const { data } = await authClient.getSession({
-      fetchOptions: { timeout: SESSION_CHECK_TIMEOUT_MS },
-    })
+    // fetchOptions.timeout 만으로는 부족하다: better-fetch 는 응답 헤더를 받는 순간 abort
+    // 타이머를 꺼서, 헤더만 오고 본문이 멈추는 연결에서는 getSession 이 안 끝나 이 미들웨어의
+    // await 가 무한히 매달린다 → 이후 모든 네비게이션이 막힌다. withTimeout 이 전체 데드라인을
+    // 강제하고 초과 시 ac.abort() 로 원본 요청까지 취소해 fail-closed(로그인 리다이렉트)로 수렴시킨다.
+    const { data } = await withTimeout(
+      authClient.getSession({ fetchOptions: { signal: ac.signal } }),
+      SESSION_CHECK_TIMEOUT_MS,
+      ac,
+    )
     if (!data) return navigateTo('/auth/login')
   } catch (error) {
     // 개발 확인용 — vite esbuild `drop` 설정으로 프로덕션 빌드에서는 제거됨.

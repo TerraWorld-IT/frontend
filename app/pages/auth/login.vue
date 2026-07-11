@@ -3,6 +3,23 @@
     class="h-dvh w-full relative overflow-hidden"
     style="background: linear-gradient(135deg, #e8f4fd 0%, #f0e8ff 40%, #ffe8f4 100%)"
   >
+    <!-- 콜드 스타트 세션 확인 베일.
+         네이티브 셸의 첫 top-level 네비게이션에 세션 쿠키가 안 실려(SameSite 또는 WebView 특성)
+         SSR 이 이 로그인 페이지를 렌더하지만, 같은 출처 XHR(getSession)에는 쿠키가 실린다.
+         그 확인이 끝날 때까지 폼을 가려, "로그인 폼이 떴다가 대시보드로 튀는" 깜빡임을 없앤다.
+         `checkingSession` 은 false 로 시작하므로 SSR 출력엔 베일이 없다 → 하이드레이션 미스매치 없음.
+         onMounted 가 클라이언트에서만 true 로 올린 뒤 세션을 묻는다. -->
+    <div
+      v-if="checkingSession"
+      class="absolute inset-0 z-50 flex items-center justify-center"
+      style="background: linear-gradient(135deg, #e8f4fd 0%, #f0e8ff 40%, #ffe8f4 100%)"
+      role="status"
+      aria-live="polite"
+      aria-label="세션 확인 중"
+    >
+      <div class="w-9 h-9 rounded-full border-[3px] border-[#c3aed6]/30 border-t-[#8a9bc4] animate-spin" />
+    </div>
+
     <!-- 배경 장식 -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-16 left-12 text-5xl opacity-20 rotate-12">🌵</div>
@@ -255,17 +272,47 @@ const { registerPush } = useNative()
  *
  * 같은 출처로 나가는 XHR 에는 쿠키가 정상적으로 실리므로, 마운트 직후 세션을 한 번 물어보고
  * 살아 있으면 원래 가려던 곳으로 되돌린다. 세션이 진짜 없으면 폼이 그대로 남는다.
- * 오버레이를 두지 않는 이유: SSR 은 폼을 렌더하므로 클라이언트에서 오버레이를 켜면
- * 하이드레이션 미스매치가 된다.
+ *
+ * 확인이 끝날 때까지 `checkingSession` 베일로 폼을 가린다(위 템플릿). false 로 시작하므로
+ * SSR 출력엔 베일이 없어 하이드레이션 미스매치가 없고, onMounted 가 클라이언트에서만 켠다.
+ * 이렇게 해야 "로그인 폼이 잠깐 떴다가 대시보드로 튀는" 깜빡임이 사라진다.
  */
+// half-open 모바일 연결에서 getSession 이 영영 안 끝나면 베일이 안 걷혀 로그인 폼에 갇힌다.
+// middleware/auth.ts 와 같은 5초 fail-open 타임아웃을 건다. 데드라인 초과 시 withTimeout 이
+// ac.abort() 로 원본 요청을 취소하고, race 는 자기 Error('deadline exceeded')로 reject 한다
+// (underlying fetch 의 AbortError 가 아니라 이 Error 가 catch 로 온다) → 아래 catch 가 fail-open.
+const SESSION_CHECK_TIMEOUT_MS = 5_000
+const router = useRouter()
+const checkingSession = ref<boolean>(false)
 onMounted(async () => {
+  checkingSession.value = true
+  // 데드라인에 요청 자체를 abort 하려고 자체 AbortController 를 쓴다. better-fetch 는 외부
+  // signal 이 있으면 자기 timeout 타이머를 안 걸고 이 signal 로 헤더·본문 전 구간을 통제한다.
+  const ac = new AbortController()
   try {
-    const { data } = await authClient.getSession()
-    if (data) await navigateTo('/', { replace: true })
+    // withTimeout 이 body stall 까지 포함한 5초 데드라인을 강제하고, 초과 시 ac.abort() 로
+    // 원본 요청을 취소한다(그러지 않으면 stalled 요청이 orphan 으로 남는다 — Codex 감사).
+    const { data } = await withTimeout(
+      authClient.getSession({ fetchOptions: { signal: ac.signal } }),
+      SESSION_CHECK_TIMEOUT_MS,
+      ac,
+    )
+    // 세션이 있으면 베일을 유지한 채로 홈으로 간다 — 폼이 한 프레임도 노출되지 않는다.
+    if (data) {
+      await navigateTo('/', { replace: true })
+      // navigateTo 반환값으로 "떠났는지"를 판정하면 안 된다(리다이렉트 체인이 성공으로 보고됨).
+      // 페이지에 주입된 useRoute() 도 떠나는 컴포넌트에선 stale 할 수 있다. 그래서 **전역 라우터**
+      // 의 최종 경로를 보고, trailing slash 를 정규화해 비교한다. 여전히 로그인이면(= `/`
+      // 미들웨어가 되돌려보냄) 아래로 떨어져 베일을 걷고, 실제로 떠났으면 이 컴포넌트는 언마운트된다.
+      const finalPath = router.currentRoute.value.path.replace(/\/+$/, '') || '/'
+      if (finalPath !== '/auth/login') return
+    }
   }
   catch {
-    // 세션 확인 실패는 무시한다 — 폼을 그대로 보여주면 된다.
+    // 세션 확인 실패(네트워크/타임아웃)는 로그인 페이지에서 fail-open 이 맞다 — 폼을 그대로 보여준다.
   }
+  // 세션이 없거나 / 확인 실패 / 홈 이동이 되돌려진 경우 베일을 걷어 폼을 드러낸다.
+  checkingSession.value = false
 })
 
 const mode = ref<'login' | 'signup'>('login')

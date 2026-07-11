@@ -1,5 +1,6 @@
 // UltraPlan M17 — component spec
 import { describe, it, expect, afterEach } from 'vitest'
+import { nextTick } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import Modal from '~/components/common/Modal.vue'
 
@@ -9,8 +10,10 @@ describe('Modal (common)', () => {
   // 매 테스트 후 body + scroll-lock 상태를 초기화해 테스트 격리를 보장한다.
   afterEach(() => {
     document.body.innerHTML = ''
-    delete document.body.dataset.modalDepth
-    document.body.style.overflow = ''
+    // 스크롤 잠금 상태(클래스 + 참조 카운트 속성)를 초기화해 테스트 격리를 보장한다.
+    // mountSuspended 는 컴포넌트를 언마운트하지 않아 여러 테스트가 카운트를 누적시킨다.
+    document.documentElement.classList.remove('scroll-locked')
+    document.documentElement.removeAttribute('data-scroll-lock-count')
   })
 
   it('modelValue=false 면 hidden (Transition v-if 미렌더)', async () => {
@@ -62,19 +65,18 @@ describe('Modal (common)', () => {
     expect(dialog?.getAttribute('aria-describedby')).toBe('modal-message')
   })
 
-  it('open 시 body.style.overflow = hidden + modalDepth 증가', async () => {
-    delete document.body.dataset.modalDepth
-    document.body.style.overflow = ''
+  // 스크롤 잠금 계약은 이제 <html>.scroll-locked 다 (useOverlayScrollLock).
+  // 과거의 body.style.overflow / modalDepth 방식은 실제 스크롤러(main)를 못 잠가 무효였다.
+  it('open 시 <html> 에 scroll-locked 부여', async () => {
+    document.documentElement.classList.remove('scroll-locked')
     await mountSuspended(Modal, { props: { modelValue: true } })
-    expect(document.body.style.overflow).toBe('hidden')
-    expect(document.body.dataset.modalDepth).toBe('1')
+    await nextTick()
+    expect(document.documentElement.classList.contains('scroll-locked')).toBe(true)
   })
 
-  it('open=false 일 때 body scroll 미잠금', async () => {
-    delete document.body.dataset.modalDepth
-    document.body.style.overflow = ''
+  it('open=false 일 때 scroll 미잠금', async () => {
+    document.documentElement.classList.remove('scroll-locked')
     await mountSuspended(Modal, { props: { modelValue: false } })
-    expect(document.body.style.overflow).toBe('')
-    expect(document.body.dataset.modalDepth).toBeUndefined()
+    expect(document.documentElement.classList.contains('scroll-locked')).toBe(false)
   })
 })

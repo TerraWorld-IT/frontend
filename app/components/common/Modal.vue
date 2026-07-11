@@ -109,29 +109,17 @@ function cancel() {
   emit('update:modelValue', false)
 }
 
-// SSR-safe: import.meta.client 가드.
-// SEC-302 — 다중 Modal 중첩 시 body scroll lock 누적 카운터. nested modal 모두 닫혀야 unlock.
-function acquireScrollLock() {
-  // 누적 카운터 — Modal A 열림 → B 열림 → A 닫힘 시에도 B 가 lock 유지
-  const depth = Number((document.body.dataset.modalDepth ?? '0')) + 1
-  document.body.dataset.modalDepth = String(depth)
-  document.body.style.overflow = 'hidden'
-}
-
-function releaseScrollLock() {
-  const depth = Math.max(0, Number((document.body.dataset.modalDepth ?? '0')) - 1)
-  document.body.dataset.modalDepth = String(depth)
-  if (depth === 0) {
-    document.body.style.overflow = ''
-    delete document.body.dataset.modalDepth
-  }
-}
+// 배경 스크롤 잠금은 공용 프리미티브(useOverlayScrollLock)에 위임한다.
+// 과거 이 컴포넌트는 `document.body.style.overflow='hidden'` 으로 잠갔는데, 이 앱의 실제
+// 스크롤러는 body 가 아니라 layouts/default.vue 의 <main class="overflow-y-auto"> 라서
+// **아무 효과가 없었다**(배경이 그대로 스크롤됨). 프리미티브가 <html>.scroll-locked 로
+// main 과 body 를 함께 잠그고, 중첩 모달 참조 카운트도 그쪽이 관리한다.
+useOverlayScrollLock(toRef(props, 'modelValue'))
 
 watch(() => props.modelValue, async (open) => {
   if (!import.meta.client) return
   if (open) {
     previousActiveElement = document.activeElement
-    acquireScrollLock()
     // Android 하드웨어 뒤로가기 — 열려있는 동안은 cancel() 로 이 모달부터 닫는다
     // (capacitor.client.ts backButton 리스너가 라우트 back/앱종료보다 먼저 이 스택을 소비).
     unregisterBackHandler = pushBackHandler(cancel)
@@ -142,7 +130,6 @@ watch(() => props.modelValue, async (open) => {
     // 직접 false 로 바꾸는 경로(예: admin/items.vue 의 폼 submit 성공 후 showCreateDialog
     // 직접 토글)에서도 slot 안 input 의 키보드가 안 닫히는 문제를 막는다.
     void dismissKeyboard()
-    releaseScrollLock()
     unregisterBackHandler?.()
     unregisterBackHandler = null
     if (previousActiveElement instanceof HTMLElement) {
@@ -179,10 +166,10 @@ function handleTabTrap(e: KeyboardEvent) {
 onMounted(async () => {
   if (!import.meta.client) return
   document.addEventListener('keydown', handleTabTrap)
-  // watch 는 modelValue 변경 시에만 발화 — 이미 열린 채 mount 되면 lock/back-handler 를 직접 획득.
+  // watch 는 modelValue 변경 시에만 발화 — 이미 열린 채 mount 되면 back-handler 를 직접 획득.
+  // (스크롤 잠금은 useOverlayScrollLock 이 immediate watch 로 알아서 처리한다.)
   if (props.modelValue) {
     previousActiveElement = document.activeElement
-    acquireScrollLock()
     unregisterBackHandler = pushBackHandler(cancel)
     await nextTick()
     confirmBtn.value?.focus()
@@ -191,9 +178,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (import.meta.client) {
     document.removeEventListener('keydown', handleTabTrap)
-    // unmount 시 본 instance 가 lock/back-handler 보유 중이었다면 해제
+    // unmount 시 본 instance 가 back-handler 보유 중이었다면 해제
+    // (스크롤 잠금은 useOverlayScrollLock 의 onScopeDispose 가 되돌린다.)
     if (props.modelValue) {
-      releaseScrollLock()
       unregisterBackHandler?.()
       unregisterBackHandler = null
     }

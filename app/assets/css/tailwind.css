@@ -291,3 +291,30 @@
 .dark .text-gray-400,
 .dark .text-neutral-400 { color: #8b8275; }
 .dark .border-gray-300 { border-color: rgba(236, 227, 210, 0.14); }
+
+/* ============================================
+   모달/바텀시트 배경 스크롤 잠금 (useOverlayScrollLock 이 <html>.scroll-locked 부여).
+
+   이 앱의 실제 스크롤러는 body 가 아니라 layouts/default.vue 의 `<main class="overflow-y-auto">`.
+   과거 Modal.vue 는 `document.body.style.overflow='hidden'` 으로 잠갔는데, body 는 스크롤러가
+   아니라 무효였다.
+
+   **반드시 unlayered + !important 여야 한다.** `.overflow-y-auto` 유틸리티는 Tailwind 의
+   `utilities` 레이어에서 나오고, CSS 레이어는 선언 순서상 utilities 가 base 보다 나중이라
+   특이성과 무관하게 이긴다(실측: entry.css 에서 scroll-locked@31274 < overflow-y-auto@43625).
+   layered 규칙으로는 절대 못 이긴다 → 레이어 밖(unlayered)에 두면 모든 layered 규칙을 이기고,
+   !important 로 확실히 못박는다. (같은 unlayered-wins 패턴을 위의 .dark override 가 이미 사용.)
+
+   `position: fixed` 트릭과 달리 `overflow: hidden` 은 스크롤 위치를 보존해, 닫을 때 화면이
+   맨 위로 튀지 않는다. `layout: false` 페이지(로그인/에러/공유)는 body 가 스크롤러라 첫 규칙이
+   그 경우를 덮는다. main 자식인 모달 패널의 내부 스크롤은 막지 않는다(그래서 touch-action 미사용).
+   ============================================ */
+html.scroll-locked,
+html.scroll-locked body {
+  overflow: hidden !important;
+}
+
+html.scroll-locked main {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}

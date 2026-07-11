@@ -39,6 +39,9 @@
 <script setup lang="ts">
 const { updateRequired, check, openStore, isNative } = useAppUpdate()
 
+// 전체 화면을 덮는 차단 게이트지만, 뒤 콘텐츠가 스크롤되지 않도록 잠근다(일관성 + 안전).
+useOverlayScrollLock(updateRequired)
+
 let removeResumeListener: (() => void) | null = null
 
 onMounted(async () => {
