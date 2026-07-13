@@ -108,7 +108,9 @@ frontend/
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
 │   │   ├── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
-│   │   └── useThemeSelection.ts    # 프리미엄 테마 선택 + localStorage persist (entitlements.premiumThemes 게이트, SoT 레이어 검증)
+│   │   ├── useThemeSelection.ts    # 프리미엄 테마 선택 + localStorage persist (entitlements.premiumThemes 게이트, SoT 레이어 검증)
+│   │   ├── useDialogFocusTrap.ts   # bespoke 오버레이 focus trap + 배경 스크롤 잠금(useOverlayScrollLock 합성). 14 오버레이 일괄
+│   │   └── useOverlayScrollLock.ts # 모달/시트 열림 시 배경 스크롤 잠금 (<html>.scroll-locked + 참조카운트). 실 스크롤러=main 이라 body 잠금은 무효
 │   ├── error.vue                   # 전역 에러 페이지 (404 / 500-class 분기 + 재시도 버튼)
 │   ├── layouts/
 │   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + haptic (Toast는 app.vue 루트로 이동, 2026-07-09)
@@ -141,7 +143,9 @@ frontend/
 │   └── utils/
 │       ├── format.ts               # dayjs 기반 날짜/숫자 포맷
 │       ├── error.ts                # errMsg() 공유 에러 메시지 추출
-│       └── constants.ts            # 카테고리 맵, 희귀도, STORAGE_KEYS, DEFAULTS
+│       ├── constants.ts            # 카테고리 맵, 희귀도, STORAGE_KEYS, DEFAULTS
+│       ├── fetchGuard.ts           # TTL + in-flight dedup + 세대 펜스 (Pinia store 캐시. store setup 안에서 생성 필수 — 모듈 스코프면 SSR 교차사용자 누출)
+│       └── withTimeout.ts          # Promise 하드 데드라인 + AbortController abort (better-fetch timeout 이 헤더까지만 커버하는 body-stall 대응)
 ├── tests/
 │   ├── api-contract.test.ts        # SDK 타입 shape 검증 (17 tests)
 │   ├── composables/*.test.ts       # composable contract 검증
@@ -592,6 +596,13 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 - **Tailwind v4 의 `-translate-x-1/2` 는 `transform` 이 아니라 개별 `translate` 속성** — CSS 는 개별 translate 를 먼저 적용하고 transform 을 합성하므로, 트랜지션 CSS 에 `transform: translate(-50%, 100%)` 를 쓰면 X 가 두 번 걸려 패널이 자기 폭만큼 왼쪽에서 대각선으로 날아든다. `transform: translateY(100%)` 로 쓰고 X 중앙정렬은 `translate` 에 맡긴다. 이 레포에서 5곳 동시 발생(바텀시트 8 + RewardToast). 탐지: `grep -rn "translate(-50%" app/` 후 해당 요소의 `-translate-x-1/2` 여부 확인. 부수: Vue `<Transition>` 은 **루트** 엘리먼트의 computed transition 으로 종료를 판정하므로 자식 duration 이 더 길면 잘린다.
 - **`@nuxt/icon` 은 `/api/_nuxt_icon` 으로 런타임 fetch** — 프로덕션 nginx 가 `/api/` 를 Spring 으로 프록시하므로 401 을 받아 **클라이언트에서 처음 마운트되는 아이콘만** 빈다("일부만 안 보임"이 신호). 로컬 dev 는 nginx 가 없어 재현 안 됨. `nuxt.config.ts` 의 `icon.clientBundle` 로 굽고 `localApiEndpoint` 를 `/api/` 밖으로 옮겨 해결. **동적 `:name` 바인딩은 `scan` 이 못 잡으므로 `icons` 배열에 명시 나열**해야 한다 — 하나라도 빠지면 그 아이콘만 조용히 빈다.
 - **모달 바텀시트는 하단 nav 를 덮어야 한다** — `role="dialog" aria-modal` + 백드롭 `inset-0` 을 선언해 놓고 패널만 nav 위에 띄우면, nav 가 "보이지만 탭이 백드롭에 먹혀 동작하지 않는" 미끼가 된다. Material 3·Apple HIG 모두 모달 시트가 하단 내비를 덮도록 규정한다. `index.vue` 의 시트 3종은 전부 `bottom-0`.
+
+### 함정 (2026-07-13 발견 — 배경 스크롤 잠금 + 콜드 스타트 로그인)
+
+- **이 앱의 실제 스크롤러는 `body` 가 아니라 `layouts/default.vue` 의 `<main overflow-y-auto>`** — 모달/시트 배경 스크롤을 `document.body.style.overflow='hidden'` 으로 잠그면 무효다(과거 `Modal.vue` 방식). 새 오버레이는 자체 잠금을 만들지 말고 `useDialogFocusTrap(root, isOpen)`(focus trap + 스크롤 잠금 동시) 또는 `useOverlayScrollLock(isOpen)` 을 쓴다. `aria-modal` 을 선언한 모든 오버레이가 잠금 대상인지 union diff 로 확인할 것.
+- **스크롤 잠금 CSS 는 `@layer` 밖 + `!important` 여야 한다** — `main` 의 `.overflow-y-auto` 유틸은 Tailwind `utilities` 레이어에서 나오고, CSS 레이어는 선언 순서상 utilities 가 base 보다 나중이라 특이성과 무관하게 이긴다. `@layer base` 안에 잠금 규칙을 두면 무력화된다(빌드된 entry.css 의 byte offset 으로 실측: 잠금@31274 < 유틸@43625). unlayered `!important` 로만 이긴다. 회귀 테스트는 런타임(happy-dom 은 layer cascade 미계산)이 아니라 소스 CSS 의 layer 위치·`!important` 를 검사. 상세: solutions/tailwind-v4-custom-css-in-layer-loses-to-utilities.
+- **`better-auth`/`better-fetch` 의 `fetchOptions.timeout` 은 응답 헤더까지만 잰다** — 서버가 헤더만 주고 body 를 안 흘리는 half-open 연결에서 `getSession()` 이 안 끝나 미들웨어 hang / 로딩 베일 고착. 해결: 외부 `AbortController` 를 `fetchOptions.signal` 로 넘기고(그러면 better-fetch 가 자기 타이머 대신 그 signal 로 전 구간 통제) `withTimeout(getSession, ms, ac)` 로 감싼다. `app/utils/withTimeout.ts`. 상세: solutions/better-fetch-timeout-covers-headers-not-body-stall.
+- **콜드 스타트 로그인 깜빡임 + 세션 확인 베일** — 네이티브 셸 첫 top-level 네비게이션에 세션 쿠키가 안 실려 SSR 이 `/auth/login` 으로 302 → 폼이 떴다가 클라 `getSession`(same-origin XHR, 쿠키 실림)이 홈으로 되돌림. `login.vue` 의 클라이언트 전용 베일(`checkingSession`, false 로 시작해 SSR 미노출→하이드레이션 안전)이 가린다. "떠났는지" 판정은 `navigateTo` 반환값·페이지 주입 `useRoute` 가 아니라 **전역 `useRouter().currentRoute.value.path`(trailing slash 정규화)** 로 한다. 남는 한계: SSR 이 폼을 그리는 한 하이드레이션 직후 최대 1프레임 플래시는 못 없앤다(웹 직접 방문 한정).
 
 ### 성능
 
