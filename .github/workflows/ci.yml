@@ -141,11 +141,18 @@ jobs:
       # layer 캐시 (type=gha): ephemeral 러너에서도 의존성 미변경 push 는
       # bun install 레이어를 재사용 — 매 배포 콜드 빌드 제거.
       # :latest 는 compose 가 참조하는 태그, :<sha> 는 롤백용.
+      #
+      # provenance: false — buildx 기본값은 attestation 을 포함한 OCI 이미지 인덱스를
+      # push 하는데, Apple Silicon 맥의 docker 가 인덱스에서 arm64 를 찾다 실패한다
+      # ("no matching manifest for linux/arm64/v8", 2026-07-15 실측). 구 파이프라인의
+      # plain docker build 와 같은 단일-manifest amd64 로 유지 — 맥은 기존처럼
+      # Rosetta 에뮬레이션으로 실행한다 (프로덕션 기존 동작과 동일).
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          provenance: false
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
