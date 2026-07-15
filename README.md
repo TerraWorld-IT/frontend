@@ -9,7 +9,6 @@
 - **bun** package manager
 - **Tailwind CSS v4** (CSS-first `@theme`, `@tailwindcss/vite`)
 - **Pinia 3** (도메인 상태) + composables (UI/auth state)
-- **PixiJS 8** (스탬프 연출 / 테라리움 캔버스)
 - **better-auth 1.6** (Nitro 서버) + RS256 JWKS (Spring 검증)
 - **@hey-api/client-fetch** + auto-generated SDK from `@terraworld-it/openapi-frontend` (submodule)
 - **Capacitor 8** (Android/iOS native shell — Phase 3+)

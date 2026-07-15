@@ -84,6 +84,9 @@ function buildRouteRules() {
     '/**': { headers: buildSecurityHeaders() },
     // R7: /terrarium/free 는 홈(index.vue)의 자유배치(scale/flip/zIndex + {error} 처리)로 대체된 구 PoC.
     //   Figma(TW2)에도 별도 화면이 없어, 중복·divergent(필드 누락/fail-open save) 페이지를 홈으로 redirect.
+    // FE-03 (2026-07-15): 두 orphan 페이지(terrarium/index.vue, free.vue) 파일 자체를 제거.
+    //   기존 URL 방문자(북마크/공유 링크) 안전망으로 redirect 는 유지 + /terrarium 도 추가.
+    '/terrarium': { redirect: '/' },
     '/terrarium/free': { redirect: '/' },
   }
 }
@@ -201,11 +204,13 @@ export default defineNuxtConfig({
 
   fonts: {
     // req1 (2026-07-02): TERRAWORLD2(Figma) 디자인 폰트 정확 이전.
-    // 화면 본문/UI 는 Inter(라틴) + Noto Sans KR(한글). Pretendard 는 fallback 유지.
+    // 화면 본문/UI 는 Inter(라틴) + Noto Sans KR(한글).
+    // FE-11 (2026-07-15): Pretendard `provider: 'local'` 항목 제거 — repo 에 woff 파일이
+    // 없어 no-op 선언이었다. CSS `--font-sans` 폴백 스택의 'Pretendard' 문자열은 유지
+    // (기기에 설치돼 있으면 폴백으로 쓰임 — fonts 모듈 선언과 무관).
     families: [
       { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700], subsets: ['latin'] },
       { name: 'Noto Sans KR', provider: 'google', weights: [400, 500, 700], subsets: ['korean', 'latin'] },
-      { name: 'Pretendard', provider: 'local' },
     ],
   },
 
@@ -219,8 +224,8 @@ export default defineNuxtConfig({
     localApiEndpoint: '/_nuxt_icon',
     serverBundle: { collections: ['lucide'] },
     clientBundle: {
-      // scan 은 정적 `<Icon name="...">` 만 잡는다. `:name` 동적 바인딩(CurrencyDisplay, 아이템 편집
-      // 버튼)은 아래 목록으로 명시해야 번들에 포함된다.
+      // scan 은 정적 `<Icon name="...">` 만 잡는다. `:name` 동적 바인딩(index.vue 아이템 편집
+      // 버튼 등)은 아래 목록으로 명시해야 번들에 포함된다.
       scan: true,
       icons: [
         'lucide:arrow-left-right',

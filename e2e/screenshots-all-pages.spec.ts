@@ -256,12 +256,8 @@ test.describe('인증 후 페이지', () => {
     await shot(page, '06-calendar')
   })
 
-  test('07-terrarium', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/terrarium')
-    await shot(page, '07-terrarium')
-  })
-
+  // 2026-07-15: /terrarium(구 5슬롯 페이지)은 홈으로 redirect — orphan 페이지 삭제로
+  // 01-home 과 동일 화면이라 07-terrarium 스샷 테스트 제거.
   // R7: /terrarium/free 는 홈으로 redirect (구 PoC — 홈 index.vue 가 정식 자유배치 제공). 별도 스샷 테스트 제거.
 
   test('09-shop', async ({ page }) => {
@@ -402,15 +398,8 @@ test.describe('모달 7종', () => {
     await shot(page, 'M-F-items-inventory-modal')
   })
 
-  test('M-G-진화-upgrade-modal', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/terrarium')
-    const upBtn = page.locator('button:has-text("진화"), button:has-text("업그레이드")').first()
-    if (await upBtn.isVisible().catch(() => false)) {
-      await upBtn.click().catch(() => {})
-    }
-    await shot(page, 'M-G-evolution-upgrade-modal')
-  })
+  // 2026-07-15: M-G-진화-upgrade-modal 제거 — 진화(evolution) 개념은 V30 에서 삭제됐고
+  // (티어 시스템으로 대체), 대상 페이지 /terrarium 도 홈으로 redirect 된다.
 })
 
 // ─────────────────────────────────────────────────────────
@@ -603,7 +592,8 @@ test.describe('UX 흐름', () => {
 
   test('flow-16-테라리움-편집모드', async ({ page }) => {
     await signUpAndLogin(page)
-    await page.goto('/terrarium')
+    // 2026-07-15: 편집 모드는 홈(index.vue)이 제공 — 구 /terrarium 은 redirect 만 남음.
+    await page.goto('/')
     await page.waitForLoadState('networkidle').catch(() => {})
     const editTab = page.locator('button', { hasText: /편집/ }).first()
     if (await editTab.isVisible().catch(() => false)) {

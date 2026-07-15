@@ -23,7 +23,7 @@
 | 항목 | 비중 | 프론트 관련 포인트 |
 |------|------|-------------------|
 | 창의성 | 40% | 리소페인트 아트 × 테라리움 세계관 × 스탬프 인터랙션 |
-| 기술성 | 30% | UI/UX 완성도, PixiJS 캔버스, 반응형, 성능 |
+| 기술성 | 30% | UI/UX 완성도, 반응형, 성능 |
 | 성과지표 | 28% | 공유 바이럴, GA4 이벤트 트래킹, DAU/잔존율 |
 | 팀 다양성 | 2% | — |
 
@@ -46,7 +46,7 @@ Framework:      Nuxt 4.4.2 (Vue 3.5, Nitro, Vite 7)
 Package Mgr:    bun
 Styling:        Tailwind CSS v4.2 (CSS-first @theme, @tailwindcss/vite)
 State:          Pinia
-2D Rendering:   PixiJS v8 (multiply blending, stamp animation, RainParticles)
+2D Rendering:   (PixiJS v8 파티클 서브시스템은 소비자 0건으로 제거됨 — 2026-07-15, git 히스토리에서 복원 가능)
 Auth:           better-auth (Nitro 서버, PostgreSQL 공유 DB)
 Validation:     미도입 (valibot 없음 — 폼 검증은 네이티브 제약 + 서버측 better-auth hook)
 Icons:          @nuxt/icon + @iconify-json/lucide (clientBundle 로 번들 — 런타임 fetch 없음)
@@ -57,7 +57,7 @@ Format:         미적용 (Option A) — 상세 결정은 `docs/decisions/ADR-00
 Git Hooks:      lefthook (pre-commit lint)
 Commit:         cocogito (cog.toml)
 Capture:        html2canvas (테라리움 → PNG)
-Confetti:       canvas-confetti (기록 저장 후 연출)
+Confetti:       제거됨 (canvas-confetti — 소비자 0건, 2026-07-15, git 히스토리에서 복원 가능)
 Native:         Capacitor 8 (Android + iOS scaffold 완료, 2026-05-07 mobile #4 SPM 빌드)
                 +@capacitor/filesystem (스크린샷 임시 저장)
                 +@capacitor-community/admob (보상형 광고)
@@ -84,16 +84,17 @@ frontend/
 │   ├── assets/css/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
-│   │   ├── common/                 # Toast, Modal, Loading, CurrencyDisplay, ExchangeModal,
-│   │   │                           #   RewardToast, Onboarding, AdSenseBanner, AttendanceWidget,
-│   │   │                           #   CustomCategoryManager, ThemeGallery, TierModal, RarityBadge,
+│   │   ├── common/                 # Toast, Modal, Loading, Onboarding, AdSenseBanner,
+│   │   │                           #   CustomCategoryManager, ThemeGallery, TierModal,
 │   │   │                           #   OfflineBanner, AppUpdateGate
+│   │   │                           #   (CurrencyDisplay/ExchangeModal/RewardToast/AttendanceWidget/
+│   │   │                           #    RarityBadge 는 소비자 0건으로 제거됨 — 2026-07-15)
 │   │   ├── icons/                  # CurrencyIcon, JamjarSvg, Jar1, PpJamjar (SVG 컴포넌트)
 │   │   │   └── jar1/               #   Jar1.vue 가 쓰는 path 데이터 (jar1Paths.ts, feedSvg.ts)
 │   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
-│   │   └── terrarium/              # TerrariumCanvas, TerrariumBottle, TerrariumSlot, ItemSelectDialog,
-│   │                               #   WiltingOverlay
-│   │                               #   PixiJS 파티클: RainParticles + SnowParticles + FireflyParticles + BubbleParticles
+│   │   └── terrarium/              # WiltingOverlay (홈에서 사용)
+│   │                               #   (TerrariumCanvas/Bottle/Slot/ItemSelectDialog + PixiJS 파티클 4종은
+│   │                               #    orphan /terrarium 페이지 제거와 함께 삭제됨 — 2026-07-15, git 히스토리에서 복원 가능)
 │   ├── composables/
 │   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped) + 4분 preemptive refresh timer
 │   │   ├── useAdMob.ts             # AdMob 보상형 광고 (Android native, 웹/iOS dev fallback)
@@ -104,7 +105,6 @@ frontend/
 │   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, shareToInstagram, haptics, camera, push)
 │   │   ├── useOpenApi.ts           # OpenAPI SDK 래퍼 + castData<T> 유틸리티
 │   │   ├── usePayment.ts           # startPurchase() IAP — Play(Android) + App Store(iOS) 플랫폼 분기 + 백엔드 verify (2026-06-23 iOS 추가, 키 대기)
-│   │   ├── useRecord.ts            # 기록 CRUD (OpenAPI SDK, PagedRecordResponse, partnerUserId 지원)
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
 │   │   ├── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
@@ -120,12 +120,12 @@ frontend/
 │   │   ├── auth.ts                 # JWT 쿠키 라우트 가드 (protect-by-default, SSR+CSR)
 │   │   └── admin.ts                # ADMIN 역할 체크 (useUserStore.role)
 │   ├── pages/
-│   │   ├── index.vue               # 홈 (테라리움 + 4종 파티클 cycle + 진화 모달 + AttendanceWidget + AdMob)
+│   │   ├── index.vue               # 홈 (테라리움 + 자유배치 + 출석(useAttendance) + AdMob)
 │   │   ├── auth/login.vue          # 로그인/가입 (layout: false)
 │   │   ├── calendar/index.vue      # 캘린더 뷰
-│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + confetti + 친구 함께 기록(partner)
-│   │   ├── terrarium/index.vue     # Jar 컨셉 테라리움 (5슬롯 + 하트 + 아이템 선택)
-│   │   ├── terrarium/free.vue      # 자유배치 (entitlements.freePlacement 게이트 + 안내)
+│   │   ├── record/index.vue        # 기록 입력/리스트 + 사진 첨부 + 친구 함께 기록(partner)
+│   │   │                           # (terrarium/index.vue·free.vue orphan 페이지는 제거됨 — 2026-07-15,
+│   │   │                           #  routeRules 가 /terrarium, /terrarium/free → / redirect)
 │   │   ├── shop/index.vue          # 아이템 상점 (Suspense + ClientOnly)
 │   │   ├── profile/index.vue       # 프로필/통계/설정 + CustomCategoryManager
 │   │   ├── friends/index.vue       # 친구 초대 코드 발급/입력 (햇살 +5)
@@ -149,7 +149,7 @@ frontend/
 ├── tests/
 │   ├── api-contract.test.ts        # SDK 타입 shape 검증 (17 tests)
 │   ├── composables/*.test.ts       # composable contract 검증
-│   ├── components/*.test.ts        # Modal / RewardToast / Loading a11y 등 (2026-05-18 Round 2 fix)
+│   ├── components/*.test.ts        # Modal / Loading a11y 등 (2026-05-18 Round 2 fix)
 │   └── utils/*.test.ts             # format, constants 단위 테스트
 ├── e2e/                             # Playwright e2e smoke (M6, 2026-05-16~17)
 │   └── *.spec.ts                   # login / record / share 3 smoke
@@ -303,19 +303,20 @@ POST   /uploads/photo                  # multipart, magic byte 검증
 | `/auth/login` | `pages/auth/login.vue` | 로그인/가입 (layout: false) | 불필요 |
 | `/calendar` | `pages/calendar/index.vue` | 캘린더 뷰 | 필수 |
 | `/record` | `pages/record/index.vue` | 기록 입력/리스트 | 필수 |
-| `/terrarium` | `pages/terrarium/index.vue` | 테라리움 꾸미기/감상 | 필수 |
+| `/terrarium` | (제거됨 2026-07-15 — routeRules 로 `/` redirect) | 홈 index.vue 가 테라리움 담당 | — |
 | `/shop` | `pages/shop/index.vue` | 아이템 상점 (Suspense + ClientOnly) | 선택 |
 | `/profile` | `pages/profile/index.vue` | 프로필/통계/설정 (친구·랭킹 진입) | 필수 |
 | `/share/:code` | `pages/share/[code].vue` | 공유 수신 (SSR + OG + 초대 수락) | 불필요 |
 | `/friends` | `pages/friends/index.vue` | 친구 초대 코드 발급/입력 (햇살 +5) | 필수 |
 | `/ranking` | `pages/ranking/index.vue` | 월간 랭킹 (engagement / decoration) | 필수 |
-| `/terrarium/free` | `pages/terrarium/free.vue` | 자유배치 PoC (DnD, PointerEvent) | 필수 |
+| `/terrarium/free` | (제거됨 2026-07-15 — routeRules 로 `/` redirect) | 구 자유배치 PoC | — |
 | `/admin` | `pages/admin/index.vue` | 어드민 대시보드 | 필수 (ADMIN) |
 | `/admin/items` | `pages/admin/items.vue` | 아이템 관리 | 필수 (ADMIN) |
 | `/admin/categories` | `pages/admin/categories.vue` | 카테고리 보상 관리 | 필수 (ADMIN) |
 
 > `/admin/exchange` 와 `/admin/levels` 는 존재하지 않는다. 레벨 체계는 2026-07 개편에서 제거됐고,
-> 교환 비율은 백엔드 `exchange_rates` 가 SoT 다. `/terrarium/free` 도 `routeRules` 로 `/` 에 redirect 된다.
+> 교환 비율은 백엔드 `exchange_rates` 가 SoT 다. `/terrarium` 과 `/terrarium/free` 는 페이지 파일이
+> 제거됐고(2026-07-15) `routeRules` 가 `/` 로 redirect 한다 (기존 URL 방문자 안전망).
 
 ---
 
@@ -405,6 +406,10 @@ animate-drift    /* 구름 이동 (20s linear) */
 ---
 
 ## 9. 스탬프 연출 (PixiJS)
+
+> ⚠️ **제거됨 (2026-07-15, git 히스토리에서 복원 가능)**: PixiJS 서브시스템(파티클 4종 +
+> `useParticleEffect` + `pixi.js` 의존성)은 소비자 0건 dead code 로 제거됐다. 아래는 원래의
+> 구상 기록이며, 재도입 시 git 히스토리에서 복원한다.
 
 아이템 배치 시 스탬프 찍기 효과:
 
@@ -524,7 +529,7 @@ Spring Boot /api/v1/*
 ```
 pages/          → kebab-case (index.vue, login.vue)
 components/     → PascalCase (Toast.vue, WalletBar.vue)
-composables/    → camelCase with use prefix (useApi.ts, useRecord.ts)
+composables/    → camelCase with use prefix (useAuth.ts, useToast.ts)
 stores/         → camelCase (auth.ts, wallet.ts)
 types/          → camelCase (index.ts, api.ts)
 utils/          → camelCase (format.ts, constants.ts)
@@ -606,7 +611,6 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 
 ### 성능
 
-- PixiJS 캔버스: 스탬프 수 상한 (LevelConfig.maxItems, 초기 20~40개)
 - 이미지 에셋: `@nuxt/image`로 최적화, WebP/AVIF
 - 폰트: `@nuxt/fonts`로 빌드 시 번들링
 - Tailwind v4: Oxide 엔진 (v3 대비 5x 빠른 빌드)
@@ -667,15 +671,15 @@ bun run typecheck   # TypeScript 체크
 - [x] GA4 이벤트 트래킹 (useGtagEvents, 15개 헬퍼 / 9곳 연결)
 - [x] Record 컴포넌트 추출 (CategoryGrid, RecordForm, RecordCard)
 - [x] composable SDK 전환 (useRecord → OpenAPI SDK)
-- [x] 보상 애니메이션 (RewardToast)
-- [x] 기록 저장 confetti (canvas-confetti)
+- [x] ~~보상 애니메이션 (RewardToast)~~ — 소비자 0건으로 제거됨 (2026-07-15)
+- [x] ~~기록 저장 confetti (canvas-confetti)~~ — 소비자 0건으로 제거됨 (2026-07-15)
 - [x] 시들기 CTA (WiltingOverlay stage ≥ 2 시 "지금 기록하러 가기")
 - [x] JWT 4분 preemptive refresh (useAuth)
 - [x] 스크린샷 캡처 + 시스템 공유 (html2canvas + Capacitor filesystem)
 - [x] AdMob 보상형 광고 wiring (useAdMob)
 - [x] AdSense PC 웹 배너 (AdSenseBanner)
-- [ ] PixiJS 전환 (현재 HTML/CSS → PNG 에셋 준비 시 PixiJS v8 교체)
-- [x] PixiJS 4종 파티클 (Rain / Snow / Firefly / Bubble — 홈 effect cycle 버튼)
+- [ ] ~~PixiJS 전환~~ — pixi.js 의존성 제거됨 (2026-07-15). 재도입 시 재평가
+- [x] ~~PixiJS 4종 파티클~~ — 소비자 0건으로 제거됨 (2026-07-15, git 히스토리에서 복원 가능)
 
 ### Phase 3~4 (W13~W30, ~11월)
 

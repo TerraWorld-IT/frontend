@@ -216,7 +216,7 @@
    WCAG 2.1 SC 2.3.3 (Animation from Interactions) — 전역 reduced-motion 폴백.
    !important 필요(Codex Round 2 지적 — universal selector 는 `.heart-float`/`.item-shake`
    같은 class selector 애니메이션보다 specificity 가 낮아 !important 없이는 실제로 안 먹힘).
-   RewardToast 의 자체 fade 도 함께 즉시-표시로 줄어들지만 WCAG 상 더 안전한 방향이라 허용.
+   컴포넌트 자체 fade 류 애니메이션도 함께 즉시-표시로 줄어들지만 WCAG 상 더 안전한 방향이라 허용.
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
