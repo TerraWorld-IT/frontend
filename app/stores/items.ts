@@ -3,7 +3,8 @@ import type { ItemListResponse, ItemResponse } from '@terraworld-it/openapi-fron
 export const useItemsStore = defineStore('items', () => {
   const { sdk, client } = useOpenApi()
 
-  const items = ref<ItemResponse[]>([])
+  // FE-10: 교체-대입 전용 리스트(모든 뮤테이션이 `.value =` 재할당) — deep reactivity 불필요.
+  const items = shallowRef<ItemResponse[]>([])
   const loading = ref<boolean>(false)
 
   // 아이템 카탈로그는 어드민이 바꿀 때만 변한다. 한 세션 안에서는 사실상 정적이므로

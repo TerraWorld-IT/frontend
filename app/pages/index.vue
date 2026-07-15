@@ -725,12 +725,14 @@ import type {
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
 import feedSvg from '~/components/icons/jar1/feedSvg'
+import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
 
 const { sdk, client } = useOpenApi()
 const userStore = useUserStore()
 const itemsStore = useItemsStore()
+const homeSnapshot = useHomeSnapshotStore()
 const toast = useToast()
 const { t } = useI18n()
 const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
@@ -766,8 +768,11 @@ interface PlacedFreeItem {
 }
 
 // ─── 상태 ───
-const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
+// FE-05 (2026-07-15): 스켈레톤은 "보여줄 데이터가 아직 한 번도 없을 때"만. 탭 복귀 시에는
+// homeSnapshot 스토어의 캐시(15s TTL)가 즉시 렌더되고 갱신은 백그라운드에서 돈다
+// (이전에는 매 마운트 pending=true 로 전면 스켈레톤 + terrarium/free 재fetch).
+const pending = computed<boolean>(() => !homeSnapshot.snapshot && !fetchError.value)
 // 프로필과 아이템 카탈로그는 Pinia 스토어가 TTL 캐시(각 15초 / 5분)와 in-flight dedup 을
 // 소유한다. 홈이 이 둘을 직접 `sdk` 로 가져오면 탭을 오갈 때마다 같은 응답을 다시 받는다.
 // 테라리움/자유배치는 낙관적 배치와 롤백 스냅샷을 이 페이지가 직접 소유하므로 그대로 둔다.
@@ -921,58 +926,70 @@ function attDotCurrent(idx: number): boolean {
 
 // ─── API 로드 ───
 async function load() {
-  pending.value = true
   fetchError.value = null
   try {
-    // 스토어 두 개(캐시 적중 시 네트워크 0회) + 이 페이지가 소유한 두 요청을 함께 대기.
-    // 스토어 쪽은 실패 시 스스로 throw 하므로 아래 catch 가 그대로 재시도 UI 를 띄운다.
-    const [, terraRes, , freeRes] = await Promise.all([
+    // 스토어 3개 — 캐시 적중 시 네트워크 0회. terrarium+free 는 homeSnapshot 스토어가
+    // 병렬 fetch 후 원자 커밋 (교차 시점 응답 섞임 방지, FE-05). 스토어 쪽은 실패 시
+    // 스스로 throw 하므로 아래 catch 가 그대로 재시도 UI 를 띄운다. 로컬 상태 반영은
+    // 아래 snapshot watch(applySnapshot) 단일 경로.
+    await Promise.all([
       userStore.fetchMe(),
-      sdk.getTerrarium({ client }),
       itemsStore.fetchAll(),
-      sdk.listFreePlacements({ client }),
+      homeSnapshot.fetch(),
     ])
-    if (terraRes.error) throw new Error(errMsg(terraRes.error, 'getTerrarium failed'))
-    if (freeRes.error) throw new Error(errMsg(freeRes.error, 'listFreePlacements failed'))
-
-    terrarium.value = castData<TerrariumResponse>(terraRes.data) ?? null
-
-    const free = castData<FreePlacementListResponse>(freeRes.data)
-    placedItems.value = (free?.items ?? []).map((it, i): PlacedFreeItem => {
-      const fallback = fallbackPos(i)
-      return {
-        placementId: it.placementId,
-        itemId: it.itemId,
-        image: it.itemImage,
-        name: it.itemName,
-        isAnimated: false, // 자유배치 응답에 isAnimated 없음 — 아이템 카탈로그로 보강.
-        // 로드 clamp 도메인 = 컨테이너 전체(0~400/0~552) — 서버 저장값(0~1) 을 손상 없이 표시.
-        // 드래그 이동 중 clamp 만 EDIT 영역으로 제한(저장은 x/400·y/552 그대로). 좌표계 일관 (AW-5/VL-06).
-        x: it.isFreePlacement ? clamp(it.posX * 400, 0, 400) : fallback.x,
-        y: it.isFreePlacement ? clamp(it.posY * 552, 0, 552) : fallback.y,
-        scale: it.scale ?? 1,
-        flipped: it.flipped ?? false,
-        zIndex: it.zIndex ?? i,
-        rarity: 'common',
-      }
-    })
-    // 아이템 카탈로그에서 isAnimated/rarity 보강 (자유배치 응답 미포함 필드).
-    for (const p of placedItems.value) {
-      const cat = allItems.value.find(it => it.id === p.itemId)
-      if (cat) {
-        p.isAnimated = Boolean(cat.isAnimated)
-        p.rarity = (cat.rarity === 'RARE' || cat.rarity === 'EPIC') ? 'rare' : 'common'
-      }
-    }
   }
   catch (e) {
     fetchError.value = e as Error
     toast.error((e as Error).message)
   }
-  finally {
-    pending.value = false
-  }
 }
+
+// 스냅샷 → 로컬 편집 상태 반영 (단일 적용 경로 — 초기 로드/탭 복귀/배치 후 재로드 공통).
+// carry: 같은 placementId 의 세션 값(비영속 폴백 위치 등)을 유지 — 재적용이 멱등이 되게 한다.
+function applySnapshot(snap: NonNullable<typeof homeSnapshot.snapshot>) {
+  if (snap.terrarium) terrarium.value = snap.terrarium as TerrariumResponse
+  const prev = new Map(placedItems.value.map(p => [p.placementId, p]))
+  placedItems.value = (snap.freePlacements?.items ?? []).map((it, i): PlacedFreeItem => {
+    const carry = prev.get(it.placementId)
+    const fallback = fallbackPos(i)
+    const cat = allItems.value.find(c => c.id === it.itemId)
+    return {
+      placementId: it.placementId,
+      itemId: it.itemId,
+      image: it.itemImage,
+      name: it.itemName,
+      isAnimated: Boolean(cat?.isAnimated),
+      // 로드 clamp 도메인 = 컨테이너 전체(0~400/0~552) — 서버 저장값(0~1) 을 손상 없이 표시.
+      // 드래그 이동 중 clamp 만 EDIT 영역으로 제한(저장은 x/400·y/552 그대로). 좌표계 일관 (AW-5/VL-06).
+      x: it.isFreePlacement ? clamp(it.posX * 400, 0, 400) : (carry?.x ?? fallback.x),
+      y: it.isFreePlacement ? clamp(it.posY * 552, 0, 552) : (carry?.y ?? fallback.y),
+      // 서버 영속값 우선(req3 #2), 세션 carry fallback, 기본값 순.
+      scale: it.scale ?? carry?.scale ?? 1,
+      flipped: it.flipped ?? carry?.flipped ?? false,
+      zIndex: it.zIndex ?? carry?.zIndex ?? i,
+      rarity: (cat?.rarity === 'RARE' || cat?.rarity === 'EPIC') ? 'rare' : 'common',
+    }
+  })
+}
+
+// immediate: 탭 복귀 시 캐시된 스냅샷을 네트워크 대기 없이 즉시 렌더 (FE-05).
+// 편집 모드 중에는 적용을 보류 — 진행 중 드래그/미저장 편집을 백그라운드 응답이
+// 되돌리지 않게 하고, 편집 종료 시점에 최신 스냅샷을 반영한다 (Codex 리뷰).
+let deferredSnapshotApply = false
+watch(() => homeSnapshot.snapshot, (snap) => {
+  if (!snap) return
+  if (editMode.value) {
+    deferredSnapshotApply = true
+    return
+  }
+  applySnapshot(snap)
+}, { immediate: true })
+watch(editMode, (on) => {
+  if (on || !deferredSnapshotApply) return
+  deferredSnapshotApply = false
+  const snap = homeSnapshot.snapshot
+  if (snap) applySnapshot(snap)
+})
 
 function fallbackPos(index: number): { x: number, y: number } {
   const base = DEFAULT_POSITIONS[index % DEFAULT_POSITIONS.length]!
@@ -1111,6 +1128,9 @@ async function persistPosition(placed: PlacedFreeItem) {
   try {
     const posX = clamp(placed.x / 400, 0, 1)
     const posY = clamp(placed.y / 552, 0, 1)
+    // 저장 전 진행 중 snapshot fetch 를 세대 무효화 — 저장 완료 전에 도착하는 stale GET 이
+    // 스토어에 커밋되어 이 편집을 되돌리는 race 차단 (Codex 리뷰).
+    homeSnapshot.invalidate()
     // 낙서장 자유배치 편집 영속(req3 #2): 위치 + 크기/반전/깊이 함께 저장.
     const { error } = await sdk.updateFreePosition({
       client,
@@ -1119,6 +1139,15 @@ async function persistPosition(placed: PlacedFreeItem) {
     })
     if (error) throw new Error(errMsg(error, '위치 저장 실패'))
     trackFreePlacementSaved({ itemCount: placedItems.value.length })
+    // 저장 확정값을 스냅샷에 원자 반영 — invalidate 만으로는 탭 복귀 시 저장 전 좌표가
+    // 먼저 렌더되고 후속 편집이 그 stale 값을 재전송할 수 있다 (Codex 리뷰).
+    homeSnapshot.patchFreePlacement(placed.placementId, {
+      posX,
+      posY,
+      scale: placed.scale,
+      flipped: placed.flipped,
+      zIndex: placed.zIndex,
+    })
   }
   catch (e) {
     toast.error((e as Error).message)
@@ -1191,35 +1220,13 @@ async function removeItem(placed: PlacedFreeItem) {
   }
 }
 
-// 배치 변경 후 terrarium + free-placement 재로드 (세션 scale/flip/zIndex 는 재-초기화 — API 미영속).
+// 배치 변경 후 terrarium + free-placement 재로드 — homeSnapshot 강제 갱신 후 단일 적용
+// 경로(applySnapshot, carry 시맨틱)로 반영. 스토어를 거치지 않으면 다음 탭 복귀 때
+// 변경 이전의 stale 스냅샷이 되살아난다 (FE-05).
 async function reloadAfterPlacement() {
-  const [terraRes, freeRes] = await Promise.all([
-    sdk.getTerrarium({ client }),
-    sdk.listFreePlacements({ client }),
-  ])
-  if (terraRes.data) terrarium.value = castData<TerrariumResponse>(terraRes.data) ?? terrarium.value
-  const free = castData<FreePlacementListResponse>(freeRes.data)
-  const prev = new Map(placedItems.value.map(p => [p.placementId, p]))
-  placedItems.value = (free?.items ?? []).map((it, i): PlacedFreeItem => {
-    const carry = prev.get(it.placementId)
-    const fallback = fallbackPos(i)
-    const cat = allItems.value.find(c => c.id === it.itemId)
-    return {
-      placementId: it.placementId,
-      itemId: it.itemId,
-      image: it.itemImage,
-      name: it.itemName,
-      isAnimated: Boolean(cat?.isAnimated),
-      // 로드 clamp 도메인 = 컨테이너 전체(0~400/0~552), 서버값 무손상 표시 (AW-5/VL-06).
-      x: it.isFreePlacement ? clamp(it.posX * 400, 0, 400) : (carry?.x ?? fallback.x),
-      y: it.isFreePlacement ? clamp(it.posY * 552, 0, 552) : (carry?.y ?? fallback.y),
-      // 서버 영속값 우선(req3 #2), 세션 carry fallback, 기본값 순.
-      scale: it.scale ?? carry?.scale ?? 1,
-      flipped: it.flipped ?? carry?.flipped ?? false,
-      zIndex: it.zIndex ?? carry?.zIndex ?? i,
-      rarity: (cat?.rarity === 'RARE' || cat?.rarity === 'EPIC') ? 'rare' : 'common',
-    }
-  })
+  await homeSnapshot.fetch(true)
+  const snap = homeSnapshot.snapshot
+  if (snap) applySnapshot(snap)
 }
 
 // ─── 하트 (clickTerrariumHeart 실 API) ───

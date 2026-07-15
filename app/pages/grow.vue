@@ -215,6 +215,9 @@ async function loadGrowth(): Promise<void> {
 }
 
 onMounted(() => {
+  // 콜드 진입(직접 URL/새로고침) 시 userStore.me 가 비어 있으면 보유 반짝이가 0 으로
+  // 표시되는 정합 버그 방지. fetchMe 는 TTL fetchGuard 가 있어 홈 경유 진입 시 중복 비용 없음.
+  void userStore.fetchMe()
   void loadGrowth()
 })
 

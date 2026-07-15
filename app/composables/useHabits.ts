@@ -18,7 +18,8 @@ import type {
 export function useHabits() {
   const { sdk, client } = useOpenApi()
 
-  const trackers = ref<HabitTrackerResponse[]>([])
+  // FE-10: 교체-대입 전용 리스트(load/create/checkIn 모두 새 배열 재할당) — deep reactivity 불필요.
+  const trackers = shallowRef<HabitTrackerResponse[]>([])
   const loading = ref<boolean>(false)
   const loaded = ref<boolean>(false)
   // Codex MED#3: 로드 실패(500/401)를 empty-state 와 구분 — 페이지가 에러 표시.

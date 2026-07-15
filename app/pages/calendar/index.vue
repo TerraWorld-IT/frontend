@@ -318,7 +318,8 @@ const viewYear = ref<number>(now.getFullYear())
 const viewMonth = ref<number>(now.getMonth()) // 0-indexed
 
 // Records for current view month
-const monthRecords = ref<RecordResponse[]>([])
+// FE-10: 교체-대입 전용 리스트(로드/삭제 모두 `.value =` 재할당) — deep reactivity 불필요.
+const monthRecords = shallowRef<RecordResponse[]>([])
 // noteMap: YYYY-MM-DD -> note text (cached after fetch)
 const noteMap = ref<Record<string, string>>({})
 // Statistics
@@ -412,21 +413,42 @@ function formatTime(dateStr: string): string {
   return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
 }
 
+// 월 기록 전체 수집 — 백엔드 월 조회가 pageable 계약을 지키게 되면서(2026-07-15 BE-16)
+// 단일 요청은 최대 size(스펙 상한 50)건만 온다. 서버가 알려주는 totalPages 까지 전부
+// 순회해 합친다 (대부분의 사용자는 1페이지 = 요청 1회로 종료).
+async function fetchMonthRecords(year: number, month: number): Promise<RecordResponse[]> {
+  const all: RecordResponse[] = []
+  let totalPages = 1
+  for (let page = 0; page < totalPages; page++) {
+    const { data, error } = await sdk.listRecords({
+      client,
+      query: { year, month, page, size: 50 },
+    })
+    if (error) throw new Error(errMsg(error, 'listRecords failed'))
+    const paged = castData<PagedRecordResponse>(data)
+    if (!paged) break
+    all.push(...paged.content)
+    totalPages = paged.totalPages
+  }
+  return all
+}
+
+// 월 전환 세대 가드 — 연속 이전/다음 클릭 시 느린 이전 월 응답(다중 페이지)이 나중 요청
+// 뒤에 도착해 현재 월 화면을 덮어쓰는 race 차단 (Codex 리뷰).
+let monthLoadGen = 0
+
 async function load() {
+  const gen = ++monthLoadGen
   pending.value = true
   fetchError.value = null
   try {
-    const [statsRes, recRes] = await Promise.all([
+    const [statsRes, records] = await Promise.all([
       sdk.getRecordStatistics({ client }),
-      sdk.listRecords({
-        client,
-        query: { year: viewYear.value, month: viewMonth.value + 1, size: 50 },
-      }),
+      fetchMonthRecords(viewYear.value, viewMonth.value + 1),
     ])
     if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
-    if (recRes.error) throw new Error(errMsg(recRes.error, 'listRecords failed'))
     stats.value = castData<StatisticsResponse>(statsRes.data) ?? null
-    monthRecords.value = castData<PagedRecordResponse>(recRes.data)?.content ?? []
+    if (gen === monthLoadGen) monthRecords.value = records
   }
   catch (e) {
     fetchError.value = e as Error
@@ -438,13 +460,10 @@ async function load() {
 }
 
 async function loadMonth() {
+  const gen = ++monthLoadGen
   try {
-    const { data, error } = await sdk.listRecords({
-      client,
-      query: { year: viewYear.value, month: viewMonth.value + 1, size: 50 },
-    })
-    if (error) throw new Error(errMsg(error, 'listRecords failed'))
-    monthRecords.value = (data as PagedRecordResponse | undefined)?.content ?? []
+    const records = await fetchMonthRecords(viewYear.value, viewMonth.value + 1)
+    if (gen === monthLoadGen) monthRecords.value = records
   }
   catch (e) {
     toast.error(errMsg(e, 'listRecords failed'))

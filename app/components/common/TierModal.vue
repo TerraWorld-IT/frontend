@@ -109,6 +109,7 @@
 
 <script setup lang="ts">
 import type { TierInfo } from '@terraworld-it/openapi-frontend'
+import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useTerrariumStore } from '~/stores/terrarium'
 import { useUserStore } from '~/stores/user'
 import { balanceOf } from '~/utils/currency'
@@ -182,6 +183,9 @@ async function onUnlock(t: TierInfo): Promise<void> {
     // 티어가 바뀌면 서버의 terrarium(tier / maxSlots)도 바뀐다. 무효화하지 않으면
     // 15초 TTL 안에 /terrarium 으로 이동했을 때 캐시 적중으로 예전 슬롯 수가 보인다.
     useTerrariumStore().invalidate()
+    // 홈은 composite snapshot(homeSnapshot 스토어)을 읽는다 — 강제 갱신해야 모달 뒤
+    // 화면(리마운트 없음)의 tier/maxSlots 가 즉시 반영된다 (FE-05, Codex 리뷰).
+    await useHomeSnapshotStore().fetch(true)
   }
   finally {
     busy.value = false

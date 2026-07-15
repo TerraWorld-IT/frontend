@@ -1,4 +1,5 @@
 import { authClient } from '~/lib/auth-client'
+import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useTerrariumStore } from '~/stores/terrarium'
 import { useUserStore } from '~/stores/user'
 
@@ -187,6 +188,7 @@ export function useAuth() {
       try {
         useUserStore().reset()
         useTerrariumStore().reset()
+        useHomeSnapshotStore().reset()
       }
       catch (e) {
         // eslint-disable-next-line no-console

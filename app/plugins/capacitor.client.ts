@@ -32,22 +32,20 @@ function resolveDevicePlatform(): 'ANDROID' | 'IOS' | 'WEB' {
 export default defineNuxtPlugin(async (nuxtApp) => {
   if (!Capacitor.isNativePlatform()) return
 
+  // 푸시 등록 재시도 훅 — 아래 Push 블록에서 실제 구현으로 대체되고 resume 리스너가 호출.
+  let retryPushRegistration: () => void = () => {}
+
   // --- Status Bar ---
   // 초기 스타일/배경색은 plugins/colorMode.client.ts 의 watch(immediate:true) 가 담당
   // (Codex Round 2 지적 — 여기서 Android 전용으로 Light/cream 을 무조건 설정하면, 두 플러그인의
   // 실행 순서에 따라 실제 다크모드 상태를 다시 덮어써버리는 경합이 생김. 단일 지점으로 통합).
 
-  // --- iOS App Tracking Transparency (P3-3) ---
-  // IDFA(광고 식별자) 접근 전 ATT 동의 prompt 를 요청(Apple 정책). 광고 SDK 가 IDFA 를 쓰기 전에
-  // 1회 호출돼야 함. Info.plist NSUserTrackingUsageDescription 동반.
-  if (Capacitor.getPlatform() === 'ios') {
-    try {
-      await useAdMob().requestTrackingAuthorization()
-    }
-    catch {
-      // ATT plugin 미가용 — 무시
-    }
-  }
+  // --- iOS App Tracking Transparency ---
+  // 부팅 경로에서 제거 (2026-07-15 FE-01): 여기서 `await requestTrackingAuthorization()` 하면
+  // 첫 실행 시 사용자가 ATT 다이얼로그에 응답할 때까지 앱 마운트가 블록된다 (Nuxt 는 async
+  // 플러그인 완료를 기다림 — `parallel: true` 도 mount 전에 전체 promise 를 기다려 해결 불가).
+  // ATT 는 useAdMob.initialize() 가 광고 SDK 초기화 직전(iOS)에 자체 요청하므로(Apple 정책상
+  // IDFA 접근 전 1회면 충분) 부팅 시점 요청은 중복이었다.
 
   // --- Deep Link Handler ---
   const { App } = await import('@capacitor/app')
@@ -138,14 +136,43 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       }
     })
 
-    // 권한 요청 + 등록 트리거 — 리스너가 부착된 뒤에 호출해야 'registration' 이벤트를 놓치지 않음.
-    // 이 호출이 없으면 위 registration 리스너가 영원히 발화하지 않아 디바이스 토큰이 등록되지 않는다.
-    // 로그인 세션이 있으면 위 리스너의 registerDevice 가 성공, 미로그인 시 토큰은 localStorage 에
-    // 보존되고 다음 부팅(로그인 후)에서 재등록된다 (SEC-008 silent 처리).
-    const perm = await PushNotifications.requestPermissions()
-    if (perm.receive === 'granted') {
-      await PushNotifications.register()
+    // 권한 요청 + 등록 트리거 — 부팅 경로에서 로그인-이후로 이동 (2026-07-15 FE-01).
+    // 이전에는 여기서 즉시 `await requestPermissions()` 해 첫 실행 시 사용자가 푸시 권한
+    // 다이얼로그에 응답할 때까지 앱 마운트가 블록됐고, 미로그인 상태의 registerDevice 는
+    // 401 로 버려져 "로그인 후 재등록 경로 없음" 갭이 있었다.
+    // → isLoggedIn 이 true 가 되는 시점(부팅 세션 복원 or 이후 로그인 — refreshJwt 성공이
+    //   유일한 true 전이점)에 1회 fire-and-forget 으로 요청+등록한다. 리스너는 위에서 이미
+    //   부착됐으므로 'registration' 이벤트를 놓치지 않는다. 권한 프롬프트도 콘텐츠를 본 뒤에
+    //   뜨므로 opt-in 관점에서도 개선.
+    const { isLoggedIn } = useAuth()
+    let pushRegistrationTriggered = false
+    function triggerPushRegistration() {
+      if (!isLoggedIn.value || pushRegistrationTriggered) return
+      pushRegistrationTriggered = true
+      void (async () => {
+        try {
+          const perm = await PushNotifications.requestPermissions()
+          if (perm.receive === 'granted') {
+            await PushNotifications.register()
+          }
+          // denied 는 latch 유지 — 같은 세션에서 반복 프롬프트/무의미 재시도 안 함.
+        }
+        catch {
+          // 일시 실패 (플러그인/네이티브) — latch 해제해 다음 login/resume 에서 재시도.
+          pushRegistrationTriggered = false
+        }
+      })()
     }
+    retryPushRegistration = triggerPushRegistration
+    watch(isLoggedIn, (loggedIn) => {
+      if (!loggedIn) {
+        // 로그아웃/계정 전환 — 다음 로그인 사용자로 registerDevice 를 다시 태워야 한다.
+        pushRegistrationTriggered = false
+        return
+      }
+      triggerPushRegistration()
+    })
+    triggerPushRegistration()
   } catch {
     // Push not available — ignore (e.g., iOS simulator)
   }
@@ -193,5 +220,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // best-effort 로 갱신(실패해도 openapi.ts 의 401 인터셉터가 최종 폴백).
   App.addListener('resume', () => {
     useAuth().loadJwt().catch(() => {})
+    // 푸시 등록이 일시 실패로 미완이면 복귀 시점에 재시도 (latch 가 성공/denied 를 걸러줌).
+    retryPushRegistration()
   })
 })

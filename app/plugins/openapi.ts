@@ -53,6 +53,11 @@ export default defineNuxtPlugin(() => {
    */
   const requestClones = new WeakMap<Request, Request>()
 
+  // FE-12: body 가 없는 메서드는 clone 을 만들지 않는다. `Request.clone()` 은 body stream 을
+  // tee 하므로 multipart 업로드(사진 첨부)에서 요청 본문이 메모리에 2배로 잡혔다.
+  // GET/HEAD 는 본문이 없어 401 재시도 시 원본 Request 에서 그대로 재구성할 수 있다.
+  const BODYLESS_METHODS = new Set<string>(['GET', 'HEAD'])
+
   async function ensureJwt(): Promise<string | null> {
     if (import.meta.server) return null
     const { getJwt, loadJwt } = useAuth()
@@ -70,8 +75,12 @@ export default defineNuxtPlugin(() => {
     if (token) {
       request.headers.set('Authorization', `Bearer ${token}`)
     }
-    // Cache a pristine clone before hey-api consumes the body.
-    requestClones.set(request, request.clone())
+    // hey-api 가 body 를 소비하기 전에 원본 clone 을 캐시 — 단 body 를 가질 수 있는
+    // 메서드(POST/PUT/PATCH/DELETE)만. body 없는 GET/HEAD 의 재시도는 401 경로에서
+    // 원본 요청으로부터 재구성한다 (multipart 업로드의 본문 2배 메모리 방지).
+    if (!BODYLESS_METHODS.has(request.method)) {
+      requestClones.set(request, request.clone())
+    }
     return request
   })
 
@@ -114,12 +123,20 @@ export default defineNuxtPlugin(() => {
     // pristine. Clone it again here so the WeakMap entry remains valid
     // if the response fires multiple times (defensive — hey-api does
     // not currently re-fire interceptors but better safe).
+    // FE-12: bodyless 메서드(GET/HEAD)는 clone 을 캐시하지 않으므로 원본 Request 를
+    // 그대로 base 로 쓴다 — body 가 null 이라 stream 소비 문제가 없다.
     const cached = requestClones.get(request)
-    if (!cached) {
-      // No clone available — caller will see the 401.
+    let retryBase: Request
+    if (cached) {
+      retryBase = cached.clone()
+    }
+    else if (BODYLESS_METHODS.has(request.method)) {
+      retryBase = request
+    }
+    else {
+      // body 있는 요청인데 캐시된 clone 이 없음 — 호출부가 401 을 그대로 받는다.
       return response
     }
-    const retryBase = cached.clone()
     const retryHeaders = new Headers(retryBase.headers)
     retryHeaders.set('Authorization', `Bearer ${refreshed}`)
     retryHeaders.set('x-tw-retried', '1')

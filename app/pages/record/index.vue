@@ -880,7 +880,8 @@ watch(openModal, (v) => {
 const submitting = ref<boolean>(false)
 const pending = ref<boolean>(true)
 const categories = ref<CategoryResponse[]>([])
-const recentRecords = ref<RecordResponse[]>([])
+// FE-10: 교체-대입 전용 리스트(로드/생성 모두 새 배열 재할당) — deep reactivity 불필요.
+const recentRecords = shallowRef<RecordResponse[]>([])
 
 const DAILY_CARDS: { title: string; desc: string; bg: string; modal: DailyModal }[] = [
   { title: '투두리스트 기록', desc: '투두리스트를 기록하여 이슬토큰 획득', bg: '#fae9fd', modal: 'todo' },
