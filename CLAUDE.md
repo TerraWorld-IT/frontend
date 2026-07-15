@@ -139,7 +139,9 @@ frontend/
 │   ├── stores/
 │   │   ├── user.ts                 # 프로필/레벨/재화 (OpenAPI SDK, castData<T>)
 │   │   ├── items.ts                # 상점 아이템 카탈로그
-│   │   └── terrarium.ts            # 테라리움 배치 상태
+│   │   ├── terrarium.ts            # 테라리움 배치 상태
+│   │   └── homeSnapshot.ts         # 홈 composite snapshot — terrarium+free-placement 원자 커밋
+│   │                               #   (탭 복귀 스켈레톤 제거, 15s TTL. 배치/티어 변경 시 fetch(true))
 │   └── utils/
 │       ├── format.ts               # dayjs 기반 날짜/숫자 포맷
 │       ├── error.ts                # errMsg() 공유 에러 메시지 추출
@@ -170,16 +172,20 @@ frontend/
 ├── .oxlintrc.json
 ├── Dockerfile                      # Multi-stage (build + runtime)
 └── .github/workflows/
-    ├── ci.yml                      # lint → typecheck → test → build
-    ├── codeql.yml                  # CodeQL 보안 스캔
-    └── deploy-selfhosted.yml       # ubuntu 러너 빌드 → ghcr push → 맥 러너 pull + compose up
+    ├── ci.yml                      # lint → typecheck → test → build → (main) 이미지 빌드 → 맥 배포
+    └── codeql.yml                  # CodeQL 보안 스캔
 ```
 
-> **배포 모델 (2026-07-10 변경)**: 이미지는 GitHub-hosted ubuntu 러너에서 빌드해 ghcr 로 push 하고,
-> 맥 self-hosted 러너는 그것을 pull 해서 컨테이너만 교체한다.
+> **배포 모델 (2026-07-15 재구조)**: 구 `deploy-selfhosted.yml` 은 삭제 — CI 와 병렬로 돌아
+> 테스트 깨진 커밋도 배포되던 구조라, **ci.yml 안의 downstream `needs` 잡 체인**
+> (ci → build-push → deploy)으로 통합했다. 같은 run = 같은 SHA. 수동 재배포는 ci.yml 의
+> workflow_dispatch. 이미지는 GitHub-hosted ubuntu 러너에서 빌드해(buildx + gha layer 캐시,
+> **`provenance: false`** — attestation OCI 인덱스는 Apple Silicon 맥이 pull 못 함) ghcr 로
+> push 하고, 맥 self-hosted 러너는 pull 해서 컨테이너만 교체한다 (Rosetta 에뮬레이션 실행).
 > 맥에서 빌드하지 않는 이유는 Docker VM 메모리 한도 안에서 Nitro 빌드가 커널 SIGKILL 을 받기 때문이고,
 > 맥 호스트에서 빌드해 산출물만 넣지 않는 이유는 `.output/server/node_modules` 에 `@img/sharp-*`,
 > `@esbuild/*`, oxc 바인딩 등 **플랫폼 종속 네이티브 패키지**가 포함되기 때문이다(빌드 OS = 배포 OS).
+> main 은 concurrency cancel 금지(배포 중단 방지) — PR/develop 만 구식 빌드 취소.
 
 ---
 
