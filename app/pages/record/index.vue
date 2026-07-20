@@ -327,7 +327,10 @@
       <div v-else-if="recentRecords.length > 0">
         <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
         <div class="space-y-2">
-          <RecordRecordCard
+          <!-- record/RecordCard.vue 의 auto-import 명은 RecordCard — 파일명이 디렉토리명으로
+               시작하면 Nuxt 가 prefix 중복을 접는다. RecordRecordCard 는 미해석 커스텀 엘리먼트로
+               조용히 렌더되어(프로덕션은 경고도 drop) 최근 기록 카드가 화면에서 사라졌었다. -->
+          <RecordCard
             v-for="record in recentRecords"
             :key="record.id"
             :record="record"
@@ -1077,7 +1080,8 @@ async function stopFocus() {
 }
 
 async function saveFocus(durationSecs: number) {
-  const minutes = Math.round(durationSecs / 60)
+  // 거리 기록과 동일 클래스: 60초 미만이면 반올림 0 → backend @Min(1) 400. 하한 1분.
+  const minutes = Math.max(1, Math.round(durationSecs / 60))
   const ok = await saveDailyRecord('FOCUS', { duration: minutes, note: focusName.value })
   if (ok) {
     toast.success(`집중 완료! 번개토큰 +10 ⚡ (${minutes}분)`)
@@ -1169,6 +1173,9 @@ function resetDistance() {
 function beginDistanceWatch() {
   distWatchId = navigator.geolocation.watchPosition(
     (pos) => {
+      // 일시 오류(TIMEOUT 등) 후 정상 fix 가 오면 배너를 걷는다 — 성공 중에도 붉은
+      // 오류가 요약 단계까지 남던 문제(2026-07-21 라이브 실측).
+      distError.value = ''
       const curr = { lat: pos.coords.latitude, lng: pos.coords.longitude }
       if (distPrev) {
         const d = haversine(distPrev, curr)
@@ -1177,7 +1184,11 @@ function beginDistanceWatch() {
       distPrev = curr
     },
     (err) => {
-      distError.value = `위치 오류: ${err.message}`
+      // err.message 는 브라우저에 따라 빈 문자열일 수 있어 "위치 오류:" 만 노출됐다
+      // (2026-07-21 라이브 실측) — 코드별 한국어 문구로 고정.
+      distError.value = err.code === GeolocationPositionError.PERMISSION_DENIED
+        ? '위치 권한이 꺼져 있어요. 설정에서 허용 후 다시 시작해 주세요'
+        : '위치를 가져오지 못했어요. GPS 신호를 확인해 주세요'
       // PERMISSION_DENIED(1) 은 사용자가 재허용하기 전까지 복구 불가 — 'tracking' 상태로
       // 타이머만 계속 도는 상태로 방치하지 않고 idle 로 되돌린다(Codex 감사 지적).
       // TIMEOUT/POSITION_UNAVAILABLE(2/3) 은 일시적일 수 있어 계속 시도.
@@ -1375,7 +1386,9 @@ function abortNativeTracking() {
 async function saveDistance() {
   const km = (distance.value / 1000).toFixed(2)
   const ok = await saveDailyRecord('DISTANCE', {
-    duration: Math.round(distElapsed.value / 60),
+    // 60초 미만 세션은 반올림이 0 이 되어 backend @Min(1) 검증에 걸린다
+    // (2026-07-21 라이브 실측: 400 "duration: 1 이상이어야 합니다") — 하한 1분.
+    duration: Math.max(1, Math.round(distElapsed.value / 60)),
     note: `${km}km`,
   })
   if (ok) {
