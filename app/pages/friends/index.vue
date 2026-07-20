@@ -88,11 +88,24 @@
     <section class="bg-white rounded-2xl p-4 riso-shadow-sm space-y-3">
       <h3 class="font-semibold text-[15px] text-riso-dark">
         {{ $t('friends.listTitle') }}
+        <span v-if="!friendsLoading && !friendsError && friends.length > 0" class="text-[13px] font-normal text-riso-dark/45">({{ friends.length }})</span>
       </h3>
 
       <!-- 로딩 -->
       <div v-if="friendsLoading" class="py-6 flex justify-center">
         <CommonLoading />
+      </div>
+
+      <!-- 에러 — SDK {error} 를 무시하면 실패가 "친구 없음"으로 위장된다 (audit C4-5) -->
+      <div v-else-if="friendsError" class="py-4 flex flex-col items-center gap-2.5">
+        <p class="text-[13px] text-riso-dark/55">{{ $t('friends.listLoadError') }}</p>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-full bg-riso-sage text-white text-[12px] font-semibold riso-shadow-sm active:scale-95"
+          @click="loadFriends"
+        >
+          {{ $t('common.retry') }}
+        </button>
       </div>
 
       <!-- 빈 상태 -->
@@ -110,13 +123,20 @@
           :key="friend.userId"
           class="bg-riso-cream rounded-xl px-3.5 py-3 flex items-center justify-between gap-3"
         >
-          <div class="min-w-0">
-            <p class="font-semibold text-[14px] text-riso-dark truncate">
-              {{ friend.nickname }}
-            </p>
-            <p class="text-[12px] text-riso-dark/55">
-              {{ $t('friends.likeCount', { n: friend.likeCount }) }}
-            </p>
+          <div class="flex items-center gap-2.5 min-w-0">
+            <!-- 아바타 (닉네임 이니셜) — 텍스트-only 행의 시각 식별성 보강 (2026-07-20 #2) -->
+            <span
+              class="shrink-0 w-9 h-9 rounded-full bg-riso-sage/20 text-riso-sage font-bold text-[15px] flex items-center justify-center"
+              aria-hidden="true"
+            >{{ friendInitial(friend.nickname) }}</span>
+            <div class="min-w-0">
+              <p class="font-semibold text-[14px] text-riso-dark truncate">
+                {{ friend.nickname }}
+              </p>
+              <p class="text-[12px] text-riso-dark/55">
+                {{ $t('friends.likeCount', { n: friend.likeCount }) }}
+              </p>
+            </div>
           </div>
           <div class="flex gap-2 shrink-0">
             <button
@@ -202,22 +222,31 @@ interface FriendItem {
 
 const friends = ref<FriendItem[]>([])
 const friendsLoading = ref<boolean>(false)
+const friendsError = ref<boolean>(false)
 const likingId = ref<string | null>(null)
 const visitingId = ref<string | null>(null)
 const visitModalOpen = ref<boolean>(false)
 const visitFriend = ref<FriendItem | null>(null)
 const visitTerrarium = ref<TerrariumResponse | null>(null)
 
+function friendInitial(nickname: string): string {
+  return (nickname || '?').trim().charAt(0).toUpperCase() || '?'
+}
+
 async function loadFriends() {
   friendsLoading.value = true
+  friendsError.value = false
   try {
     // 2026-06-04: off-spec raw fetch → 생성 SDK(listFriends). spec/codegen 편입.
-    const { data } = await sdk.listFriends({ client })
+    // hey-api SDK 는 HTTP 에러를 throw 하지 않고 {error} 로 반환 — 미검사 시 실패가
+    // "친구 없음" 빈 상태로 위장된다 (audit C4-5).
+    const { data, error } = await sdk.listFriends({ client })
+    if (error) throw error
     const list = castData<FriendItem[]>(data)
     friends.value = (list ?? []).map(f => ({ ...f, liked: f.liked ?? false }))
   }
   catch {
-    toast.error(t('friends.listLoadError'))
+    friendsError.value = true
   }
   finally {
     friendsLoading.value = false
@@ -228,7 +257,8 @@ async function onToggleLike(friend: FriendItem) {
   if (likingId.value) return
   likingId.value = friend.userId
   try {
-    const { data } = await sdk.toggleFriendLike({ client, path: { friendId: friend.userId } })
+    const { data, error } = await sdk.toggleFriendLike({ client, path: { friendId: friend.userId } })
+    if (error) throw error
     const result = castData<{ liked: boolean, likeCount: number }>(data)
     if (result) {
       friend.liked = result.liked
@@ -250,10 +280,12 @@ async function onVisit(friend: FriendItem) {
   visitTerrarium.value = null
   visitModalOpen.value = true
   try {
-    const { data } = await sdk.visitFriendTerrarium({ client, path: { friendId: friend.userId } })
+    const { data, error } = await sdk.visitFriendTerrarium({ client, path: { friendId: friend.userId } })
+    if (error) throw error
     visitTerrarium.value = castData<TerrariumResponse>(data) ?? null
   }
   catch {
+    // 실패를 방치하면 모달이 로딩 상태로 영구 고착된다 (audit C4-5).
     visitModalOpen.value = false
     toast.error(t('friends.visitError'))
   }

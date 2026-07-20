@@ -11,16 +11,25 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disab
  *
  * 사용법:
  *   const rootEl = ref<HTMLElement | null>(null)
- *   useDialogFocusTrap(rootEl, computed(() => showXxx.value))
+ *   useDialogFocusTrap(rootEl, computed(() => showXxx.value), () => { showXxx.value = false })
  *   <div ref="rootEl" v-if="showXxx" role="dialog" aria-modal="true" ...>
+ *
+ * onEscape (선택): Escape 키로 오버레이를 닫는 콜백. 미전달 시 ESC 는 무동작(구 동작 유지).
+ * 2026-07-20 audit C1-1 — ESC 닫기가 CommonModal 에만 있고 bespoke 15곳은 키보드로 닫을 수
+ * 없던 불일치를 이 한 곳에서 일괄 해소한다.
  */
-export function useDialogFocusTrap(rootRef: Ref<HTMLElement | null>, isOpen: Ref<boolean>) {
+export function useDialogFocusTrap(rootRef: Ref<HTMLElement | null>, isOpen: Ref<boolean>, onEscape?: () => void) {
   useOverlayScrollLock(isOpen)
 
   let previousActiveElement: Element | null = null
 
   function handleKeydown(e: KeyboardEvent) {
     if (!isOpen.value || !rootRef.value) return
+    if (e.key === 'Escape' && onEscape) {
+      e.preventDefault()
+      onEscape()
+      return
+    }
     if (e.key !== 'Tab') return
     const focusables = Array.from(rootRef.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
     if (focusables.length === 0) return

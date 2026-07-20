@@ -87,7 +87,7 @@ const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const rootEl = ref<HTMLElement | null>(null)
-useDialogFocusTrap(rootEl, computed(() => props.show))
+useDialogFocusTrap(rootEl, computed(() => props.show), () => emit('close'))
 
 const { t } = useI18n()
 const step = ref<number>(0)

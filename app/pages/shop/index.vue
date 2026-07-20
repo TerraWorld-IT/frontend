@@ -75,7 +75,8 @@
       <div v-if="fetchError" class="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
         <div class="text-5xl mb-1">⚠️</div>
         <p class="text-sm font-medium text-riso-poppy">아이템을 불러오지 못했어요</p>
-        <p class="text-xs text-gray-400">{{ fetchError.message }}</p>
+        <!-- raw error.message 는 사용자에게 노출하지 않는다 (audit C4-3) — curated 문구로 대체 -->
+        <p class="text-xs text-gray-400">잠시 후 다시 시도해 주세요</p>
         <button
           type="button"
           class="mt-2 px-4 py-2 rounded-full bg-black text-white text-sm"
@@ -203,6 +204,7 @@
               <button
                 type="button"
                 class="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                aria-label="닫기"
                 @click="showExchange = false"
               >
                 <Icon name="lucide:x" class="w-4 h-4 text-gray-400" />
@@ -301,7 +303,7 @@ const showExchange = ref<boolean>(false)
 
 // bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
 const exchangeRoot = ref<HTMLElement | null>(null)
-useDialogFocusTrap(exchangeRoot, showExchange)
+useDialogFocusTrap(exchangeRoot, showExchange, () => { showExchange.value = false })
 
 // Android 하드웨어 뒤로가기 — bespoke 오버레이라 직접 back-stack 에 등록.
 const { pushBackHandler } = useBackButtonStack()

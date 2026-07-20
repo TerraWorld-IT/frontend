@@ -20,12 +20,13 @@ export function useAppUpdate() {
   const checked = ref<boolean>(false)
 
   /**
-   * "1.2.3" → [1,2,3]. 숫자 아닌 접미(-beta 등)는 제거. 단 core 세그먼트 중 하나라도 숫자가
-   * 아니면(예: "1.x.9") 빈 배열을 반환해 게이트를 fail-open 시킨다 — 잘못된 비교로 최신 앱을
-   * 업데이트하라고 막는 것보다 안 막는 쪽이 안전(사용자 이탈 방지).
+   * "1.2.3" → [1,2,3]. 숫자 아닌 접미(-beta, +ci.7 등 prerelease/build metadata)는 제거.
+   * 단 core 세그먼트 중 하나라도 숫자가 아니면(예: "1.x.9") 빈 배열을 반환해 게이트를
+   * fail-open 시킨다 — 잘못된 비교로 최신 앱을 업데이트하라고 막는 것보다 안 막는 쪽이 안전.
+   * `+` 미처리 시 CI dispatch 빌드 "0.0.0+ci.N" 이 [0,0,0,N] 으로 파싱되던 함정(audit B5-1).
    */
   function parseVersion(v: string): number[] {
-    const nums = v.split('-')[0]!.split('.').map(n => Number.parseInt(n, 10))
+    const nums = v.split('+')[0]!.split('-')[0]!.split('.').map(n => Number.parseInt(n, 10))
     if (nums.some(n => !Number.isFinite(n))) return []
     return nums
   }
@@ -71,6 +72,10 @@ export function useAppUpdate() {
     const cur = parseVersion(info.version)
     const wanted = parseVersion(min)
     if (!cur.length || !wanted.length) { checked.value = true; return } // 파싱 실패 시 막지 않음
+    // core 0.0.0 = CI workflow_dispatch 테스터 빌드(release.yml 이 "0.0.0+ci.N" 주입) —
+    // 스토어 릴리스가 아니므로 게이트 면제. 미면제 시 Firebase App Distribution 테스터 전원이
+    // 업데이트 게이트에 하드블록된다 (audit B5-1).
+    if (cur.every(n => n === 0)) { checked.value = true; return }
     updateRequired.value = isLower(cur, wanted)
     checked.value = true
   }
@@ -78,7 +83,9 @@ export function useAppUpdate() {
   /** 플랫폼별 스토어 열기. URL 미설정이면 no-op. */
   async function openStore(): Promise<void> {
     if (!import.meta.client) return
-    const url = String(isIOS ? config.public.iosStoreUrl : config.public.androidStoreUrl || '').trim()
+    // 괄호 주의: `a ? b : c || ''` 는 `||` 가 c 에만 걸려 iOS+URL 미설정 시 "undefined" 문자열이
+    // 빈값 가드를 통과한다 (audit B5-2).
+    const url = String((isIOS ? config.public.iosStoreUrl : config.public.androidStoreUrl) || '').trim()
     if (!url) return
     if (isNative) {
       // 시스템 브라우저/스토어 앱으로 위임 (in-WebView 로 열지 않음).

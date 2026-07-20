@@ -11,6 +11,7 @@
       "coinReward": "코인 보상",
       "dailyLimit": "일일 한도",
       "empty": "카테고리 없음",
+      "loadError": "카테고리를 불러오지 못했습니다",
       "title": "카테고리 보상 관리",
       "token": "토큰",
       "tokenReward": "토큰 보상"
@@ -54,6 +55,7 @@
       "deactivated": "아이템을 비활성화했습니다",
       "created": "아이템을 등록했습니다",
       "createError": "아이템 등록에 실패했습니다",
+      "loadError": "아이템 목록을 불러오지 못했습니다",
       "fieldName": "이름",
       "fieldAsset": "에셋 (이모지 또는 URL)",
       "fieldPriceType": "결제 재화",
@@ -357,7 +359,8 @@
   "payment": {
     "appOnly": "구매는 앱에서만 가능합니다",
     "moduleLoadFail": "결제 모듈을 불러오지 못했습니다",
-    "paidButFailed": "결제는 확인됐지만 처리에 실패했어요. 잠시 후 다시 시도하거나 고객센터로 문의해 주세요"
+    "paidButFailed": "결제는 확인됐지만 처리에 실패했어요. 잠시 후 다시 시도하거나 고객센터로 문의해 주세요",
+    "recovered": "미완료 결제가 복구되어 반영되었어요"
   },
   "profile": {
     "accountSection": "계정",
@@ -612,7 +615,7 @@
     "paymentNote": "※ Phase 4 (Play Billing / iOS IAP) 통합 후 활성화. 현재는 결제 플로우 미구현.",
     "paymentOptions": "결제 옵션 (예정)",
     "processing": "처리 중...",
-    "purchasePhase4": "결제 모듈은 Phase 4 에 통합됩니다",
+    "purchaseFailedRetry": "구매를 완료하지 못했어요. 결제가 진행된 경우 잠시 후 자동 반영되니 다시 확인해 주세요.",
     "purchaseSuccess": "구매 완료 — 자유배치가 활성화되었습니다"
   },
   "wallet": {

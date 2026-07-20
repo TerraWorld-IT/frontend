@@ -17,6 +17,7 @@
               <button
                 type="button"
                 class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="닫기"
                 @click="$emit('close')"
               >
                 <Icon name="lucide:x" class="w-4 h-4" />
@@ -118,7 +119,7 @@ const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const rootEl = ref<HTMLElement | null>(null)
-useDialogFocusTrap(rootEl, computed(() => props.show))
+useDialogFocusTrap(rootEl, computed(() => props.show), () => emit('close'))
 
 // Android 하드웨어 뒤로가기 — CommonModal 이 아닌 bespoke 오버레이라 직접 back-stack 에 등록.
 const { pushBackHandler } = useBackButtonStack()

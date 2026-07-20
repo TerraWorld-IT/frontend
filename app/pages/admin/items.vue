@@ -15,6 +15,21 @@
 
     <CommonLoading v-if="loading" />
 
+    <!-- 조회 실패를 빈 목록/빈 카테고리 선택지로 위장하지 않는다 (audit C4-6) — 배너 + 재시도로 구분 -->
+    <div
+      v-else-if="loadError"
+      class="bg-white rounded-2xl p-4 border border-riso-poppy/30 riso-shadow-sm flex items-center justify-between gap-3"
+    >
+      <p class="text-sm text-riso-poppy">{{ $t('admin.items.loadError') }}</p>
+      <button
+        type="button"
+        class="shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        @click="loadAll"
+      >
+        {{ $t('common.retry') }}
+      </button>
+    </div>
+
     <!-- Item list -->
     <div v-else class="space-y-2">
       <div
@@ -185,6 +200,7 @@ const { t } = useI18n()
 const toast = useToast()
 
 const loading = ref<boolean>(true)
+const loadError = ref<boolean>(false)
 const showCreateDialog = ref<boolean>(false)
 const toggling = ref<number | null>(null)
 const creating = ref<boolean>(false)
@@ -282,23 +298,32 @@ async function submitCreate() {
 }
 
 async function loadCategories() {
+  // @hey-api client 는 서버 거부(4xx/5xx)를 throw 가 아닌 { error } 로 resolve — 미확인 시
+  // 등록 폼 카테고리 선택지가 조용히 "범용 (없음)" 만 남는 빈 선택지로 위장된다 (audit C4-6).
   const { data, error } = await sdk.listCategories({ client })
-  if (!error && data) {
-    categories.value = castData<CategoryListResponse>(data)?.categories ?? []
-  }
+  if (error) throw error
+  categories.value = castData<CategoryListResponse>(data)?.categories ?? []
 }
 
-onMounted(async () => {
-  // M2: 공개 목록(listItems)은 활성만 반환 → 비활성 아이템 재활성화 불가.
-  // admin 전용 listAllItems 로 비활성 포함 전체를 로드하고, 서버의 isActive 로 토글 상태를 시드한다.
-  const [itemsRes] = await Promise.all([sdk.listAllItems({ client }), loadCategories()])
-  if (itemsRes.error) {
-    toast.error(t('admin.common.saveError'))
-  }
-  else {
+async function loadAll() {
+  loading.value = true
+  loadError.value = false
+  try {
+    // M2: 공개 목록(listItems)은 활성만 반환 → 비활성 아이템 재활성화 불가.
+    // admin 전용 listAllItems 로 비활성 포함 전체를 로드하고, 서버의 isActive 로 토글 상태를 시드한다.
+    const [itemsRes] = await Promise.all([sdk.listAllItems({ client }), loadCategories()])
+    if (itemsRes.error) throw itemsRes.error
     const list = castData<ItemListResponse>(itemsRes.data)?.items ?? []
     rows.value = list.map((item) => ({ item, active: item.isActive }))
   }
-  loading.value = false
-})
+  catch {
+    // 아이템 목록·카테고리 어느 쪽 실패든 배너 + 재시도로 구분 표기 (진짜 빈 목록과 분리).
+    loadError.value = true
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadAll)
 </script>

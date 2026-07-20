@@ -100,14 +100,20 @@ export function useAdMob() {
 
   /**
    * 보상형 광고 시청. 시청 완료 시 true 반환.
-   * 네이티브 미지원 환경에서는 즉시 true (UI 측의 30초 모달이 게이트 역할).
+   *
+   * 플랫폼 게이트 (2026-07-20 audit B2-3 정정): 실 광고는 Android 네이티브에서만 가능.
+   * 이전에는 웹/iOS 에서 무조건 true 를 반환해("30초 카운트다운 모달이 게이트" — 실존하지 않는
+   * 컴포넌트) **프로덕션에서 광고 시청 없이 보상 청구가 가능**했다. 이제 광고를 띄울 수 없는
+   * 플랫폼은 dev 빌드에서만 통과(true, 로컬 보상 플로우 테스트용), 프로덕션은 false —
+   * 진입점(홈 무료코인 버튼)도 Android 네이티브에서만 노출된다.
+   *
+   * @param opts.ssvUserId / opts.ssvCustomData — AdMob SSV 콜백에 실릴 사용자/nonce 식별값.
+   *   backend SSV-authoritative 전환(Phase 4)의 전제 배선 (audit B2-2 부수).
    */
-  async function showRewardedAd(): Promise<boolean> {
+  async function showRewardedAd(opts?: { ssvUserId?: string, ssvCustomData?: string }): Promise<boolean> {
     if (!import.meta.client) return false
     if (!isNative || !isAndroid) {
-      // 웹/iOS dev — UI 측에서 30초 카운트다운 모달이 게이트 역할.
-      // 여기서는 단순히 통과시키고 보상 API 를 호출하게 둠.
-      return true
+      return import.meta.dev
     }
     try {
       await initialize()
@@ -117,12 +123,21 @@ export function useAdMob() {
       const adId = (config.public.admobRewardedAdId as string | undefined) ?? ''
       // 빈 adId 일 때는 아래 fallback 의 Google 공식 테스트 ID 가 사용됨.
 
-      // 광고 준비 (prepare) → 표시 (show). @capacitor-community/admob v7.2.0 API.
+      // SSV 콜백에 user/nonce 를 실어 서버가 "누가 어떤 nonce 로 시청했나"를 알 수 있게 한다.
+      // 플러그인 타입이 AtLeastOne(userId | customData) 이라 명시 분기로 구성.
+      const ssv = opts?.ssvUserId
+        ? { userId: opts.ssvUserId, ...(opts.ssvCustomData ? { customData: opts.ssvCustomData } : {}) }
+        : opts?.ssvCustomData
+          ? { customData: opts.ssvCustomData }
+          : undefined
+
+      // 광고 준비 (prepare) → 표시 (show). @capacitor-community/admob v8 API.
       await AdMob.prepareRewardVideoAd({
         adId: adId || 'ca-app-pub-3940256099942544/5224354917', // Google 공식 테스트 보상형 광고 ID
         // H3: iOS 에서 ATT 미인증이면 비개인화 광고(npa) 요청. 현재 iOS 는 위 isAndroid 게이트로
         //     이 경로 미도달이라 사실상 false(Android 개인화)지만, iOS 광고 도입 시 ATT 정합 보장.
         npa: isIos && !iosTrackingAuthorized,
+        ...(ssv ? { ssv } : {}),
       })
 
       return await new Promise<boolean>((resolve) => {

@@ -6,13 +6,15 @@
         기록하기
       </h1>
       <div class="flex items-center gap-[10px]">
-        <button
-          type="button"
-          class="h-[40px] px-[12px] rounded-[16px] text-[12px] font-semibold"
+        <!-- 현재 페이지 표시 — 클릭 핸들러 없는 dead button 이었으므로 button 이 아닌
+             aria-current="page" span 으로 시맨틱 교체 (시각 스타일 유지) -->
+        <span
+          aria-current="page"
+          class="h-[40px] px-[12px] rounded-[16px] text-[12px] font-semibold inline-flex items-center"
           style="background: rgba(126,219,192,0.18); color: #3a9e78"
         >
           다이어리
-        </button>
+        </span>
         <button
           type="button"
           class="h-[40px] px-[12px] rounded-[16px] text-[12px] font-semibold transition-all hover:opacity-80"
@@ -112,7 +114,7 @@
               placeholder="1주일 동안 실천할 습관을 적어주세요"
               rows="3"
               maxlength="30"
-              class="w-full rounded-[12px] p-[16px] text-[14px] resize-none outline-none leading-[20px] tracking-[-0.15px]"
+              class="w-full rounded-[12px] p-[16px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-riso-pink/40 leading-[20px] tracking-[-0.15px]"
               style="background: #f5f5f5; color: #111; min-height: 60px"
               @keydown.enter.exact.prevent="submitHabit"
             />
@@ -308,6 +310,15 @@
         <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
         <CommonLoading variant="skeleton" container-class="py-2" />
       </div>
+      <!-- HTTP 에러가 침묵으로 "빈 목록"이 되어 진짜 빈 것과 구분 불가하던 문제(audit C4-1) -->
+      <div v-else-if="loadError" class="rounded-2xl bg-white/80 border border-gray-100 p-5 text-center">
+        <p class="text-[13px] text-gray-600 mb-3">기록 정보를 불러오지 못했어요</p>
+        <button
+          type="button"
+          class="px-5 py-2 rounded-full bg-black text-white text-[13px] font-bold"
+          @click="retryInitial()"
+        >다시 시도</button>
+      </div>
       <div v-else-if="recentRecords.length > 0">
         <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
         <div class="space-y-2">
@@ -321,43 +332,24 @@
     </div>
 
     <!-- ═══════ 일상기록 모달 (바텀시트) ═══════ -->
-
-    <!-- 공통 백드롭 -->
-    <Transition name="fade">
-      <div
-        v-if="openModal"
-        class="fixed inset-0 bg-black/40 z-50"
-        @click="onBackdrop"
-      />
-    </Transition>
+    <!-- 백드롭/패널/핸들/닫기/trap/뒤로가기는 CommonBottomSheet 내장. 진행 중 타이머/추적
+         보호(구 onBackdrop 가드)는 focus/distance 시트의 @close(onSheetClose)가 유지한다. -->
 
     <!-- 투두 모달 -->
-    <Transition name="sheet">
-      <div
-        v-if="openModal === 'todo'"
-        ref="todoModalRoot"
-        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl flex flex-col"
-        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px)"
-        role="dialog"
-        aria-modal="true"
-        aria-label="할일 기록"
-      >
-        <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
+    <CommonBottomSheet :open="openModal === 'todo'" ariaLabel="할일 기록" @close="closeModal()">
+      <template #header>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
           <div class="flex items-center gap-2">
             <span class="text-xl">💧</span>
             <span class="font-bold text-base text-black">투두리스트 기록</span>
           </div>
-          <button type="button" class="w-7 h-7 rounded-full flex items-center justify-center bg-gray-100" @click="closeModal">
-            <Icon name="lucide:x" class="w-4 h-4 text-gray-500" />
-          </button>
         </div>
         <div class="px-5 pt-3 pb-2 shrink-0">
           <div class="flex gap-2">
             <input
               v-model="todoNew"
               placeholder="새 항목 추가 (최대 30개)"
-              class="flex-1 rounded-xl px-3 py-2 text-sm outline-none"
+              class="flex-1 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-riso-pink/40"
               style="background: #f5f5f5"
               @keydown.enter="addTodo"
             >
@@ -371,321 +363,285 @@
             </button>
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto px-5 pb-2" style="min-height: 0">
-          <div v-if="todos.length === 0" class="text-center py-8 text-gray-400">
-            <div class="text-3xl mb-2">📋</div>
-            <p class="text-sm">항목을 추가해보세요</p>
-          </div>
-          <div v-else class="flex flex-col gap-2">
-            <div
-              v-for="todo in todos"
-              :key="todo.id"
-              class="flex items-center gap-3 rounded-xl px-3 py-3 transition-all"
-              :style="{ background: todo.checked ? 'rgba(126,219,192,0.08)' : '#f9fafb' }"
-            >
-              <button
-                type="button"
-                class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
-                :style="{ borderColor: todo.checked ? '#7edbc0' : '#d1d5db', background: todo.checked ? '#7edbc0' : 'transparent' }"
-                @click="todo.checked = !todo.checked"
-              >
-                <Icon v-if="todo.checked" name="lucide:check" class="w-3 h-3 text-white" />
-              </button>
-              <span
-                class="flex-1 text-sm"
-                :style="{ color: todo.checked ? '#9ca3af' : '#1f2937', textDecoration: todo.checked ? 'line-through' : 'none' }"
-              >
-                {{ todo.text }}
-              </span>
-              <button type="button" @click="todos = todos.filter(t => t.id !== todo.id)">
-                <Icon name="lucide:trash-2" class="w-3.5 h-3.5 text-red-300" />
-              </button>
-            </div>
-          </div>
+      </template>
+      <div class="px-5 pb-2">
+        <div v-if="todos.length === 0" class="text-center py-8 text-gray-400">
+          <div class="text-3xl mb-2">📋</div>
+          <p class="text-sm">항목을 추가해보세요</p>
         </div>
-        <div class="px-5 pb-6 pt-2 shrink-0">
-          <div class="flex items-center justify-between text-xs text-gray-400 mb-2">
-            <span>{{ todos.filter(t => t.checked).length }}/{{ todos.length }} 완료</span>
-            <span>완료 시 이슬토큰 +10 지급</span>
-          </div>
-          <button
-            type="button"
-            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold transition-all active:scale-95 disabled:opacity-40"
-            :disabled="!todoAllChecked || submitting"
-            :style="todoAllChecked
-              ? { background: 'linear-gradient(135deg,#7edbc0,#52b388)', color: 'white' }
-              : { background: '#f5f5f5', color: '#9ca3af' }"
-            @click="saveTodo"
+        <div v-else class="flex flex-col gap-2">
+          <div
+            v-for="todo in todos"
+            :key="todo.id"
+            class="flex items-center gap-3 rounded-xl px-3 py-3 transition-all"
+            :style="{ background: todo.checked ? 'rgba(126,219,192,0.08)' : '#f9fafb' }"
           >
-            <Icon name="lucide:check" class="w-4 h-4" />
-            {{ todoAllChecked ? '기록 완료 (+10 💧)' : '모든 항목 체크 후 완료 가능' }}
-          </button>
+            <button
+              type="button"
+              class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
+              :style="{ borderColor: todo.checked ? '#7edbc0' : '#d1d5db', background: todo.checked ? '#7edbc0' : 'transparent' }"
+              @click="todo.checked = !todo.checked"
+            >
+              <Icon v-if="todo.checked" name="lucide:check" class="w-3 h-3 text-white" />
+            </button>
+            <span
+              class="flex-1 text-sm"
+              :style="{ color: todo.checked ? '#9ca3af' : '#1f2937', textDecoration: todo.checked ? 'line-through' : 'none' }"
+            >
+              {{ todo.text }}
+            </span>
+            <button type="button" @click="todos = todos.filter(t => t.id !== todo.id)">
+              <Icon name="lucide:trash-2" class="w-3.5 h-3.5 text-red-300" />
+            </button>
+          </div>
         </div>
       </div>
-    </Transition>
+      <div class="px-5 pb-1 pt-2">
+        <div class="flex items-center justify-between text-xs text-gray-400 mb-2">
+          <span>{{ todos.filter(t => t.checked).length }}/{{ todos.length }} 완료</span>
+          <span>완료 시 이슬토큰 +10 지급</span>
+        </div>
+        <button
+          type="button"
+          class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold transition-all active:scale-95 disabled:opacity-40"
+          :disabled="!todoAllChecked || submitting"
+          :style="todoAllChecked
+            ? { background: 'linear-gradient(135deg,#7edbc0,#52b388)', color: 'white' }
+            : { background: '#f5f5f5', color: '#9ca3af' }"
+          @click="saveTodo"
+        >
+          <Icon name="lucide:check" class="w-4 h-4" />
+          {{ todoAllChecked ? '기록 완료 (+10 💧)' : '모든 항목 체크 후 완료 가능' }}
+        </button>
+      </div>
+    </CommonBottomSheet>
 
     <!-- 일기 모달 -->
-    <Transition name="sheet">
-      <div
-        v-if="openModal === 'diary'"
-        ref="diaryModalRoot"
-        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl flex flex-col"
-        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); max-height: calc(100dvh - 98px)"
-        role="dialog"
-        aria-modal="true"
-        aria-label="일기 기록"
-      >
-        <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
+    <CommonBottomSheet :open="openModal === 'diary'" ariaLabel="일기 기록" @close="closeModal()">
+      <template #header>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div class="flex items-center gap-2">
             <span class="text-xl">☀️</span>
             <span class="font-bold text-base text-black">일기 기록</span>
           </div>
-          <button type="button" class="w-7 h-7 rounded-full flex items-center justify-center bg-gray-100" @click="closeModal">
-            <Icon name="lucide:x" class="w-4 h-4 text-gray-500" />
-          </button>
         </div>
-        <div class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style="min-height: 0">
-          <div class="text-xs text-gray-400 font-medium">{{ todayLongLabel }}</div>
-          <input
-            v-model="diaryTitle"
-            placeholder="제목 (선택)"
-            class="w-full text-[16px] font-bold border-b border-gray-100 pb-2 outline-none bg-transparent placeholder:text-gray-300"
-          >
-          <textarea
-            v-model="diaryText"
-            placeholder="오늘 하루를 기록해보세요..."
-            rows="10"
-            class="w-full flex-1 text-[14px] text-gray-700 leading-relaxed outline-none resize-none bg-transparent placeholder:text-gray-300"
-          />
-          <!-- 사진 첨부 (선택) -->
-          <div class="flex items-center justify-between pt-1">
-            <span class="text-[13px] font-semibold text-gray-600">사진 첨부 <span class="text-[11px] font-normal text-gray-400">(선택)</span></span>
-            <button
-              v-if="photoUrl"
-              type="button"
-              class="text-[12px] text-riso-poppy underline"
-              @click="onClearPhoto"
-            >
-              삭제
-            </button>
-          </div>
+      </template>
+      <div class="px-5 py-4 flex flex-col gap-3">
+        <div class="text-xs text-gray-400 font-medium">{{ todayLongLabel }}</div>
+        <input
+          v-model="diaryTitle"
+          placeholder="제목 (선택)"
+          class="w-full text-[16px] font-bold border-b border-gray-100 pb-2 outline-none focus:ring-2 focus:ring-riso-pink/40 bg-transparent placeholder:text-gray-300"
+        >
+        <textarea
+          v-model="diaryText"
+          placeholder="오늘 하루를 기록해보세요..."
+          rows="10"
+          class="w-full flex-1 text-[14px] text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-riso-pink/40 resize-none bg-transparent placeholder:text-gray-300"
+        />
+        <!-- 사진 첨부 (선택) -->
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-[13px] font-semibold text-gray-600">사진 첨부 <span class="text-[11px] font-normal text-gray-400">(선택)</span></span>
           <button
-            v-if="!photoUrl"
+            v-if="photoUrl"
             type="button"
-            class="w-full h-11 rounded-[12px] border border-dashed border-gray-300 text-[13px] font-medium text-gray-500 flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-            :disabled="uploadingPhoto"
-            @click="diaryFileInput?.click()"
+            class="text-[12px] text-riso-poppy underline"
+            @click="onClearPhoto"
           >
-            <Icon name="lucide:camera" class="w-4 h-4" />
-            <span>{{ uploadingPhoto ? '업로드 중...' : '사진 추가' }}</span>
-          </button>
-          <img
-            v-else
-            :src="photoUrl"
-            alt="첨부한 사진 미리보기"
-            class="w-full max-h-[200px] object-cover rounded-[12px] riso-shadow-sm"
-          >
-          <input
-            ref="diaryFileInput"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            class="hidden"
-            @change="onFileSelected"
-          >
-        </div>
-        <div class="px-5 pb-6 pt-2">
-          <div class="text-xs text-gray-400 text-center mb-2">저장 시 햇살토큰 +10 지급</div>
-          <button
-            type="button"
-            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50"
-            style="background: linear-gradient(135deg,#f5d020,#f5a623)"
-            :disabled="submitting"
-            @click="saveDiary"
-          >
-            <Icon name="lucide:save" class="w-4 h-4" />저장하기
+            삭제
           </button>
         </div>
+        <button
+          v-if="!photoUrl"
+          type="button"
+          class="w-full h-11 rounded-[12px] border border-dashed border-gray-300 text-[13px] font-medium text-gray-500 flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+          :disabled="uploadingPhoto"
+          @click="diaryFileInput?.click()"
+        >
+          <Icon name="lucide:camera" class="w-4 h-4" />
+          <span>{{ uploadingPhoto ? '업로드 중...' : '사진 추가' }}</span>
+        </button>
+        <img
+          v-else
+          :src="photoUrl"
+          alt="첨부한 사진 미리보기"
+          class="w-full max-h-[200px] object-cover rounded-[12px] riso-shadow-sm"
+        >
+        <input
+          ref="diaryFileInput"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden"
+          @change="onFileSelected"
+        >
       </div>
-    </Transition>
+      <div class="px-5 pb-1 pt-2">
+        <div class="text-xs text-gray-400 text-center mb-2">저장 시 햇살토큰 +10 지급</div>
+        <button
+          type="button"
+          class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50"
+          style="background: linear-gradient(135deg,#f5d020,#f5a623)"
+          :disabled="submitting"
+          @click="saveDiary"
+        >
+          <Icon name="lucide:save" class="w-4 h-4" />저장하기
+        </button>
+      </div>
+    </CommonBottomSheet>
 
-    <!-- 집중 모달 -->
-    <Transition name="sheet">
-      <div
-        v-if="openModal === 'focus'"
-        ref="focusModalRoot"
-        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl"
-        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px)"
-        role="dialog"
-        aria-modal="true"
-        aria-label="집중 기록"
-      >
-        <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
+    <!-- 집중 모달 — 타이머 진행 중 실수 닫기 방지 가드(onSheetClose) 유지 -->
+    <CommonBottomSheet :open="openModal === 'focus'" ariaLabel="집중 기록" @close="onSheetClose()">
+      <template #header>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div class="flex items-center gap-2">
             <span class="text-xl">⚡</span>
             <span class="font-bold text-base text-black">집중 기록</span>
           </div>
-          <button type="button" class="w-7 h-7 rounded-full flex items-center justify-center bg-gray-100" @click="closeModal">
-            <Icon name="lucide:x" class="w-4 h-4 text-gray-500" />
-          </button>
         </div>
-        <div class="px-5 py-6 flex flex-col gap-4">
-          <template v-if="focusPhase === 'setup'">
-            <div>
-              <label class="text-xs font-semibold text-gray-500 mb-1 block">타이머 이름</label>
-              <input
-                v-model="focusName"
-                placeholder="예: 독서, 공부, 운동..."
-                class="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                style="background: #f5f5f5"
-              >
-            </div>
-            <div>
-              <label class="text-xs font-semibold text-gray-500 mb-1 block">집중 시간 (분)</label>
-              <input
-                v-model="focusMinutes"
-                type="number"
-                min="1"
-                max="180"
-                placeholder="25"
-                class="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                style="background: #f5f5f5"
-              >
-            </div>
-            <div class="text-xs text-gray-400 text-center">완료 시 번개토큰 +10 지급</div>
-            <button
-              type="button"
-              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95"
-              style="background: linear-gradient(135deg,#667eea,#764ba2)"
-              @click="startFocus"
+      </template>
+      <div class="px-5 pt-6 pb-1 flex flex-col gap-4">
+        <template v-if="focusPhase === 'setup'">
+          <div>
+            <label class="text-xs font-semibold text-gray-500 mb-1 block">타이머 이름</label>
+            <input
+              v-model="focusName"
+              placeholder="예: 독서, 공부, 운동..."
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-riso-pink/40"
+              style="background: #f5f5f5"
             >
-              <Icon name="lucide:play" class="w-4 h-4" />시작하기
-            </button>
-          </template>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-gray-500 mb-1 block">집중 시간 (분)</label>
+            <input
+              v-model="focusMinutes"
+              type="number"
+              min="1"
+              max="180"
+              placeholder="25"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-riso-pink/40"
+              style="background: #f5f5f5"
+            >
+          </div>
+          <div class="text-xs text-gray-400 text-center">완료 시 번개토큰 +10 지급</div>
+          <button
+            type="button"
+            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95"
+            style="background: linear-gradient(135deg,#667eea,#764ba2)"
+            @click="startFocus"
+          >
+            <Icon name="lucide:play" class="w-4 h-4" />시작하기
+          </button>
+        </template>
 
-          <div v-else class="flex flex-col items-center gap-6 py-4">
-            <div class="text-lg font-bold text-gray-800">{{ focusName }}</div>
-            <div class="relative size-40">
-              <svg class="absolute inset-0 size-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="#f5f5f5" stroke-width="8" />
-                <circle
-                  cx="50" cy="50" r="45" fill="none" stroke="#667eea" stroke-width="8"
-                  :stroke-dasharray="`${2 * Math.PI * 45}`"
-                  :stroke-dashoffset="`${2 * Math.PI * 45 * (1 - focusProgress / 100)}`"
-                  stroke-linecap="round" style="transition: stroke-dashoffset 1s linear"
-                />
-              </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span class="text-3xl font-bold text-gray-800">{{ fmtTime(focusRemaining) }}</span>
-                <span class="text-xs text-gray-400">남은 시간</span>
-              </div>
+        <div v-else class="flex flex-col items-center gap-6 py-4">
+          <div class="text-lg font-bold text-gray-800">{{ focusName }}</div>
+          <div class="relative size-40">
+            <svg class="absolute inset-0 size-full -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="#f5f5f5" stroke-width="8" />
+              <circle
+                cx="50" cy="50" r="45" fill="none" stroke="#667eea" stroke-width="8"
+                :stroke-dasharray="`${2 * Math.PI * 45}`"
+                :stroke-dashoffset="`${2 * Math.PI * 45 * (1 - focusProgress / 100)}`"
+                stroke-linecap="round" style="transition: stroke-dashoffset 1s linear"
+              />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-3xl font-bold text-gray-800">{{ fmtTime(focusRemaining) }}</span>
+              <span class="text-xs text-gray-400">남은 시간</span>
             </div>
+          </div>
 
-            <div v-if="focusPhase === 'done'" class="flex flex-col items-center gap-3 w-full">
-              <div class="text-green-500 font-bold text-lg">🎉 집중 완료!</div>
-              <button
-                type="button"
-                class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold disabled:opacity-50"
-                style="background: linear-gradient(135deg,#56ab2f,#a8e063)"
-                :disabled="submitting"
-                @click="saveFocus(focusTotalSecs)"
-              >
-                <Icon name="lucide:zap" class="w-4 h-4" />기록 저장 (+10 ⚡)
-              </button>
-            </div>
+          <div v-if="focusPhase === 'done'" class="flex flex-col items-center gap-3 w-full">
+            <div class="text-green-500 font-bold text-lg">🎉 집중 완료!</div>
             <button
-              v-else
               type="button"
-              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-gray-700 border border-gray-200 transition-all active:scale-95 disabled:opacity-50"
+              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold disabled:opacity-50"
+              style="background: linear-gradient(135deg,#56ab2f,#a8e063)"
               :disabled="submitting"
-              @click="stopFocus"
+              @click="saveFocus(focusTotalSecs)"
             >
-              <Icon name="lucide:square" class="w-4 h-4" />중간 저장
+              <Icon name="lucide:zap" class="w-4 h-4" />기록 저장 (+10 ⚡)
             </button>
           </div>
+          <button
+            v-else
+            type="button"
+            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-gray-700 border border-gray-200 transition-all active:scale-95 disabled:opacity-50"
+            :disabled="submitting"
+            @click="stopFocus"
+          >
+            <Icon name="lucide:square" class="w-4 h-4" />중간 저장
+          </button>
         </div>
       </div>
-    </Transition>
+    </CommonBottomSheet>
 
-    <!-- 거리 모달 -->
-    <Transition name="sheet">
-      <div
-        v-if="openModal === 'distance'"
-        ref="distanceModalRoot"
-        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 rounded-t-3xl shadow-2xl"
-        style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px)"
-        role="dialog"
-        aria-modal="true"
-        aria-label="거리 기록"
-      >
-        <div class="flex justify-center pt-3 pb-1"><div class="w-10 h-1 rounded-full bg-gray-200" /></div>
+    <!-- 거리 모달 — 추적 진행 중 실수 닫기 방지 가드(onSheetClose) 유지 -->
+    <CommonBottomSheet :open="openModal === 'distance'" ariaLabel="거리 기록" @close="onSheetClose()">
+      <template #header>
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div class="flex items-center gap-2">
             <span class="text-xl">🌬️</span>
             <span class="font-bold text-base text-black">거리 기록</span>
           </div>
-          <button type="button" class="w-7 h-7 rounded-full flex items-center justify-center bg-gray-100" @click="closeModal">
-            <Icon name="lucide:x" class="w-4 h-4 text-gray-500" />
-          </button>
         </div>
-        <div class="px-5 pt-8 flex flex-col items-center gap-6" style="padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px))">
-          <div v-if="distError" class="text-red-400 text-sm text-center">{{ distError }}</div>
-          <div class="flex flex-col items-center gap-1">
-            <div class="text-5xl font-bold text-gray-900">{{ (distance / 1000).toFixed(3) }}</div>
-            <div class="text-gray-400 text-sm">km</div>
-          </div>
-          <div class="flex items-center gap-2 text-gray-500">
-            <div class="w-2 h-2 rounded-full" :style="{ background: distPhase === 'tracking' ? '#22c55e' : '#e5e7eb' }" />
-            <span class="text-sm font-mono">{{ fmtTime(distElapsed) }}</span>
-            <span v-if="distPhase === 'tracking'" class="text-xs text-green-500 animate-pulse">추적 중</span>
-          </div>
-          <div class="w-full flex flex-col gap-3">
-            <template v-if="distPhase === 'idle'">
-              <div class="text-xs text-gray-400 text-center">
-                시작 후 이동하면 거리가 자동으로 측정돼요<br>완료 시 바람토큰 +10 지급
-              </div>
-              <button
-                type="button"
-                class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95"
-                style="background: linear-gradient(135deg,#74b9ff,#0984e3)"
-                @click="startDistance"
-              >
-                <Icon name="lucide:play" class="w-4 h-4" />측정 시작
-              </button>
-            </template>
-            <button
-              v-else-if="distPhase === 'tracking'"
-              type="button"
-              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-white transition-all active:scale-95"
-              style="background: linear-gradient(135deg,#fd79a8,#e84393)"
-              @click="stopDistance"
-            >
-              <Icon name="lucide:stop-circle" class="w-4 h-4" />완료
-            </button>
-            <div v-else class="flex flex-col gap-2 w-full">
-              <div class="text-center font-bold text-green-600 text-lg">측정 완료!</div>
-              <button
-                type="button"
-                class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50"
-                style="background: linear-gradient(135deg,#00b894,#00cec9)"
-                :disabled="submitting"
-                @click="saveDistance"
-              >
-                <Icon name="lucide:map-pin" class="w-4 h-4" />기록 저장 (+10 🌬️)
-              </button>
-              <button
-                type="button"
-                class="w-full h-10 rounded-2xl text-sm text-gray-400 border border-gray-100"
-                @click="resetDistance"
-              >
-                다시 측정
-              </button>
+      </template>
+      <div class="px-5 pt-8 pb-3 flex flex-col items-center gap-6">
+        <div v-if="distError" class="text-red-400 text-sm text-center">{{ distError }}</div>
+        <div class="flex flex-col items-center gap-1">
+          <div class="text-5xl font-bold text-gray-900">{{ (distance / 1000).toFixed(3) }}</div>
+          <div class="text-gray-400 text-sm">km</div>
+        </div>
+        <div class="flex items-center gap-2 text-gray-500">
+          <div class="w-2 h-2 rounded-full" :style="{ background: distPhase === 'tracking' ? '#22c55e' : '#e5e7eb' }" />
+          <span class="text-sm font-mono">{{ fmtTime(distElapsed) }}</span>
+          <span v-if="distPhase === 'tracking'" class="text-xs text-green-500 animate-pulse">추적 중</span>
+        </div>
+        <div class="w-full flex flex-col gap-3">
+          <template v-if="distPhase === 'idle'">
+            <div class="text-xs text-gray-400 text-center">
+              시작 후 이동하면 거리가 자동으로 측정돼요<br>완료 시 바람토큰 +10 지급
             </div>
+            <button
+              type="button"
+              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95"
+              style="background: linear-gradient(135deg,#74b9ff,#0984e3)"
+              @click="startDistance"
+            >
+              <Icon name="lucide:play" class="w-4 h-4" />측정 시작
+            </button>
+          </template>
+          <button
+            v-else-if="distPhase === 'tracking'"
+            type="button"
+            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-white transition-all active:scale-95"
+            style="background: linear-gradient(135deg,#fd79a8,#e84393)"
+            @click="stopDistance"
+          >
+            <Icon name="lucide:stop-circle" class="w-4 h-4" />완료
+          </button>
+          <div v-else class="flex flex-col gap-2 w-full">
+            <div class="text-center font-bold text-green-600 text-lg">측정 완료!</div>
+            <button
+              type="button"
+              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50"
+              style="background: linear-gradient(135deg,#00b894,#00cec9)"
+              :disabled="submitting"
+              @click="saveDistance"
+            >
+              <Icon name="lucide:map-pin" class="w-4 h-4" />기록 저장 (+10 🌬️)
+            </button>
+            <button
+              type="button"
+              class="w-full h-10 rounded-2xl text-sm text-gray-400 border border-gray-100"
+              @click="resetDistance"
+            >
+              다시 측정
+            </button>
           </div>
         </div>
       </div>
-    </Transition>
+    </CommonBottomSheet>
   </div>
 </template>
 
@@ -856,27 +812,8 @@ async function onCheckIn(tr: HabitTrackerResponse) {
 type DailyModal = 'todo' | 'diary' | 'focus' | 'distance'
 const openModal = ref<DailyModal | null>(null)
 
-// bespoke 모달 4종의 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
-const todoModalRoot = ref<HTMLElement | null>(null)
-const diaryModalRoot = ref<HTMLElement | null>(null)
-const focusModalRoot = ref<HTMLElement | null>(null)
-const distanceModalRoot = ref<HTMLElement | null>(null)
-useDialogFocusTrap(todoModalRoot, computed(() => openModal.value === 'todo'))
-useDialogFocusTrap(diaryModalRoot, computed(() => openModal.value === 'diary'))
-useDialogFocusTrap(focusModalRoot, computed(() => openModal.value === 'focus'))
-useDialogFocusTrap(distanceModalRoot, computed(() => openModal.value === 'distance'))
-
-// Android 하드웨어 뒤로가기 — 일상 기록 모달이 열려있으면 라우트 이동 전에 먼저 닫는다.
-const { pushBackHandler } = useBackButtonStack()
-let unregisterModalBackHandler: (() => void) | null = null
-watch(openModal, (v) => {
-  if (v) {
-    unregisterModalBackHandler = pushBackHandler(() => closeModal())
-  } else {
-    unregisterModalBackHandler?.()
-    unregisterModalBackHandler = null
-  }
-})
+// 일상 기록 모달 4종의 focus trap + 배경 스크롤 잠금 + ESC + Android 뒤로가기는
+// CommonBottomSheet 가 내장 처리한다(이중 등록 금지).
 const submitting = ref<boolean>(false)
 const pending = ref<boolean>(true)
 const categories = ref<CategoryResponse[]>([])
@@ -916,8 +853,9 @@ function fmtTime(s: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
-function onBackdrop() {
-  // 진행 중인 타이머/추적이 있으면 백드롭 클릭으로 닫지 않음 (TW2 동작).
+// 집중/거리 시트의 닫기 요청(백드롭/X/ESC/뒤로가기/핸들 드래그) 가드 — 진행 중인
+// 타이머/추적이 있으면 실수 닫기로 기록이 유실되지 않게 무시한다 (TW2 동작 확장).
+function onSheetClose() {
   if (openModal.value === 'focus' && focusPhase.value !== 'setup') return
   if (openModal.value === 'distance' && distPhase.value !== 'idle') return
   closeModal()
@@ -1277,15 +1215,16 @@ let disposed = false
 onBeforeUnmount(() => {
   clearFocusTimer()
   clearDistWatch()
-  unregisterModalBackHandler?.()
-  unregisterModalBackHandler = null
   disposed = true
   removePauseListener?.()
   removeResumeListener?.()
 })
 
 // ─── 초기 로드 ───
+const loadError = ref<boolean>(false)
+
 async function loadInitial() {
+  loadError.value = false
   try {
     const [catRes, recRes, friRes] = await Promise.all([
       sdk.listCategories({ client }),
@@ -1301,14 +1240,24 @@ async function loadInitial() {
     if (!friRes.error) {
       friends.value = (castData<FriendInfo[]>(friRes.data) ?? []) as FriendInfo[]
     }
+    // HTTP 에러(res.error)는 throw 하지 않아 조용히 빈 목록으로 위장되던 문제(audit C4-1) —
+    // 하나라도 실패하면 에러 상태로 승격해 재시도 UI 를 보인다.
+    if (catRes.error || recRes.error || friRes.error) {
+      loadError.value = true
+    }
   }
-  catch (e) {
-    toast.error((e as Error).message)
+  catch {
+    loadError.value = true
   }
   finally {
-    // 실패해도 스켈레톤을 영구히 남기지 않는다 — 빈 목록이 낫다.
+    // 실패해도 스켈레톤을 영구히 남기지 않는다.
     pending.value = false
   }
+}
+
+function retryInitial() {
+  pending.value = true
+  void loadInitial()
 }
 
 onMounted(() => {
@@ -1332,24 +1281,3 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.sheet-enter-active,
-.sheet-leave-active {
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-}
-/* Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate` 속성으로 컴파일된다. CSS 는 개별 translate 를
-   먼저 적용하고 transform 을 합성하므로, transform 에 X 축을 다시 넣으면 -50% 가 두 번 걸려 시트가
-   자기 폭만큼 왼쪽에서 대각선으로 날아든다. X 중앙정렬은 translate 에 맡기고 Y 축만 다룬다. */
-.sheet-enter-from,
-.sheet-leave-to {
-  transform: translateY(100%);
-}
-</style>

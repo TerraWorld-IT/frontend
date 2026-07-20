@@ -10,6 +10,7 @@
   <Transition name="update-gate">
     <div
       v-if="updateRequired"
+      ref="root"
       class="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-5 px-8 text-center bg-riso-cream"
       style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px)"
       role="alertdialog"
@@ -39,8 +40,11 @@
 <script setup lang="ts">
 const { updateRequired, check, openStore, isNative } = useAppUpdate()
 
-// 전체 화면을 덮는 차단 게이트지만, 뒤 콘텐츠가 스크롤되지 않도록 잠근다(일관성 + 안전).
-useOverlayScrollLock(updateRequired)
+// aria-modal 선언에 실제 focus containment 를 부여한다 (audit C1-5). 배경 스크롤 잠금은
+// useDialogFocusTrap 내부의 useOverlayScrollLock 이 함께 처리한다.
+// 주의: onEscape 콜백은 넘기지 않는다 — 차단 게이트라 ESC 로 닫히면 안 된다.
+const root = ref<HTMLElement | null>(null)
+useDialogFocusTrap(root, computed<boolean>(() => updateRequired.value))
 
 let removeResumeListener: (() => void) | null = null
 

@@ -52,8 +52,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   App.addListener('appUrlOpen', (event) => {
     try {
       const url = new URL(event.url)
-      if (DEEP_LINK_RE.test(url.pathname)) {
-        navigateTo(url.pathname)
+      // 커스텀 스킴(terraworld://share/{code})은 URL 파싱상 'share' 가 host 로 들어가
+      // pathname 만 보면 '/{code}' 라 매칭에 실패한다 (Codex R1) — host+pathname 으로 정규화.
+      // path-form(terraworld:/share/x, terraworld:///share/x)은 host 가 비어 선행 '/' 가
+      // 중복되므로 하나로 접는다 (Codex R2).
+      const path = url.protocol === 'terraworld:'
+        ? `/${url.host}${url.pathname}`.replace(/^\/+/, '/')
+        : url.pathname
+      if (DEEP_LINK_RE.test(path)) {
+        navigateTo(path)
       }
     } catch {
       // Invalid URL — ignore
@@ -101,6 +108,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     PushNotifications.addListener('registration', async (token) => {
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
+      // iOS: Firebase Messaging 미통합 상태라 이 토큰은 raw APNs 토큰이다 — 백엔드 FcmService 는
+      // FCM registration token 을 기대하므로 등록해도 발송이 실패하고 무효 행만 쌓인다
+      // (Codex R1). APNs→FCM 토큰 교환(FirebaseMessaging SPM) 통합 전까지 iOS 등록은 보류.
+      // 통합 시 AppDelegate 가 FCM 토큰을 post 하게 되면 이 가드를 제거할 것.
+      if (resolveDevicePlatform() === 'IOS') return
+
       // 서버에 디바이스 토큰 등록 — 멱등 (동일 user, token 은 lastSeenAt 만 갱신)
       // 인증/리프레시는 plugins/openapi.ts 의 인터셉터가 자동 처리.
       // 등록 실패는 silent (UX 차단 없음) — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
@@ -127,6 +140,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       }
     })
 
+    // OS 레벨 등록 실패(APNs/FCM) — 이전에는 리스너 자체가 없어 invisible 했다 (audit B3-2).
+    // 사용자 UX 는 차단하지 않고 GA4 신호로만 가시화 (SEC-008 정책과 동일).
+    PushNotifications.addListener('registrationError', (err) => {
+      trackPushRegistrationFailed({ reason: `os_registration_error:${String(err?.error ?? '').slice(0, 80)}` })
+    })
+
     PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
       const data = notification.notification.data as Record<string, string> | undefined
       const route = data?.route
@@ -134,6 +153,13 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       if (route && SAFE_ROUTE_RE.test(route)) {
         navigateTo(route)
       }
+    })
+
+    // Foreground 수신 — OS 배너가 안 뜨는 포그라운드 상태에서 조용히 유실되던 알림을
+    // 인앱 토스트로 표시 (audit B3-3). title 없으면 body 폴백, 둘 다 없으면 무표시.
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      const title = notification.title ?? notification.body
+      if (title) useToast().info(title)
     })
 
     // 권한 요청 + 등록 트리거 — 부팅 경로에서 로그인-이후로 이동 (2026-07-15 FE-01).
@@ -173,6 +199,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       triggerPushRegistration()
     })
     triggerPushRegistration()
+
+    // 미완료 IAP 콜드스타트 복구 (audit B1-2) — verify 에 bearer 가 필요하므로 로그인 이후에만.
+    // 멱등(등록 1회 가드)이라 로그인 전이마다 호출해도 안전. fire-and-forget — 부팅 비차단.
+    watch(isLoggedIn, (loggedIn) => {
+      if (loggedIn) void recoverPendingPurchases()
+    }, { immediate: true })
   } catch {
     // Push not available — ignore (e.g., iOS simulator)
   }

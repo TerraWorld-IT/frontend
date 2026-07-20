@@ -55,8 +55,16 @@
     <div v-if="pending" class="py-6">
       <CommonLoading variant="skeleton" />
     </div>
-    <div v-else-if="fetchError" class="py-12 text-center text-riso-poppy text-sm">
-      {{ fetchError }}
+    <!-- 에러 상태 — 텍스트만으론 복구 수단이 없다 (audit C4-2) — 재시도 버튼 제공 -->
+    <div v-else-if="fetchError" class="py-12 text-center space-y-3">
+      <p class="text-riso-poppy text-sm">{{ fetchError }}</p>
+      <button
+        type="button"
+        class="px-4 py-2 rounded-full bg-riso-sage text-white text-sm riso-shadow-sm active:scale-95 transition-transform"
+        @click="load"
+      >
+        {{ $t('common.retry') }}
+      </button>
     </div>
     <ol v-else-if="data && data.entries.length > 0" class="space-y-1.5">
       <li

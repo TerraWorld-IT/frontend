@@ -11,6 +11,7 @@
       "coinReward": "Coin reward",
       "dailyLimit": "Daily limit",
       "empty": "No categories",
+      "loadError": "Failed to load categories",
       "title": "Category reward management",
       "token": "Token",
       "tokenReward": "Token reward"
@@ -54,6 +55,7 @@
       "deactivated": "Item deactivated",
       "created": "Item registered",
       "createError": "Failed to register the item",
+      "loadError": "Failed to load items",
       "fieldName": "Name",
       "fieldAsset": "Asset (emoji or URL)",
       "fieldPriceType": "Payment currency",
@@ -357,7 +359,8 @@
   "payment": {
     "appOnly": "Purchases are only available in the app",
     "moduleLoadFail": "Failed to load the payment module",
-    "paidButFailed": "Payment was confirmed but processing failed. Please try again shortly or contact support"
+    "paidButFailed": "Payment was confirmed but processing failed. Please try again shortly or contact support",
+    "recovered": "A pending purchase was restored and applied"
   },
   "profile": {
     "accountSection": "Account",
@@ -612,7 +615,7 @@
     "paymentNote": "※ Activates after Phase 4 (Play Billing / iOS IAP) integration. Payment flow not yet implemented.",
     "paymentOptions": "Payment options (planned)",
     "processing": "Processing...",
-    "purchasePhase4": "The payment module will be integrated in Phase 4",
+    "purchaseFailedRetry": "We couldn't complete your purchase. If a payment went through, it will be applied automatically shortly — please check again.",
     "purchaseSuccess": "Purchase complete — Free Placement is now enabled"
   },
   "wallet": {

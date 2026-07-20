@@ -4,7 +4,8 @@
 
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
       <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
-      <p class="text-xs text-riso-dark/60">{{ fetchError.message }}</p>
+      <!-- raw error.message 는 사용자에게 노출하지 않는다 (audit C4-3) — curated 문구로 대체 -->
+      <p class="text-xs text-riso-dark/60">{{ $t('common.loadFailDesc') }}</p>
       <button class="mt-2 px-4 py-2 rounded-full bg-riso-sage text-white text-sm" @click="load">
         {{ $t('common.retry') }}
       </button>
@@ -382,7 +383,7 @@
           <div class="bg-white rounded-[16px] p-6 flex flex-col max-h-[80dvh] border border-black/10">
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-bold text-[18px] text-black">보유 아이템</h3>
-              <button type="button" class="text-gray-400 hover:text-gray-600" @click="showItemsDialog = false">✕</button>
+              <button type="button" class="text-gray-400 hover:text-gray-600" :aria-label="$t('common.close')" @click="showItemsDialog = false">✕</button>
             </div>
             <div class="overflow-y-auto flex-1">
               <div v-if="ownedItems.length === 0" class="text-center py-8 text-gray-400">
@@ -430,7 +431,7 @@ const showItemsDialog = ref<boolean>(false)
 
 // bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
 const itemsDialogRoot = ref<HTMLElement | null>(null)
-useDialogFocusTrap(itemsDialogRoot, showItemsDialog)
+useDialogFocusTrap(itemsDialogRoot, showItemsDialog, () => { showItemsDialog.value = false })
 
 // Android 하드웨어 뒤로가기 — bespoke 오버레이라 직접 back-stack 에 등록.
 const { pushBackHandler } = useBackButtonStack()

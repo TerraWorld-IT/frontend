@@ -156,6 +156,18 @@ export function useAuth() {
   }
 
   async function signOutAndClear() {
+    // 푸시 토큰 로컬 정리 (audit B3-4) — 로그아웃 후 이전 사용자 토큰이 localStorage 에
+    // 잔존하던 문제. 서버측 디바이스 행 비활성화 API 는 아직 없어(등록/upsert 만 존재)
+    // 다음 사용자가 registerDevice 할 때 이전 소유 행이 비활성화되는 경로에 의존한다 —
+    // 같은 기기 무로그인 상태의 잔여 푸시 수신은 서버 API 신설 전까지 알려진 한계.
+    if (import.meta.client) {
+      try {
+        useNative().clearPushToken()
+      }
+      catch {
+        // 네이티브 미지원/플러그인 부재 — 로그아웃 자체를 막지 않는다.
+      }
+    }
     try {
       await authClient.signOut()
     }

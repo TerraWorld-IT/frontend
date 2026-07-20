@@ -7,6 +7,21 @@
 
     <CommonLoading v-if="loading" />
 
+    <!-- 조회 실패를 "카테고리 없음" 빈 상태로 위장하지 않는다 (audit C4-6) — 배너 + 재시도로 구분 -->
+    <div
+      v-else-if="loadError"
+      class="bg-white rounded-2xl p-4 border border-riso-poppy/30 riso-shadow-sm flex items-center justify-between gap-3"
+    >
+      <p class="text-sm text-riso-poppy">{{ $t('admin.categories.loadError') }}</p>
+      <button
+        type="button"
+        class="shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        @click="reload"
+      >
+        {{ $t('common.retry') }}
+      </button>
+    </div>
+
     <div v-else class="space-y-3">
       <div
         v-for="row in rows"
@@ -91,15 +106,21 @@ interface CategoryRow {
 }
 
 const loading = ref<boolean>(true)
+const loadError = ref<boolean>(false)
 const saving = ref<number | null>(null)
 const rows = ref<CategoryRow[]>([])
 
 async function loadCategories() {
+  loadError.value = false
+  // @hey-api client 는 서버 거부(4xx/5xx)를 throw 가 아닌 { error } 로 resolve — 미확인 시
+  // 실패가 "카테고리 없음" 빈 목록으로 위장된다 (audit C4-6). 명시 체크로 배너 표기.
   const { data, error } = await sdk.listCategories({ client })
-  let categories: CategoryResponse[] = []
-  if (!error && data) {
-    categories = castData<import('@terraworld-it/openapi-frontend').CategoryListResponse>(data)?.categories ?? []
+  if (error) {
+    loadError.value = true
+    rows.value = []
+    return
   }
+  const categories: CategoryResponse[] = castData<import('@terraworld-it/openapi-frontend').CategoryListResponse>(data)?.categories ?? []
   rows.value = categories.map((cat) => ({
     cat,
     form: {
@@ -108,6 +129,12 @@ async function loadCategories() {
       dailyLimit: cat.dailyLimit ?? 0,
     },
   }))
+}
+
+async function reload() {
+  loading.value = true
+  await loadCategories()
+  loading.value = false
 }
 
 async function saveRewards(categoryId: number) {
@@ -145,8 +172,5 @@ async function saveRewards(categoryId: number) {
   }
 }
 
-onMounted(async () => {
-  await loadCategories()
-  loading.value = false
-})
+onMounted(reload)
 </script>

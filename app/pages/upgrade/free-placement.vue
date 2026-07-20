@@ -48,6 +48,7 @@ async function onPurchase() {
   // (기존 'free-placement' 하이픈은 백엔드 매핑과 불일치 — 2026-06-04 fix)
   const ok = await startPurchase('free_placement_unlock')
   if (ok) toast.success(t('upgrade.purchaseSuccess'))
-  else toast.info(t('upgrade.purchasePhase4'))
+  // 실결제 연동 완료 — 구 "Phase 4 통합 예정" 문구는 오도적 (audit B1-3). 실패 안내로 교체.
+  else toast.info(t('upgrade.purchaseFailedRetry'))
 }
 </script>

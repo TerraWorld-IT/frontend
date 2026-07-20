@@ -5,8 +5,21 @@
       <p class="text-sm text-riso-dark/50">{{ $t('admin.index.subtitle') }}</p>
     </div>
 
-    <!-- Dashboard stats -->
-    <div class="grid grid-cols-2 gap-3">
+    <!-- Dashboard stats: 실패를 "0건"으로 위장하지 않는다 (audit C4-6) — 배너 + 재시도로 구분 -->
+    <div
+      v-if="dashboardError"
+      class="bg-white rounded-2xl p-4 border border-riso-poppy/30 riso-shadow-sm flex items-center justify-between gap-3"
+    >
+      <p class="text-sm text-riso-poppy">{{ $t('admin.index.loadError') }}</p>
+      <button
+        type="button"
+        class="shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        @click="loadDashboard"
+      >
+        {{ $t('common.retry') }}
+      </button>
+    </div>
+    <div v-else class="grid grid-cols-2 gap-3">
       <div
         v-for="stat in stats"
         :key="stat.key"
@@ -52,9 +65,9 @@ definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const { t } = useI18n()
 const { sdk, client } = useOpenApi()
-const toast = useToast()
 
 const dashboardLoading = ref<boolean>(true)
+const dashboardError = ref<boolean>(false)
 const dashboard = ref<AdminDashboard | null>(null)
 
 const stats = computed(() => [
@@ -70,16 +83,23 @@ const menus = computed(() => [
   //   무관해 no-op(오도). 실 환전 비율/수수료/일일캡은 백엔드 exchange_rates SoT(V28 시드 관리).
 ])
 
-onMounted(async () => {
+async function loadDashboard() {
+  dashboardLoading.value = true
+  dashboardError.value = false
   try {
-    const { data } = await sdk.getAdminDashboard({ client })
+    // @hey-api client 는 서버 거부(4xx/5xx)를 throw 가 아닌 { error } 로 resolve — 미확인 시
+    // 대시보드가 조용히 "0건" 으로 위장된다 (audit C4-6). 명시 체크로 catch 라우팅.
+    const { data, error } = await sdk.getAdminDashboard({ client })
+    if (error) throw error
     dashboard.value = castData<AdminDashboard>(data) ?? null
   }
   catch {
-    toast.error(t('admin.index.loadError'))
+    dashboardError.value = true
   }
   finally {
     dashboardLoading.value = false
   }
-})
+}
+
+onMounted(loadDashboard)
 </script>

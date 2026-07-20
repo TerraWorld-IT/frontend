@@ -26,9 +26,14 @@ export function useToast() {
     }
   }
 
+  /** 사용자 스와이프 등 명시적 닫기. 타이머 만료 전에 목록에서 제거한다 (만료 타이머는 no-op 이 됨). */
+  function dismiss(id: number) {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }
+
   function success(message: string) { show(message, 'success') }
   function error(message: string) { show(message, 'error') }
   function info(message: string) { show(message, 'info') }
 
-  return { toasts: readonly(toasts), success, error, info }
+  return { toasts: readonly(toasts), success, error, info, dismiss }
 }
