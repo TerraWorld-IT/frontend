@@ -224,7 +224,9 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         }
       }, 300)
     })
-    Keyboard.addListener('keyboardWillHide', () => {
+    // keyboard-open 해제는 Did(완료) 시점 — Will(시작) 시점에 제거하면 닫힘 애니메이션 중의
+    // 두 번째 백드롭 탭이 "키보드 닫는 중" 판정을 놓쳐 시트까지 닫는다 (Codex R1 F6).
+    Keyboard.addListener('keyboardDidHide', () => {
       document.body.classList.remove('keyboard-open')
     })
   } catch {

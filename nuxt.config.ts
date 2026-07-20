@@ -186,6 +186,8 @@ export default defineNuxtConfig({
       adsenseSlot: process.env.NUXT_PUBLIC_ADSENSE_SLOT || '',
       // AdMob (Android 모바일 앱). dev 빌드는 Capacitor 설정의 testing 모드로 자동 우회.
       admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
+      // 인스타 스토리 직접 공유(source_application) — Meta App ID. 미설정 시 시스템 공유 폴백.
+      metaAppId: process.env.NUXT_PUBLIC_META_APP_ID || '',
       // 아이템 에셋 base (낙서장 req4/8). 로컬 `/items` 기본 → R2 CDN 은 env 로만 교체.
       // slug→`${assetBase}/${slug}.png` 규약이라 나중에 png 파일만 바꾸면 코드 변경 0.
       assetBase: process.env.NUXT_PUBLIC_ASSET_BASE || '/items',

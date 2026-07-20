@@ -62,6 +62,23 @@
         </svg>
       </button>
 
+      <!-- 설정 (계정 · 동의 항목 관리 — /profile/settings 서브페이지) -->
+      <NuxtLink
+        to="/profile/settings"
+        class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] relative transition-all active:scale-[0.98] border border-black/10"
+      >
+        <div class="flex items-center gap-[12px]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#525252" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+          <div class="flex flex-col items-start">
+            <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">설정</span>
+            <span class="text-[10px] text-[#99a1af] leading-[15px] tracking-[0.117px]">계정 · 동의 항목 관리</span>
+          </div>
+        </div>
+        <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+          <path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+        </svg>
+      </NuxtLink>
+
       <!-- 나의 프로필 -->
       <div class="bg-white rounded-[16px] w-full relative border border-black/10">
         <div class="p-[21px] flex flex-col gap-[24px]">
@@ -236,134 +253,23 @@
         </div>
       </div>
 
+      <!-- 월간 랭킹 (계정과 무관 — 단독 진입 행) -->
+      <NuxtLink
+        to="/ranking"
+        class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] relative transition-all active:scale-[0.98] border border-black/10"
+      >
+        <div class="flex items-center gap-[12px]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#525252" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
+          <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ $t('profile.menuRanking') }}</span>
+        </div>
+        <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
+      </NuxtLink>
+
       <!-- 커스텀 카테고리·메모지 테마 섹션 제거 (2026-07-20 사용자 결정):
            커스텀 카테고리는 습관/일상 개편 후 기록 플로우에 소비처가 없고(시스템 카테고리
            고정 매핑), 메모지 테마는 선택해도 화면에 효과가 없는 dead feature 였다 (audit B4-5). -->
 
-      <!-- 동의 항목 관리 (FE 실기능 보존, TW2 카드 스타일) -->
-      <div class="bg-white rounded-[16px] w-full relative border border-black/10">
-        <div class="p-[21px] flex flex-col gap-[16px]">
-          <div class="flex items-center gap-[8px]">
-            <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-              <g clip-path="url(#clip_user_c)">
-                <path :d="P.user.circle" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-                <path :d="P.user.head" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-                <path :d="P.user.body" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              </g>
-              <defs><clipPath id="clip_user_c"><rect fill="white" width="20" height="20" /></clipPath></defs>
-            </svg>
-            <span class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[27px]">{{ $t('profile.consentSection') }}</span>
-          </div>
-          <p class="text-[12px] text-[#525252]">{{ $t('profile.consentDesc') }}</p>
-          <div class="flex flex-col gap-[8px]">
-            <label
-              v-for="item in consentToggles"
-              :key="`${item.key}-${consentRenderKey}`"
-              class="w-full flex items-center justify-between p-[13px] bg-white border border-black/10 rounded-[12px] cursor-pointer"
-            >
-              <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ t(`auth.consent.${item.key}`) }}</span>
-              <input
-                type="checkbox"
-                :checked="item.value"
-                :disabled="consentSaving"
-                class="w-5 h-5 accent-riso-sage disabled:opacity-50"
-                @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
-              >
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- 계정 -->
-      <div class="bg-white rounded-[16px] w-full relative border border-black/10">
-        <div class="p-[21px] flex flex-col gap-[24px]">
-          <div class="flex items-center gap-[8px] pb-0">
-            <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-              <g clip-path="url(#clip_user_a)">
-                <path :d="P.user.circle" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-                <path :d="P.user.head" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-                <path :d="P.user.body" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              </g>
-              <defs><clipPath id="clip_user_a"><rect fill="white" width="20" height="20" /></clipPath></defs>
-            </svg>
-            <span class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[27px]">{{ $t('profile.accountSection') }}</span>
-          </div>
-
-          <div class="flex flex-col gap-[8px]">
-            <!-- 월간 랭킹 -->
-            <NuxtLink
-              to="/ranking"
-              class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
-            >
-              <div class="flex items-center gap-[12px]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#525252" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
-                <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ $t('profile.menuRanking') }}</span>
-              </div>
-              <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-            </NuxtLink>
-
-            <!-- 이용 안내 -->
-            <button
-              type="button"
-              class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
-              @click="toast.info(t('profile.menuGuideComingSoon'))"
-            >
-              <div class="flex items-center gap-[12px]">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                  <g clip-path="url(#clip_guide)">
-                    <path :d="P.info.circle" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                    <path d="M8 10.6667V8" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                    <path d="M8 5.33333H8.00667" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  </g>
-                  <defs><clipPath id="clip_guide"><rect fill="white" width="16" height="16" /></clipPath></defs>
-                </svg>
-                <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ $t('profile.menuGuide') }}</span>
-              </div>
-              <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-            </button>
-
-            <!-- 로그인 -->
-            <NuxtLink
-              to="/auth/login"
-              class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
-            >
-              <div class="flex items-center gap-[12px]">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                  <path :d="P.login.door" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  <path :d="P.login.arrow" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  <path d="M10 8H2" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                </svg>
-                <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ $t('auth.login') }}</span>
-              </div>
-              <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-            </NuxtLink>
-
-            <!-- 로그아웃 (FE 실기능) -->
-            <button
-              type="button"
-              class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
-              :disabled="loggingOut"
-              @click="onLogout"
-            >
-              <div class="flex items-center gap-[12px]">
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                  <path :d="P.logout.door" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  <path :d="P.logout.arrow" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  <path d="M14 8H6" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                </svg>
-                <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ loggingOut ? $t('profile.loggingOut') : $t('profile.logout') }}</span>
-              </div>
-              <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-            </button>
-          </div>
-
-          <div class="rounded-[12px] p-[12px] text-center" style="background: #f9fafb">
-            <p class="text-[12px] text-black leading-[16px]">
-              {{ $t('profile.itemsHint') }}
-            </p>
-          </div>
-        </div>
-      </div>
+      <!-- 동의 항목 관리·계정 카드는 /profile/settings 서브페이지로 이전 (2026-07-21 사용자 결정) -->
 
       <!-- 보유 아이템 다이얼로그 -->
       <Transition name="fade">
@@ -409,7 +315,6 @@
 
 <script setup lang="ts">
 import type { UserMeResponse } from '@terraworld-it/openapi-frontend'
-import { authClient } from '~/lib/auth-client'
 // `useUserStore` 는 auto-import 가 걸리지 않는다 (frontend/CLAUDE.md § 함정) — 명시 import.
 import { useUserStore } from '~/stores/user'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
@@ -418,13 +323,11 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const userStore = useUserStore()
 const toast = useToast()
-const { t } = useI18n()
 
 const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 // 프로필은 스토어의 TTL 캐시(15초) 뷰를 그대로 읽는다 — 탭 왕복마다 getMe 를 다시 치지 않는다.
 const user = computed<UserMeResponse | null>(() => userStore.me as UserMeResponse | null)
-const loggingOut = ref<boolean>(false)
 const showItemsDialog = ref<boolean>(false)
 
 // bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
@@ -474,14 +377,6 @@ const P = {
     outer: 'M1.37467 7.768C1.31911 7.91768 1.31911 8.08232 1.37467 8.232C1.9158 9.5441 2.83434 10.666 4.01385 11.4554C5.19335 12.2448 6.5807 12.6663 8 12.6663C9.4193 12.6663 10.8066 12.2448 11.9862 11.4554C13.1657 10.666 14.0842 9.5441 14.6253 8.232C14.6809 8.08232 14.6809 7.91768 14.6253 7.768C14.0842 6.4559 13.1657 5.33403 11.9862 4.5446C10.8066 3.75517 9.4193 3.33374 8 3.33374C6.5807 3.33374 5.19335 3.75517 4.01385 4.5446C2.83434 5.33403 1.9158 6.4559 1.37467 7.768Z',
     inner: 'M8 10C9.10457 10 10 9.10457 10 8C10 6.89543 9.10457 6 8 6C6.89543 6 6 6.89543 6 8C6 9.10457 6.89543 10 8 10Z',
   },
-  login: {
-    door: 'M10 2H12.6667C13.0203 2 13.3594 2.14048 13.6095 2.39052C13.8595 2.64057 14 2.97971 14 3.33333V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H10',
-    arrow: 'M6.66667 11.3333L10 8L6.66667 4.66667',
-  },
-  logout: {
-    door: 'M6 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V3.33333C2 2.97971 2.14048 2.64057 2.39052 2.39052C2.64057 2.14048 2.97971 2 3.33333 2H6',
-    arrow: 'M10.6667 11.3333L14 8L10.6667 4.66667',
-  },
 }
 
 // 보유재화 셀 — 아이콘은 IconsCurrencyIcon(TW2 Figma path 정확 이관) 컴포넌트로 렌더.
@@ -503,62 +398,7 @@ function formatBalance(amount: number): string {
   return Math.floor(amount).toLocaleString()
 }
 
-// P3-2 (PIPA): 동의 항목 관리 — better-auth session 의 동의 필드를 읽어 토글, 변경 시 updateUser.
-const session = authClient.useSession()
-const consentSaving = ref<boolean>(false)
-const consentRenderKey = ref<number>(0)
-// 가입 시 받는 선택 동의 5종(photo/push/adId/analytics/marketing)과 1:1 로 맞춘다.
-// 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
-const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
-  { key: 'marketing', field: 'marketingConsent', value: false },
-  { key: 'analytics', field: 'analyticsConsent', value: false },
-  { key: 'adId', field: 'adConsent', value: false },
-  { key: 'photo', field: 'photoConsent', value: false },
-  { key: 'push', field: 'pushConsent', value: false },
-])
-
-watch(
-  () => session.value?.data?.user,
-  (u) => {
-    const cu = u as {
-      marketingConsent?: boolean
-      analyticsConsent?: boolean
-      adConsent?: boolean
-      photoConsent?: boolean
-      pushConsent?: boolean
-    } | undefined
-    if (!cu) return
-    consentToggles.value = [
-      { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
-      { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
-      { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
-      { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
-      { key: 'push', field: 'pushConsent', value: cu.pushConsent ?? false },
-    ]
-  },
-  { immediate: true },
-)
-
-async function onConsentToggle(key: string, checked: boolean) {
-  const item = consentToggles.value.find(c => c.key === key)
-  if (!item || consentSaving.value) return
-  consentSaving.value = true
-  try {
-    const { error } = await authClient.updateUser(
-      { [item.field]: checked } as unknown as Parameters<typeof authClient.updateUser>[0],
-    )
-    if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
-    item.value = checked
-    toast.success(t('profile.consentSaved'))
-  }
-  catch (e) {
-    toast.error((e as Error).message)
-  }
-  finally {
-    consentSaving.value = false
-    consentRenderKey.value++
-  }
-}
+// 동의 항목 관리 + 계정(이용 안내/로그인/로그아웃) 로직은 /profile/settings 로 이전 (2026-07-21).
 
 async function load() {
   pending.value = true
@@ -573,23 +413,6 @@ async function load() {
   }
   finally {
     pending.value = false
-  }
-}
-
-async function onLogout() {
-  if (loggingOut.value) return
-  loggingOut.value = true
-  try {
-    const { signOutAndClear } = useAuth()
-    await signOutAndClear()
-    toast.success(t('profile.loggedOut'))
-    await navigateTo('/auth/login')
-  }
-  catch (e) {
-    toast.error((e as Error).message)
-  }
-  finally {
-    loggingOut.value = false
   }
 }
 

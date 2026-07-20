@@ -125,6 +125,11 @@
             <p class="text-[14px] text-[#525252] leading-[20px] tracking-[-0.3px]">
               함께 할 친구 선택
             </p>
+            <!-- 연동 동작 안내 — "선택해도 아무 일 없어 보임" 체감 해소 (2026-07-21 사용자 리포트) -->
+            <p class="text-[11px] text-[#99a1af] leading-[16px] -mt-[4px]">
+              습관을 만들면 친구에게 알림이 가요. 친구도 나를 선택해 습관을 만들면
+              서로의 체크인 알림을 받고, 7일 완주 보상이 <span class="font-semibold text-[#f092f0]">2배</span>가 돼요
+            </p>
             <div
               v-for="friend in friends"
               :key="friend.userId"
@@ -764,7 +769,7 @@ async function submitHabit() {
     const created = await createHabit(title, wasFriendMode ? selectedFriendId.value : null)
     if (created) {
       toast.success(wasFriendMode
-        ? `'${title}' 친구와 함께 습관을 시작했어요 🤝`
+        ? `'${title}' 함께 습관 시작! 친구에게 알림을 보냈어요 🤝`
         : `'${title}' 습관을 시작했어요 🌱`)
       habitInput.value = ''
       selectedFriendId.value = null
@@ -1092,6 +1097,44 @@ let distWatchId: number | null = null
 let distTimer: ReturnType<typeof setInterval> | null = null
 let distPrev: Coord | null = null
 
+// ─── 네이티브 백그라운드 트래커 (2026-07-21 — Codex 설계 [A]) ───
+// 가용 시 웹 watch 대신 네이티브 fix 큐를 단일 소스로 사용(전경 5s polling + 복귀/종료 drain).
+// 서비스는 전경/배경 모두 수집하므로 웹 watch 와 병행하면 이중 집계 — 병행 금지.
+// 플러그인 부재(웹/구버전 셸)·시작 실패 시 기존 웹 watch + 복귀 하한 보정으로 폴백.
+let nativeTracking = false
+let nativeSessionId = ''
+let nativeLastSeq = 0
+let nativeDrainTimer: ReturnType<typeof setInterval> | null = null
+// 세션 세대 토큰 — 비동기 start 가 완료되기 전에 세션이 리셋/이탈되면(gen 불일치) 결과를
+// 폐기하고 서비스를 즉시 중지한다 (Codex R1 F3 — start 대기창 race).
+let distSessionGen = 0
+
+function applyNativeFixes(fixes: import('~/lib/nativeDistanceTracker').DistanceFix[]) {
+  for (const f of fixes) {
+    if (f.seq <= nativeLastSeq) continue
+    nativeLastSeq = f.seq
+    if (f.accuracy > 50) continue // 저정확도 fix 배제 (도심 캐니언/실내 오차)
+    const curr = { lat: f.lat, lng: f.lng }
+    if (distPrev) {
+      const d = haversine(distPrev, curr)
+      if (d < 50) distance.value += d
+    }
+    distPrev = curr
+  }
+}
+
+async function drainNative() {
+  if (!nativeTracking) return
+  try {
+    const { DistanceTracker } = await import('~/lib/nativeDistanceTracker')
+    const { fixes } = await DistanceTracker.drain({ sessionId: nativeSessionId, afterSeq: nativeLastSeq })
+    applyNativeFixes(fixes)
+  }
+  catch {
+    // drain 실패는 일시적일 수 있음 — 다음 주기/복귀에서 재시도 (거리 유실은 seq 로 방지).
+  }
+}
+
 function haversine(a: Coord, b: Coord): number {
   const R = 6371000
   const dLat = (b.lat - a.lat) * Math.PI / 180
@@ -1113,6 +1156,8 @@ function clearDistWatch() {
 }
 
 function resetDistance() {
+  distSessionGen += 1 // 진행 중(pending) 네이티브 start 무효화 (Codex R1 F3)
+  abortNativeTracking()
   clearDistWatch()
   distPhase.value = 'idle'
   distance.value = 0
@@ -1145,7 +1190,7 @@ function beginDistanceWatch() {
   )
 }
 
-function startDistance() {
+async function startDistance() {
   if (!import.meta.client || !navigator.geolocation) {
     distError.value = '이 기기에서 위치 서비스를 지원하지 않습니다'
     return
@@ -1156,15 +1201,77 @@ function startDistance() {
   distTimer = setInterval(() => {
     distElapsed.value += 1
   }, 1000)
-  beginDistanceWatch()
+
+  // 네이티브 트래커 우선 (백그라운드에서도 수집 유지). 화면이 보이는 지금 시점에 시작해야
+  // while-in-use FGS 제약을 만족한다. 실패/권한거부(coarse-only 포함, 플러그인이 명시
+  // reject)·GPS 꺼짐 시 웹 watch 폴백.
+  nativeTracking = false
+  const gen = ++distSessionGen
+  try {
+    const { isNativeDistanceTrackerAvailable, DistanceTracker } = await import('~/lib/nativeDistanceTracker')
+    if (await isNativeDistanceTrackerAvailable()) {
+      // 권한 선확보: 웹 프롬프트(WebView→앱 권한 브리지)로 먼저 확보. 명시 거부면 웹 watch
+      // 폴백(거부 에러 UI 를 기존 경로가 표시). precise/GPS 검증은 플러그인 start 가 수행.
+      const permitted = await new Promise<boolean>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => resolve(true),
+          err => resolve(err.code !== GeolocationPositionError.PERMISSION_DENIED),
+          { timeout: 6000, maximumAge: 60000 },
+        )
+      })
+      if (permitted && gen === distSessionGen && distPhase.value === 'tracking') {
+        const sessionId = crypto.randomUUID()
+        await DistanceTracker.start({ sessionId })
+        // start 대기 중 세션이 리셋/이탈됐으면(gen 불일치) 서비스 즉시 회수 (Codex R1 F3).
+        if (gen !== distSessionGen || distPhase.value !== 'tracking') {
+          void DistanceTracker.stop({ sessionId, afterSeq: 0 }).catch(() => {})
+          return
+        }
+        nativeSessionId = sessionId
+        nativeLastSeq = 0
+        nativeTracking = true
+        // start 대기창에서 resume 이 웹 watch 를 먼저 띄웠을 수 있다 — 이중 집계 방지 강제 정리.
+        if (distWatchId !== null) {
+          navigator.geolocation.clearWatch(distWatchId)
+          distWatchId = null
+        }
+        nativeDrainTimer = setInterval(() => { void drainNative() }, 5000)
+      }
+    }
+  }
+  catch {
+    nativeTracking = false
+  }
+  if (gen !== distSessionGen || distPhase.value !== 'tracking') return
+  if (!nativeTracking && distWatchId === null) beginDistanceWatch()
 }
 
 // 앱이 백그라운드로 가면 watcher/타이머를 명시적으로 정리(배터리 낭비 방지 — WKWebView 는
 // 백그라운드 시 JS 실행이 멈춰 사실상 자동 정지되지만 Android WebView 는 보장이 약함).
-// 포그라운드 복귀 시 'tracking' 상태였다면 이어서 재개하되, 백그라운드 동안의 좌표 갭으로
-// 거리가 뻥튀기되지 않도록 distPrev 를 리셋(다음 위치부터 다시 기준점 삼음).
+//
+// 백그라운드→포그라운드 복구 정책 (2026-07-21 사용자 리포트 — 기존엔 구간 전체 유실):
+//  - 경과 시간: 벽시계(bgPauseAt) 기준으로 백그라운드 구간을 가산.
+//  - 거리: 진입 시점 좌표 → 복귀 시점 좌표의 직선거리(하한)를 가산. 도보/러닝 개연
+//    속도(≤12 m/s)일 때만 인정해 차량 이동·GPS 점프로 인한 뻥튀기를 배제.
+//  - 한계: 곡선 경로는 하한으로만 집계된다. 완전한 백그라운드 트래킹은 네이티브 백그라운드
+//    위치 플러그인(Android foreground service / iOS background mode + 스토어 정책 선언)이
+//    필요해 별도 트랙 — 본 복구는 그 전까지의 웹 레이어 브리지.
+let bgPauseAt: number | null = null
+let bgLastCoord: Coord | null = null
+// pause/resume 중첩 가드 — 복귀 보정(getCurrentPosition)이 대기 중일 때 또 pause 되면
+// stale 콜백이 distPrev/거리를 덮거나 백그라운드에서 watch 를 켤 수 있다 (Codex R2 #4).
+let bgEpoch = 0
+
 function pauseDistanceWatchForBackground() {
   if (distPhase.value !== 'tracking') return
+  bgEpoch += 1
+  bgPauseAt = Date.now()
+  bgLastCoord = distPrev
+  // 네이티브 경로: 서비스가 백그라운드에서도 계속 수집 — JS 쪽 polling 만 멈춘다.
+  if (nativeDrainTimer) {
+    clearInterval(nativeDrainTimer)
+    nativeDrainTimer = null
+  }
   if (distWatchId !== null) {
     navigator.geolocation.clearWatch(distWatchId)
     distWatchId = null
@@ -1175,15 +1282,94 @@ function pauseDistanceWatchForBackground() {
   }
 }
 function resumeDistanceWatchFromBackground() {
-  if (distPhase.value !== 'tracking' || distWatchId !== null) return
+  if (distPhase.value !== 'tracking') return
+  // 네이티브 경로: 백그라운드 fix 를 drain 으로 회수 — 직선거리 보정 불요(실경로 반영).
+  if (nativeTracking) {
+    const gap = bgPauseAt !== null ? Date.now() - bgPauseAt : 0
+    if (gap > 0) distElapsed.value += Math.floor(gap / 1000)
+    bgPauseAt = null
+    bgLastCoord = null
+    void drainNative()
+    if (!nativeDrainTimer) nativeDrainTimer = setInterval(() => { void drainNative() }, 5000)
+    if (!distTimer) distTimer = setInterval(() => { distElapsed.value += 1 }, 1000)
+    return
+  }
+  if (distWatchId !== null) return
+  const anchor = bgLastCoord
+  const gapMs = bgPauseAt !== null ? Date.now() - bgPauseAt : 0
+  if (gapMs > 0) distElapsed.value += Math.floor(gapMs / 1000)
+  bgPauseAt = null
+  bgLastCoord = null
   distPrev = null
-  distTimer = setInterval(() => { distElapsed.value += 1 }, 1000)
-  beginDistanceWatch()
+  if (!distTimer) distTimer = setInterval(() => { distElapsed.value += 1 }, 1000)
+
+  // 복귀 좌표를 **먼저 확정·가산**하고 그 좌표를 기준점(distPrev)으로 삼은 뒤 watch 를
+  // 시작한다 — watch 를 먼저 켜면 복귀 후 이동분이 watch 와 anchor 보정에 이중 집계되어
+  // "직선거리 하한"이 깨진다 (Codex R1 F4). epoch 캡처: 콜백 대기 중 재-pause 되면
+  // stale 콜백을 폐기한다 (Codex R2 #4).
+  const epoch = bgEpoch
+  function startWebResumeWatch() {
+    if (epoch !== bgEpoch || distPhase.value !== 'tracking' || distWatchId !== null || nativeTracking) return
+    if (import.meta.client && document.hidden) return // 백그라운드에서 watch 기동 금지
+    beginDistanceWatch()
+  }
+  if (anchor && gapMs > 3000 && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        // hidden 검사 포함 — pause 이벤트가 아직 전달되지 않은 숨김 직후 창에서의 상태 오염 방지
+        // (Codex R3 #2).
+        if (epoch !== bgEpoch || distPhase.value !== 'tracking' || (import.meta.client && document.hidden)) return
+        const curr = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        const d = haversine(anchor, curr)
+        const secs = Math.max(1, gapMs / 1000)
+        if (d / secs <= 12) distance.value += d
+        distPrev = curr
+        startWebResumeWatch()
+      },
+      () => {
+        // 복귀 좌표 획득 실패 — 보정 없이 watch 재개 (다음 픽스부터 정상 집계).
+        startWebResumeWatch()
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+    )
+  }
+  else {
+    startWebResumeWatch()
+  }
 }
 
-function stopDistance() {
+async function stopDistance() {
+  // 네이티브 경로: 서비스 종료 + 잔여 fix 회수 (orphan FGS 방지).
+  if (nativeTracking) {
+    nativeTracking = false
+    if (nativeDrainTimer) {
+      clearInterval(nativeDrainTimer)
+      nativeDrainTimer = null
+    }
+    try {
+      const { DistanceTracker } = await import('~/lib/nativeDistanceTracker')
+      const { fixes } = await DistanceTracker.stop({ sessionId: nativeSessionId, afterSeq: nativeLastSeq })
+      applyNativeFixes(fixes)
+    }
+    catch {
+      // 종료 drain 실패 — 이미 회수된 거리까지만 반영.
+    }
+  }
   clearDistWatch()
   distPhase.value = 'done'
+}
+
+/** 라우트 이탈/모달 강제 종료 시 네이티브 서비스 잔존 방지 (fire-and-forget). */
+function abortNativeTracking() {
+  if (!nativeTracking) return
+  nativeTracking = false
+  if (nativeDrainTimer) {
+    clearInterval(nativeDrainTimer)
+    nativeDrainTimer = null
+  }
+  void import('~/lib/nativeDistanceTracker')
+    .then(({ DistanceTracker }) => DistanceTracker.stop({ sessionId: nativeSessionId, afterSeq: nativeLastSeq }))
+    .catch(() => {})
 }
 
 async function saveDistance() {
@@ -1214,6 +1400,9 @@ let disposed = false
 
 onBeforeUnmount(() => {
   clearFocusTimer()
+  distSessionGen += 1 // pending 네이티브 start 무효화 — 이탈 후 서비스 기동 방지 (Codex R1 F3)
+  bgEpoch += 1 // pending 복귀 보정(getCurrentPosition) 무효화 — 이탈 후 watch 재생성 방지 (Codex R3 #3)
+  abortNativeTracking()
   clearDistWatch()
   disposed = true
   removePauseListener?.()
@@ -1277,6 +1466,16 @@ onMounted(() => {
         removeResumeListener = () => h.remove()
       })
     })
+  }
+  else {
+    // 일반 모바일 브라우저 — 탭 백그라운드 전환에도 같은 pause/resume 정책 적용
+    // (미연결 시 벽시계/거리 보정이 전혀 동작하지 않았다, Codex R1 F5).
+    function onVisibilityChange() {
+      if (document.hidden) pauseDistanceWatchForBackground()
+      else resumeDistanceWatchFromBackground()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    removePauseListener = () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }
 })
 </script>

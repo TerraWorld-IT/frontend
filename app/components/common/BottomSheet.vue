@@ -24,7 +24,7 @@
         aria-modal="true"
         :aria-label="ariaLabel"
       >
-        <div class="sheet-backdrop fixed inset-0 bg-black/40" @click="emit('close')" />
+        <div class="sheet-backdrop fixed inset-0 bg-black/40" @click="onBackdropClick" />
         <div
           class="sheet-panel fixed bottom-0 inset-x-0 w-full max-w-md mx-auto rounded-t-3xl shadow-2xl flex flex-col"
           :style="{
@@ -99,6 +99,20 @@ const emit = defineEmits<{ close: [] }>()
 
 const expanded = ref<boolean>(false)
 
+/**
+ * 백드롭 탭 — 키보드가 열려 있으면(모바일에서 키보드가 시트보다 높아 "키보드를 닫으려는"
+ * 탭이 백드롭에 떨어짐) 시트를 닫지 않고 키보드만 닫는다 (2026-07-21 실기기 QA 리포트).
+ * keyboard-open 클래스는 capacitor.client.ts 의 Keyboard 리스너가 부여(네이티브 한정) —
+ * 웹은 기존대로 즉시 닫힌다.
+ */
+function onBackdropClick() {
+  if (import.meta.client && document.body.classList.contains('keyboard-open')) {
+    void dismissKeyboard()
+    return
+  }
+  emit('close')
+}
+
 // focus trap + 배경 스크롤 잠금 + ESC 닫기 — 한 곳에서 일괄 처리.
 const root = ref<HTMLElement | null>(null)
 useDialogFocusTrap(root, computed<boolean>(() => props.open), () => emit('close'))
@@ -142,8 +156,17 @@ function onHandlePointerDown(e: PointerEvent) {
       cleanup()
     }
     else if (dy >= 40) {
-      if (expanded.value) expanded.value = false
-      else emit('close')
+      // 키보드 상태를 최우선 검사 — expanded 축소보다 먼저 (Codex R1 F6: 확대 상태에서
+      // 아래 드래그가 키보드는 놔둔 채 시트만 줄어드는 어긋난 동작 방지).
+      if (import.meta.client && document.body.classList.contains('keyboard-open')) {
+        void dismissKeyboard()
+      }
+      else if (expanded.value) {
+        expanded.value = false
+      }
+      else {
+        emit('close')
+      }
       dragConsumed = true
       cleanup()
     }

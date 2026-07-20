@@ -394,6 +394,23 @@
             <div class="text-xs text-gray-400">친구에게 테라리움을 공유해요</div>
           </div>
         </button>
+        <!-- 인스타 스토리 (네이티브 전용 — 투명 스티커를 스토리 카메라 위에) -->
+        <button
+          v-if="storyShareAvailable"
+          type="button"
+          class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50"
+          style="background: linear-gradient(135deg,#fdf2f8,#fce7f3); border: 1.5px solid rgba(240,146,240,0.35)"
+          :disabled="capturingImage"
+          @click="onInstagramStoryShare"
+        >
+          <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(240,146,240,0.2)">
+            <Icon name="lucide:instagram" class="w-5 h-5" style="color: #f092f0" />
+          </div>
+          <div class="text-left">
+            <div class="text-sm font-semibold text-gray-800">인스타 스토리에 올리기</div>
+            <div class="text-xs text-gray-400">테라리움 스티커를 스토리 카메라 위에 올려요</div>
+          </div>
+        </button>
         <!-- 초대코드 공유 -->
         <button
           type="button"
@@ -694,6 +711,7 @@
 </template>
 
 <script setup lang="ts">
+import { Capacitor } from '@capacitor/core'
 import type {
   AdRewardResponse,
   FreePlacementListResponse,
@@ -715,6 +733,7 @@ const toast = useToast()
 const { t } = useI18n()
 const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
 const { hapticImpact, share: nativeShare, shareToInstagram } = useNative()
+const config = useRuntimeConfig()
 const attendance = useAttendance()
 
 // ─── 좌표계 (MyTerra.tsx 그대로) ───
@@ -1372,6 +1391,61 @@ async function onImageSave() {
     toast.success(t('home.shareReady'))
     trackScreenshotSaved({ context: 'home' })
     trackShareCreated({ method: 'screenshot' })
+  }
+  catch (e) {
+    toast.error(t('home.shareFail', { msg: (e as Error).message }))
+  }
+  finally {
+    capturingImage.value = false
+  }
+}
+
+// ─── 인스타 스토리 공유 (2026-07-21 — Codex 설계 [B]) ───
+// 네이티브 + 플러그인 존재 시에만 진입점 노출. 캡처는 400×552 스테이지를 투명 배경으로 —
+// onclone 에서 scale transform 을 원복해(스테이지는 화면상 축소 렌더) 설계 해상도로 뜬다.
+const storyShareAvailable = ref<boolean>(false)
+onMounted(() => {
+  const { isNative } = useNative()
+  storyShareAvailable.value = isNative && Capacitor.isPluginAvailable('InstagramStories')
+})
+
+async function onInstagramStoryShare() {
+  if (capturingImage.value || !import.meta.client) return
+  showShareDialog.value = false
+  const stage = stageEl.value?.querySelector<HTMLElement>(':scope > div')
+  if (!stage) {
+    toast.error(t('home.shareAreaNotFound'))
+    return
+  }
+  capturingImage.value = true
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(stage, {
+      backgroundColor: null, // 투명 스티커 — JPEG 변환 금지(투명도 소실)
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      onclone: (doc) => {
+        const cloned = doc.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
+        if (cloned) {
+          cloned.style.transform = 'scale(1)'
+          cloned.style.marginBottom = '0px'
+        }
+      },
+    })
+    const dataUrl = canvas.toDataURL('image/png')
+    const { shareToInstagramStory } = await import('~/lib/instagramStories')
+    const result = await shareToInstagramStory(dataUrl, String(config.public.metaAppId || ''))
+    if (result === 'opened') {
+      trackShareCreated({ method: 'instagram_story' })
+      return
+    }
+    // 미설치/미설정/실패 — 기존 시스템 공유 시트로 폴백 (폴백 제거 금지, Codex 설계 [B]).
+    toast.info('인스타그램 스토리로 바로 열 수 없어 시스템 공유로 대신 열어요')
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+    if (blob) {
+      await shareToInstagram(blob, `terraworld-story-${Date.now()}.png`, { title: 'TerraWorld', text: t('home.shareText') })
+    }
   }
   catch (e) {
     toast.error(t('home.shareFail', { msg: (e as Error).message }))
