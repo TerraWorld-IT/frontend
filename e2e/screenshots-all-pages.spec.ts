@@ -1286,25 +1286,8 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await shot(page, 'flow-49-calendar-memo-input-active')
   })
 
-  test('flow-50-profile-커스텀카테고리-form', async ({ page }) => {
-    // profile 의 CustomCategoryManager — 이름 입력 + 추가 button
-    await signUpAndLogin(page)
-    await page.goto('/profile')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    // 커스텀 카테고리 영역으로 scroll
-    const customSection = page.locator('h3:has-text("커스텀")').first()
-    if (await customSection.isVisible().catch(() => false)) {
-      await customSection.scrollIntoViewIfNeeded()
-      await page.waitForTimeout(300)
-    }
-    // input fill
-    const nameInput = page.locator('input[placeholder*="명상"]').first()
-    if (await nameInput.isVisible().catch(() => false)) {
-      await nameInput.fill('명상')
-    }
-    await page.waitForTimeout(300)
-    await shot(page, 'flow-50-profile-custom-category-form')
-  })
+  // flow-50 (profile 커스텀 카테고리 폼) 제거 — CustomCategoryManager 는 습관/일상 개편 후
+  // 소비처가 없어 프로필에서 철거됨 (2026-07-20 사용자 결정).
 
   test('flow-51-record-partner-input', async ({ page }) => {
     // record 친구함께 탭 → PartnerSelect checkbox 활성 + input fill

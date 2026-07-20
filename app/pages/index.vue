@@ -156,15 +156,25 @@
       </div>
 
       <!-- ─── 유리병 영역 ─── -->
+      <!-- 스테이지는 항상 설계 기준 400×552 를 유지(shrink-0)하고 uniform scale 로 화면에 맞춘다.
+           이전에는 flex 축소로 스테이지 폭만 줄어(예: 376px) %-inset 병 아트는 세로로 왜곡되고
+           px 좌표계(편집존·아이템 x/y·posX 저장 /400)와 기준이 어긋났다 (2026-07-20 라이브 실측). -->
       <div
         id="my-terra-container"
+        ref="stageEl"
         class="relative flex justify-center w-full overflow-hidden"
         :style="{ cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem' }"
         @wheel="onWheel"
       >
         <div
-          class="transition-transform duration-200 ease-out relative"
-          :style="{ transform: `scale(${zoomLevel})`, width: '400px', height: '552px' }"
+          class="transition-transform duration-200 ease-out relative shrink-0"
+          :style="{
+            transform: `scale(${zoomLevel * stageFit})`,
+            transformOrigin: 'top center',
+            width: '400px',
+            height: '552px',
+            marginBottom: `${-552 * (1 - stageFit)}px`,
+          }"
         >
           <!-- 유리병 (Figma Jar1 픽셀-정확) -->
           <div class="absolute inset-0">
@@ -753,6 +763,27 @@ const editMode = ref<boolean>(false)
 const selectedItemId = ref<number | null>(null)
 const capturingImage = ref<boolean>(false)
 const zoomLevel = ref<number>(1)
+// 스테이지(400×552 설계 기준)를 컨테이너 폭에 uniform 하게 맞추는 배율. flex 축소로 폭만
+// 줄면 병 아트(%-inset)와 px 좌표계의 기준이 어긋나므로, 스테이지는 shrink-0 로 400 을
+// 유지하고 이 배율로만 축소한다. 드래그/리사이즈 좌표 환산도 zoomLevel*stageFit 사용.
+const stageFit = ref<number>(1)
+// 컨테이너는 로딩 스켈레톤 뒤에 늦게 마운트되므로(onMounted 시점 DOM 부재) template ref 를
+// watch 해 요소가 나타나는 시점에 observer 를 부착한다.
+const stageEl = ref<HTMLElement | null>(null)
+let stageFitObserver: ResizeObserver | null = null
+watch(stageEl, (el) => {
+  stageFitObserver?.disconnect()
+  stageFitObserver = null
+  if (!el || typeof ResizeObserver === 'undefined') return
+  stageFitObserver = new ResizeObserver(() => {
+    stageFit.value = Math.min(1, el.clientWidth / 400)
+  })
+  stageFitObserver.observe(el)
+})
+onBeforeUnmount(() => {
+  stageFitObserver?.disconnect()
+  stageFitObserver = null
+})
 
 const showItemPicker = ref<boolean>(false)
 const showShareDialog = ref<boolean>(false)
@@ -1040,9 +1071,9 @@ function onItemPointerMove(e: PointerEvent) {
   if (!dragState) return
   const target = placedItems.value.find(p => p.placementId === dragState!.placementId)
   if (!target) return
-  // zoomLevel 반영해 스크린 이동량 → 컨테이너 좌표 변환.
-  const dx = (e.clientX - dragState.startX) / zoomLevel.value
-  const dy = (e.clientY - dragState.startY) / zoomLevel.value
+  // zoomLevel·stageFit 반영해 스크린 이동량 → 스테이지(400×552) 좌표 변환.
+  const dx = (e.clientX - dragState.startX) / (zoomLevel.value * stageFit.value)
+  const dy = (e.clientY - dragState.startY) / (zoomLevel.value * stageFit.value)
   // 스크린 기준 이동량으로 드래그 여부 판정 (4px 임계 = 16px²).
   const rawDx = e.clientX - dragState.startX
   const rawDy = e.clientY - dragState.startY
@@ -1074,7 +1105,7 @@ function onCornerPointerDown(e: PointerEvent, placed: PlacedFreeItem, dirX: numb
   const startX = e.clientX
   const startY = e.clientY
   const startScale = placed.scale
-  const baseHalf = 26 * startScale * zoomLevel.value
+  const baseHalf = 26 * startScale * zoomLevel.value * stageFit.value
 
   function onMove(ev: PointerEvent) {
     const dx = (ev.clientX - startX) * dirX

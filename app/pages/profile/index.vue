@@ -236,11 +236,9 @@
         </div>
       </div>
 
-      <!-- 커스텀 카테고리 (FE 실기능 보존) -->
-      <CommonCustomCategoryManager />
-
-      <!-- 프리미엄 테마 갤러리 (FE 실기능 보존) -->
-      <CommonThemeGallery :premium-unlocked="user?.entitlements?.premiumThemes" />
+      <!-- 커스텀 카테고리·메모지 테마 섹션 제거 (2026-07-20 사용자 결정):
+           커스텀 카테고리는 습관/일상 개편 후 기록 플로우에 소비처가 없고(시스템 카테고리
+           고정 매핑), 메모지 테마는 선택해도 화면에 효과가 없는 dead feature 였다 (audit B4-5). -->
 
       <!-- 동의 항목 관리 (FE 실기능 보존, TW2 카드 스타일) -->
       <div class="bg-white rounded-[16px] w-full relative border border-black/10">

@@ -318,3 +318,12 @@ html.scroll-locked main {
   overflow: hidden !important;
   overscroll-behavior: contain;
 }
+
+/* 잠금 시 클래식 스크롤바(데스크톱)가 사라지며 레이아웃 폭이 넓어져 중앙 정렬 콘텐츠가
+   좌우로 튀던 문제(2026-07-20 라이브 실측: html clientWidth 485→500, 병 +7.5px 이동 —
+   오버레이 16곳 공통). gutter 를 상시 예약해 잠금 전후 폭을 동일하게 유지한다.
+   오버레이 스크롤바 플랫폼(모바일/맥 기본)은 gutter 0 이라 무영향. */
+html,
+main {
+  scrollbar-gutter: stable;
+}
