@@ -77,5 +77,26 @@ export function useHabits() {
     return result
   }
 
-  return { trackers, loading, loaded, loadError, load, create, checkIn }
+  /**
+   * 습관 중단 (BROKEN 전환, 멱등). 성공 시 목록에서 제거 — 같은 친구와 새 공동 습관
+   * 생성이 가능해진다 (2026-07-21 M1: 종료 수단 신설).
+   */
+  async function stop(trackerId: number): Promise<boolean> {
+    // HTTP 오류는 {error} 로 오지만 네트워크 자체 실패는 throw — 호출부 피드백을 위해
+    // boolean 으로 정규화 (Codex R1 #10).
+    try {
+      const { error } = await sdk.stopHabit({
+        client,
+        path: { trackerId },
+      })
+      if (error) return false
+    }
+    catch {
+      return false
+    }
+    trackers.value = trackers.value.filter(t => t.id !== trackerId)
+    return true
+  }
+
+  return { trackers, loading, loaded, loadError, load, create, checkIn, stop }
 }

@@ -68,8 +68,8 @@
         </button>
       </div>
 
-      <!-- 습관 카드 -->
-      <div class="flex flex-col items-center w-full">
+      <!-- 습관 목록 — solo/친구별 N개 카드 (2026-07-21 n:n 재구성: 구 find-first 단일 뷰 제거) -->
+      <div class="flex flex-col items-stretch w-full gap-[12px]">
         <!-- 로드 실패 -->
         <div v-if="habitsLoaded && habitLoadError" class="w-full text-center text-[13px] text-riso-poppy py-[24px]">
           습관을 불러오지 못했어요. 잠시 후 다시 시도해 주세요
@@ -82,60 +82,66 @@
           </button>
         </div>
 
-        <!-- 습관 생성 폼 (현재 모드에 활성 습관이 없을 때) -->
-        <div v-else-if="!activeTracker" class="w-full">
-          <div class="flex items-center justify-between w-full">
-            <p class="text-[14px] font-bold text-black tracking-[-0.15px]">
-              {{ mode === 'friend' ? '친구와 함께 습관 기록 생성' : '습관 기록 생성' }}
-            </p>
-            <button
-              type="button"
-              class="h-[32px] px-[10px] rounded-[12px] flex items-center gap-[6px] transition-all active:scale-95 hover:bg-gray-100 disabled:opacity-50"
-              :disabled="creatingHabit"
-              @click="submitHabit"
-            >
-              <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                <g clip-path="url(#clip_pencil)">
-                  <path
-                    d="M14.116 4.54133C14.4685 4.18895 14.6665 3.71098 14.6666 3.21257C14.6667 2.71416 14.4687 2.23614 14.1163 1.88367C13.7639 1.53119 13.286 1.33314 12.7876 1.33308C12.2892 1.33302 11.8111 1.53095 11.4587 1.88333L2.56133 10.7827C2.40655 10.937 2.29208 11.127 2.228 11.336L1.34733 14.2373C1.3301 14.295 1.3288 14.3562 1.34357 14.4146C1.35833 14.4729 1.38861 14.5262 1.4312 14.5687C1.47378 14.6112 1.52708 14.6414 1.58544 14.6561C1.6438 14.6707 1.70504 14.6693 1.76267 14.652L4.66467 13.772C4.87345 13.7085 5.06345 13.5947 5.218 13.4407L14.116 4.54133Z"
-                    stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333"
-                  />
-                </g>
-                <defs><clipPath id="clip_pencil"><rect fill="white" width="16" height="16" /></clipPath></defs>
-              </svg>
-              <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">작성</span>
-            </button>
+        <!-- 나의 습관 탭: 활성 습관 리스트 + 추가 폼 (여러 개 허용) -->
+        <template v-else-if="mode === 'solo'">
+          <RecordHabitTrackerCard
+            v-for="tr in soloTrackers"
+            :key="tr.id"
+            :tracker="tr"
+            :busy="checkInBusy"
+            @checkin="onCheckIn"
+            @stop="onStopHabit"
+          />
+          <div class="w-full">
+            <div class="flex items-center justify-between w-full">
+              <p class="text-[14px] font-bold text-black tracking-[-0.15px]">
+                {{ soloTrackers.length > 0 ? '새 습관 추가' : '습관 기록 생성' }}
+              </p>
+              <button
+                type="button"
+                class="h-[32px] px-[10px] rounded-[12px] flex items-center gap-[6px] transition-all active:scale-95 hover:bg-gray-100 disabled:opacity-50"
+                :disabled="creatingHabit"
+                @click="submitSoloHabit"
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+                  <g clip-path="url(#clip_pencil)">
+                    <path
+                      d="M14.116 4.54133C14.4685 4.18895 14.6665 3.71098 14.6666 3.21257C14.6667 2.71416 14.4687 2.23614 14.1163 1.88367C13.7639 1.53119 13.286 1.33314 12.7876 1.33308C12.2892 1.33302 11.8111 1.53095 11.4587 1.88333L2.56133 10.7827C2.40655 10.937 2.29208 11.127 2.228 11.336L1.34733 14.2373C1.3301 14.295 1.3288 14.3562 1.34357 14.4146C1.35833 14.4729 1.38861 14.5262 1.4312 14.5687C1.47378 14.6112 1.52708 14.6414 1.58544 14.6561C1.6438 14.6707 1.70504 14.6693 1.76267 14.652L4.66467 13.772C4.87345 13.7085 5.06345 13.5947 5.218 13.4407L14.116 4.54133Z"
+                      stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333"
+                    />
+                  </g>
+                  <defs><clipPath id="clip_pencil"><rect fill="white" width="16" height="16" /></clipPath></defs>
+                </svg>
+                <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">작성</span>
+              </button>
+            </div>
+            <div class="mt-[12px] w-full">
+              <textarea
+                v-model="habitInput"
+                placeholder="1주일 동안 실천할 습관을 적어주세요"
+                rows="3"
+                maxlength="30"
+                class="w-full rounded-[12px] p-[16px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-riso-pink/40 leading-[20px] tracking-[-0.15px]"
+                style="background: #f5f5f5; color: #111; min-height: 60px"
+                @keydown.enter.exact.prevent="submitSoloHabit"
+              />
+            </div>
           </div>
+        </template>
 
-          <!-- 텍스트 입력 -->
-          <div class="mt-[12px] w-full">
-            <textarea
-              v-model="habitInput"
-              placeholder="1주일 동안 실천할 습관을 적어주세요"
-              rows="3"
-              maxlength="30"
-              class="w-full rounded-[12px] p-[16px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-riso-pink/40 leading-[20px] tracking-[-0.15px]"
-              style="background: #f5f5f5; color: #111; min-height: 60px"
-              @keydown.enter.exact.prevent="submitHabit"
-            />
-          </div>
+        <!-- 친구와 함께 탭: 친구별 그룹 — 친구 수만큼 표출, 친구마다 습관 1개 + 없는 친구는 만들기 -->
+        <template v-else>
+          <p class="text-[11px] text-[#99a1af] leading-[16px]">
+            습관을 만들면 친구에게 알림이 가요. 친구도 나를 선택해 습관을 만들면
+            서로의 체크인 알림을 받고, 7일 완주 보상이 <span class="font-semibold text-[#f092f0]">2배</span>가 돼요
+          </p>
 
-          <!-- 친구 선택 (friend 모드) -->
-          <div v-if="mode === 'friend'" class="pt-[10px] w-full flex flex-col gap-[10px]">
-            <p class="text-[14px] text-[#525252] leading-[20px] tracking-[-0.3px]">
-              함께 할 친구 선택
-            </p>
-            <!-- 연동 동작 안내 — "선택해도 아무 일 없어 보임" 체감 해소 (2026-07-21 사용자 리포트) -->
-            <p class="text-[11px] text-[#99a1af] leading-[16px] -mt-[4px]">
-              습관을 만들면 친구에게 알림이 가요. 친구도 나를 선택해 습관을 만들면
-              서로의 체크인 알림을 받고, 7일 완주 보상이 <span class="font-semibold text-[#f092f0]">2배</span>가 돼요
-            </p>
-            <div
-              v-for="friend in friends"
-              :key="friend.userId"
-              class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px]"
-              style="background: #f9fafb"
-            >
+          <div
+            v-for="friend in friends"
+            :key="friend.userId"
+            class="w-full flex flex-col gap-[8px]"
+          >
+            <div class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px]" style="background: #f9fafb">
               <div
                 class="size-[36px] rounded-full flex items-center justify-center text-[18px] shrink-0"
                 style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
@@ -143,108 +149,79 @@
                 🌍
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-[14px] font-semibold text-[#1e2939] leading-[20px] tracking-[-0.15px]">
+                <p class="text-[14px] font-semibold text-[#1e2939] leading-[20px] tracking-[-0.15px] truncate">
                   {{ friend.nickname }}
                 </p>
                 <p class="text-[10px] text-[#99a1af] leading-[15px] tracking-[0.117px]">
-                  TERRAWORLD 유저
+                  {{ trackerByFriend.get(friend.userId) ? '함께 습관 진행 중' : '아직 함께하는 습관이 없어요' }}
                 </p>
               </div>
               <button
+                v-if="!trackerByFriend.get(friend.userId) && friendFormFor !== friend.userId"
                 type="button"
-                class="rounded-full px-[8px] py-[4px] text-[10px] font-semibold leading-[15px] tracking-[0.117px] transition-all active:scale-95 shrink-0"
-                :style="selectedFriendId === friend.userId
-                  ? { background: '#e5e7eb', color: '#9ca3af' }
-                  : { background: 'black', color: 'white' }"
-                @click="selectedFriendId = friend.userId"
+                class="rounded-full px-[10px] py-[6px] text-[11px] font-semibold transition-all active:scale-95 shrink-0"
+                style="background: black; color: white"
+                @click="openFriendForm(friend.userId)"
               >
-                {{ selectedFriendId === friend.userId ? '선택됨' : '선택' }}
+                + 함께 습관 만들기
               </button>
             </div>
-            <div v-if="friends.length === 0" class="text-[12px] text-[#99a1af] text-center py-[8px]">
-              함께 할 친구가 없어요.
-              <NuxtLink to="/friends" class="text-riso-sage underline font-semibold">친구 초대하기</NuxtLink>
-            </div>
-          </div>
-        </div>
 
-        <!-- 습관 트래커 -->
-        <template v-else>
-          <div class="flex items-center justify-between w-full mb-[4px]">
-            <p class="text-[14px] font-bold text-black tracking-[-0.15px]">
-              {{ mode === 'friend' ? '입력한 습관' : activeTracker.title }}
-            </p>
-            <span
-              class="text-[11px]"
-              :style="{ color: activeTracker.status === 'ACTIVE' ? '#a0afd8' : '#f5a623' }"
-            >
-              {{ statusLabel(activeTracker.status) }}
-            </span>
-          </div>
-          <p v-if="mode === 'friend'" class="w-full text-[13px] font-semibold text-black -mt-[2px] mb-[2px]">
-            {{ activeTracker.title }}
-            <span
-              v-if="activeTracker.friendLinked"
-              class="text-[10px] px-[6px] py-[2px] rounded-full ml-[4px]"
-              style="background: rgba(240,146,240,0.15); color: #f092f0"
-            >친구 연동 2배</span>
-          </p>
+            <!-- 이 친구와의 활성 습관 카드 -->
+            <RecordHabitTrackerCard
+              v-if="trackerByFriend.get(friend.userId)"
+              :tracker="trackerByFriend.get(friend.userId)!"
+              :busy="checkInBusy"
+              @checkin="onCheckIn"
+              @stop="onStopHabit"
+            />
 
-          <!-- 7일 원 -->
-          <div class="flex items-center justify-center gap-[12px] pt-[20px] pb-[4px]">
-            <div
-              v-for="hd in HABIT_DAYS"
-              :key="hd.day"
-              class="flex flex-col items-center gap-[4px]"
-            >
-              <div
-                class="size-[36px] rounded-full flex items-center justify-center text-[12px] font-bold"
-                :style="dayStyle(hd.day)"
-              >
-                {{ hd.day <= activeTracker.currentStreakDays ? '✓' : hd.day }}
-              </div>
-              <span
-                class="text-[9px] tracking-[0.167px]"
-                :style="{ color: hd.day <= activeTracker.currentStreakDays ? '#97a8f1' : '#c0c8e0' }"
-              >
-                {{ hd.points }}
-              </span>
-            </div>
-          </div>
-
-          <!-- 진행 바 -->
-          <div class="w-full pt-[24px] pb-[20px]">
-            <div class="flex items-start justify-between mb-[6px]">
-              <span class="text-[10px] tracking-[0.117px] text-[#a0afd8]">
-                진행 {{ activeTracker.currentStreakDays }}/{{ activeTracker.cycleLengthDays }}일
-              </span>
-              <span class="text-[10px] tracking-[0.117px] text-[#a0afd8]">
-                7일 달성 시 반짝이 획득
-              </span>
-            </div>
-            <div class="h-[6px] w-full rounded-full overflow-hidden" style="background: rgba(151,168,241,0.15)">
-              <div
-                class="h-full rounded-full transition-all duration-500"
-                :style="{
-                  width: `${Math.min(100, (activeTracker.currentStreakDays / activeTracker.cycleLengthDays) * 100)}%`,
-                  background: 'linear-gradient(90deg,#97a8f1,#c4a0f0)',
-                }"
+            <!-- 인라인 생성 폼 (해당 친구 선택 시) -->
+            <div v-else-if="friendFormFor === friend.userId" class="w-full rounded-[12px] border border-black/10 p-[12px] flex flex-col gap-[8px]">
+              <textarea
+                v-model="friendHabitInput"
+                :placeholder="`${friend.nickname}님과 1주일 동안 실천할 습관을 적어주세요`"
+                rows="2"
+                maxlength="30"
+                class="w-full rounded-[12px] p-[12px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-riso-pink/40 leading-[20px] tracking-[-0.15px]"
+                style="background: #f5f5f5; color: #111"
+                @keydown.enter.exact.prevent="submitFriendHabit(friend.userId)"
               />
+              <div class="flex gap-[8px] justify-end">
+                <button
+                  type="button"
+                  class="px-[12px] py-[6px] rounded-[10px] text-[12px] text-[#99a1af] transition active:scale-95"
+                  :disabled="creatingHabit"
+                  @click="closeFriendForm"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  class="px-[12px] py-[6px] rounded-[10px] text-[12px] font-semibold text-white bg-riso-sage transition active:scale-95 disabled:opacity-50"
+                  :disabled="creatingHabit"
+                  @click="submitFriendHabit(friend.userId)"
+                >
+                  함께 시작
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- 체크인 버튼 -->
-          <button
-            type="button"
-            class="w-full h-[44px] rounded-[16px] text-[14px] font-semibold transition active:scale-95"
-            :class="checkedToday(activeTracker) || activeTracker.status !== 'ACTIVE'
-              ? 'bg-neutral-100 text-neutral-400 cursor-default'
-              : 'bg-riso-sage text-white'"
-            :disabled="checkedToday(activeTracker) || activeTracker.status !== 'ACTIVE' || checkInBusy"
-            @click="onCheckIn(activeTracker)"
-          >
-            {{ checkinLabel(activeTracker) }}
-          </button>
+          <!-- 친구 목록에 없는(관계 변동 등) 연동 습관도 표출 누락 금지 -->
+          <RecordHabitTrackerCard
+            v-for="tr in orphanFriendTrackers"
+            :key="tr.id"
+            :tracker="tr"
+            :busy="checkInBusy"
+            @checkin="onCheckIn"
+            @stop="onStopHabit"
+          />
+
+          <div v-if="friends.length === 0" class="text-[12px] text-[#99a1af] text-center py-[8px]">
+            함께 할 친구가 없어요.
+            <NuxtLink to="/friends" class="text-riso-sage underline font-semibold">친구 초대하기</NuxtLink>
+          </div>
         </template>
       </div>
     </div>
@@ -675,17 +652,19 @@ const toast = useToast()
 const { t } = useI18n()
 const { trackRecordCreated } = useGtagEvents()
 const userStore = useUserStore()
-const { trackers, loaded: habitsLoaded, loadError: habitLoadError, load: loadHabits, create: createHabit, checkIn } = useHabits()
+const { trackers, loaded: habitsLoaded, loadError: habitLoadError, load: loadHabits, create: createHabit, checkIn, stop: stopHabit } = useHabits()
 
 // ─── 습관 기록 상태 ───
 type Mode = 'solo' | 'friend'
 const mode = ref<Mode>('solo')
 
-// mode 전환 시 activeTracker 계산이 바뀌며 habitInput textarea 를 가진 생성 폼이
-// 즉시 사라질 수 있음 — 전환 전 키보드 해제 (utils/keyboard.ts 참조, Codex 감사 지적).
+// mode 전환 시 표시 목록/폼이 즉시 교체됨 — 전환 전 키보드 해제 + 열린 인라인 폼 정리
+// (utils/keyboard.ts 참조, Codex 감사 지적).
 function setMode(next: Mode) {
   if (mode.value === next) return
   void dismissKeyboard()
+  friendFormFor.value = null
+  friendHabitInput.value = ''
   mode.value = next
 }
 
@@ -696,27 +675,54 @@ function goToCalendar() {
 }
 
 const habitInput = ref<string>('')
-const selectedFriendId = ref<string | null>(null)
+const friendHabitInput = ref<string>('')
+// 인라인 생성 폼이 열린 친구 (한 번에 하나) — 구 selectedFriendId(전역 폼 단일 선택) 대체.
+const friendFormFor = ref<string | null>(null)
 const creatingHabit = ref<boolean>(false)
 const checkInBusy = ref<boolean>(false)
 const friends = ref<FriendInfo[]>([])
 
-const HABIT_DAYS: { day: number; points: string }[] = [
-  { day: 1, points: '+10' },
-  { day: 2, points: '+10' },
-  { day: 3, points: '+30' },
-  { day: 4, points: '+10' },
-  { day: 5, points: '+10' },
-  { day: 6, points: '+10' },
-  { day: 7, points: '🎁' },
-]
+// n:n 재구성 (2026-07-21): 구 find-first(모드당 1개만 표시 + 폼 소멸 = "한번 추가하면 끝")를
+// 걷어내고 리스트/친구별 그룹으로 표출. 백엔드는 원래 친구별 N개 링크드 습관을 허용한다.
+const soloTrackers = computed<HabitTrackerResponse[]>(() =>
+  trackers.value.filter(tr => !tr.friendLinked && tr.status === 'ACTIVE'))
 
-// 현재 모드에 해당하는 활성 트래커 (solo = 미연동 / friend = 연동).
-const activeTracker = computed<HabitTrackerResponse | null>(() => {
-  const list = trackers.value.filter(tr => tr.status !== 'COMPLETED')
-  const match = list.find(tr => (mode.value === 'friend' ? !!tr.friendLinked : !tr.friendLinked))
-  return match ?? null
+const friendTrackers = computed<HabitTrackerResponse[]>(() =>
+  trackers.value.filter(tr => !!tr.friendLinked && tr.status === 'ACTIVE'))
+
+// 친구 userId → 그 친구와의 활성 공동 습관 (친구쌍당 1개 — 백엔드 제약과 동일).
+const trackerByFriend = computed<Map<string, HabitTrackerResponse>>(() => {
+  const map = new Map<string, HabitTrackerResponse>()
+  for (const tr of friendTrackers.value) {
+    if (tr.friendUserId) map.set(tr.friendUserId, tr)
+  }
+  return map
 })
+
+// 그룹(친구별 대표 카드)에 선택되지 못한 연동 습관 전부 — 친구 목록에 없는 상대,
+// friendUserId 미해석, 같은 친구의 중복 활성 트래커(과거 경쟁 데이터)까지 표출해
+// 조용한 숨김을 막는다 (Codex R1 #11).
+const orphanFriendTrackers = computed<HabitTrackerResponse[]>(() => {
+  const known = new Set(friends.value.map(f => f.userId))
+  return friendTrackers.value.filter((tr) => {
+    if (!tr.friendUserId || !known.has(tr.friendUserId)) return true
+    return trackerByFriend.value.get(tr.friendUserId) !== tr
+  })
+})
+
+function openFriendForm(friendUserId: string) {
+  // Codex R1 #7: 다른 친구의 생성 요청 진행 중 폼 전환 금지 — 성공 콜백의 close 가
+  // 방금 연 폼의 입력을 지우는 유실 방지.
+  if (creatingHabit.value) return
+  friendFormFor.value = friendUserId
+  friendHabitInput.value = ''
+}
+
+function closeFriendForm() {
+  void dismissKeyboard()
+  friendFormFor.value = null
+  friendHabitInput.value = ''
+}
 
 function todayStr(): string {
   const now = new Date()
@@ -728,59 +734,23 @@ function checkedToday(tr: HabitTrackerResponse): boolean {
   return !!tr.lastCheckedDate && tr.lastCheckedDate.slice(0, 10) === todayStr()
 }
 
-function checkinLabel(tr: HabitTrackerResponse): string {
-  if (tr.status === 'COMPLETED') return '완료된 습관'
-  if (tr.status === 'BROKEN') return '연속 실패 — 다시 시작'
-  if (checkedToday(tr)) return '오늘 완료 ✓'
-  return '오늘 체크인'
-}
-
-function statusLabel(s: HabitTrackerResponse['status']): string {
-  return s === 'ACTIVE' ? '진행중' : s === 'COMPLETED' ? '완료' : '중단'
-}
-
-function dayStyle(day: number): Record<string, string> {
-  const tr = activeTracker.value
-  const streak = tr?.currentStreakDays ?? 0
-  const isChecked = day <= streak
-  const isCurrent = !isChecked && day === streak + 1
-  if (isChecked) return { background: 'linear-gradient(135deg,#97a8f1,#c4a0f0)', color: 'white' }
-  if (isCurrent) return { background: 'rgba(151,168,241,0.15)', border: '2px dashed #97a8f1', color: '#97a8f1' }
-  return { background: 'rgba(200,200,220,0.15)', border: '2px solid rgba(200,200,220,0.4)', color: '#c0c8e0' }
-}
-
-async function submitHabit() {
+async function submitSoloHabit() {
   const title = habitInput.value.trim()
   if (!title) {
     toast.error('습관 이름을 입력해주세요')
     return
   }
-  if (mode.value === 'friend' && !selectedFriendId.value) {
-    toast.error('함께 할 친구를 먼저 선택해주세요')
-    return
-  }
   if (creatingHabit.value) return
-  // 생성 성공 시 폼이 tracker 뷰로 교체되며 habitInput textarea 가 사라짐
-  // (utils/keyboard.ts 참조).
   void dismissKeyboard()
   creatingHabit.value = true
-  // friend 모드 여부를 생성 전에 캡처(성공 후 mode 전환으로 값이 바뀔 수 있음).
-  const wasFriendMode = mode.value === 'friend'
   try {
-    // friend 모드: 선택한 친구 userId 전달 → 서버가 수락된 invite 로 검증해 연동(양측 완주 시 반짝이 2배, req3 #3).
-    // solo 모드: friendUserId=null. 생성된 트래커는 friendLinked 상태라 현재 모드 뷰(activeTracker)에 그대로 노출.
-    const created = await createHabit(title, wasFriendMode ? selectedFriendId.value : null)
+    const created = await createHabit(title, null)
     if (created) {
-      toast.success(wasFriendMode
-        ? `'${title}' 함께 습관 시작! 친구에게 알림을 보냈어요 🤝`
-        : `'${title}' 습관을 시작했어요 🌱`)
+      toast.success(`'${title}' 습관을 시작했어요 🌱`)
       habitInput.value = ''
-      selectedFriendId.value = null
     }
     else {
-      toast.error(wasFriendMode
-        ? '친구 함께 습관 생성 실패 — 수락된 친구인지 확인해주세요'
-        : '습관 생성에 실패했어요')
+      toast.error('습관 생성에 실패했어요')
     }
   }
   catch (e) {
@@ -789,6 +759,42 @@ async function submitHabit() {
   finally {
     creatingHabit.value = false
   }
+}
+
+async function submitFriendHabit(friendUserId: string) {
+  const title = friendHabitInput.value.trim()
+  if (!title) {
+    toast.error('습관 이름을 입력해주세요')
+    return
+  }
+  if (creatingHabit.value) return
+  void dismissKeyboard()
+  creatingHabit.value = true
+  try {
+    // 서버가 friendUserId 를 수락된 invite 로 검증해 연동 — 양측 완주 시 반짝이 2배.
+    const created = await createHabit(title, friendUserId)
+    if (created) {
+      toast.success(`'${title}' 함께 습관 시작! 친구에게 알림을 보냈어요 🤝`)
+      // 제출한 친구의 폼이 여전히 열려 있을 때만 닫기 — 진행 중 다른 폼으로 전환된 경우
+      // 그 입력을 지우지 않는다 (Codex R1 #7).
+      if (friendFormFor.value === friendUserId) closeFriendForm()
+    }
+    else {
+      toast.error('친구 함께 습관 생성 실패 — 수락된 친구인지 확인해주세요')
+    }
+  }
+  catch (e) {
+    toast.error((e as Error).message ?? '습관 생성에 실패했어요')
+  }
+  finally {
+    creatingHabit.value = false
+  }
+}
+
+async function onStopHabit(tr: HabitTrackerResponse) {
+  const ok = await stopHabit(tr.id)
+  if (ok) toast.success(`'${tr.title}' 습관을 중단했어요`)
+  else toast.error('습관 중단에 실패했어요')
 }
 
 async function onCheckIn(tr: HabitTrackerResponse) {

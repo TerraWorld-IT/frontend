@@ -212,6 +212,19 @@ function onHandleClick() {
    transition 을 transform 전용으로 덮어써 충돌하지 않는다. */
 .sheet-panel { transition: max-height 0.3s ease; }
 
+/* 키보드 열림 동안 max-height 트랜지션 suspend — Android 는 키보드가 WebView 뷰포트를
+   즉시 줄이고(Capacitor Keyboard.resize 는 iOS 전용 — Android 는 네이티브 리사이즈)
+   dvh 기반 max-height 재계산이 0.3s 로 애니메이션되어 시트가 "올라갔다 내려오는"
+   이중 모션이 됐다 (2026-07-21 사용자 리포트). keyboard-open 클래스는
+   capacitor.client.ts 의 keyboardWillShow(부여)/keyboardDidHide(제거)가 브래킷. */
+body.keyboard-open .sheet-panel { transition: none; }
+
+/* 단 등장/퇴장 슬라이드는 키보드가 열려 있어도 보존 — 위 suspend 규칙의 specificity
+   (0,3,1) 가 enter/leave (0,3,0) 를 이겨 슬라이드까지 죽이므로, 같은 body prefix 로
+   명시 재허용 (검증 라운드 CORRECTED 반영). */
+body.keyboard-open .sheet-enter-active .sheet-panel { transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1); }
+body.keyboard-open .sheet-leave-active .sheet-panel { transition: transform 0.28s ease-in; }
+
 @media (prefers-reduced-motion: reduce) {
   .sheet-enter-active,
   .sheet-leave-active,
@@ -219,6 +232,10 @@ function onHandleClick() {
   .sheet-leave-active .sheet-backdrop,
   .sheet-enter-active .sheet-panel,
   .sheet-leave-active .sheet-panel,
-  .sheet-panel { transition-duration: 0.01ms; }
+  .sheet-panel,
+  /* keyboard-open 재허용 규칙(specificity 0,4,1)이 모션 감소 설정을 이기지 않도록
+     동일 prefix 로 duration 강제 (Codex R1 #12). */
+  body.keyboard-open .sheet-enter-active .sheet-panel,
+  body.keyboard-open .sheet-leave-active .sheet-panel { transition-duration: 0.01ms; }
 }
 </style>
