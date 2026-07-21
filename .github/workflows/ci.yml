@@ -202,6 +202,10 @@ jobs:
           docker compose version >/dev/null || { echo "❌ docker compose 플러그인을 찾지 못함"; exit 1; }
 
           cd "$DEPLOY"
+          # 런타임 공개 설정 보정 (멱등): Meta 앱 ID — 인스타 스토리 직공유의 source_application.
+          # 비밀값 아님(클라이언트에 노출되는 공개 App ID)이라 워크플로에 평문으로 둔다.
+          # 이미 항목이 있으면 건드리지 않는다 — 호스트 .env 의 수동 변경을 존중.
+          grep -q '^NUXT_PUBLIC_META_APP_ID=' .env || echo 'NUXT_PUBLIC_META_APP_ID=1768257850852519' >> .env
           # compose 의 frontend 이미지는 ${REGISTRY_URL}/terraworld-frontend:${TAG:-latest}
           # = ghcr.io/terraworld-it/terraworld-frontend:latest (위 build-push 가 올린 그것).
           docker compose -f docker-compose.yml -f docker-compose.tunnel.yml pull frontend
