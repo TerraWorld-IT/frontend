@@ -85,8 +85,10 @@ frontend/
 │   │   └── tailwind.css            # Tailwind v4 @theme (리소 20색 + 애니메이션)
 │   ├── components/
 │   │   ├── common/                 # Toast, Modal, Loading, Onboarding, AdSenseBanner,
-│   │   │                           #   CustomCategoryManager, ThemeGallery, TierModal,
+│   │   │                           #   BottomSheet(공용 바텀시트 — 기본높이 62dvh + 핸들 확대,
+│   │   │                           #    키보드 열림 시 백드롭 탭은 키보드만 닫음), TierModal,
 │   │   │                           #   OfflineBanner, AppUpdateGate
+│   │   │                           #   (CustomCategoryManager/ThemeGallery 는 2026-07-20 제거)
 │   │   │                           #   (CurrencyDisplay/ExchangeModal/RewardToast/AttendanceWidget/
 │   │   │                           #    RarityBadge 는 소비자 0건으로 제거됨 — 2026-07-15)
 │   │   ├── icons/                  # CurrencyIcon, JamjarSvg, Jar1, PpJamjar (SVG 컴포넌트)
@@ -99,7 +101,6 @@ frontend/
 │   │   ├── useAuth.ts              # JWT 메모리 캐시 (module-scoped) + 4분 preemptive refresh timer
 │   │   ├── useAdMob.ts             # AdMob 보상형 광고 (Android native, 웹/iOS dev fallback)
 │   │   ├── useAttendance.ts        # 출석 체크인 (7일 streak 보너스 5→20 이슬)
-│   │   ├── useCustomCategory.ts    # 커스텀 카테고리 CRUD (사용자당 10개 한도)
 │   │   ├── useEvolution.ts         # 5단계 진화 (POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM, 레벨 1/5/10/20/30)
 │   │   ├── useGtagEvents.ts        # GA4 이벤트 트래킹 (15개 이벤트 헬퍼)
 │   │   ├── useNative.ts            # Capacitor 네이티브 브릿지 (share, shareFile, shareToInstagram, haptics, camera, push)
@@ -108,14 +109,15 @@ frontend/
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
 │   │   ├── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
-│   │   ├── useThemeSelection.ts    # 프리미엄 테마 선택 + localStorage persist (entitlements.premiumThemes 게이트, SoT 레이어 검증)
 │   │   ├── useDialogFocusTrap.ts   # bespoke 오버레이 focus trap + 배경 스크롤 잠금(useOverlayScrollLock 합성). 14 오버레이 일괄
 │   │   └── useOverlayScrollLock.ts # 모달/시트 열림 시 배경 스크롤 잠금 (<html>.scroll-locked + 참조카운트). 실 스크롤러=main 이라 body 잠금은 무효
 │   ├── error.vue                   # 전역 에러 페이지 (404 / 500-class 분기 + 재시도 버튼)
 │   ├── layouts/
 │   │   └── default.vue             # 헤더(WalletBar) + 하단 네비(5탭) + haptic (Toast는 app.vue 루트로 이동, 2026-07-09)
 │   ├── lib/
-│   │   └── auth-client.ts          # better-auth Vue 클라이언트 (createAuthClient)
+│   │   ├── auth-client.ts          # better-auth Vue 클라이언트 (createAuthClient)
+│   │   ├── nativeDistanceTracker.ts # 거리 기록 네이티브 브리지 계약 (DistanceTracker 플러그인 — start/drain/stop, seq dedup)
+│   │   └── instagramStories.ts     # 인스타 스토리 공유 (네이티브 플러그인 위임, metaAppId 는 호출부 주입 — auto-import 범위 밖)
 │   ├── middleware/
 │   │   ├── auth.ts                 # JWT 쿠키 라우트 가드 (protect-by-default, SSR+CSR)
 │   │   └── admin.ts                # ADMIN 역할 체크 (useUserStore.role)
@@ -127,7 +129,8 @@ frontend/
 │   │   │                           # (terrarium/index.vue·free.vue orphan 페이지는 제거됨 — 2026-07-15,
 │   │   │                           #  routeRules 가 /terrarium, /terrarium/free → / redirect)
 │   │   ├── shop/index.vue          # 아이템 상점 (Suspense + ClientOnly)
-│   │   ├── profile/index.vue       # 프로필/통계/설정 + CustomCategoryManager
+│   │   ├── profile/index.vue       # 프로필/통계 (설정·친구·랭킹 진입)
+│   │   ├── profile/settings.vue    # 설정 — 동의 항목 관리(마케팅/GA4/광고ID/사진/푸시) + 계정 카드 (2026-07-21)
 │   │   ├── friends/index.vue       # 친구 초대 코드 발급/입력 (햇살 +5)
 │   │   ├── ranking/index.vue       # 월간 랭킹 (engagement / decoration)
 │   │   ├── share/[code].vue        # 공유 수신 (SSR + OG 메타 + 초대 수락)
@@ -311,7 +314,8 @@ POST   /uploads/photo                  # multipart, magic byte 검증
 | `/record` | `pages/record/index.vue` | 기록 입력/리스트 | 필수 |
 | `/terrarium` | (제거됨 2026-07-15 — routeRules 로 `/` redirect) | 홈 index.vue 가 테라리움 담당 | — |
 | `/shop` | `pages/shop/index.vue` | 아이템 상점 (Suspense + ClientOnly) | 선택 |
-| `/profile` | `pages/profile/index.vue` | 프로필/통계/설정 (친구·랭킹 진입) | 필수 |
+| `/profile` | `pages/profile/index.vue` | 프로필/통계 (설정·친구·랭킹 진입) | 필수 |
+| `/profile/settings` | `pages/profile/settings.vue` | 설정 — 동의 항목 관리 + 계정 (로그아웃) | 필수 |
 | `/share/:code` | `pages/share/[code].vue` | 공유 수신 (SSR + OG + 초대 수락) | 불필요 |
 | `/friends` | `pages/friends/index.vue` | 친구 초대 코드 발급/입력 (햇살 +5) | 필수 |
 | `/ranking` | `pages/ranking/index.vue` | 월간 랭킹 (engagement / decoration) | 필수 |
@@ -615,6 +619,19 @@ await sdk.purchaseItem({ client, body: { itemId, idempotencyKey: crypto.randomUU
 - **`better-auth`/`better-fetch` 의 `fetchOptions.timeout` 은 응답 헤더까지만 잰다** — 서버가 헤더만 주고 body 를 안 흘리는 half-open 연결에서 `getSession()` 이 안 끝나 미들웨어 hang / 로딩 베일 고착. 해결: 외부 `AbortController` 를 `fetchOptions.signal` 로 넘기고(그러면 better-fetch 가 자기 타이머 대신 그 signal 로 전 구간 통제) `withTimeout(getSession, ms, ac)` 로 감싼다. `app/utils/withTimeout.ts`. 상세: solutions/better-fetch-timeout-covers-headers-not-body-stall.
 - **콜드 스타트 로그인 깜빡임 + 세션 확인 베일** — 네이티브 셸 첫 top-level 네비게이션에 세션 쿠키가 안 실려 SSR 이 `/auth/login` 으로 302 → 폼이 떴다가 클라 `getSession`(same-origin XHR, 쿠키 실림)이 홈으로 되돌림. `login.vue` 의 클라이언트 전용 베일(`checkingSession`, false 로 시작해 SSR 미노출→하이드레이션 안전)이 가린다. "떠났는지" 판정은 `navigateTo` 반환값·페이지 주입 `useRoute` 가 아니라 **전역 `useRouter().currentRoute.value.path`(trailing slash 정규화)** 로 한다. 남는 한계: SSR 이 폼을 그리는 한 하이드레이션 직후 최대 1프레임 플래시는 못 없앤다(웹 직접 방문 한정).
 
+### 함정 (2026-07-21 발견 — 라이브 DOM 실측으로만 검출)
+
+- **auto-import 이름은 prefix 중복을 접는다** — `components/record/RecordCard.vue` 의 등록명은
+  `RecordCard` 다(`RecordRecordCard` 아님). 파일명이 디렉토리명으로 시작하면 Nuxt 가 중복을
+  접기 때문. 오인 태그는 빌드 에러 없이 **네이티브 커스텀 엘리먼트로 조용히 렌더**되고
+  (`<recordrecordcard record="[object Object]">`), 프로덕션은 `esbuild.drop: ['console']` 이
+  resolve 경고까지 지워 "API 200 인데 목록만 빈" 형태로 잠복한다(실사례: 최근 기록 카드
+  수개월 미표시, `a48b539` 수정). 태그명은 추측 말고 `.nuxt/components.d.ts` 확인, 탐지는
+  중복-prefix 스캔 + 데이터 있는 계정 라이브 검증. 상세: toolkit
+  solutions/nuxt-auto-import-folder-prefix-deduplication.
+- **분 단위 duration 은 하한 1 클램프** — 거리·집중 기록의 `Math.round(secs/60)` 이 60초 미만
+  세션에서 0 이 되어 backend `@Min(1)` 에 400 거부되던 문제. `Math.max(1, ...)` 필수.
+
 ### 성능
 
 - 이미지 에셋: `@nuxt/image`로 최적화, WebP/AVIF
@@ -695,7 +712,7 @@ bun run typecheck   # TypeScript 체크
 - [x] 자유배치 PoC (`/terrarium/free`, DnD PointerEvent)
 - [x] 자유배치 entitlement 게이트 + 안내 페이지 (`/upgrade/free-placement`)
 - [x] 5단계 진화 모달 (Modal G — POT/BOTTLE/PALUDARIUM/WORLD/CUSTOM)
-- [x] 커스텀 카테고리 UI (`/profile` 임베드, CRUD, 사용자당 10개 한도)
+- [x] ~~커스텀 카테고리 UI~~ — 제품 결정으로 제거됨 (2026-07-20, UI/composable/e2e 일괄 삭제)
 - [x] 일일 출석 위젯 + 7일 streak 보너스 (`/rewards/attendance`)
 - [x] 사진 첨부 (record/index.vue + multipart 업로드, magic byte 검증)
 - [x] 다크모드 시간 연동 (useTimeAwareColorMode, 06:00~18:00)
@@ -704,6 +721,6 @@ bun run typecheck   # TypeScript 체크
 - [x] Capacitor 모바일 래핑 (Android 빌드 완료, AdMob + Filesystem plugin)
 - [x] 네이티브 브릿지 (useNative: share, shareFile, haptics, camera, push)
 - [x] 딥 링크 (AASA + assetlinks + App Links)
-- [△] 인스타 공유 — `useNative.shareToInstagram` 시스템 공유 시트 위임(공유 시트에 Instagram 노출). 네이티브 Stories 딥링크(이미지 주입)는 표준 Capacitor 로 불가 → 별도 pasteboard 플러그인 필요 (후속)
+- [△] 인스타 공유 — 시스템 공유 시트(`shareToInstagram`) + **네이티브 Stories 직공유 구현됨** (2026-07-21: app-local `InstagramStoriesPlugin` — Android ADD_TO_STORY intent + FileProvider / iOS pasteboard 5분 만료, `lib/instagramStories.ts` 폴백 포함). `NUXT_PUBLIC_META_APP_ID` 발급 + 실기기 QA 대기
 - [ ] 시즌/이벤트 스탬프
-- [△] 메모지/테마 해금 UI — `ThemeGallery.vue` + `useThemeSelection` 기본형 구현 (카탈로그/미리보기/적용/localStorage persist, `entitlements.premiumThemes` 게이트). 실제 테마 색/레이아웃은 디자이너 검토 대기
+- [x] ~~메모지/테마 해금 UI~~ — 제품 결정으로 제거됨 (2026-07-20, ThemeGallery/useThemeSelection 삭제)
