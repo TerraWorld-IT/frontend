@@ -147,12 +147,25 @@ jobs:
       # ("no matching manifest for linux/arm64/v8", 2026-07-15 실측). 구 파이프라인의
       # plain docker build 와 같은 단일-manifest amd64 로 유지 — 맥은 기존처럼
       # Rosetta 에뮬레이션으로 실행한다 (프로덕션 기존 동작과 동일).
+      # ENV-1: 공개 클라이언트 설정을 빌드에 넘긴다. `runtimeConfig.public.*` 는 런타임 env 로도
+      # 덮이지만 `nuxt.config.ts` 의 `gtag.id` 는 빌드 시점 `NUXT_PUBLIC_GA_ID` 로만 채워진다
+      # (Dockerfile 의 ARG 주석 참조) — 여기서 안 넘기면 이미지의 GA4 는 빈 값으로 굳는다.
+      # 사후 구제는 가능하지만 키 이름이 `NUXT_PUBLIC_GTAG_ID` 로 달라진다.
+      # 비밀값은 아니지만(클라이언트에 그대로 노출되는 공개 ID) 이 레포는 Actions variables
+      # (`vars.*`) 를 쓰는 곳이 없어 secrets 로 통일한다. 미설정이면 빈 문자열이 들어가
+      # 기존 동작과 같아진다(해당 기능만 비활성, 빌드는 성공).
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           provenance: false
+          build-args: |
+            NUXT_PUBLIC_GA_ID=${{ secrets.NUXT_PUBLIC_GA_ID }}
+            NUXT_PUBLIC_ADSENSE_CLIENT=${{ secrets.NUXT_PUBLIC_ADSENSE_CLIENT }}
+            NUXT_PUBLIC_ADSENSE_SLOT=${{ secrets.NUXT_PUBLIC_ADSENSE_SLOT }}
+            NUXT_PUBLIC_ADMOB_REWARDED_AD_ID=${{ secrets.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID }}
+            NUXT_PUBLIC_META_APP_ID=${{ secrets.NUXT_PUBLIC_META_APP_ID }}
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
@@ -205,6 +218,11 @@ jobs:
           # 런타임 공개 설정 보정 (멱등): Meta 앱 ID — 인스타 스토리 직공유의 source_application.
           # 비밀값 아님(클라이언트에 노출되는 공개 App ID)이라 워크플로에 평문으로 둔다.
           # 이미 항목이 있으면 건드리지 않는다 — 호스트 .env 의 수동 변경을 존중.
+          #
+          # 위 build-push 의 build-args 와 중복처럼 보이지만 아직 대체 관계가 아니다.
+          # build-arg 는 `secrets.NUXT_PUBLIC_META_APP_ID` 가 실제로 설정돼 있을 때만 값이
+          # 들어가고, 이 줄은 확정된 값을 런타임 .env 에 직접 보장한다. 시크릿 등록을 확인한
+          # 뒤에 지우는 것이 안전하다.
           grep -q '^NUXT_PUBLIC_META_APP_ID=' .env || echo 'NUXT_PUBLIC_META_APP_ID=1768257850852519' >> .env
           # compose 의 frontend 이미지는 ${REGISTRY_URL}/terraworld-frontend:${TAG:-latest}
           # = ghcr.io/terraworld-it/terraworld-frontend:latest (위 build-push 가 올린 그것).

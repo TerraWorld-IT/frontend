@@ -8,6 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "prepare": "lefthook install || true",
     "lint": "oxlint --fix .",
     "lint:check": "oxlint .",
     "typecheck": "nuxi typecheck",

@@ -274,6 +274,12 @@ export default defineNuxtConfig({
   },
 
   gtag: {
+    // ENV-1: 이 `id` 는 **빌드 시점** env 로만 채워진다 — 그래서 `NUXT_PUBLIC_GA_ID` 가
+    // `docker build` 시점에 있어야 한다(Dockerfile ARG + ci.yml build-args).
+    // 다만 nuxt-gtag 는 이 값을 `runtimeConfig.public.gtag.id` 에 넣으므로, 이미 빌드된
+    // 이미지에 런타임으로 넣을 때의 키는 `NUXT_PUBLIC_GA_ID` 가 아니라 **`NUXT_PUBLIC_GTAG_ID`**
+    // 다 (Nitro applyEnv 가 public.gtag.id → NUXT_PUBLIC_GTAG_ID 로 매핑 — 빌드 산출물로 실측).
+    // 변수명은 위 gaId 매핑과 같아야 하므로 유지.
     id: process.env.NUXT_PUBLIC_GA_ID || '',
     enabled: process.env.NODE_ENV === 'production',
     // P2-2 (PIPA): GA4 는 '선택' 동의 항목 — 자동 로드 금지(opt-in 게이트).

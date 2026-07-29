@@ -6,9 +6,15 @@ pre-commit:
       run: bunx oxlint {staged_files}
     # /analyze 2026-05-18 (Codex C-10): @capacitor/* frontend/mobile 양쪽 동기 강제.
     # package.json 변경 시에만 실행 — 다른 commit 은 grep 만으로 빠르게 통과.
+    #
+    # PARITY-1: 같은 검사가 frontend/mobile 에 각각 있었고 판정 규칙이 서로 달랐다(frontend 판은
+    # frontend-only 패키지를 허용, mobile 판은 fail). SoT 는 mobile/package.json 이므로
+    # mobile 쪽 구현 하나만 남기고 frontend 사본은 제거했다.
+    # frontend 단독 클론(../mobile 미체크아웃)에서는 커밋을 막지 않고 건너뛴다 —
+    # mobile-ci.yml 의 파리티 step 과 같은 가드 방식.
     capacitor-sync:
       glob: "{package.json,../mobile/package.json}"
-      run: node scripts/check-capacitor-sync.mjs
+      run: if [ -f ../mobile/scripts/check-capacitor-sync.mjs ]; then node ../mobile/scripts/check-capacitor-sync.mjs; else echo capacitor-sync 건너뜀 - ../mobile 미체크아웃; fi
     # UltraPlan I-DEAD-KEY-001 — i18n dead/missing key detection (advisory phase).
     # Phase 4 현재: missing 만 BLOCKING (실 typo). dead 는 I-T-MIGRATE-001 진행 중이라 advisory.
     # Phase 5+ strict: `I18N_STRICT=1` 환경변수로 격상.
