@@ -1,5 +1,5 @@
 <template>
-  <div class="riso-grain min-h-screen space-y-[30px] pb-4">
+  <div class="min-h-screen space-y-[28px] pb-4">
     <!-- Initial loading -->
     <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
 
@@ -17,24 +17,24 @@
     </div>
 
     <template v-else>
-      <!-- 헤더 -->
+      <!-- 헤더 — 아프젝: 타이틀 + 서브 (fig-calendar) -->
       <div class="space-y-1">
-        <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">{{ $t('calendar.title') }}</h2>
-        <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
+        <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">{{ $t('calendar.title') }}</h2>
+        <p class="text-[14px] leading-[20px] text-apjek-text-sub tracking-[-0.15px]">
           {{ $t('calendar.subtitle') }}
         </p>
       </div>
 
-      <!-- 활동 통계 (FE 실 통계 — TW2 디자인엔 없으나 실기능 보존) -->
-      <div class="bg-white rounded-[16px] border border-black/10 p-5">
+      <!-- 활동 통계 (FE 실 통계 — 아프젝 디자인엔 없으나 실기능 보존, 팔레트만 정합) -->
+      <div class="apjek-card p-5">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold flex items-center gap-2 text-black">
+          <h3 class="font-bold flex items-center gap-2 text-apjek-text">
             <Icon name="lucide:trending-up" class="w-5 h-5" />
             {{ $t('calendar.activityStats') }}
           </h3>
           <button
             type="button"
-            class="text-xs font-medium text-[#97a8f1] hover:text-black transition-colors"
+            class="text-xs font-medium text-apjek-blue hover:text-apjek-text transition-colors"
             @click="showDetailedStats = !showDetailedStats"
           >
             {{ showDetailedStats ? $t('calendar.collapse') : $t('calendar.viewDetail') }}
@@ -42,35 +42,34 @@
         </div>
 
         <div class="grid grid-cols-3 gap-3">
-          <div class="p-4 rounded-[12px] text-center" style="background-color: #e8ecfc">
-            <div class="text-[24px] font-bold text-black leading-[32px]">{{ stats?.todayRecords ?? 0 }}</div>
-            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">{{ $t('calendar.today') }}</div>
+          <div class="p-4 rounded-[12px] text-center bg-apjek-blue-soft">
+            <div class="text-[24px] font-bold text-apjek-text leading-[32px]">{{ stats?.todayRecords ?? 0 }}</div>
+            <div class="text-[12px] text-apjek-text-sub font-medium leading-[16px]">{{ $t('calendar.today') }}</div>
           </div>
-          <div class="p-4 rounded-[12px] text-center" style="background-color: #e8ecfc">
-            <div class="text-[24px] font-bold text-black leading-[32px]">{{ stats?.thisWeekRecords ?? 0 }}</div>
-            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">{{ $t('calendar.thisWeek') }}</div>
+          <div class="p-4 rounded-[12px] text-center bg-apjek-blue-soft">
+            <div class="text-[24px] font-bold text-apjek-text leading-[32px]">{{ stats?.thisWeekRecords ?? 0 }}</div>
+            <div class="text-[12px] text-apjek-text-sub font-medium leading-[16px]">{{ $t('calendar.thisWeek') }}</div>
           </div>
-          <div class="p-4 rounded-[12px] text-center" style="background-color: #e8ecfc">
-            <div class="text-[24px] font-bold text-black leading-[32px]">{{ stats?.totalRecords ?? 0 }}</div>
-            <div class="text-[12px] text-[#525252] font-medium leading-[16px]">{{ $t('calendar.total') }}</div>
+          <div class="p-4 rounded-[12px] text-center bg-apjek-blue-soft">
+            <div class="text-[24px] font-bold text-apjek-text leading-[32px]">{{ stats?.totalRecords ?? 0 }}</div>
+            <div class="text-[12px] text-apjek-text-sub font-medium leading-[16px]">{{ $t('calendar.total') }}</div>
           </div>
         </div>
 
-        <div v-if="showDetailedStats && stats && stats.byCategory.length > 0" class="space-y-3 mt-5 pt-5 border-t border-black/10">
-          <div class="text-sm font-bold mb-3 text-black">{{ $t('calendar.byCategory') }}</div>
+        <div v-if="showDetailedStats && stats && stats.byCategory.length > 0" class="space-y-3 mt-5 pt-5 border-t border-apjek-border">
+          <div class="text-sm font-bold mb-3 text-apjek-text">{{ $t('calendar.byCategory') }}</div>
           <div v-for="cat in stats.byCategory" :key="cat.categoryId" class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-[12px] flex items-center justify-center text-lg" style="background-color: #e8ecfc">
+            <div class="w-10 h-10 rounded-[12px] flex items-center justify-center text-lg bg-apjek-blue-soft">
               {{ cat.emoji ?? '🏷️' }}
             </div>
             <div class="flex-1">
               <div class="flex justify-between text-sm mb-1.5">
-                <span class="font-semibold text-black">{{ cat.categoryName }}</span>
-                <span class="font-bold text-black">{{ $t('calendar.countTimes', { n: cat.count }) }}</span>
+                <span class="font-semibold text-apjek-text">{{ cat.categoryName }}</span>
+                <span class="font-bold text-apjek-text">{{ $t('calendar.countTimes', { n: cat.count }) }}</span>
               </div>
-              <div class="h-2 bg-[#f5f5f5] rounded-full overflow-hidden">
+              <div class="h-2 bg-apjek-bg rounded-full overflow-hidden">
                 <div
-                  class="h-full rounded-full transition-all"
-                  style="background-color: #97a8f1"
+                  class="h-full rounded-full transition-all bg-apjek-blue"
                   :style="{ width: `${stats.totalRecords > 0 ? (cat.count / stats.totalRecords) * 100 : 0}%` }"
                 />
               </div>
@@ -79,21 +78,21 @@
         </div>
       </div>
 
-      <!-- 달력 -->
-      <div class="bg-white rounded-[16px] border border-black/10 p-5">
+      <!-- 달력 — 아프젝: 라운드 원형 네비 + 라운드 사각 날짜 셀 (fig-calendar) -->
+      <div class="apjek-card p-5">
         <!-- 달력 헤더 -->
         <div class="flex items-center justify-between mb-5">
           <button
             type="button"
-            class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors active:scale-[0.97]"
+            class="w-9 h-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center hover:bg-apjek-bg transition-colors active:scale-[0.97]"
             @click="prevMonth"
           >
             <Icon name="lucide:chevron-left" class="w-4 h-4" />
           </button>
-          <h3 class="text-lg font-bold text-black">{{ $t('calendar.yearMonth', { year: currentYear, month: currentMonth + 1 }) }}</h3>
+          <h3 class="text-lg font-bold text-apjek-text">{{ $t('calendar.yearMonth', { year: currentYear, month: currentMonth + 1 }) }}</h3>
           <button
             type="button"
-            class="w-9 h-9 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors active:scale-[0.97]"
+            class="w-9 h-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center hover:bg-apjek-bg transition-colors active:scale-[0.97]"
             @click="nextMonth"
           >
             <Icon name="lucide:chevron-right" class="w-4 h-4" />
@@ -102,12 +101,12 @@
 
         <!-- 요일 헤더 -->
         <div class="grid grid-cols-7 gap-2 mb-2">
-          <div v-for="day in DAYS" :key="day" class="text-center text-xs font-bold text-[#525252] py-2">
+          <div v-for="day in DAYS" :key="day" class="text-center text-xs font-medium text-apjek-text-faint py-2">
             {{ day }}
           </div>
         </div>
 
-        <!-- 날짜 그리드 -->
+        <!-- 날짜 그리드 — 오늘/선택 = 다크 필 (fig-calendar) -->
         <div class="grid grid-cols-7 gap-2">
           <div v-for="i in startingDayOfWeek" :key="`empty-${i}`" class="aspect-square" />
 
@@ -117,19 +116,17 @@
             type="button"
             class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold hover:shadow-md hover:scale-105 active:scale-95"
             :class="[
-              isSelectedDay(day)
-                ? 'bg-black text-white shadow-lg'
+              isSelectedDay(day) || isToday(day)
+                ? 'bg-apjek-cta text-white shadow-lg border border-transparent'
                 : hasRecords(day)
-                  ? 'border border-black/10'
-                  : 'border border-black/10 bg-white',
-              isToday(day) && !isSelectedDay(day) ? 'border-2 border-black' : '',
+                  ? 'border border-apjek-border bg-apjek-blue-soft text-apjek-text'
+                  : 'border border-apjek-border bg-apjek-surface text-apjek-text',
             ]"
-            :style="!isSelectedDay(day) && hasRecords(day) ? 'background-color: #e8ecfc' : undefined"
             @click="selectDay(day)"
           >
             <div class="text-xs">{{ day }}</div>
             <div v-if="noteMap[dateKey(day)]" class="absolute top-1 right-1">
-              <div class="w-1.5 h-1.5 rounded-full" style="background-color: #97a8f1" />
+              <div class="w-1.5 h-1.5 rounded-full bg-apjek-blue" />
             </div>
           </button>
         </div>
@@ -139,9 +136,9 @@
     <!-- 선택된 날짜 상세 — 바텀 시트 -->
     <CommonBottomSheet :open="selectedDate !== null" ariaLabel="날짜 기록" @close="closeSheet()">
       <div v-if="selectedDate" class="px-5 pt-1 pb-3">
-        <div class="bg-white rounded-[16px] border border-black/10 p-5">
+        <div class="apjek-card p-5">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold flex items-center gap-2 text-black">
+            <h3 class="font-bold flex items-center gap-2 text-apjek-text">
               <Icon name="lucide:calendar" class="w-5 h-5" />
               {{ $t('calendar.monthDay', { month: selectedDate.getMonth() + 1, day: selectedDate.getDate() }) }}
             </h3>
@@ -149,33 +146,32 @@
 
           <!-- 해당 날짜 기록 -->
           <div class="mb-4">
-            <div class="text-sm font-bold mb-3 text-black">{{ $t('calendar.completedActivities') }}</div>
+            <div class="text-sm font-bold mb-3 text-apjek-text">{{ $t('calendar.completedActivities') }}</div>
             <div v-if="selectedDayRecords.length > 0" class="space-y-2">
               <div
                 v-for="record in selectedDayRecords"
                 :key="record.id"
-                class="p-3 rounded-[12px] relative"
-                style="background-color: #e8ecfc"
+                class="p-3 rounded-[12px] relative bg-apjek-bg"
               >
                 <div class="flex items-center gap-3">
                   <div class="w-6 h-6 flex items-center justify-center text-xl shrink-0">
                     {{ recordDisplayIcon(record) }}
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-sm text-black">{{ recordDisplayLabel(record) }}</div>
-                    <div class="text-xs text-[#525252]">
+                    <div class="font-semibold text-sm text-apjek-text">{{ recordDisplayLabel(record) }}</div>
+                    <div class="text-xs text-apjek-text-sub">
                       {{ formatTime(record.recordedDate) }}
                       <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
                     </div>
                   </div>
                   <div class="flex items-center gap-2">
-                    <div class="px-3 py-1 rounded-[8px] text-xs font-bold text-white" style="background-color: #97a8f1">
+                    <div class="px-3 py-1 rounded-[8px] text-xs font-bold text-white bg-apjek-blue">
                       {{ $t('calendar.done') }}
                     </div>
                     <div class="relative">
                       <button
                         type="button"
-                        class="w-8 h-8 rounded-full hover:bg-[#d4dcf9] flex items-center justify-center text-[#525252] transition-colors"
+                        class="w-8 h-8 rounded-full hover:bg-apjek-blue-soft flex items-center justify-center text-apjek-text-sub transition-colors"
                         @click="openMenuId = openMenuId === record.id ? null : record.id"
                       >
                         ⋯
@@ -184,11 +180,11 @@
                       <Transition name="cal-menu">
                         <div
                           v-if="openMenuId === record.id"
-                          class="absolute right-0 top-10 bg-white rounded-[12px] shadow-lg border border-black/10 overflow-hidden z-20 min-w-[120px]"
+                          class="absolute right-0 top-10 bg-apjek-surface rounded-[12px] shadow-lg border border-apjek-border overflow-hidden z-20 min-w-[120px]"
                         >
                           <button
                             type="button"
-                            class="w-full px-4 py-2.5 text-left text-sm hover:bg-[#e8ecfc] flex items-center gap-2 text-[#97a8f1] font-semibold transition-colors"
+                            class="w-full px-4 py-2.5 text-left text-sm hover:bg-apjek-blue-soft flex items-center gap-2 text-apjek-blue font-semibold transition-colors"
                             :disabled="deletingId === record.id"
                             @click="removeRecord(record)"
                           >
@@ -200,12 +196,12 @@
                     </div>
                   </div>
                 </div>
-                <div v-if="record.memo" class="text-sm text-[#525252] mt-2 pl-9">
+                <div v-if="record.memo" class="text-sm text-apjek-text-sub mt-2 pl-9">
                   {{ record.memo }}
                 </div>
               </div>
             </div>
-            <div v-else class="text-sm text-[#a1a1a1] text-center py-6 bg-[#f5f5f5] rounded-[12px]">
+            <div v-else class="text-sm text-apjek-text-faint text-center py-6 bg-apjek-bg rounded-[12px]">
               {{ $t('calendar.noRecords') }}
             </div>
           </div>
@@ -213,11 +209,11 @@
           <!-- 메모 -->
           <div>
             <div class="flex items-center justify-between mb-3">
-              <div class="text-sm font-bold text-black">{{ $t('calendar.memo') }}</div>
+              <div class="text-sm font-bold text-apjek-text">{{ $t('calendar.memo') }}</div>
               <button
                 v-if="!isEditingNote"
                 type="button"
-                class="flex items-center gap-1 text-xs font-medium text-[#525252] hover:text-black transition-colors"
+                class="flex items-center gap-1 text-xs font-medium text-apjek-text-sub hover:text-apjek-text transition-colors"
                 @click="startEdit"
               >
                 <Icon name="lucide:edit-2" class="w-3 h-3" />
@@ -230,12 +226,12 @@
                 v-model="editingNoteText"
                 rows="3"
                 :placeholder="$t('calendar.memoPlaceholder')"
-                class="w-full rounded-[12px] border border-black/10 bg-[#f5f5f5] px-4 py-3 text-black placeholder:text-black/30 focus:outline-none focus:ring-2 focus:ring-[#97a8f1] resize-none text-sm"
+                class="w-full rounded-[12px] border border-apjek-border bg-apjek-bg px-4 py-3 text-apjek-text placeholder:text-apjek-text-faint focus:outline-none focus:ring-2 focus:ring-apjek-blue/40 resize-none text-sm"
               />
               <div class="flex gap-2">
                 <button
                   type="button"
-                  class="flex-1 h-10 rounded-[12px] bg-black text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  class="flex-1 h-10 rounded-full bg-apjek-cta text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
                   :disabled="noteSaving"
                   @click="saveNote"
                 >
@@ -244,16 +240,16 @@
                 </button>
                 <button
                   type="button"
-                  class="w-10 h-10 rounded-[12px] border border-black/10 flex items-center justify-center hover:bg-[#f5f5f5] transition-colors"
+                  class="w-10 h-10 rounded-full border border-apjek-border-strong flex items-center justify-center hover:bg-apjek-bg transition-colors"
                   @click="cancelEdit"
                 >
                   <Icon name="lucide:x" class="w-4 h-4" />
                 </button>
               </div>
             </div>
-            <div v-else class="p-4 bg-[#f5f5f5] rounded-[12px] text-sm min-h-[60px] text-[#525252]">
+            <div v-else class="p-4 bg-apjek-bg rounded-[12px] text-sm min-h-[60px] text-apjek-text-sub">
               <span v-if="selectedNote">{{ selectedNote }}</span>
-              <span v-else class="text-[#a1a1a1]">{{ $t('calendar.noMemo') }}</span>
+              <span v-else class="text-apjek-text-faint">{{ $t('calendar.noMemo') }}</span>
             </div>
           </div>
         </div>

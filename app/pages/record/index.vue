@@ -1,81 +1,88 @@
 <template>
-  <div class="riso-grain min-h-screen space-y-[30px] pb-4">
-    <!-- 헤더 -->
+  <div class="min-h-screen space-y-[28px] pb-4">
+    <!-- 헤더 — 아프젝: 타이틀 + 우상단 다크 필 [캘린더] 버튼 (frame-record-main) -->
     <div class="flex items-center justify-between py-[10px]">
-      <h1 class="font-bold text-[29px] text-black tracking-[-0.9px] leading-[28px]">
+      <h1 class="font-bold text-[28px] text-apjek-text tracking-[-0.9px] leading-[32px]">
         기록하기
       </h1>
-      <div class="flex items-center gap-[10px]">
-        <!-- 현재 페이지 표시 — 클릭 핸들러 없는 dead button 이었으므로 button 이 아닌
-             aria-current="page" span 으로 시맨틱 교체 (시각 스타일 유지) -->
-        <span
-          aria-current="page"
-          class="h-[40px] px-[12px] rounded-[16px] text-[12px] font-semibold inline-flex items-center"
-          style="background: rgba(126,219,192,0.18); color: #3a9e78"
-        >
-          다이어리
-        </span>
-        <button
-          type="button"
-          class="h-[40px] px-[12px] rounded-[16px] text-[12px] font-semibold transition-all hover:opacity-80"
-          style="background: rgba(126,219,192,0.18); color: #3a9e78"
-          @click="goToCalendar()"
-        >
-          캘린더
-        </button>
-      </div>
+      <button
+        type="button"
+        class="apjek-cta h-[40px] px-[16px] text-[13px] transition-all active:scale-95"
+        @click="goToCalendar()"
+      >
+        <Icon name="lucide:calendar" class="w-4 h-4" />
+        캘린더
+      </button>
     </div>
 
     <!-- ─── 습관 기록 ─── -->
-    <div class="space-y-[16px]">
+    <div class="space-y-[14px]">
       <div>
-        <h2 class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[28px]">
+        <h2 class="apjek-section-title text-[18px] leading-[28px]">
           습관 기록
         </h2>
-        <p class="text-[14px] text-[#525252] tracking-[-0.3px] leading-[20px] mt-[4px]">
+        <p class="text-[14px] text-apjek-text-sub tracking-[-0.3px] leading-[20px] mt-[4px]">
           1주일동안 지정한 습관을 실천하고 반짝이를 획득해요
         </p>
       </div>
 
-      <!-- 모드 선택 버튼 -->
-      <div class="flex gap-[8px]">
-        <button
-          type="button"
-          class="flex-1 h-[48px] rounded-[20px] flex items-center justify-center gap-[8px] transition-all active:scale-[0.97]"
-          :style="mode === 'solo'
-            ? { background: '#f092f0', boxShadow: '0 10px 7.5px rgba(0,0,0,0.1),0 4px 3px rgba(0,0,0,0.1)' }
-            : { background: 'white', border: '1px solid rgba(0,0,0,0.1)' }"
-          @click="setMode('solo')"
-        >
-          <Icon name="lucide:sparkles" class="w-4 h-4" :style="{ color: mode === 'solo' ? 'white' : '#595757' }" />
-          <span class="text-[14px] font-semibold" :style="{ color: mode === 'solo' ? 'white' : 'black' }">
-            나의 습관 기록
-          </span>
-        </button>
+      <!-- 습관 카드 — 아프젝 화이트 카드: 좌측 핑크 반짝이 타일 + "+반짝이" + 우측 고스트 버튼.
+           버튼이 카드 본문(모드 칩 + 트래커 목록)을 접고 편다 (frame-record-main ↔ frame-habit-create). -->
+      <div class="apjek-card p-[16px]">
+        <div class="flex items-center gap-[14px]">
+          <div
+            class="size-[56px] rounded-[18px] shrink-0 flex items-center justify-center text-apjek-sparkle"
+            style="background: radial-gradient(circle at 32% 32%, #ffe3f3 0%, var(--color-apjek-sparkle-bg) 55%, rgba(251, 147, 207, 0.35) 100%)"
+          >
+            <Icon name="lucide:sparkles" class="w-6 h-6" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px]">1주일 연속 기록</p>
+            <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-sparkle">+반짝이</p>
+          </div>
+          <button
+            type="button"
+            class="h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
+            :aria-expanded="habitOpen"
+            @click="habitOpen = !habitOpen"
+          >
+            <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
+            {{ habitOpen ? '접기' : hasActiveHabit ? '기록하기' : '시작하기' }}
+          </button>
+        </div>
 
-        <button
-          type="button"
-          class="flex-1 h-[48px] rounded-[20px] flex items-center justify-center gap-[8px] transition-all active:scale-[0.97]"
-          :style="mode === 'friend'
-            ? { background: '#f092f0', boxShadow: '0 10px 7.5px rgba(0,0,0,0.1),0 4px 3px rgba(0,0,0,0.1)' }
-            : { background: 'white', border: '1px solid rgba(0,0,0,0.1)' }"
-          @click="setMode('friend')"
-        >
-          <Icon name="lucide:users" class="w-4 h-4" :style="{ color: mode === 'friend' ? 'white' : 'black' }" />
-          <span class="text-[14px] font-semibold" :style="{ color: mode === 'friend' ? 'white' : 'black' }">
-            친구와 함께 기록
-          </span>
-        </button>
-      </div>
+        <template v-if="habitOpen">
+          <!-- 모드 선택 칩 — 활성=연블루 배경+블루 보더 (frame-habit-create) -->
+          <div class="flex gap-[8px] mt-[16px]">
+            <button
+              type="button"
+              class="apjek-chip flex-1 h-[44px] text-[14px] font-semibold transition-all active:scale-[0.97]"
+              :class="mode === 'solo' ? 'apjek-chip-active border-apjek-blue' : ''"
+              @click="setMode('solo')"
+            >
+              <Icon name="lucide:sparkles" class="w-4 h-4" />
+              나의 습관 기록
+            </button>
 
-      <!-- 습관 목록 — solo/친구별 N개 카드 (2026-07-21 n:n 재구성: 구 find-first 단일 뷰 제거) -->
-      <div class="flex flex-col items-stretch w-full gap-[12px]">
+            <button
+              type="button"
+              class="apjek-chip flex-1 h-[44px] text-[14px] font-semibold transition-all active:scale-[0.97]"
+              :class="mode === 'friend' ? 'apjek-chip-active border-apjek-blue' : ''"
+              @click="setMode('friend')"
+            >
+              <Icon name="lucide:users" class="w-4 h-4" />
+              친구와 함께 기록
+            </button>
+          </div>
+
+          <!-- 습관 목록 — solo/친구별 N개 카드 (2026-07-21 n:n 재구성: 구 find-first 단일 뷰 제거) -->
+          <div class="flex flex-col items-stretch w-full gap-[12px] mt-[16px]">
         <!-- 로드 실패 -->
         <div v-if="habitsLoaded && habitLoadError" class="w-full text-center text-[13px] text-riso-poppy py-[24px]">
           습관을 불러오지 못했어요. 잠시 후 다시 시도해 주세요
           <button
             type="button"
-            class="mt-[8px] block mx-auto text-[12px] font-semibold text-riso-sage underline"
+            class="mt-[8px] block mx-auto text-[12px] font-semibold text-apjek-blue underline"
             @click="loadHabits"
           >
             다시 시도
@@ -121,8 +128,8 @@
                 placeholder="1주일 동안 실천할 습관을 적어주세요"
                 rows="3"
                 maxlength="30"
-                class="w-full rounded-[12px] p-[16px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-riso-pink/40 leading-[20px] tracking-[-0.15px]"
-                style="background: #f5f5f5; color: #111; min-height: 60px"
+                class="w-full rounded-[12px] p-[16px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-apjek-blue/30 leading-[20px] tracking-[-0.15px] bg-apjek-bg text-apjek-text"
+                style="min-height: 60px"
                 @keydown.enter.exact.prevent="submitSoloHabit"
               />
             </div>
@@ -131,9 +138,9 @@
 
         <!-- 친구와 함께 탭: 친구별 그룹 — 친구 수만큼 표출, 친구마다 습관 1개 + 없는 친구는 만들기 -->
         <template v-else>
-          <p class="text-[11px] text-[#99a1af] leading-[16px]">
+          <p class="text-[11px] text-apjek-text-faint leading-[16px]">
             습관을 만들면 친구에게 알림이 가요. 친구도 나를 선택해 습관을 만들면
-            서로의 체크인 알림을 받고, 7일 완주 보상이 <span class="font-semibold text-[#f092f0]">2배</span>가 돼요
+            서로의 체크인 알림을 받고, 7일 완주 보상이 <span class="font-semibold text-apjek-sparkle">2배</span>가 돼요
           </p>
 
           <div
@@ -141,7 +148,7 @@
             :key="friend.userId"
             class="w-full flex flex-col gap-[8px]"
           >
-            <div class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px]" style="background: #f9fafb">
+            <div class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px] bg-apjek-bg">
               <div
                 class="size-[36px] rounded-full flex items-center justify-center text-[18px] shrink-0"
                 style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
@@ -149,18 +156,17 @@
                 🌍
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-[14px] font-semibold text-[#1e2939] leading-[20px] tracking-[-0.15px] truncate">
+                <p class="text-[14px] font-semibold text-apjek-text leading-[20px] tracking-[-0.15px] truncate">
                   {{ friend.nickname }}
                 </p>
-                <p class="text-[10px] text-[#99a1af] leading-[15px] tracking-[0.117px]">
+                <p class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">
                   {{ trackerByFriend.get(friend.userId) ? '함께 습관 진행 중' : '아직 함께하는 습관이 없어요' }}
                 </p>
               </div>
               <button
                 v-if="!trackerByFriend.get(friend.userId) && friendFormFor !== friend.userId"
                 type="button"
-                class="rounded-full px-[10px] py-[6px] text-[11px] font-semibold transition-all active:scale-95 shrink-0"
-                style="background: black; color: white"
+                class="rounded-full px-[10px] py-[6px] text-[11px] font-semibold transition-all active:scale-95 shrink-0 bg-apjek-cta text-white"
                 @click="openFriendForm(friend.userId)"
               >
                 + 함께 습관 만들기
@@ -177,20 +183,19 @@
             />
 
             <!-- 인라인 생성 폼 (해당 친구 선택 시) -->
-            <div v-else-if="friendFormFor === friend.userId" class="w-full rounded-[12px] border border-black/10 p-[12px] flex flex-col gap-[8px]">
+            <div v-else-if="friendFormFor === friend.userId" class="w-full rounded-[12px] border border-apjek-border p-[12px] flex flex-col gap-[8px]">
               <textarea
                 v-model="friendHabitInput"
                 :placeholder="`${friend.nickname}님과 1주일 동안 실천할 습관을 적어주세요`"
                 rows="2"
                 maxlength="30"
-                class="w-full rounded-[12px] p-[12px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-riso-pink/40 leading-[20px] tracking-[-0.15px]"
-                style="background: #f5f5f5; color: #111"
+                class="w-full rounded-[12px] p-[12px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-apjek-blue/30 leading-[20px] tracking-[-0.15px] bg-apjek-bg text-apjek-text"
                 @keydown.enter.exact.prevent="submitFriendHabit(friend.userId)"
               />
               <div class="flex gap-[8px] justify-end">
                 <button
                   type="button"
-                  class="px-[12px] py-[6px] rounded-[10px] text-[12px] text-[#99a1af] transition active:scale-95"
+                  class="px-[12px] py-[6px] rounded-[10px] text-[12px] text-apjek-text-faint transition active:scale-95"
                   :disabled="creatingHabit"
                   @click="closeFriendForm"
                 >
@@ -198,7 +203,7 @@
                 </button>
                 <button
                   type="button"
-                  class="px-[12px] py-[6px] rounded-[10px] text-[12px] font-semibold text-white bg-riso-sage transition active:scale-95 disabled:opacity-50"
+                  class="px-[12px] py-[6px] rounded-full text-[12px] font-semibold text-white bg-apjek-cta transition active:scale-95 disabled:opacity-50"
                   :disabled="creatingHabit"
                   @click="submitFriendHabit(friend.userId)"
                 >
@@ -218,91 +223,108 @@
             @stop="onStopHabit"
           />
 
-          <div v-if="friends.length === 0" class="text-[12px] text-[#99a1af] text-center py-[8px]">
-            함께 할 친구가 없어요.
-            <NuxtLink to="/friends" class="text-riso-sage underline font-semibold">친구 초대하기</NuxtLink>
+            <div v-if="friends.length === 0" class="text-[12px] text-apjek-text-faint text-center py-[8px]">
+              함께 할 친구가 없어요.
+              <NuxtLink to="/friends" class="text-apjek-blue underline font-semibold">친구 초대하기</NuxtLink>
+            </div>
+          </template>
           </div>
         </template>
       </div>
     </div>
 
     <!-- ─── 일상 기록 ─── -->
-    <div class="space-y-[16px]">
+    <div class="space-y-[14px]">
       <div>
-        <h2 class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[28px]">
+        <h2 class="apjek-section-title text-[18px] leading-[28px]">
           일상 기록
         </h2>
-        <p class="text-[14px] text-[#525252] tracking-[-0.3px] leading-[20px] mt-[4px]">
+        <p class="text-[14px] text-apjek-text-sub tracking-[-0.3px] leading-[20px] mt-[4px]">
           다양한 방법으로 일상을 기록하고 토큰을 획득해요
         </p>
       </div>
 
-      <!-- 2×2 카드 그리드 -->
-      <div class="grid grid-cols-2 gap-[8px]">
+      <!-- 4행 리스트 카드 — 파스텔 타일 아이콘 + 기록명 + "+토큰명" + [기록하기] 고스트 버튼
+           (frame-record-main. 구 2×2 파스텔 그리드 대체. 카드 전체 탭 = 시트 열기 유지) -->
+      <div class="flex flex-col gap-[12px]">
         <button
           v-for="card in DAILY_CARDS"
-          :key="card.title"
+          :key="card.modal"
           type="button"
-          class="h-[207px] rounded-[20px] flex flex-col items-center justify-center gap-[24px] p-[13px] text-center relative transition-all active:scale-[0.97]"
-          :style="{ background: card.bg, border: '1px solid #fdf9e9' }"
+          class="apjek-card p-[16px] flex items-center gap-[14px] text-left w-full transition-all active:scale-[0.98]"
           @click="openModal = card.modal"
         >
-          <p class="text-[14px] font-semibold text-black leading-[16px]">
-            {{ card.title }}
-          </p>
-          <div class="flex items-center justify-center">
-            <!-- 투두 아이콘 -->
-            <svg v-if="card.modal === 'todo'" width="13" height="19" fill="none" viewBox="0 0 13.0012 18.8869">
-              <path :d="svgPaths.p2050f600" fill="#595757" />
-              <path :d="svgPaths.p33366f00" fill="#595757" />
+          <!-- 파스텔 타일 아이콘 — 글리프는 기존 Figma svg 재사용, 색만 토큰 컬러로 -->
+          <div
+            class="size-[56px] rounded-[18px] shrink-0 flex items-center justify-center"
+            :style="{ background: card.tileBg, color: card.accent }"
+          >
+            <!-- 투두(물방울) 아이콘 -->
+            <svg v-if="card.modal === 'todo'" class="w-5 h-7" fill="none" viewBox="0 0 13.0012 18.8869">
+              <path :d="svgPaths.p2050f600" fill="currentColor" />
+              <path :d="svgPaths.p33366f00" fill="currentColor" />
             </svg>
-            <!-- 일기 아이콘 -->
-            <svg v-else-if="card.modal === 'diary'" width="20" height="20" fill="none" viewBox="0 0 20 20">
+            <!-- 일기(햇살) 아이콘 -->
+            <svg v-else-if="card.modal === 'diary'" class="w-6 h-6" fill="none" viewBox="0 0 20 20">
               <g clip-path="url(#clip_diary)">
-                <path :d="svgPaths.p16c5400" fill="#595757" />
-                <path :d="svgPaths.p1278f00" fill="#595757" />
-                <path :d="svgPaths.p1cdb9500" fill="#595757" />
-                <path :d="svgPaths.p7f01a80" fill="#595757" />
-                <path :d="svgPaths.p1bdb4e00" fill="#595757" />
-                <path :d="svgPaths.p10744b00" fill="#595757" />
-                <path :d="svgPaths.p4834b80" fill="#595757" />
-                <path :d="svgPaths.p11269980" fill="#595757" />
-                <path :d="svgPaths.p311b7500" fill="#595757" />
+                <path :d="svgPaths.p16c5400" fill="currentColor" />
+                <path :d="svgPaths.p1278f00" fill="currentColor" />
+                <path :d="svgPaths.p1cdb9500" fill="currentColor" />
+                <path :d="svgPaths.p7f01a80" fill="currentColor" />
+                <path :d="svgPaths.p1bdb4e00" fill="currentColor" />
+                <path :d="svgPaths.p10744b00" fill="currentColor" />
+                <path :d="svgPaths.p4834b80" fill="currentColor" />
+                <path :d="svgPaths.p11269980" fill="currentColor" />
+                <path :d="svgPaths.p311b7500" fill="currentColor" />
               </g>
               <defs><clipPath id="clip_diary"><rect fill="white" width="20" height="20" /></clipPath></defs>
             </svg>
-            <!-- 집중 아이콘 -->
-            <svg v-else-if="card.modal === 'focus'" width="20" height="20" fill="none" viewBox="0 0 20 20">
-              <path :d="svgPaths.p3a2fa580" stroke="#595757" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
+            <!-- 집중(번개) 아이콘 -->
+            <svg v-else-if="card.modal === 'focus'" class="w-6 h-6" fill="none" viewBox="0 0 20 20">
+              <path :d="svgPaths.p3a2fa580" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
             </svg>
-            <!-- 거리 아이콘 -->
-            <svg v-else width="17" height="14" fill="none" viewBox="0 0 17 14">
-              <path :d="svgPaths.p11a72f00" fill="#595757" />
-              <path :d="svgPaths.p1131d400" fill="#595757" />
+            <!-- 거리(바람) 아이콘 -->
+            <svg v-else class="w-6 h-5" fill="none" viewBox="0 0 17 14">
+              <path :d="svgPaths.p11a72f00" fill="currentColor" />
+              <path :d="svgPaths.p1131d400" fill="currentColor" />
             </svg>
           </div>
-          <p class="text-[9px] text-black text-center leading-[16px]">
-            {{ card.desc }}
-          </p>
+
+          <div class="flex-1 min-w-0">
+            <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px] truncate">
+              {{ card.title }}
+            </p>
+            <p class="text-[12px] leading-[16px] mt-[2px]" :style="{ color: card.accent }">
+              +{{ card.token }}
+            </p>
+          </div>
+
+          <!-- 시각적 고스트 버튼 (탭 타깃은 카드 전체 — 중첩 button 금지라 span) -->
+          <span
+            class="h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0"
+          >
+            <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
+            기록하기
+          </span>
         </button>
       </div>
 
       <!-- 최근 기록 — 위쪽 카드는 정적이라 즉시 그려진다. 서버 응답을 기다리는 건 이 블록뿐. -->
       <div v-if="pending">
-        <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
+        <h3 class="font-bold mb-3 text-apjek-text text-[15px]">{{ $t('record.recentRecords') }}</h3>
         <CommonLoading variant="skeleton" container-class="py-2" />
       </div>
       <!-- HTTP 에러가 침묵으로 "빈 목록"이 되어 진짜 빈 것과 구분 불가하던 문제(audit C4-1) -->
-      <div v-else-if="loadError" class="rounded-2xl bg-white/80 border border-gray-100 p-5 text-center">
-        <p class="text-[13px] text-gray-600 mb-3">기록 정보를 불러오지 못했어요</p>
+      <div v-else-if="loadError" class="apjek-card p-5 text-center">
+        <p class="text-[13px] text-apjek-text-sub mb-3">기록 정보를 불러오지 못했어요</p>
         <button
           type="button"
-          class="px-5 py-2 rounded-full bg-black text-white text-[13px] font-bold"
+          class="px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
           @click="retryInitial()"
         >다시 시도</button>
       </div>
       <div v-else-if="recentRecords.length > 0">
-        <h3 class="font-bold mb-3 text-black text-[15px]">{{ $t('record.recentRecords') }}</h3>
+        <h3 class="font-bold mb-3 text-apjek-text text-[15px]">{{ $t('record.recentRecords') }}</h3>
         <div class="space-y-2">
           <!-- record/RecordCard.vue 의 auto-import 명은 RecordCard — 파일명이 디렉토리명으로
                시작하면 Nuxt 가 prefix 중복을 접는다. RecordRecordCard 는 미해석 커스텀 엘리먼트로
@@ -334,14 +356,12 @@
             <input
               v-model="todoNew"
               placeholder="새 항목 추가 (최대 30개)"
-              class="flex-1 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-riso-pink/40"
-              style="background: #f5f5f5"
+              class="flex-1 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
               @keydown.enter="addTodo"
             >
             <button
               type="button"
-              class="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
-              style="background: #7edbc0"
+              class="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0 transition-all active:scale-95 bg-apjek-cta"
               @click="addTodo"
             >
               <Icon name="lucide:plus" class="w-4 h-4" />
@@ -359,12 +379,15 @@
             v-for="todo in todos"
             :key="todo.id"
             class="flex items-center gap-3 rounded-xl px-3 py-3 transition-all"
-            :style="{ background: todo.checked ? 'rgba(126,219,192,0.08)' : '#f9fafb' }"
+            :style="{ background: todo.checked ? 'var(--color-apjek-blue-soft)' : 'var(--color-apjek-bg)' }"
           >
             <button
               type="button"
               class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
-              :style="{ borderColor: todo.checked ? '#7edbc0' : '#d1d5db', background: todo.checked ? '#7edbc0' : 'transparent' }"
+              :style="{
+                borderColor: todo.checked ? 'var(--color-apjek-blue)' : '#d1d5db',
+                background: todo.checked ? 'var(--color-apjek-blue)' : 'transparent',
+              }"
               @click="todo.checked = !todo.checked"
             >
               <Icon v-if="todo.checked" name="lucide:check" class="w-3 h-3 text-white" />
@@ -384,19 +407,20 @@
       <div class="px-5 pb-1 pt-2">
         <div class="flex items-center justify-between text-xs text-gray-400 mb-2">
           <span>{{ todos.filter(t => t.checked).length }}/{{ todos.length }} 완료</span>
-          <span>완료 시 이슬토큰 +10 지급</span>
+          <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
+          <span>완료 시 이슬토큰 지급</span>
         </div>
         <button
           type="button"
           class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold transition-all active:scale-95 disabled:opacity-40"
           :disabled="!todoAllChecked || submitting"
           :style="todoAllChecked
-            ? { background: 'linear-gradient(135deg,#7edbc0,#52b388)', color: 'white' }
-            : { background: '#f5f5f5', color: '#9ca3af' }"
+            ? { background: 'var(--color-apjek-cta)', color: 'white' }
+            : { background: 'var(--color-apjek-bg)', color: '#9ca3af' }"
           @click="saveTodo"
         >
           <Icon name="lucide:check" class="w-4 h-4" />
-          {{ todoAllChecked ? '기록 완료 (+10 💧)' : '모든 항목 체크 후 완료 가능' }}
+          {{ todoAllChecked ? '기록 완료' : '모든 항목 체크 후 완료 가능' }}
         </button>
       </div>
     </CommonBottomSheet>
@@ -416,13 +440,13 @@
         <input
           v-model="diaryTitle"
           placeholder="제목 (선택)"
-          class="w-full text-[16px] font-bold border-b border-gray-100 pb-2 outline-none focus:ring-2 focus:ring-riso-pink/40 bg-transparent placeholder:text-gray-300"
+          class="w-full text-[16px] font-bold border-b border-gray-100 pb-2 outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-transparent placeholder:text-gray-300"
         >
         <textarea
           v-model="diaryText"
           placeholder="오늘 하루를 기록해보세요..."
           rows="10"
-          class="w-full flex-1 text-[14px] text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-riso-pink/40 resize-none bg-transparent placeholder:text-gray-300"
+          class="w-full flex-1 text-[14px] text-gray-700 leading-relaxed outline-none focus:ring-2 focus:ring-apjek-blue/30 resize-none bg-transparent placeholder:text-gray-300"
         />
         <!-- 사진 첨부 (선택) -->
         <div class="flex items-center justify-between pt-1">
@@ -461,11 +485,11 @@
         >
       </div>
       <div class="px-5 pb-1 pt-2">
-        <div class="text-xs text-gray-400 text-center mb-2">저장 시 햇살토큰 +10 지급</div>
+        <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
+        <div class="text-xs text-gray-400 text-center mb-2">저장 시 햇살토큰 지급</div>
         <button
           type="button"
-          class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50"
-          style="background: linear-gradient(135deg,#f5d020,#f5a623)"
+          class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50 bg-apjek-cta"
           :disabled="submitting"
           @click="saveDiary"
         >
@@ -491,8 +515,7 @@
             <input
               v-model="focusName"
               placeholder="예: 독서, 공부, 운동..."
-              class="w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-riso-pink/40"
-              style="background: #f5f5f5"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
             >
           </div>
           <div>
@@ -503,15 +526,14 @@
               min="1"
               max="180"
               placeholder="25"
-              class="w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-riso-pink/40"
-              style="background: #f5f5f5"
+              class="w-full rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
             >
           </div>
-          <div class="text-xs text-gray-400 text-center">완료 시 번개토큰 +10 지급</div>
+          <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
+          <div class="text-xs text-gray-400 text-center">완료 시 번개토큰 지급</div>
           <button
             type="button"
-            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95"
-            style="background: linear-gradient(135deg,#667eea,#764ba2)"
+            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 bg-apjek-cta"
             @click="startFocus"
           >
             <Icon name="lucide:play" class="w-4 h-4" />시작하기
@@ -521,10 +543,13 @@
         <div v-else class="flex flex-col items-center gap-6 py-4">
           <div class="text-lg font-bold text-gray-800">{{ focusName }}</div>
           <div class="relative size-40">
+            <!-- 원형 프로그레스 — 아프젝 블루 (R6 사양). CSS var 는 presentation attr 에서
+                 미해석이라 currentColor + text-apjek-blue 클래스로 지정 -->
             <svg class="absolute inset-0 size-full -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="45" fill="none" stroke="#f5f5f5" stroke-width="8" />
               <circle
-                cx="50" cy="50" r="45" fill="none" stroke="#667eea" stroke-width="8"
+                cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8"
+                class="text-apjek-blue"
                 :stroke-dasharray="`${2 * Math.PI * 45}`"
                 :stroke-dashoffset="`${2 * Math.PI * 45 * (1 - focusProgress / 100)}`"
                 stroke-linecap="round" style="transition: stroke-dashoffset 1s linear"
@@ -537,15 +562,14 @@
           </div>
 
           <div v-if="focusPhase === 'done'" class="flex flex-col items-center gap-3 w-full">
-            <div class="text-green-500 font-bold text-lg">🎉 집중 완료!</div>
+            <div class="text-apjek-blue font-bold text-lg">🎉 집중 완료!</div>
             <button
               type="button"
-              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold disabled:opacity-50"
-              style="background: linear-gradient(135deg,#56ab2f,#a8e063)"
+              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold disabled:opacity-50 bg-apjek-cta"
               :disabled="submitting"
               @click="saveFocus(focusTotalSecs)"
             >
-              <Icon name="lucide:zap" class="w-4 h-4" />기록 저장 (+10 ⚡)
+              <Icon name="lucide:zap" class="w-4 h-4" />기록 저장
             </button>
           </div>
           <button
@@ -584,13 +608,13 @@
         </div>
         <div class="w-full flex flex-col gap-3">
           <template v-if="distPhase === 'idle'">
+            <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
             <div class="text-xs text-gray-400 text-center">
-              시작 후 이동하면 거리가 자동으로 측정돼요<br>완료 시 바람토큰 +10 지급
+              시작 후 이동하면 거리가 자동으로 측정돼요<br>완료 시 바람토큰 지급
             </div>
             <button
               type="button"
-              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95"
-              style="background: linear-gradient(135deg,#74b9ff,#0984e3)"
+              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 bg-apjek-cta"
               @click="startDistance"
             >
               <Icon name="lucide:play" class="w-4 h-4" />측정 시작
@@ -599,26 +623,24 @@
           <button
             v-else-if="distPhase === 'tracking'"
             type="button"
-            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-white transition-all active:scale-95"
-            style="background: linear-gradient(135deg,#fd79a8,#e84393)"
+            class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 font-semibold text-white transition-all active:scale-95 bg-apjek-cta"
             @click="stopDistance"
           >
             <Icon name="lucide:stop-circle" class="w-4 h-4" />완료
           </button>
           <div v-else class="flex flex-col gap-2 w-full">
-            <div class="text-center font-bold text-green-600 text-lg">측정 완료!</div>
+            <div class="text-center font-bold text-apjek-blue text-lg">측정 완료!</div>
             <button
               type="button"
-              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50"
-              style="background: linear-gradient(135deg,#00b894,#00cec9)"
+              class="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-95 disabled:opacity-50 bg-apjek-cta"
               :disabled="submitting"
               @click="saveDistance"
             >
-              <Icon name="lucide:map-pin" class="w-4 h-4" />기록 저장 (+10 🌬️)
+              <Icon name="lucide:map-pin" class="w-4 h-4" />기록 저장
             </button>
             <button
               type="button"
-              class="w-full h-10 rounded-2xl text-sm text-gray-400 border border-gray-100"
+              class="w-full h-10 rounded-2xl text-sm text-apjek-text-faint border border-apjek-border"
               @click="resetDistance"
             >
               다시 측정
@@ -641,6 +663,7 @@ import type {
   PagedRecordResponse,
   PhotoUploadResponse,
   RecordResponse,
+  RewardInfo,
 } from '@terraworld-it/openapi-frontend'
 import { useUserStore } from '~/stores/user'
 import svgPaths from './svg-paths'
@@ -657,6 +680,11 @@ const { trackers, loaded: habitsLoaded, loadError: habitLoadError, load: loadHab
 // ─── 습관 기록 상태 ───
 type Mode = 'solo' | 'friend'
 const mode = ref<Mode>('solo')
+
+// 아프젝 습관 카드 접기/펴기 — 메인은 접힌 헤더만(frame-record-main), [시작하기/기록하기]
+// 버튼이 본문(모드 칩 + 트래커)을 편다(frame-habit-create). UI 표시 상태일 뿐 동작/API 불변.
+const habitOpen = ref<boolean>(false)
+const hasActiveHabit = computed<boolean>(() => trackers.value.some(tr => tr.status === 'ACTIVE'))
 
 // mode 전환 시 표시 목록/폼이 즉시 교체됨 — 전환 전 키보드 해제 + 열린 인라인 폼 정리
 // (utils/keyboard.ts 참조, Codex 감사 지적).
@@ -834,11 +862,12 @@ const categories = ref<CategoryResponse[]>([])
 // FE-10: 교체-대입 전용 리스트(로드/생성 모두 새 배열 재할당) — deep reactivity 불필요.
 const recentRecords = shallowRef<RecordResponse[]>([])
 
-const DAILY_CARDS: { title: string; desc: string; bg: string; modal: DailyModal }[] = [
-  { title: '투두리스트 기록', desc: '투두리스트를 기록하여 이슬토큰 획득', bg: '#fae9fd', modal: 'todo' },
-  { title: '일기 기록', desc: '일기를 기록하여 햇살토큰 획득', bg: '#e9fdea', modal: 'diary' },
-  { title: '집중 기록', desc: '타이머를 기록하여 번개토큰 획득', bg: '#fdfae9', modal: 'focus' },
-  { title: '거리 기록', desc: '이동한 거리를 기록하여 바람토큰 획득', bg: '#e9ecfd', modal: 'distance' },
+// 아프젝 리스트 카드 — 파스텔 타일 배경 + 토큰 글리프/서브텍스트 색 (tailwind.css 토큰 참조)
+const DAILY_CARDS: { title: string; token: string; accent: string; tileBg: string; modal: DailyModal }[] = [
+  { title: '투두리스트 기록', token: '이슬토큰', accent: 'var(--color-apjek-dew)', tileBg: 'var(--color-apjek-dew-bg)', modal: 'todo' },
+  { title: '일기 기록', token: '햇살토큰', accent: 'var(--color-apjek-sun)', tileBg: 'var(--color-apjek-sun-bg)', modal: 'diary' },
+  { title: '집중 기록', token: '번개토큰', accent: 'var(--color-apjek-bolt)', tileBg: 'var(--color-apjek-bolt-bg)', modal: 'focus' },
+  { title: '거리 기록', token: '바람토큰', accent: 'var(--color-apjek-wind)', tileBg: 'var(--color-apjek-wind-bg)', modal: 'distance' },
 ]
 
 // dailyType → categoryId 매핑. 시스템 카테고리 이름으로 안정 매칭(admin 편집/row-order
@@ -883,17 +912,18 @@ function closeModal() {
 }
 
 // 공통 기록 저장 — dailyType 기준 보상 라우팅.
+// 성공 시 서버가 실제 지급한 reward 를 함께 반환한다 — 토스트 문구가 이 값을 표시 (R4-FE).
 async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['dailyType']>, opts: {
   duration?: number | null
   note?: string | null
   photoUrl?: string | null
-}): Promise<boolean> {
+}): Promise<{ ok: boolean; reward: RewardInfo | null }> {
   const categoryId = categoryIdFor(dailyType)
   if (categoryId === null) {
     toast.error('카테고리를 불러오지 못했어요')
-    return false
+    return { ok: false, reward: null }
   }
-  if (submitting.value) return false
+  if (submitting.value) return { ok: false, reward: null }
   submitting.value = true
   try {
     const body: CreateRecordRequest = {
@@ -907,26 +937,37 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
     const { data, error } = await sdk.createRecord({ client, body })
     if (error) throw new Error(errMsg(error, '기록 생성 실패'))
     const created = castData<CreateRecordResponse>(data)
+    let reward: RewardInfo | null = null
     if (created) {
       recentRecords.value = [created.record, ...recentRecords.value].slice(0, 5)
-      const rew = created.reward
-      trackRecordCreated({
-        categoryId,
-        categoryName: created.record.categoryName ?? '',
-        basicCoins: rew.basicCoins,
-        categoryTokens: rew.categoryTokens,
-      })
+      reward = created.reward ?? null
+      if (reward) {
+        trackRecordCreated({
+          categoryId,
+          categoryName: created.record.categoryName ?? '',
+          basicCoins: reward.basicCoins,
+          categoryTokens: reward.categoryTokens,
+        })
+      }
       await userStore.fetchMe(true) // 기록 보상 지급 반영 — TTL 캐시 무시
     }
-    return true
+    return { ok: true, reward }
   }
   catch (e) {
     toast.error((e as Error).message)
-    return false
+    return { ok: false, reward: null }
   }
   finally {
     submitting.value = false
   }
+}
+
+// 완료 토스트의 보상 문구 — 서버 응답 categoryTokens 를 동적 표시 (R4-FE).
+// 응답에 값이 없으면(0/누락) 수치 없이 토큰명만 "획득!" 로 표기 — 실지급과 다른
+// 거짓 숫자를 화면에 남기지 않는다.
+function rewardText(tokenName: string, reward: RewardInfo | null): string {
+  const n = reward?.categoryTokens
+  return typeof n === 'number' && n > 0 ? `${tokenName}토큰 +${n}` : `${tokenName}토큰 획득!`
 }
 
 // ── 투두 모달 ──
@@ -952,9 +993,9 @@ async function saveTodo() {
     return
   }
   const note = todos.value.map(t => `✓ ${t.text}`).join('\n')
-  const ok = await saveDailyRecord('PHOTO', { note })
+  const { ok, reward } = await saveDailyRecord('PHOTO', { note })
   if (ok) {
-    toast.success('투두리스트 완료! 이슬토큰 +10 💧')
+    toast.success(`투두리스트 완료! ${rewardText('이슬', reward)} 💧`)
     todos.value = []
     closeModal()
   }
@@ -1011,9 +1052,9 @@ async function saveDiary() {
     return
   }
   const note = diaryTitle.value.trim() ? `${diaryTitle.value.trim()}\n${text}` : text
-  const ok = await saveDailyRecord('DIARY', { note, photoUrl: photoUrl.value || null })
+  const { ok, reward } = await saveDailyRecord('DIARY', { note, photoUrl: photoUrl.value || null })
   if (ok) {
-    toast.success('일기가 저장되었어요! 햇살토큰 +10 ☀️')
+    toast.success(`일기가 저장되었어요! ${rewardText('햇살', reward)} ☀️`)
     diaryTitle.value = ''
     diaryText.value = ''
     photoUrl.value = ''
@@ -1088,9 +1129,9 @@ async function stopFocus() {
 async function saveFocus(durationSecs: number) {
   // 거리 기록과 동일 클래스: 60초 미만이면 반올림 0 → backend @Min(1) 400. 하한 1분.
   const minutes = Math.max(1, Math.round(durationSecs / 60))
-  const ok = await saveDailyRecord('FOCUS', { duration: minutes, note: focusName.value })
+  const { ok, reward } = await saveDailyRecord('FOCUS', { duration: minutes, note: focusName.value })
   if (ok) {
-    toast.success(`집중 완료! 번개토큰 +10 ⚡ (${minutes}분)`)
+    toast.success(`집중 완료! ${rewardText('번개', reward)} ⚡ (${minutes}분)`)
     resetFocus()
     closeModal()
   }
@@ -1391,14 +1432,14 @@ function abortNativeTracking() {
 
 async function saveDistance() {
   const km = (distance.value / 1000).toFixed(2)
-  const ok = await saveDailyRecord('DISTANCE', {
+  const { ok, reward } = await saveDailyRecord('DISTANCE', {
     // 60초 미만 세션은 반올림이 0 이 되어 backend @Min(1) 검증에 걸린다
     // (2026-07-21 라이브 실측: 400 "duration: 1 이상이어야 합니다") — 하한 1분.
     duration: Math.max(1, Math.round(distElapsed.value / 60)),
     note: `${km}km`,
   })
   if (ok) {
-    toast.success(`${km}km 기록! 바람토큰 +10 🌬️`)
+    toast.success(`${km}km 기록! ${rewardText('바람', reward)} 🌬️`)
     resetDistance()
     closeModal()
   }
