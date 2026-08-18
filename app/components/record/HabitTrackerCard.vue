@@ -53,6 +53,15 @@
         v-else
         class="text-[10px] px-[6px] py-[2px] rounded-full ml-[4px] bg-apjek-blue-soft text-apjek-blue-deep"
       >친구 참여 대기 — 친구도 시작하면 2배</span>
+      <!-- 응원하기 (R3-FE) — 친구 참여 대기 중일 때만. 팝업/전송은 부모(record 페이지) 담당 -->
+      <button
+        v-if="!tracker.partnerActive && tracker.status === 'ACTIVE'"
+        type="button"
+        class="text-[10px] px-[8px] py-[3px] rounded-full ml-[4px] bg-apjek-cta text-white font-semibold transition active:scale-95"
+        @click="$emit('cheer', tracker)"
+      >
+        응원하기 💌
+      </button>
     </p>
 
     <!-- 7일 원 — 아프젝 블루 채움 (frame-habit-create) -->
@@ -127,6 +136,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   checkin: [tracker: HabitTrackerResponse]
   stop: [tracker: HabitTrackerResponse]
+  /** 친구 참여 대기 습관에서 응원 팝업 열기 요청 (R3-FE) */
+  cheer: [tracker: HabitTrackerResponse]
 }>()
 
 const confirmingStop = ref<boolean>(false)

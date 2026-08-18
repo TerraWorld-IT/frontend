@@ -98,6 +98,7 @@
             :busy="checkInBusy"
             @checkin="onCheckIn"
             @stop="onStopHabit"
+            @cheer="onCheerRequest"
           />
           <div class="w-full">
             <div class="flex items-center justify-between w-full">
@@ -180,6 +181,7 @@
               :busy="checkInBusy"
               @checkin="onCheckIn"
               @stop="onStopHabit"
+              @cheer="onCheerRequest"
             />
 
             <!-- 인라인 생성 폼 (해당 친구 선택 시) -->
@@ -221,6 +223,7 @@
             :busy="checkInBusy"
             @checkin="onCheckIn"
             @stop="onStopHabit"
+            @cheer="onCheerRequest"
           />
 
             <div v-if="friends.length === 0" class="text-[12px] text-apjek-text-faint text-center py-[8px]">
@@ -350,6 +353,16 @@
             <span class="text-xl">💧</span>
             <span class="font-bold text-base text-black">투두리스트 기록</span>
           </div>
+          <!-- 루틴 관리 진입 (R1-FE) — 시트 내장 X(우상단 absolute)와 겹치지 않게 mr 확보 -->
+          <button
+            type="button"
+            class="w-7 h-7 rounded-full bg-apjek-bg flex items-center justify-center mr-9 transition active:scale-95"
+            aria-label="루틴 관리"
+            :aria-expanded="routineOpen"
+            @click="routineOpen = !routineOpen"
+          >
+            <Icon name="lucide:settings" class="w-4 h-4 text-apjek-text-sub" />
+          </button>
         </div>
         <div class="px-5 pt-3 pb-2 shrink-0">
           <div class="flex gap-2">
@@ -370,6 +383,15 @@
         </div>
       </template>
       <div class="px-5 pb-2">
+        <!-- 루틴 관리 패널 (R1-FE) — 목록 상태 SoT 는 페이지, 변이는 컴포넌트가 수행 후 이벤트 반영 -->
+        <RecordTodoRoutineManager
+          v-if="routineOpen"
+          :routines="todoRoutines"
+          class="mb-3"
+          @created="onRoutineCreated"
+          @updated="onRoutineUpdated"
+          @deleted="onRoutineDeleted"
+        />
         <div v-if="todos.length === 0" class="text-center py-8 text-gray-400">
           <div class="text-3xl mb-2">📋</div>
           <p class="text-sm">항목을 추가해보세요</p>
@@ -649,6 +671,15 @@
         </div>
       </div>
     </CommonBottomSheet>
+
+    <!-- 응원 팝업 (R3-FE) — 친구 참여 대기 습관에서 진입. 전송/토스트는 본 페이지가 담당 -->
+    <RecordCheerPopup
+      :open="cheerTarget !== null"
+      :friend-nickname="cheerTarget?.friendNickname ?? '친구'"
+      :busy="cheerBusy"
+      @close="cheerTarget = null"
+      @submit="submitCheer"
+    />
   </div>
 </template>
 
@@ -664,6 +695,8 @@ import type {
   PhotoUploadResponse,
   RecordResponse,
   RewardInfo,
+  TodoRoutineListResponse,
+  TodoRoutineResponse,
 } from '@terraworld-it/openapi-frontend'
 import { useUserStore } from '~/stores/user'
 import svgPaths from './svg-paths'
@@ -825,6 +858,43 @@ async function onStopHabit(tr: HabitTrackerResponse) {
   else toast.error('습관 중단에 실패했어요')
 }
 
+// ─── 습관 응원 (R3-FE) ───
+// 친구 참여 대기(partnerActive=false) 습관 카드의 응원 버튼 → 팝업 → cheerHabit 전송.
+const cheerTarget = ref<HabitTrackerResponse | null>(null)
+const cheerBusy = ref<boolean>(false)
+
+function onCheerRequest(tr: HabitTrackerResponse) {
+  if (cheerBusy.value) return
+  cheerTarget.value = tr
+}
+
+async function submitCheer(message: string) {
+  const target = cheerTarget.value
+  if (!target || cheerBusy.value) return
+  cheerBusy.value = true
+  try {
+    const { error, response } = await sdk.cheerHabit({
+      client,
+      path: { trackerId: target.id },
+      body: { message },
+    })
+    if (error) {
+      // 429 = 일일 응원 한도 소진. 그 외(백엔드 미구현 404 포함)는 일반 안내.
+      if (response.status === 429) toast.error('오늘은 응원을 모두 보냈어요')
+      else toast.error('응원 전송에 실패했어요. 잠시 후 다시 시도해주세요')
+      return
+    }
+    toast.success(`${target.friendNickname ?? '친구'} 에게 응원 메시지 전달 성공!`)
+    cheerTarget.value = null
+  }
+  catch {
+    toast.error('응원 전송에 실패했어요. 잠시 후 다시 시도해주세요')
+  }
+  finally {
+    cheerBusy.value = false
+  }
+}
+
 async function onCheckIn(tr: HabitTrackerResponse) {
   if (checkedToday(tr) || tr.status !== 'ACTIVE' || checkInBusy.value) return
   checkInBusy.value = true
@@ -971,10 +1041,56 @@ function rewardText(tokenName: string, reward: RewardInfo | null): string {
 }
 
 // ── 투두 모달 ──
-interface TodoItem { id: string; text: string; checked: boolean }
+// routineId: 루틴 프리필 출처 마커 (R1-FE) — 시트 재열기 시 중복 프리필 방지용. 저장 포맷은 불변.
+interface TodoItem { id: string; text: string; checked: boolean; routineId?: number }
 const todos = ref<TodoItem[]>([])
 const todoNew = ref<string>('')
 const todoAllChecked = computed<boolean>(() => todos.value.length > 0 && todos.value.every(t => t.checked))
+
+// ── 투두 루틴 (R1-FE) — 목록 SoT 는 페이지가 소유, 변이는 RecordTodoRoutineManager 가 수행 ──
+const routineOpen = ref<boolean>(false)
+const todoRoutines = shallowRef<TodoRoutineResponse[]>([])
+
+// 오늘 요일 해당 루틴(DAILY 전부 + WEEKLY 중 오늘 포함)을 미체크 항목으로 프리필.
+// routineId 로 dedupe — 수기 항목과 공존하고, 시트 재열기 시 중복 추가를 막는다.
+function prefillTodosFromRoutines(list: TodoRoutineResponse[]): void {
+  const todayDow = new Date().getDay() // 0=일 ~ 6=토 (스키마 규약과 동일)
+  const due = list.filter(r => r.repeatType === 'DAILY' || (r.daysOfWeek ?? []).includes(todayDow))
+  const existing = new Set(todos.value.map(t => t.routineId).filter((v): v is number => v !== undefined))
+  const added = due
+    .filter(r => !existing.has(r.id))
+    .map(r => ({ id: `routine-${r.id}`, text: r.label, checked: false, routineId: r.id }))
+  // 수기 추가와 같은 30개 상한 — 기존 항목(앞쪽)을 보존하고 초과 프리필만 잘린다.
+  if (added.length > 0) todos.value = [...todos.value, ...added].slice(0, 30)
+}
+
+// 시트 열림 시 루틴 로드 — 실패는 비차단(루틴 없이 기존 투두 동작 유지, 백엔드 미구현 404 포함).
+async function loadTodoRoutines(): Promise<void> {
+  try {
+    const { data, error } = await sdk.listTodoRoutines({ client })
+    if (error) return
+    const list = castData<TodoRoutineListResponse>(data)?.routines ?? []
+    todoRoutines.value = list
+    prefillTodosFromRoutines(list)
+  }
+  catch {
+    // 네트워크 예외 — 조용히 skip (매 열기마다 재시도됨)
+  }
+}
+
+function onRoutineCreated(r: TodoRoutineResponse) {
+  todoRoutines.value = [...todoRoutines.value, r]
+  prefillTodosFromRoutines([r]) // 오늘 해당분이면 즉시 항목 반영
+}
+
+function onRoutineUpdated(r: TodoRoutineResponse) {
+  todoRoutines.value = todoRoutines.value.map(x => (x.id === r.id ? r : x))
+}
+
+function onRoutineDeleted(routineId: number) {
+  todoRoutines.value = todoRoutines.value.filter(x => x.id !== routineId)
+  // 프리필된 미체크 항목은 유지한다 — 루틴은 항목의 "출처"일 뿐, 오늘 목록의 소유자가 아님.
+}
 
 function addTodo() {
   const text = todoNew.value.trim()
@@ -1445,10 +1561,12 @@ async function saveDistance() {
   }
 }
 
-// 모달 전환 시 타이머/추적 정리 (누수 방지).
+// 모달 전환 시 타이머/추적 정리 (누수 방지) + 투두 시트 열림 시 루틴 로드/프리필 (R1-FE).
 watch(openModal, (next, prev) => {
   if (prev === 'focus' && next !== 'focus') resetFocus()
   if (prev === 'distance' && next !== 'distance') resetDistance()
+  if (next === 'todo') void loadTodoRoutines()
+  if (prev === 'todo' && next !== 'todo') routineOpen.value = false
 })
 
 let removePauseListener: (() => void) | null = null
