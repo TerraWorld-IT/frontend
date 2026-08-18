@@ -72,7 +72,7 @@
           <span class="menu-circle"><Icon name="lucide:gift" class="w-5 h-5" /></span>
           <span class="menu-label">광고보상</span>
         </button>
-        <!-- 알림 — 알림함 백엔드 후속 전까지 준비 중 안내. 뱃지 점은 T1 후속(이번 범위 밖).
+        <!-- 알림 (T1) — 알림함 팝업 + 미읽음 마젠타 점 뱃지 (마운트 시 1회 조회, 실패 시 숨김).
              lucide:bell 은 clientBundle 미등재라 인라인 SVG 사용 (config 수정 금지 제약). -->
         <button type="button" data-testid="home-notify" class="menu-item" aria-label="알림" @click="onNotifyClick">
           <span class="menu-circle">
@@ -80,6 +80,11 @@
               <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
               <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
             </svg>
+            <span
+              v-if="notifyUnread > 0"
+              class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white"
+              style="background: #f043c8"
+            />
           </span>
           <span class="menu-label">알림</span>
         </button>
@@ -109,6 +114,17 @@
         >
           <Icon name="lucide:trending-up" class="w-4 h-4 flex-shrink-0" />
           <span class="text-xs font-semibold whitespace-nowrap">테라리움 업그레이드</span>
+        </button>
+        <!-- T9 배경 설정 — 보유 BACKGROUND 아이템 선택 시트 -->
+        <button
+          type="button"
+          data-testid="home-background"
+          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
+          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
+          @click="showBackgroundPicker = true"
+        >
+          <Icon name="lucide:palette" class="w-4 h-4 flex-shrink-0" />
+          <span class="text-xs font-semibold whitespace-nowrap">배경 설정</span>
         </button>
       </div>
 
@@ -455,6 +471,55 @@
     </div>
   </CommonBottomSheet>
 
+  <!-- ═══════════════ T9 배경 설정 바텀시트 (보유 BACKGROUND 아이템 → setTerrariumBackground) ═══════════════ -->
+  <CommonBottomSheet :open="showBackgroundPicker" ariaLabel="배경 설정" @close="showBackgroundPicker = false">
+    <div class="px-5 pb-3 pt-3">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-base" style="color: #3a9e78">배경 설정</h3>
+      </div>
+
+      <div v-if="backgroundBusy" class="flex justify-center py-8">
+        <CommonLoading variant="spinner" />
+      </div>
+      <div v-else-if="ownedBackgrounds.length === 0" class="text-center py-10 text-gray-400">
+        <div class="text-4xl mb-2">🖼️</div>
+        <p class="text-sm">배경 아이템이 없어요</p>
+        <p class="text-xs mt-1">상점에서 배경 아이템을 구매해보세요!</p>
+        <button
+          type="button"
+          class="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold text-white"
+          style="background: var(--color-apjek-cta)"
+          @click="navigateTo('/shop')"
+        >상점 가기</button>
+      </div>
+      <div v-else class="grid grid-cols-2 gap-3">
+        <button
+          v-for="item in ownedBackgrounds"
+          :key="item.id"
+          type="button"
+          class="rounded-2xl p-3 flex flex-col items-center gap-2 relative transition-all"
+          :style="{
+            background: currentBackgroundId === item.id ? 'rgba(126,219,192,0.12)' : 'rgba(0,0,0,0.03)',
+            border: currentBackgroundId === item.id ? '1.5px solid rgba(126,219,192,0.55)' : '1.5px solid rgba(0,0,0,0.08)',
+          }"
+          @click="onSelectBackground(item)"
+        >
+          <img
+            v-if="isUrl(item.assetUrl)"
+            :src="item.assetUrl"
+            :alt="item.name"
+            class="w-full h-20 object-cover rounded-xl"
+          >
+          <div v-else class="text-4xl">{{ item.assetUrl }}</div>
+          <span class="text-[11px] font-medium text-center leading-tight" style="color: #6b8f7a">{{ item.name }}</span>
+          <div v-if="currentBackgroundId === item.id" class="absolute top-2 right-2">
+            <Icon name="lucide:check" class="w-4 h-4" style="color: #52b388" />
+          </div>
+        </button>
+      </div>
+    </div>
+  </CommonBottomSheet>
+
   <!-- ═══════════════ T10 공유하기 바텀시트 (SNS/이미지 저장/초대코드 3항목 + 인스타 유지) ═══════════════ -->
   <CommonBottomSheet :open="showShareDialog" ariaLabel="공유" @close="showShareDialog = false">
     <div class="px-5 pb-5 pt-4">
@@ -532,6 +597,9 @@
       </div>
     </div>
   </CommonBottomSheet>
+
+  <!-- ═══════════════ T1 알림함 팝업 (읽음 성공 시 뱃지 클리어) ═══════════════ -->
+  <NotificationsCenter :open="showNotifications" @close="showNotifications = false" @read="notifyUnread = 0" />
 
   <!-- ═══════════════ 나의 초대코드 팝업 (T10 — 실제 발급 코드 그대로 표시) ═══════════════ -->
   <Teleport to="body">
@@ -695,6 +763,7 @@ import type {
   HeartResponse,
   InviteResponse,
   ItemResponse,
+  NotificationUnreadCountResponse,
   TerrariumResponse,
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
@@ -835,10 +904,24 @@ function formatBalance(amount: number): string {
   return Math.floor(amount).toLocaleString()
 }
 
-// ─── T7 알림 — 알림함 백엔드 후속 전까지 준비 중 안내만 (뱃지 점은 T1 후속) ───
+// ─── T1 알림함 — 실 팝업 + 미읽음 마젠타 점 뱃지 ───
+const showNotifications = ref<boolean>(false)
+const notifyUnread = ref<number>(0)
 function onNotifyClick() {
-  toast.info('알림함을 준비 중이에요')
+  showNotifications.value = true
 }
+// 미읽음 수는 홈 마운트 시 1회만 조회 — 백엔드 컨트롤러 구현 중이라 실서버 404 가능.
+// 실패하면 뱃지만 숨기고 재시도하지 않는다(알림이 안 떠도 홈은 깨지지 않아야 한다).
+onMounted(async () => {
+  try {
+    const { data, error } = await sdk.getUnreadNotificationCount({ client })
+    if (error) return
+    notifyUnread.value = castData<NotificationUnreadCountResponse>(data)?.count ?? 0
+  }
+  catch {
+    // 조용한 실패 — 뱃지 숨김 유지
+  }
+})
 
 // Android 하드웨어 뒤로가기 — CommonModal 을 거치지 않는 이 페이지의 bespoke 오버레이(Teleport
 // v-if 패널)들은 각자 back-stack 에 직접 등록해야 뒤로가기가 라우트 이동/앱종료 대신 오버레이부터
@@ -1394,6 +1477,38 @@ async function onCopyInviteCode() {
     }
   }
   toast.info(`초대코드: ${inviteCode.value}`)
+}
+
+// ─── T9 배경 설정 — 보유 BACKGROUND 아이템 선택 → setTerrariumBackground ───
+// 홈은 현재 배경을 시각 렌더하지 않는다(Jar1 정적 아트) — 설정 API 배선 + 선택 UI 까지가 범위.
+const showBackgroundPicker = ref<boolean>(false)
+const backgroundBusy = ref<boolean>(false)
+const ownedBackgrounds = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout === 'BACKGROUND'))
+// 현재 배경 표시용 — BackgroundInfo.id 를 아이템 ID 로 대조(요청 계약이 itemId 이므로 동일 공간 전제).
+const currentBackgroundId = computed<number | null>(() => terrarium.value?.background?.id ?? null)
+
+async function onSelectBackground(item: ItemResponse) {
+  if (backgroundBusy.value) return
+  // 이미 현재 배경이면 호출 생략 — 서버 409(동일 배경) 회피.
+  if (currentBackgroundId.value === item.id) {
+    showBackgroundPicker.value = false
+    return
+  }
+  backgroundBusy.value = true
+  try {
+    const { error } = await sdk.setTerrariumBackground({ client, body: { itemId: item.id } })
+    if (error) throw new Error(errMsg(error, '배경 설정 실패'))
+    // 배치 변경과 동일 규약 — homeSnapshot 강제 갱신(fetch(true)) 후 단일 적용 경로로 반영.
+    await reloadAfterPlacement()
+    showBackgroundPicker.value = false
+    toast.success('배경이 설정되었어요!')
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+  }
+  finally {
+    backgroundBusy.value = false
+  }
 }
 
 async function onImageSave() {
