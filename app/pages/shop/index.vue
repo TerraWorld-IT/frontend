@@ -1,67 +1,57 @@
 <template>
-  <div class="flex flex-col min-h-full -mx-5 -mt-4">
-    <!-- ── 헤더 (다크) ── -->
-    <div class="px-5 pt-8 pb-5" style="background: #111">
+  <div class="flex flex-col min-h-full -mx-5 -mt-4 bg-apjek-surface">
+    <!-- ── 헤더 (아프젝 화이트) ── -->
+    <div class="px-5 pt-8 pb-4">
       <div class="flex items-start justify-between mb-1">
-        <h1 class="font-bold text-[29px] text-white tracking-[-0.9px] leading-[28px]">
+        <h1 class="font-bold text-[29px] text-apjek-text tracking-[-0.9px] leading-[32px]">
           상점
         </h1>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="shop-exchange-trigger"
-            class="h-10 px-3 rounded-[16px] text-[12px] font-semibold text-white flex items-center active:scale-[0.97] transition-transform"
-            style="background: rgba(255,255,255,0.18)"
-            @click="showExchange = true"
-          >
-            환전
-          </button>
-          <button
-            type="button"
-            class="h-10 px-3 rounded-[16px] text-[12px] font-semibold text-white flex items-center active:scale-[0.97] transition-transform"
-            style="background: rgba(255,255,255,0.18)"
-            @click="toast.info('도감 기능 준비중입니다 🚀')"
-          >
-            도감
-          </button>
-        </div>
+        <button
+          type="button"
+          data-testid="shop-exchange-trigger"
+          class="apjek-cta h-10 px-4 text-[13px] active:scale-[0.97] transition-transform"
+          @click="showExchange = true"
+        >
+          <Icon name="lucide:arrow-left-right" class="w-4 h-4" />
+          재화 환전
+        </button>
       </div>
-      <p class="text-[14px] text-white opacity-60 tracking-[-0.3px]">
+      <p class="text-[14px] text-apjek-text-sub tracking-[-0.3px]">
         획득한 토큰과 재화로 아이템을 구매해요
       </p>
     </div>
 
-    <!-- ── 카테고리 + 등급 탭 (흰 영역) ── -->
+    <!-- ── 카테고리 + 등급 탭 (sticky) ── -->
     <div
-      class="bg-white px-5 pt-3 pb-3 flex flex-col gap-2 sticky z-10"
-      style="box-shadow: 0 1px 0 rgba(0,0,0,0.06); top: env(safe-area-inset-top, 0px)"
+      class="bg-apjek-surface px-5 pt-1 pb-3 flex flex-col gap-2 sticky z-10 border-b border-apjek-border"
+      style="top: env(safe-area-inset-top, 0px)"
     >
-      <!-- 식물 | 배경 -->
+      <!-- 아이템 | 배경 | 루비샵 — 활성 = 솔리드 블루 필 -->
       <div class="flex gap-2">
         <button
           v-for="[cat, label] in shopCats"
           :key="cat"
           type="button"
-          class="flex-1 h-9 rounded-[14px] text-[14px] font-semibold transition-all"
-          :style="shopCat === cat
-            ? { background: '#111', color: 'white' }
-            : { background: 'white', color: 'black', border: '1px solid rgba(0,0,0,0.1)' }"
+          class="flex-1 h-9 rounded-full text-[14px] font-semibold transition-all"
+          :class="shopCat === cat
+            ? 'bg-apjek-blue text-white'
+            : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
           @click="shopCat = cat"
         >
           {{ label }}
         </button>
       </div>
 
-      <!-- 일반 | 희귀 | 판타지 -->
-      <div class="flex h-9 rounded-[20px] p-[3px] relative" style="background: #f5f5f5">
+      <!-- 일반 | 희귀 | 판타지 세그먼트 -->
+      <div class="flex h-9 rounded-full p-[3px] bg-apjek-bg">
         <button
           v-for="r in rarities"
           :key="r"
           type="button"
-          class="flex-1 rounded-[20px] text-[12px] font-semibold transition-all z-10 relative"
-          :style="rarity === r
-            ? { background: 'white', color: 'black' }
-            : { color: 'black' }"
+          class="flex-1 rounded-full text-[12px] font-semibold transition-all"
+          :class="rarity === r
+            ? 'bg-apjek-surface text-apjek-text'
+            : 'text-apjek-text-sub'"
           @click="rarity = r"
         >
           {{ RARITY_LABEL[r] }}
@@ -70,16 +60,16 @@
     </div>
 
     <!-- ── 아이템 그리드 ── -->
-    <div class="bg-white flex-1 px-4 pt-4 pb-8">
+    <div class="flex-1 px-4 pt-4 pb-8">
       <!-- 에러 -->
-      <div v-if="fetchError" class="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
+      <div v-if="fetchError" class="flex flex-col items-center justify-center py-20 gap-3 text-apjek-text-faint">
         <div class="text-5xl mb-1">⚠️</div>
         <p class="text-sm font-medium text-riso-poppy">아이템을 불러오지 못했어요</p>
         <!-- raw error.message 는 사용자에게 노출하지 않는다 (audit C4-3) — curated 문구로 대체 -->
-        <p class="text-xs text-gray-400">잠시 후 다시 시도해 주세요</p>
+        <p class="text-xs text-apjek-text-faint">잠시 후 다시 시도해 주세요</p>
         <button
           type="button"
-          class="mt-2 px-4 py-2 rounded-full bg-black text-white text-sm"
+          class="apjek-cta mt-2 h-10 px-5 text-sm"
           @click="reload()"
         >
           다시 시도
@@ -89,27 +79,29 @@
       <!-- 최초 로드 (top-level await 를 걷어낸 뒤의 로딩 표면) -->
       <CommonLoading v-else-if="pending" variant="skeleton" />
 
-      <!-- 빈 상태 -->
+      <!-- 빈 상태 (배경 문구 유지 + 루비샵은 준비 중) -->
       <div
         v-else-if="filteredItems.length === 0"
-        class="flex flex-col items-center justify-center py-20 text-gray-400"
+        class="flex flex-col items-center justify-center py-20 text-apjek-text-faint"
       >
-        <div class="text-5xl mb-3">🌿</div>
+        <div class="text-5xl mb-3">{{ shopCat === 'ruby' ? '💎' : '🌿' }}</div>
         <p class="text-sm font-medium">
-          {{ shopCat === 'background' ? '배경 아이템 준비중이에요 🚀' : '해당 등급 아이템이 없습니다' }}
+          {{ emptyMessage }}
+        </p>
+        <p v-if="shopCat === 'ruby'" class="text-xs mt-1">
+          상품 구성이 확정되면 열려요
         </p>
       </div>
 
-      <!-- 그리드 -->
+      <!-- 그리드 (frame-shop 2열 정합) -->
       <div v-else class="grid grid-cols-2 gap-3">
         <div
           v-for="item in filteredItems"
           :key="item.id"
-          class="bg-white rounded-[20px] flex flex-col items-center p-3 active:scale-[0.97] transition-transform"
-          style="border: 1px solid rgba(0,0,0,0.08)"
+          class="apjek-card flex flex-col items-center p-3 active:scale-[0.97] transition-transform"
         >
           <!-- 이름 -->
-          <p class="text-[12px] font-semibold text-black text-center mb-2">
+          <p class="text-[13px] font-semibold text-apjek-text text-center mb-2">
             {{ item.name }}
           </p>
 
@@ -128,28 +120,22 @@
             </div>
           </div>
 
-          <!-- 태그 -->
+          <!-- 태그 (등급 | 종류) -->
           <div class="flex items-center gap-1 mt-2 mb-1">
-            <span
-              class="text-[10px] font-semibold px-2 py-[1px] rounded-[14px]"
-              style="border: 1px solid rgba(0,0,0,0.1)"
-            >
+            <span class="text-[10px] font-semibold px-2 py-[1px] rounded-full text-apjek-text-sub border border-apjek-border-strong whitespace-nowrap">
               {{ RARITY_LABEL[toRarityKey(item.rarity)] }}
             </span>
-            <span
-              class="text-[10px] font-semibold px-2 py-[1px] rounded-[14px]"
-              style="border: 1px solid rgba(0,0,0,0.1)"
-            >
+            <span class="text-[10px] font-semibold px-2 py-[1px] rounded-full text-apjek-text-sub border border-apjek-border-strong whitespace-nowrap">
               {{ item.layout === 'BACKGROUND' ? '배경' : '식물' }}
             </span>
           </div>
 
-          <!-- 가격 -->
-          <div class="flex items-center gap-1 mb-2">
+          <!-- 가격 (☆ + 수량) -->
+          <div class="flex items-center gap-1 mb-2 text-apjek-text-sub">
             <svg width="12" height="12" fill="none" viewBox="0 0 12 12">
-              <path :d="COIN_PATH" stroke="#4A5565" stroke-linecap="round" stroke-linejoin="round" />
+              <path :d="COIN_PATH" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span class="text-[12px] text-[#4a5565]">{{ priceLabel(item) }}</span>
+            <span class="text-[12px]">{{ priceLabel(item) }}</span>
             <svg
               v-if="item.isAnimated"
               class="w-3 h-3 text-yellow-400"
@@ -164,16 +150,16 @@
             </svg>
           </div>
 
-          <!-- 버튼 -->
+          <!-- CTA — 보유중=연블루 필 / 구매하기=화이트 보더 / 재화 부족=비활성 -->
           <button
             type="button"
             :disabled="isOwned(item) || !canAfford(item) || purchasing === item.id"
-            class="w-full h-[26px] rounded-[14px] text-[12px] font-semibold text-center transition-all"
-            :style="isOwned(item)
-              ? { border: '1px solid rgba(0,0,0,0.1)', color: '#4a5565', cursor: 'default' }
+            class="w-full h-7 rounded-full text-[12px] font-semibold text-center transition-all"
+            :class="isOwned(item)
+              ? 'bg-apjek-blue-soft text-apjek-blue-deep cursor-default'
               : canAfford(item)
-                ? { border: '1px solid #111', color: '#111' }
-                : { border: '1px solid rgba(0,0,0,0.1)', color: '#aaa', cursor: 'not-allowed' }"
+                ? 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'
+                : 'bg-apjek-surface text-apjek-text-faint border border-apjek-border cursor-not-allowed'"
             @click="onPurchase(item)"
           >
             {{ purchasing === item.id ? '...' : isOwned(item) ? '보유중' : canAfford(item) ? '구매하기' : '재화 부족' }}
@@ -182,93 +168,14 @@
       </div>
     </div>
 
-    <!-- ── 재화 환전 모달 (TW2 ExchangeModal 디자인) ── -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="showExchange"
-          ref="exchangeRoot"
-          class="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-label="재화 환전"
-          @click.self="showExchange = false"
-        >
-          <div class="bg-white rounded-2xl shadow-2xl p-5 w-[92%] max-w-md mx-4 max-h-[88dvh] flex flex-col overflow-y-auto">
-            <!-- 헤더 -->
-            <div class="flex items-center justify-between mb-5">
-              <h3 class="text-base font-bold flex items-center gap-2" style="color: #b8960a">
-                <Icon name="lucide:refresh-cw" class="w-4 h-4" />
-                재화 환전
-              </h3>
-              <button
-                type="button"
-                class="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-                aria-label="닫기"
-                @click="showExchange = false"
-              >
-                <Icon name="lucide:x" class="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-
-            <!-- [환전할 재화] > [재화환전] -->
-            <div class="flex items-stretch gap-3 mb-5">
-              <!-- 왼쪽: 환전할 재화 (루비) -->
-              <div
-                class="flex-1 rounded-2xl flex flex-col items-center justify-center gap-1 py-4 px-3"
-                style="background: #fefce8; border: 2px solid #fde68a"
-              >
-                <div class="text-3xl">💎</div>
-                <div class="text-xs font-semibold text-amber-700 text-center leading-tight">루비</div>
-                <div class="flex items-center gap-2 mt-2">
-                  <button
-                    type="button"
-                    class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 font-bold text-sm flex items-center justify-center active:scale-90 transition-transform"
-                    @click="exchangeAmount = Math.max(1, exchangeAmount - 1)"
-                  >−</button>
-                  <span class="text-lg font-bold text-amber-800 w-8 text-center">{{ exchangeAmount }}</span>
-                  <button
-                    type="button"
-                    :disabled="exchangeAmount >= rubyBalance"
-                    class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 font-bold text-sm flex items-center justify-center active:scale-90 transition-transform disabled:opacity-30"
-                    @click="exchangeAmount = Math.min(rubyBalance, exchangeAmount + 1)"
-                  >+</button>
-                </div>
-                <div class="text-[10px] text-amber-500 mt-1">보유 {{ rubyBalance }}개</div>
-              </div>
-
-              <!-- 화살표 -->
-              <div class="flex items-center flex-shrink-0">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background: #fef9c3">
-                  <Icon name="lucide:arrow-right" class="w-4 h-4" style="color: #b8960a" />
-                </div>
-              </div>
-
-              <!-- 오른쪽: 재화환전 버튼 (코인) -->
-              <button
-                type="button"
-                :disabled="exchangeAmount > rubyBalance || exchangeAmount < 1 || rubyBalance === 0 || exchanging"
-                class="flex-1 rounded-2xl flex flex-col items-center justify-center gap-1 py-4 px-3 transition-all active:scale-95 disabled:opacity-40"
-                style="background: linear-gradient(135deg, #fcee5a, #f5c518); box-shadow: 0 4px 14px rgba(252,238,90,0.5)"
-                @click="onExchangeSpecial"
-              >
-                <div class="text-3xl">⭐</div>
-                <div class="text-xs font-semibold text-amber-900 text-center leading-tight">기본 코인</div>
-                <div class="text-xl font-bold text-amber-900 mt-1">받기</div>
-                <div class="text-[10px] text-amber-800 mt-0.5 font-semibold">{{ exchanging ? '환전 중...' : '환전 시 코인 지급' }}</div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- ── 재화 환전 다이얼로그 (from 재화 선택 확장 — S2) ── -->
+    <ShopExchangeDialog v-model="showExchange" />
   </div>
 </template>
 
 <script setup lang="ts">
 import type {
   CurrencyResponse,
-  ExchangeResult,
   ItemResponse,
   PurchaseResponse,
 } from '@terraworld-it/openapi-frontend'
@@ -280,11 +187,12 @@ import { useUserStore } from '~/stores/user'
 // 실질적으로 로그인 필요 — '/shop' 을 middleware/auth.ts PUBLIC_EXACT 에서도 제거함.
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
-type ShopCat = 'plant' | 'background'
+type ShopCat = 'plant' | 'background' | 'ruby'
 type RarityKey = 'common' | 'rare' | 'epic'
 
 const RARITY_LABEL: Record<RarityKey, string> = { common: '일반', rare: '희귀', epic: '판타지' }
-const shopCats: [ShopCat, string][] = [['plant', '식물'], ['background', '배경']]
+// 루비샵은 탭만 우선 오픈 — 상품 구성 결정 대기 (빈 상태만 노출, 구매 로직 없음)
+const shopCats: [ShopCat, string][] = [['plant', '아이템'], ['background', '배경'], ['ruby', '루비샵']]
 const rarities: RarityKey[] = ['common', 'rare', 'epic']
 
 // TW2 CoinIcon path (imports/상점/svg-xdmk87hcob.ts → p295e8380)
@@ -295,31 +203,11 @@ const userStore = useUserStore()
 const itemsStore = useItemsStore()
 const toast = useToast()
 const { itemAssetUrl, onAssetError } = useItemAsset()
-const { trackItemPurchased, trackTokenExchanged } = useGtagEvents()
+const { trackItemPurchased } = useGtagEvents()
 
 const shopCat = ref<ShopCat>('plant')
 const rarity = ref<RarityKey>('common')
 const showExchange = ref<boolean>(false)
-
-// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
-const exchangeRoot = ref<HTMLElement | null>(null)
-useDialogFocusTrap(exchangeRoot, showExchange, () => { showExchange.value = false })
-
-// Android 하드웨어 뒤로가기 — bespoke 오버레이라 직접 back-stack 에 등록.
-const { pushBackHandler } = useBackButtonStack()
-let unregisterExchangeBackHandler: (() => void) | null = null
-watch(showExchange, (open) => {
-  if (open) {
-    unregisterExchangeBackHandler = pushBackHandler(() => { showExchange.value = false })
-  } else {
-    unregisterExchangeBackHandler?.()
-    unregisterExchangeBackHandler = null
-  }
-})
-onBeforeUnmount(() => {
-  unregisterExchangeBackHandler?.()
-  unregisterExchangeBackHandler = null
-})
 
 // 재화/소유목록/아이템 카탈로그는 스토어가 TTL 캐시를 소유한다. 홈에서 막 넘어온 경우
 // 두 요청 모두 캐시 적중이라 네트워크 왕복 없이 즉시 그려진다.
@@ -329,9 +217,6 @@ const ownedSlugs = computed<Set<string>>(() => new Set(userStore.ownedItems))
 const purchasing = ref<number | null>(null)
 const fetchError = ref<Error | null>(null)
 const pending = ref<boolean>(true)
-
-const exchanging = ref<boolean>(false)
-const exchangeAmount = ref<number>(1)
 
 // --- 최초 로드 ---
 //
@@ -369,19 +254,25 @@ onMounted(() => {
 })
 
 // --- 파생 ---
-const rubyBalance = computed<number>(() => balanceOf(currency.value, 'RUBY'))
-
 function toRarityKey(r: ItemResponse['rarity']): RarityKey {
   return r === 'RARE' ? 'rare' : r === 'EPIC' ? 'epic' : 'common'
 }
 
 const filteredItems = computed<ItemResponse[]>(() => {
+  // 루비샵은 상품 구성 확정 전 — 카탈로그 없이 빈 상태만 노출
+  if (shopCat.value === 'ruby') return []
   return items.value.filter((it) => {
     const isBg = it.layout === 'BACKGROUND'
     if (shopCat.value === 'background' && !isBg) return false
     if (shopCat.value === 'plant' && isBg) return false
     return toRarityKey(it.rarity) === rarity.value
   })
+})
+
+const emptyMessage = computed<string>(() => {
+  if (shopCat.value === 'ruby') return '루비샵을 준비 중이에요'
+  if (shopCat.value === 'background') return '배경 아이템 준비중이에요 🚀'
+  return '해당 등급 아이템이 없습니다'
 })
 
 function isOwned(item: ItemResponse): boolean {
@@ -452,54 +343,7 @@ async function onPurchase(item: ItemResponse) {
   }
 }
 
-// --- 환전 (루비 → 코인, directed exchange) ---
-async function onExchangeSpecial() {
-  if (exchanging.value || !exchangeAmount.value || exchangeAmount.value > rubyBalance.value) return
-  exchanging.value = true
-  try {
-    const { data, error } = await sdk.exchange({
-      client,
-      body: { from: 'RUBY', to: 'COIN', amount: exchangeAmount.value },
-    })
-    if (error) throw error
-    const ex = castData<ExchangeResult>(data)
-    if (ex) {
-      userStore.updateCurrency(ex.updatedCurrency)
-      trackTokenExchanged({ fromType: ex.from, toType: ex.to, amount: ex.fromAmount })
-      // 사후 확정 표시 — 실제 지급량(toAmount)은 백엔드 환율 SoT 기준
-      toast.success(`기본 코인 ${ex.toAmount}개를 받았습니다! (환율 ${ex.rate})`)
-      exchangeAmount.value = 1
-      showExchange.value = false
-    }
-  }
-  catch (e) {
-    toast.error(exchangeErrorMessage(e))
-  }
-  finally {
-    // 실패 시 잔액 재조회로 상태 복구 (재화 경로 failure-path-first)
-    exchanging.value = false
-    await refreshCurrency()
-  }
-}
-
-// 환전 실패를 error.code 별 안내 메시지로 분기 (_Error.code — types.gen.ts)
-function exchangeErrorMessage(e: unknown): string {
-  const code = e && typeof e === 'object' && 'code' in e ? String((e as { code: unknown }).code) : ''
-  switch (code) {
-    case 'PAIR_NOT_ALLOWED':
-      return '이 화폐 쌍은 환전할 수 없어요.'
-    case 'DAILY_LIMIT_EXCEEDED':
-      return '오늘 환전 한도를 모두 사용했어요. 내일 다시 시도해 주세요.'
-    case 'AMOUNT_TOO_SMALL':
-      return '환전하기엔 수량이 너무 적어요.'
-    case 'INSUFFICIENT_FUNDS':
-      return '루비가 부족해요.'
-    default:
-      return errMsg(e, '환전에 실패했어요. 잠시 후 다시 시도해 주세요.')
-  }
-}
-
-// 재화 스냅샷 재조회 (환전/구매 실패 후 잔액 정합 복구) — TTL 캐시를 무시해야 의미가 있다.
+// 재화 스냅샷 재조회 (구매 실패 후 잔액 정합 복구) — TTL 캐시를 무시해야 의미가 있다.
 async function refreshCurrency() {
   try {
     await userStore.fetchMe(true)
@@ -509,14 +353,3 @@ async function refreshCurrency() {
   }
 }
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>
