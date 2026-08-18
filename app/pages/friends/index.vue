@@ -1,47 +1,47 @@
 <template>
-  <div class="riso-grain min-h-screen px-4 py-4 space-y-6">
+  <div class="min-h-screen space-y-5">
     <!-- 헤더 -->
     <div class="space-y-1">
-      <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">
+      <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">
         {{ $t('friends.title') }}
       </h2>
-      <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
+      <p class="text-[14px] leading-[20px] text-apjek-text-sub tracking-[-0.15px]">
         {{ $t('friends.subtitle') }}
       </p>
     </div>
 
     <!-- Section 1: 내 초대 코드 -->
-    <section class="bg-white rounded-2xl p-4 riso-shadow-sm">
+    <section class="apjek-card p-4">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="font-semibold text-[15px] text-riso-dark">
+        <h3 class="apjek-section-title text-[15px]">
           {{ $t('friends.myCode') }}
         </h3>
-        <span class="text-[11px] text-riso-dark/50">{{ $t('friends.expiresDays') }}</span>
+        <span class="text-[11px] text-apjek-text-faint">{{ $t('friends.expiresDays') }}</span>
       </div>
 
       <div v-if="myCode" class="space-y-3">
-        <div class="bg-riso-cream rounded-xl px-4 py-3 flex items-center justify-between">
-          <code class="font-mono font-bold text-[20px] tracking-[3px] text-riso-dark">
+        <div class="bg-apjek-bg rounded-xl px-4 py-3 flex items-center justify-between gap-2">
+          <code class="font-mono font-bold text-[20px] tracking-[3px] text-apjek-text">
             {{ myCode }}
           </code>
-          <div class="flex gap-2">
+          <div class="flex gap-1.5 shrink-0">
             <button
               type="button"
-              class="px-2.5 py-1.5 rounded-full bg-white text-[12px] font-semibold text-riso-dark riso-shadow-sm active:scale-95"
+              class="apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               @click="copyMyCode"
             >
               {{ $t('friends.copy') }}
             </button>
             <button
               type="button"
-              class="px-2.5 py-1.5 rounded-full bg-riso-pink text-white text-[12px] font-semibold riso-shadow-sm active:scale-95"
+              class="apjek-chip apjek-chip-active px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               @click="shareMyCode"
             >
               {{ $t('common.share') }}
             </button>
           </div>
         </div>
-        <p class="text-[12px] text-riso-dark/55 leading-[18px]">
+        <p class="text-[12px] text-apjek-text-sub leading-[18px]">
           {{ $t('friends.codeHint') }}
         </p>
       </div>
@@ -50,7 +50,7 @@
         v-else
         type="button"
         data-testid="friends-create-code"
-        class="w-full h-12 rounded-xl bg-riso-sage text-white font-semibold text-[14px] riso-shadow-sm active:scale-95 disabled:opacity-50"
+        class="apjek-cta w-full h-12 text-[14px] active:scale-[0.98]"
         :disabled="creating"
         @click="onCreateInvite"
       >
@@ -59,11 +59,11 @@
     </section>
 
     <!-- Section 2: 친구 코드 입력 -->
-    <section class="bg-white rounded-2xl p-4 riso-shadow-sm space-y-3">
-      <h3 class="font-semibold text-[15px] text-riso-dark">
+    <section class="apjek-card p-4 space-y-3">
+      <h3 class="apjek-section-title text-[15px]">
         {{ $t('friends.enterCode') }}
       </h3>
-      <p class="text-[12px] text-riso-dark/55 leading-[18px]">
+      <p class="text-[12px] text-apjek-text-sub leading-[18px]">
         {{ $t('friends.enterCodeHint') }}
       </p>
       <input
@@ -71,12 +71,12 @@
         type="text"
         maxlength="8"
         placeholder="ABCD1234"
-        class="w-full h-12 px-4 rounded-xl bg-riso-cream font-mono tracking-[3px] text-center uppercase text-[18px] focus:outline-none focus:ring-2 focus:ring-riso-pink"
+        class="w-full h-12 px-4 rounded-xl bg-apjek-bg border border-apjek-border text-apjek-text font-mono tracking-[3px] text-center uppercase text-[18px] focus:outline-none focus:ring-2 focus:ring-apjek-blue"
         @input="onCodeInput"
       >
       <button
         type="button"
-        class="w-full h-12 rounded-xl bg-riso-pink text-white font-semibold text-[14px] riso-shadow-sm active:scale-95 disabled:opacity-50"
+        class="apjek-cta w-full h-12 text-[14px] active:scale-[0.98]"
         :disabled="accepting || inputCode.length !== 8"
         @click="onAcceptInvite"
       >
@@ -85,10 +85,11 @@
     </section>
 
     <!-- Section 3: 내 친구 목록 -->
-    <section class="bg-white rounded-2xl p-4 riso-shadow-sm space-y-3">
-      <h3 class="font-semibold text-[15px] text-riso-dark">
+    <section class="apjek-card p-4 space-y-3">
+      <h3 class="apjek-section-title text-[15px] flex items-center gap-1.5">
+        <Icon name="lucide:users" class="w-4 h-4" aria-hidden="true" />
         {{ $t('friends.listTitle') }}
-        <span v-if="!friendsLoading && !friendsError && friends.length > 0" class="text-[13px] font-normal text-riso-dark/45">({{ friends.length }})</span>
+        <span v-if="!friendsLoading && !friendsError && friends.length > 0" class="text-[13px] font-normal text-apjek-text-faint">({{ friends.length }})</span>
       </h3>
 
       <!-- 로딩 -->
@@ -98,10 +99,10 @@
 
       <!-- 에러 — SDK {error} 를 무시하면 실패가 "친구 없음"으로 위장된다 (audit C4-5) -->
       <div v-else-if="friendsError" class="py-4 flex flex-col items-center gap-2.5">
-        <p class="text-[13px] text-riso-dark/55">{{ $t('friends.listLoadError') }}</p>
+        <p class="text-[13px] text-apjek-text-sub">{{ $t('friends.listLoadError') }}</p>
         <button
           type="button"
-          class="px-4 py-2 rounded-full bg-riso-sage text-white text-[12px] font-semibold riso-shadow-sm active:scale-95"
+          class="apjek-cta px-4 py-2 text-[12px] active:scale-95"
           @click="loadFriends"
         >
           {{ $t('common.retry') }}
@@ -111,46 +112,48 @@
       <!-- 빈 상태 -->
       <p
         v-else-if="friends.length === 0"
-        class="text-[13px] text-riso-dark/55 leading-[18px] py-4 text-center"
+        class="text-[13px] text-apjek-text-sub leading-[18px] py-4 text-center"
       >
         {{ $t('friends.noFriends') }}
       </p>
 
-      <!-- 친구 카드 목록 -->
+      <!-- 친구 카드 목록 (fig 더보기 탭 친구목록 행 참조 — 연회색 행 + 다크 미니 필 버튼) -->
       <ul v-else class="space-y-2.5">
         <li
           v-for="friend in friends"
           :key="friend.userId"
-          class="bg-riso-cream rounded-xl px-3.5 py-3 flex items-center justify-between gap-3"
+          class="bg-apjek-bg rounded-[12px] px-3 py-3 flex items-center justify-between gap-3"
         >
           <div class="flex items-center gap-2.5 min-w-0">
             <!-- 아바타 (닉네임 이니셜) — 텍스트-only 행의 시각 식별성 보강 (2026-07-20 #2) -->
             <span
-              class="shrink-0 w-9 h-9 rounded-full bg-riso-sage/20 text-riso-sage font-bold text-[15px] flex items-center justify-center"
+              class="shrink-0 w-9 h-9 rounded-full bg-apjek-blue-soft text-apjek-blue-deep font-bold text-[15px] flex items-center justify-center"
               aria-hidden="true"
             >{{ friendInitial(friend.nickname) }}</span>
             <div class="min-w-0">
-              <p class="font-semibold text-[14px] text-riso-dark truncate">
+              <p class="font-semibold text-[14px] text-apjek-text truncate">
                 {{ friend.nickname }}
               </p>
-              <p class="text-[12px] text-riso-dark/55">
+              <p class="text-[12px] text-apjek-text-faint">
                 {{ $t('friends.likeCount', { n: friend.likeCount }) }}
               </p>
             </div>
           </div>
-          <div class="flex gap-2 shrink-0">
+          <div class="flex gap-1.5 shrink-0">
+            <!-- 놀러가기 — 다크 미니 필 (fig 친구목록 행 버튼) -->
             <button
               type="button"
-              class="px-2.5 py-1.5 rounded-full bg-white text-[12px] font-semibold text-riso-dark riso-shadow-sm active:scale-95 disabled:opacity-50"
+              class="apjek-cta px-3 py-1.5 text-[11px] active:scale-95"
               :disabled="visitingId === friend.userId"
               @click="onVisit(friend)"
             >
               {{ $t('friends.visit') }}
             </button>
+            <!-- 좋아요 — 칩 토글 (활성=연블루) -->
             <button
               type="button"
-              class="px-2.5 py-1.5 rounded-full text-[12px] font-semibold riso-shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-1"
-              :class="friend.liked ? 'bg-riso-pink text-white' : 'bg-white text-riso-dark'"
+              class="apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              :class="friend.liked ? 'apjek-chip-active' : ''"
               :disabled="likingId === friend.userId"
               :aria-pressed="friend.liked ? 'true' : 'false'"
               @click="onToggleLike(friend)"
@@ -163,33 +166,15 @@
       </ul>
     </section>
 
-    <!-- 놀러가기 모달 -->
-    <CommonModal
-      v-model="visitModalOpen"
-      :title="visitFriend ? $t('friends.visitTitle', { nickname: visitFriend.nickname }) : ''"
-      :show-cancel="false"
-      :confirm-text="$t('common.close')"
-    >
-      <div v-if="visitTerrarium" class="space-y-4">
-        <!-- Jar preview (read-only) -->
-        <div class="relative aspect-square bg-gradient-to-b from-riso-cream via-white to-riso-cream/60 rounded-[2rem] border-2 border-riso-walnut/10 overflow-hidden riso-shadow-sm mx-auto">
-          <div class="absolute inset-3 rounded-[1.6rem] border-2 border-riso-walnut/8">
-            <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-2/5 h-4 bg-riso-cream/80 rounded-t-xl border-2 border-b-0 border-riso-walnut/8" />
-          </div>
-          <div class="absolute bottom-3 left-3 right-3 h-1/5 bg-gradient-to-t from-riso-walnut/20 to-riso-walnut/5 rounded-b-[1.4rem]" />
-          <div class="absolute inset-0 flex items-center justify-center">
-            <span class="text-5xl" aria-hidden="true">🪴</span>
-          </div>
-        </div>
-        <p class="text-[13px] text-riso-dark/65 text-center">
-          {{ $t('friends.visitItemCount', { n: visitTerrarium.placedItems?.length ?? 0 }) }}
-        </p>
-      </div>
-      <div v-else class="py-6 flex flex-col items-center gap-2">
-        <CommonLoading />
-        <p class="text-[12px] text-riso-dark/45">{{ $t('friends.visitLoading') }}</p>
-      </div>
-    </CommonModal>
+    <!-- 놀러가기 모달 — 친구 테라리움 실렌더 (placeholder 승격) -->
+    <FriendsVisitModal
+      :open="visitModalOpen"
+      :friend="visitFriend"
+      :terrarium="visitTerrarium"
+      :liking="likingId !== null"
+      @close="visitModalOpen = false"
+      @toggle-like="visitFriend && onToggleLike(visitFriend)"
+    />
   </div>
 </template>
 
@@ -263,6 +248,8 @@ async function onToggleLike(friend: FriendItem) {
     if (result) {
       friend.liked = result.liked
       friend.likeCount = result.likeCount
+      // 모달 안에서 토글하면 목록 행이 안 보이므로 성공 피드백을 토스트로 준다.
+      toast.success(result.liked ? '좋아요를 남겼어요 ♥' : '좋아요를 취소했어요')
     }
   }
   catch {
