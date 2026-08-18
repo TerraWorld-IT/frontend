@@ -84,6 +84,7 @@
     "checkIn": "Check in",
     "checkInError": "Check-in failed",
     "dewReward": "Dew +{n}",
+    "coinReward": "Coin +{n}",
     "loadError": "Failed to load attendance info",
     "streakDays": "{n}-day streak"
   },

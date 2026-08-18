@@ -84,6 +84,7 @@
     "checkIn": "출석하기",
     "checkInError": "출석 체크인 실패",
     "dewReward": "이슬 +{n}",
+    "coinReward": "코인 +{n}",
     "loadError": "출석 정보를 불러오지 못했습니다",
     "streakDays": "연속 {n}일"
   },
