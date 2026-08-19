@@ -281,6 +281,7 @@ async function onUse(c: GrowthItem): Promise<void> {
       // (SDK error 타입은 loose 하나 런타임은 _Error{code} — unknown-guard 로 안전 추출)
       const code = (error as unknown as { code?: string } | null)?.code
       if (code === 'INSUFFICIENT_FUNDS') toast.error(`반짝이 ${BOOSTER_COST} 필요 · 습관 7일 완주로 모아보세요`)
+      else if (code === 'GROWTH_DORMANT') toast.error('잠든 개체는 먼저 기록으로 깨워야 해요')
       else toast.error('반짝이 사용에 실패했어요')
       await userStore.fetchMe(true) // 재화 재동기화 — TTL 캐시 무시
       return

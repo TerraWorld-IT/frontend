@@ -499,8 +499,8 @@
           type="button"
           class="rounded-2xl p-3 flex flex-col items-center gap-2 relative transition-all"
           :style="{
-            background: currentBackgroundId === item.id ? 'rgba(126,219,192,0.12)' : 'rgba(0,0,0,0.03)',
-            border: currentBackgroundId === item.id ? '1.5px solid rgba(126,219,192,0.55)' : '1.5px solid rgba(0,0,0,0.08)',
+            background: currentBackgroundAssetUrl === item.assetUrl ? 'rgba(126,219,192,0.12)' : 'rgba(0,0,0,0.03)',
+            border: currentBackgroundAssetUrl === item.assetUrl ? '1.5px solid rgba(126,219,192,0.55)' : '1.5px solid rgba(0,0,0,0.08)',
           }"
           @click="onSelectBackground(item)"
         >
@@ -512,7 +512,7 @@
           >
           <div v-else class="text-4xl">{{ item.assetUrl }}</div>
           <span class="text-[11px] font-medium text-center leading-tight" style="color: #6b8f7a">{{ item.name }}</span>
-          <div v-if="currentBackgroundId === item.id" class="absolute top-2 right-2">
+          <div v-if="currentBackgroundAssetUrl === item.assetUrl" class="absolute top-2 right-2">
             <Icon name="lucide:check" class="w-4 h-4" style="color: #52b388" />
           </div>
         </button>
@@ -1484,13 +1484,13 @@ async function onCopyInviteCode() {
 const showBackgroundPicker = ref<boolean>(false)
 const backgroundBusy = ref<boolean>(false)
 const ownedBackgrounds = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout === 'BACKGROUND'))
-// 현재 배경 표시용 — BackgroundInfo.id 를 아이템 ID 로 대조(요청 계약이 itemId 이므로 동일 공간 전제).
-const currentBackgroundId = computed<number | null>(() => terrarium.value?.background?.id ?? null)
+// 응답 BackgroundInfo.id 는 terrarium_backgrounds PK. PUT 은 itemId. 동일 배경은 assetUrl 로 대조.
+const currentBackgroundAssetUrl = computed<string | null>(() => terrarium.value?.background?.assetUrl ?? null)
 
 async function onSelectBackground(item: ItemResponse) {
   if (backgroundBusy.value) return
-  // 이미 현재 배경이면 호출 생략 — 서버 409(동일 배경) 회피.
-  if (currentBackgroundId.value === item.id) {
+  // 이미 현재 배경이면 호출 생략 — 서버 동일 배경 재설정 회피.
+  if (currentBackgroundAssetUrl.value && item.assetUrl && currentBackgroundAssetUrl.value === item.assetUrl) {
     showBackgroundPicker.value = false
     return
   }
