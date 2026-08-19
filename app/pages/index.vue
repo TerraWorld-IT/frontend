@@ -1,20 +1,29 @@
 <!--
-  홈 화면 — TERRAWORLD2 Figma 프로토타입 `MyTerra.tsx` 픽셀-정확 이식.
-  실 데이터 배선: getMe / getTerrarium / listItems / listFreePlacements 병렬 로드,
+  홈 화면 — 아프젝(Apjek) 리디자인 리스킨 (frame-myterra-main 기준).
+  구조: 상단 원형 메뉴바(랭킹/공유하기/출석체크/광고보상/알림) + "나의 테라리움" 타이틀
+  + 유리병 스테이지 + 힐링/관리 모드 필 + 아코디언(친구 목록/보유 재화).
+  실 데이터 배선은 기존 그대로: getMe / getTerrarium / listItems / listFreePlacements 병렬 로드,
   하트(clickTerrariumHeart) / 광고보상(claimAdReward) / 출석(useAttendance) / 공유(html2canvas)
   / 자유배치 드래그(updateFreePosition) 실 API. scale/flip/zIndex 는 API 미지원 → 클라 세션 상태.
+  관리 모드 = 기존 편집 모드(editMode) 동작 그대로. 힐링 모드 = 풀블리드 감상 오버레이(표시 전용).
 -->
 <template>
-  <div class="flex flex-col gap-6 min-h-screen w-full px-4 pt-4 pb-24">
+  <!-- 루트 — 레이아웃 main 의 px-5/pt 를 음수 마진으로 상쇄해 상단 그라디언트를 풀블리드로 편다.
+       (main 의 pt 는 calc(1rem + safe-area) — -mt-4 는 1rem 몫만 상쇄해 세이프에어리어는 유지) -->
+  <div
+    class="flex flex-col gap-5 min-h-screen -mx-5 -mt-4 px-5 pt-4 pb-6"
+    style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 55%)"
+  >
     <!-- Loading -->
     <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
       <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
-      <p class="text-xs text-riso-dark/60">{{ $t('common.loadFailDesc') }}</p>
+      <p class="text-xs text-apjek-text-sub">{{ $t('common.loadFailDesc') }}</p>
       <button
-        class="mt-2 px-4 py-2 rounded-full bg-riso-sage text-white text-sm riso-shadow-sm"
+        class="mt-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
+        style="background: var(--color-apjek-blue)"
         @click="load"
       >
         {{ $t('common.retry') }}
@@ -23,147 +32,115 @@
 
     <!-- Main -->
     <template v-else>
-      <!-- ─── 출석체크 배너 ─── -->
+      <!-- ─── T7 상단 원형 메뉴바 (편집 모드에선 숨김) ─── -->
       <div
-        v-show="!alreadyCheckedToday"
-        class="flex items-center justify-between px-4 py-2.5 rounded-2xl cursor-pointer active:scale-95 transition-all"
-        :style="{ background: 'linear-gradient(135deg,#e8f0ff 0%,#f5e8ff 100%)', border: '1.5px solid rgba(151,168,241,0.3)' }"
-        @click="showAttendance = true"
+        v-if="!editMode"
+        class="mx-auto w-full max-w-[400px] rounded-full px-2 py-2 flex items-center justify-evenly"
+        style="background: color-mix(in srgb, var(--color-apjek-blue) 10%, transparent)"
       >
-        <div class="flex items-center gap-2.5">
-          <span class="text-lg">📅</span>
-          <div>
-            <p class="text-xs font-semibold" style="color: #5b6fa6">출석체크</p>
-            <p class="text-[10px]" style="color: #a0afd8">오늘 출석하고 ⭐ 받기</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-1">
-          <div
-            v-for="i in 7"
-            :key="`banner-dot-${i}`"
-            class="w-3 h-3 rounded-full transition-all"
-            :style="{ background: (i - 1) < checkedCount ? 'linear-gradient(135deg,#97a8f1,#c4a0f0)' : 'rgba(151,168,241,0.2)' }"
-          />
-        </div>
+        <!-- 랭킹 → 기존 /ranking 페이지 이동 -->
+        <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="navigateTo('/ranking')">
+          <span class="menu-circle"><Icon name="lucide:trophy" class="w-5 h-5" /></span>
+          <span class="menu-label">랭킹</span>
+        </button>
+        <!-- 공유하기 → 기존 공유 시트 -->
+        <button type="button" data-testid="home-share" class="menu-item" aria-label="공유하기" @click="showShareDialog = true">
+          <span class="menu-circle"><Icon name="lucide:share-2" class="w-5 h-5" /></span>
+          <span class="menu-label">공유하기</span>
+        </button>
+        <!-- 출석체크 → 기존 출석 팝업 (오늘 완료 시 ✓ 표시 유지) -->
+        <button type="button" data-testid="home-attendance" class="menu-item" aria-label="출석체크" @click="showAttendance = true">
+          <span class="menu-circle">
+            <Icon name="lucide:calendar" class="w-5 h-5" />
+            <span
+              v-if="alreadyCheckedToday"
+              class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border border-white text-[8px] flex items-center justify-center text-white"
+            >✓</span>
+          </span>
+          <span class="menu-label">출석체크</span>
+        </button>
+        <!-- 광고보상 — 기존 플랫폼 게이트 유지: 실 광고 가용 플랫폼(Android 네이티브/dev)에서만 노출.
+             웹/iOS 프로덕션은 광고 없이 보상만 청구되던 fail-open 진입점이었다 (audit B2-3). -->
+        <button
+          v-if="adAvailable"
+          type="button"
+          data-testid="home-freecoin"
+          class="menu-item"
+          :aria-label="$t('home.ariaFreeCoin')"
+          @click="showFreeCoinDialog = true"
+        >
+          <span class="menu-circle"><Icon name="lucide:gift" class="w-5 h-5" /></span>
+          <span class="menu-label">광고보상</span>
+        </button>
+        <!-- 알림 (T1) — 알림함 팝업 + 미읽음 마젠타 점 뱃지 (마운트 시 1회 조회, 실패 시 숨김).
+             lucide:bell 은 clientBundle 미등재라 인라인 SVG 사용 (config 수정 금지 제약). -->
+        <button type="button" data-testid="home-notify" class="menu-item" aria-label="알림" @click="onNotifyClick">
+          <span class="menu-circle">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+            <span
+              v-if="notifyUnread > 0"
+              class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white"
+              style="background: #f043c8"
+            />
+          </span>
+          <span class="menu-label">알림</span>
+        </button>
       </div>
 
-      <!-- ─── 상단 헤더 ─── -->
-      <div class="flex items-center justify-between">
-        <!-- 왼쪽: 이름 + 관리하기/편집완료 토글 -->
-        <!-- min-w-0 + truncate: 제목이 음절 사이에서 줄바꿈되면(한글은 단어 경계가 없다) 헤더가
-             2행이 되어 오른쪽 버튼 그룹과 세로로 겹친다. truncate 가 nowrap 을 포함해 줄바꿈을
-             막고, min-w-0 는 아주 긴 닉네임일 때 가로 오버플로 대신 말줄임으로 처리한다. -->
-        <div class="flex flex-col items-start gap-1 min-w-0">
-          <div class="font-bold text-lg text-black truncate max-w-full">{{ terrariumName }}</div>
-          <!-- whitespace-nowrap: 좁은 뷰포트에서 "테라리움 관리하기"가 2줄 wrap 되던 문제
-               (2026-07-20 시각검증 실측, § UI Breakage #3) -->
-          <button
-            type="button"
-            class="h-10 flex items-center gap-1.5 text-xs font-semibold px-3 rounded-lg transition-all active:scale-95 whitespace-nowrap"
-            :style="editMode
-              ? { background: 'linear-gradient(135deg,#7edbc0,#52b388)', color: 'white', boxShadow: '0 2px 10px rgba(126,219,192,0.4)' }
-              : { background: 'rgba(126,219,192,0.18)', color: '#3a9e78' }"
-            @click="toggleEditMode"
-          >
-            <template v-if="editMode">
-              <Icon name="lucide:check" class="w-3 h-3" />편집 완료
-            </template>
-            <template v-else>
-              <Icon name="lucide:pencil" class="w-3 h-3" />테라리움 관리하기
-            </template>
-          </button>
-        </div>
+      <!-- ─── 타이틀 ─── -->
+      <h1 class="text-center text-[22px] font-extrabold text-apjek-text tracking-[-0.5px]">나의 테라리움</h1>
 
-        <!-- 오른쪽: 일반 모드 4버튼 / 편집 모드 2버튼 -->
-        <!-- flex-wrap: 448px(TW2 설계폭)선 1줄 유지, 그보다 좁은 폰에선 버튼 통째로 다음 줄(음절 wrap 방지). -->
-        <div class="flex flex-wrap justify-end gap-2">
-          <template v-if="!editMode">
-            <!-- 1. 출석체크 -->
-            <button
-              type="button"
-              data-testid="home-attendance"
-              class="h-10 w-10 rounded-lg flex items-center justify-center transition-colors relative"
-              :style="{ background: alreadyCheckedToday ? 'rgba(151,168,241,0.25)' : 'rgba(151,168,241,0.5)' }"
-              aria-label="출석체크"
-              @click="showAttendance = true"
-            >
-              <span class="text-base">📅</span>
-              <span
-                v-if="alreadyCheckedToday"
-                class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border border-white text-[8px] flex items-center justify-center text-white"
-              >✓</span>
-            </button>
-            <!-- 2. 광고 — 실 광고를 띄울 수 있는 플랫폼(Android 네이티브)에서만 노출.
-                 웹/iOS 프로덕션은 광고 없이 보상만 청구되던 fail-open 진입점이었다
-                 (audit B2-3). dev 빌드는 플로우 테스트용으로 허용. -->
-            <button
-              v-if="adAvailable"
-              type="button"
-              data-testid="home-freecoin"
-              class="h-10 w-10 rounded-lg flex items-center justify-center transition-colors"
-              style="background: rgba(140,106,228,0.4)"
-              :aria-label="$t('home.ariaFreeCoin')"
-              @click="showFreeCoinDialog = true"
-            >
-              <Icon name="lucide:gift" class="w-4 h-4 text-white" />
-            </button>
-            <!-- 3. 랭킹 — 실 랭킹 페이지로 이동 (구 "준비중" 팝업은 /ranking 실페이지와 상반된
-                 dead-end 이라 제거, 2026-07-20 audit A2-1) -->
-            <button
-              type="button"
-              data-testid="home-ranking"
-              class="h-10 w-10 rounded-lg flex items-center justify-center transition-colors"
-              style="background: rgba(252,238,90,0.5)"
-              aria-label="랭킹"
-              @click="navigateTo('/ranking')"
-            >
-              <Icon name="lucide:trophy" class="w-4 h-4 text-amber-600" />
-            </button>
-            <!-- 4. 이미지저장(공유) -->
-            <button
-              type="button"
-              data-testid="home-share"
-              class="h-10 w-10 rounded-lg flex items-center justify-center transition-colors bg-[rgba(89,87,87,0.4)] hover:bg-[rgba(89,87,87,0.6)]"
-              :aria-label="$t('home.ariaSaveTerrarium')"
-              @click="showShareDialog = true"
-            >
-              <Icon name="lucide:share-2" class="w-4 h-4 text-white" />
-            </button>
-          </template>
-          <template v-else>
-            <button
-              type="button"
-              data-testid="home-add-item"
-              class="h-10 flex items-center gap-1.5 px-3 rounded-lg transition-colors text-white"
-              style="background: linear-gradient(135deg,#7edbc0,#52b388); box-shadow: 0 2px 8px rgba(82,179,136,0.4)"
-              @click="showItemPicker = true"
-            >
-              <Icon name="lucide:plus" class="w-4 h-4 flex-shrink-0" />
-              <span class="text-xs font-semibold whitespace-nowrap">아이템추가</span>
-            </button>
-            <button
-              type="button"
-              data-testid="home-tier"
-              class="h-10 flex items-center gap-1.5 px-3 rounded-lg transition-colors text-white"
-              style="background: linear-gradient(135deg,#82b3ec,#518cdb); box-shadow: 0 2px 8px rgba(81,140,219,0.4)"
-              @click="showTierModal = true"
-            >
-              <Icon name="lucide:trending-up" class="w-4 h-4 flex-shrink-0" />
-              <span class="text-xs font-semibold whitespace-nowrap">테라리움 업그레이드</span>
-            </button>
-          </template>
-        </div>
+      <!-- ─── 편집(관리) 모드 액션 칩 — 기존 아이템추가/업그레이드 동작 그대로 ─── -->
+      <div v-if="editMode" class="flex justify-center gap-2 flex-wrap">
+        <button
+          type="button"
+          data-testid="home-add-item"
+          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
+          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
+          @click="showItemPicker = true"
+        >
+          <Icon name="lucide:plus" class="w-4 h-4 flex-shrink-0" />
+          <span class="text-xs font-semibold whitespace-nowrap">아이템 추가</span>
+        </button>
+        <button
+          type="button"
+          data-testid="home-tier"
+          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
+          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
+          @click="showTierModal = true"
+        >
+          <Icon name="lucide:trending-up" class="w-4 h-4 flex-shrink-0" />
+          <span class="text-xs font-semibold whitespace-nowrap">테라리움 업그레이드</span>
+        </button>
+        <!-- T9 배경 설정 — 보유 BACKGROUND 아이템 선택 시트 -->
+        <button
+          type="button"
+          data-testid="home-background"
+          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
+          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
+          @click="showBackgroundPicker = true"
+        >
+          <Icon name="lucide:palette" class="w-4 h-4 flex-shrink-0" />
+          <span class="text-xs font-semibold whitespace-nowrap">배경 설정</span>
+        </button>
       </div>
 
-      <!-- ─── 유리병 영역 ─── -->
+      <!-- ─── 유리병 스테이지 (힐링 모드 시 풀블리드 오버레이로 승격) ─── -->
       <!-- 스테이지는 항상 설계 기준 400×552 를 유지(shrink-0)하고 uniform scale 로 화면에 맞춘다.
            이전에는 flex 축소로 스테이지 폭만 줄어(예: 376px) %-inset 병 아트는 세로로 왜곡되고
            px 좌표계(편집존·아이템 x/y·posX 저장 /400)와 기준이 어긋났다 (2026-07-20 라이브 실측). -->
       <div
         id="my-terra-container"
         ref="stageEl"
-        class="relative flex justify-center w-full overflow-hidden"
-        :style="{ cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem' }"
+        :class="healingMode
+          ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
+          : 'relative flex justify-center w-full overflow-hidden'"
+        :style="healingMode
+          ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)' }
+          : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem' }"
         @wheel="onWheel"
       >
         <div
@@ -176,12 +153,19 @@
             marginBottom: `${-552 * (1 - stageFit)}px`,
           }"
         >
+          <!-- 병 뒤 은은한 원형 글로우 (아프젝 디자인의 라디얼 하이라이트).
+               inline transform 이라 Tailwind translate 유틸과의 이중 적용 함정 없음. -->
+          <div
+            class="absolute pointer-events-none rounded-full"
+            style="left: 50%; top: 52%; width: 430px; height: 430px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 68%)"
+          />
+
           <!-- 유리병 (Figma Jar1 픽셀-정확) -->
           <div class="absolute inset-0">
             <IconsJar1 />
           </div>
 
-          <!-- 시들기 CTA (TW2 미존재 — 낙서장 기능이라 유지, 시각 최소) -->
+          <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
           <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" />
 
           <!-- 편집모드 안내 영역 -->
@@ -198,7 +182,7 @@
                 background: 'rgba(126,219,192,0.04)',
               }"
             >
-              <!-- 빈 병 첫 편집 안내 — 배치 아이템이 없으면 다음 행동(아이템추가)을 알려준다.
+              <!-- 빈 병 첫 편집 안내 — 배치 아이템이 없으면 다음 행동(아이템 추가)을 알려준다.
                    반투명 pill 배경: 병 하단 어두운 모래 영역과 겹칠 때 텍스트 대비 확보
                    (2026-07-20 시각검증 실측) -->
               <p
@@ -206,7 +190,7 @@
                 class="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-[13px] font-semibold rounded-xl px-3 py-2 mx-auto w-fit"
                 style="color: #2e7d5f; background: rgba(255,255,255,0.82)"
               >
-                위의 '아이템추가' 버튼으로<br>첫 아이템을 배치해 보세요
+                위의 '아이템 추가' 버튼으로<br>첫 아이템을 배치해 보세요
               </p>
             </div>
           </Transition>
@@ -294,7 +278,7 @@
             </template>
           </div>
 
-          <!-- 하트 버튼 (편집모드 숨김) -->
+          <!-- 하트 버튼 (편집모드 숨김 — 힐링 모드에선 유지) -->
           <div v-show="!editMode" class="absolute right-0 top-1/2 -translate-y-1/2">
             <button
               type="button"
@@ -317,7 +301,125 @@
             </button>
           </div>
         </div>
+
+        <!-- 힐링 모드 닫기 (오버레이 상태에서만) -->
+        <button
+          v-if="healingMode"
+          type="button"
+          class="absolute right-4 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 border border-apjek-border"
+          :style="{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }"
+          aria-label="힐링 모드 닫기"
+          @click="healingMode = false"
+        >
+          <Icon name="lucide:x" class="w-5 h-5 text-apjek-text-sub" />
+        </button>
       </div>
+
+      <!-- ─── T3 모드 필: 힐링/관리 (일반) · 편집 완료 (편집 중) ─── -->
+      <div class="flex justify-center gap-3">
+        <template v-if="!editMode">
+          <button
+            type="button"
+            data-testid="home-healing"
+            class="mode-pill"
+            style="background: #def259; color: #4c5514"
+            @click="healingMode = true"
+          >
+            <Icon name="lucide:sprout" class="w-4 h-4" />힐링 모드
+          </button>
+          <button
+            type="button"
+            data-testid="home-manage"
+            class="mode-pill"
+            style="background: #bcdadd; color: #2f5f63"
+            @click="toggleEditMode"
+          >
+            <Icon name="lucide:pencil" class="w-4 h-4" />관리 모드
+          </button>
+        </template>
+        <button
+          v-else
+          type="button"
+          class="mode-pill text-white"
+          style="background: linear-gradient(135deg, #7edbc0, #52b388); box-shadow: 0 2px 10px rgba(126,219,192,0.4)"
+          @click="toggleEditMode"
+        >
+          <Icon name="lucide:check" class="w-4 h-4" />편집 완료
+        </button>
+      </div>
+
+      <!-- ─── T4 아코디언: 친구 목록 / 보유 재화 (편집 모드에선 숨김) ─── -->
+      <template v-if="!editMode">
+        <TerrariumHomeAccordion v-model:open="friendsOpen" title="친구 목록" icon="lucide:users">
+          <div class="px-4 pb-4 flex flex-col gap-2">
+            <div v-if="homeFriendsLoading" class="rounded-xl bg-gray-50 p-3 text-center">
+              <p class="text-xs text-apjek-text-faint">친구 목록 불러오는 중…</p>
+            </div>
+            <template v-else-if="homeFriends.length > 0">
+              <div
+                v-for="friend in homeFriends"
+                :key="friend.userId"
+                class="rounded-xl bg-gray-50 flex items-center gap-3 p-3"
+              >
+                <div class="size-9 rounded-full flex items-center justify-center text-lg shrink-0" style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)">🌍</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-semibold text-apjek-text truncate">{{ friend.nickname }}</p>
+                  <p class="text-[10px] text-apjek-text-faint tracking-[0.1px]">TERRAWORLD</p>
+                </div>
+                <!-- 놀러가기 — 기존 동작 유지(/friends 이동). 방문 모달 승격은 friends 페이지 작업 몫. -->
+                <button
+                  type="button"
+                  class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
+                  style="background: var(--color-apjek-cta)"
+                  @click="navigateTo('/friends')"
+                >놀러가기</button>
+              </div>
+            </template>
+            <div v-else class="rounded-xl bg-gray-50 flex items-center justify-between gap-3 p-3">
+              <p class="text-xs text-apjek-text-faint">{{ homeFriendsError ? '친구 목록을 불러오지 못했어요' : '아직 함께하는 친구가 없어요' }}</p>
+              <button
+                type="button"
+                class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
+                style="background: var(--color-apjek-cta)"
+                @click="navigateTo('/friends')"
+              >{{ homeFriendsError ? '친구 페이지로' : '친구 초대하기' }}</button>
+            </div>
+          </div>
+        </TerrariumHomeAccordion>
+
+        <TerrariumHomeAccordion v-model:open="walletOpen" title="보유 재화" icon="lucide:circle-dollar-sign">
+          <div class="px-4 pb-4 flex flex-col gap-2">
+            <!-- 코인류 3종 (코인/루비/반짝이) -->
+            <div class="grid grid-cols-3 gap-2">
+              <div
+                v-for="c in mainCurrencies"
+                :key="c.code"
+                class="rounded-xl bg-gray-50 flex flex-col items-center p-3 gap-1"
+              >
+                <div class="flex items-center justify-center h-5">
+                  <IconsCurrencyIcon :code="c.code" :size="20" />
+                </div>
+                <span class="text-[11px] font-medium text-apjek-text-sub">{{ c.labelKo }}</span>
+                <span class="text-sm font-bold text-apjek-text">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
+              </div>
+            </div>
+            <!-- 활동 토큰 4종 (이슬/햇살/번개/바람) -->
+            <div class="grid grid-cols-4 gap-2">
+              <div
+                v-for="c in tokenCurrencies"
+                :key="c.code"
+                class="rounded-xl bg-gray-50 flex flex-col items-center p-2.5 gap-1"
+              >
+                <div class="flex items-center justify-center h-5">
+                  <IconsCurrencyIcon :code="c.code" :size="18" />
+                </div>
+                <span class="text-[10px] text-apjek-text-sub">{{ c.labelKo }}</span>
+                <span class="text-xs font-semibold text-apjek-text">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
+              </div>
+            </div>
+          </div>
+        </TerrariumHomeAccordion>
+      </template>
     </template>
   </div>
 
@@ -369,84 +471,179 @@
     </div>
   </CommonBottomSheet>
 
-  <!-- ═══════════════ 공유하기 바텀시트 ═══════════════ -->
-  <CommonBottomSheet :open="showShareDialog" ariaLabel="공유" @close="showShareDialog = false">
-    <div class="px-5 pb-5 pt-4">
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="font-bold text-base text-gray-800 flex items-center gap-2">
-          <Icon name="lucide:share-2" class="w-4 h-4" />
-          공유하기
-        </h3>
+  <!-- ═══════════════ T9 배경 설정 바텀시트 (보유 BACKGROUND 아이템 → setTerrariumBackground) ═══════════════ -->
+  <CommonBottomSheet :open="showBackgroundPicker" ariaLabel="배경 설정" @close="showBackgroundPicker = false">
+    <div class="px-5 pb-3 pt-3">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-base" style="color: #3a9e78">배경 설정</h3>
       </div>
-      <div class="flex flex-col gap-3">
-        <!-- SNS 공유 -->
+
+      <div v-if="backgroundBusy" class="flex justify-center py-8">
+        <CommonLoading variant="spinner" />
+      </div>
+      <div v-else-if="ownedBackgrounds.length === 0" class="text-center py-10 text-gray-400">
+        <div class="text-4xl mb-2">🖼️</div>
+        <p class="text-sm">배경 아이템이 없어요</p>
+        <p class="text-xs mt-1">상점에서 배경 아이템을 구매해보세요!</p>
         <button
           type="button"
-          class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
-          style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff); border: 1.5px solid rgba(151,168,241,0.3)"
-          @click="onSnsShare"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(151,168,241,0.25)">
-            <Icon name="lucide:share-2" class="w-5 h-5" style="color: #97a8f1" />
-          </div>
-          <div class="text-left">
-            <div class="text-sm font-semibold text-gray-800">SNS 공유하기</div>
-            <div class="text-xs text-gray-400">친구에게 테라리움을 공유해요</div>
-          </div>
-        </button>
-        <!-- 인스타 스토리 (네이티브 전용 — 투명 스티커를 스토리 카메라 위에) -->
+          class="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold text-white"
+          style="background: var(--color-apjek-cta)"
+          @click="navigateTo('/shop')"
+        >상점 가기</button>
+      </div>
+      <div v-else class="grid grid-cols-2 gap-3">
         <button
-          v-if="storyShareAvailable"
+          v-for="item in ownedBackgrounds"
+          :key="item.id"
           type="button"
-          class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50"
-          style="background: linear-gradient(135deg,#fdf2f8,#fce7f3); border: 1.5px solid rgba(240,146,240,0.35)"
-          :disabled="capturingImage"
-          @click="onInstagramStoryShare"
+          class="rounded-2xl p-3 flex flex-col items-center gap-2 relative transition-all"
+          :style="{
+            background: currentBackgroundAssetUrl === item.assetUrl ? 'rgba(126,219,192,0.12)' : 'rgba(0,0,0,0.03)',
+            border: currentBackgroundAssetUrl === item.assetUrl ? '1.5px solid rgba(126,219,192,0.55)' : '1.5px solid rgba(0,0,0,0.08)',
+          }"
+          @click="onSelectBackground(item)"
         >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(240,146,240,0.2)">
-            <Icon name="lucide:instagram" class="w-5 h-5" style="color: #f092f0" />
-          </div>
-          <div class="text-left">
-            <div class="text-sm font-semibold text-gray-800">인스타 스토리에 올리기</div>
-            <div class="text-xs text-gray-400">테라리움 스티커를 스토리 카메라 위에 올려요</div>
-          </div>
-        </button>
-        <!-- 초대코드 공유 -->
-        <button
-          type="button"
-          class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
-          style="background: linear-gradient(135deg,#fefce8,#fef3c7); border: 1.5px solid rgba(252,238,90,0.4)"
-          @click="onInviteShare"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(252,238,90,0.3)">
-            <Icon name="lucide:link" class="w-5 h-5 text-amber-600" />
-          </div>
-          <div class="text-left">
-            <div class="text-sm font-semibold text-gray-800">초대코드 공유하기</div>
-            <div class="text-xs text-gray-400">코드를 복사해서 친구를 초대해요</div>
-          </div>
-        </button>
-        <!-- 이미지 저장 -->
-        <button
-          type="button"
-          class="w-full flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50"
-          style="background: linear-gradient(135deg,#f0fff4,#e8f5ff); border: 1.5px solid rgba(126,219,192,0.3)"
-          :disabled="capturingImage"
-          @click="onImageSave"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(126,219,192,0.25)">
-            <Icon name="lucide:image-down" class="w-5 h-5" style="color: #52b388" />
-          </div>
-          <div class="text-left">
-            <div class="text-sm font-semibold text-gray-800">이미지 저장</div>
-            <div class="text-xs text-gray-400">테라리움을 이미지로 저장해요</div>
+          <img
+            v-if="isUrl(item.assetUrl)"
+            :src="item.assetUrl"
+            :alt="item.name"
+            class="w-full h-20 object-cover rounded-xl"
+          >
+          <div v-else class="text-4xl">{{ item.assetUrl }}</div>
+          <span class="text-[11px] font-medium text-center leading-tight" style="color: #6b8f7a">{{ item.name }}</span>
+          <div v-if="currentBackgroundAssetUrl === item.assetUrl" class="absolute top-2 right-2">
+            <Icon name="lucide:check" class="w-4 h-4" style="color: #52b388" />
           </div>
         </button>
       </div>
     </div>
   </CommonBottomSheet>
 
-  <!-- ═══════════════ 출석체크 팝업 ═══════════════ -->
+  <!-- ═══════════════ T10 공유하기 바텀시트 (SNS/이미지 저장/초대코드 3항목 + 인스타 유지) ═══════════════ -->
+  <CommonBottomSheet :open="showShareDialog" ariaLabel="공유" @close="showShareDialog = false">
+    <div class="px-5 pb-5 pt-4">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-bold text-base text-apjek-text flex items-center gap-2">
+          <Icon name="lucide:share-2" class="w-4 h-4" />
+          공유하기
+        </h3>
+      </div>
+      <div class="flex flex-col gap-3">
+        <!-- SNS 공유하기 -->
+        <button
+          type="button"
+          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98]"
+          @click="onSnsShare"
+        >
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-apjek-blue-soft)">
+            <Icon name="lucide:share-2" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
+          </div>
+          <div class="text-left flex-1 min-w-0">
+            <div class="text-sm font-bold text-apjek-text">SNS 공유하기</div>
+            <div class="text-xs text-apjek-text-faint">친구에게 나의 테라 사진을 공유해요</div>
+          </div>
+          <span class="apjek-chip shrink-0 text-xs">공유하기</span>
+        </button>
+        <!-- 인스타 스토리 (네이티브 전용 — 기존 동작 유지, 존폐는 결정 대기) -->
+        <button
+          v-if="storyShareAvailable"
+          type="button"
+          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98] disabled:opacity-50"
+          :disabled="capturingImage"
+          @click="onInstagramStoryShare"
+        >
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: rgba(240,146,240,0.18)">
+            <Icon name="lucide:instagram" class="w-5 h-5" style="color: #f092f0" />
+          </div>
+          <div class="text-left flex-1 min-w-0">
+            <div class="text-sm font-bold text-apjek-text">인스타 스토리에 올리기</div>
+            <div class="text-xs text-apjek-text-faint">테라리움 스티커를 스토리 카메라 위에 올려요</div>
+          </div>
+          <span class="apjek-chip shrink-0 text-xs">올리기</span>
+        </button>
+        <!-- 이미지 저장하기 -->
+        <button
+          type="button"
+          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98] disabled:opacity-50"
+          :disabled="capturingImage"
+          @click="onImageSave"
+        >
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-apjek-blue-soft)">
+            <Icon name="lucide:image-down" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
+          </div>
+          <div class="text-left flex-1 min-w-0">
+            <div class="text-sm font-bold text-apjek-text">이미지 저장하기</div>
+            <div class="text-xs text-apjek-text-faint">나의 테라를 이미지로 저장해요</div>
+          </div>
+          <span class="apjek-chip shrink-0 text-xs">저장하기</span>
+        </button>
+        <!-- 초대코드 복사하기 — 실 발급(createInvite) 후 코드 팝업 -->
+        <button
+          type="button"
+          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98] disabled:opacity-50"
+          :disabled="inviteCreating"
+          @click="onInviteShare"
+        >
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-apjek-blue-soft)">
+            <Icon name="lucide:link" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
+          </div>
+          <div class="text-left flex-1 min-w-0">
+            <div class="text-sm font-bold text-apjek-text">초대코드 복사하기</div>
+            <div class="text-xs text-apjek-text-faint">코드를 복사해서 친구를 초대해요</div>
+          </div>
+          <span class="apjek-chip shrink-0 text-xs">{{ inviteCreating ? '발급 중…' : '복사하기' }}</span>
+        </button>
+      </div>
+    </div>
+  </CommonBottomSheet>
+
+  <!-- ═══════════════ T1 알림함 팝업 (읽음 성공 시 뱃지 클리어) ═══════════════ -->
+  <NotificationsCenter :open="showNotifications" @close="showNotifications = false" @read="notifyUnread = 0" />
+
+  <!-- ═══════════════ 나의 초대코드 팝업 (T10 — 실제 발급 코드 그대로 표시) ═══════════════ -->
+  <Teleport to="body">
+    <Transition name="dialog">
+      <div v-if="showInviteCode" ref="inviteRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="나의 초대코드">
+        <div class="fixed inset-0 bg-black/40" @click="showInviteCode = false" />
+        <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
+          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <Icon name="lucide:link" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
+                <h3 class="font-bold text-base" style="color: #111111">나의 초대코드</h3>
+              </div>
+              <button
+                type="button"
+                class="w-7 h-7 rounded-full flex items-center justify-center"
+                style="background: var(--color-apjek-blue-soft)"
+                aria-label="닫기"
+                @click="showInviteCode = false"
+              >
+                <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
+              </button>
+            </div>
+            <!-- 보상 수치는 결정 대기 — 구체 수치 없이 중립 카피 유지 -->
+            <p class="text-center text-sm font-semibold mb-4" style="color: #333333">친구가 내 코드로 가입하면 함께 보상을 받아요</p>
+            <div class="rounded-2xl py-5 px-4 text-center mb-4" style="background: #f4f9c9">
+              <p class="text-[10px] font-medium mb-1" style="color: #8a8f66">나의 초대코드</p>
+              <p class="text-2xl font-extrabold tracking-[0.08em]" style="color: #111111">{{ inviteCode }}</p>
+            </div>
+            <button
+              type="button"
+              class="w-full py-3 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+              style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
+              @click="onCopyInviteCode"
+            >
+              <Icon name="lucide:link" class="w-4 h-4" />코드 복사
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <!-- ═══════════════ 출석체크 팝업 (아프젝 블루 정합 — 보상 수치는 서버 값 그대로) ═══════════════ -->
   <Teleport to="body">
     <Transition name="dialog">
       <div v-if="showAttendance" ref="attendanceRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="출석체크">
@@ -454,20 +651,24 @@
         <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
           <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)">
             <div class="flex items-center justify-between mb-5">
-              <div class="flex items-center gap-2">
-                <span class="text-2xl">📅</span>
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background: var(--color-apjek-blue-soft)">
+                  <Icon name="lucide:calendar" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
+                </div>
                 <div>
-                  <h3 class="font-bold text-base" style="color: #5b6fa6">출석체크</h3>
-                  <p class="text-[10px]" style="color: #a0afd8">7일 연속 출석 시 보너스 ⭐</p>
+                  <h3 class="font-bold text-base" style="color: #111111">출석체크</h3>
+                  <!-- T6: 실지급은 코인 — ⭐(반짝이 암시) 카피 제거 -->
+                  <p class="text-[10px]" style="color: #a1a1a1">7일 연속 출석 시 보너스 획득</p>
                 </div>
               </div>
               <button
                 type="button"
                 class="w-7 h-7 rounded-full flex items-center justify-center"
-                style="background: rgba(151,168,241,0.15)"
+                style="background: var(--color-apjek-blue-soft)"
+                aria-label="닫기"
                 @click="showAttendance = false"
               >
-                <Icon name="lucide:x" class="w-4 h-4" style="color: #97a8f1" />
+                <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
               </button>
             </div>
             <div class="flex justify-center gap-3 mb-6">
@@ -476,30 +677,31 @@
                   class="w-9 h-9 rounded-full flex items-center justify-center"
                   :style="{
                     background: attDotChecked(i - 1)
-                      ? 'linear-gradient(135deg,#97a8f1,#c4a0f0)'
-                      : attDotCurrent(i - 1) ? 'rgba(151,168,241,0.15)' : 'rgba(200,200,220,0.15)',
+                      ? 'var(--color-apjek-blue)'
+                      : attDotCurrent(i - 1) ? 'var(--color-apjek-blue-soft)' : 'rgba(200,200,220,0.15)',
                     border: attDotChecked(i - 1)
                       ? 'none'
-                      : attDotCurrent(i - 1) ? '2px dashed #97a8f1' : '2px solid rgba(200,200,220,0.4)',
+                      : attDotCurrent(i - 1) ? '2px dashed #518cdb' : '2px solid rgba(200,200,220,0.4)',
                   }"
                 >
                   <Icon v-if="attDotChecked(i - 1)" name="lucide:check-circle-2" class="w-5 h-5 text-white" />
-                  <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(i - 1) ? '#97a8f1' : '#c0c8e0' }">{{ i }}</span>
+                  <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(i - 1) ? '#518cdb' : '#c0c8e0' }">{{ i }}</span>
                 </div>
-                <span class="text-[9px]" :style="{ color: attDotChecked(i - 1) ? '#97a8f1' : '#c0c8e0' }">
+                <!-- 일차별 표기 — 보상 스킴 변경은 결정 대기라 서버 값(attendanceReward) 그대로 -->
+                <span class="text-[9px]" :style="{ color: attDotChecked(i - 1) ? '#518cdb' : '#c0c8e0' }">
                   {{ i === 7 ? '🎁' : `+${attendanceReward}` }}
                 </span>
               </div>
             </div>
             <div class="mb-5">
-              <div class="flex justify-between text-[10px] mb-1.5" style="color: #a0afd8">
+              <div class="flex justify-between text-[10px] mb-1.5" style="color: #a1a1a1">
                 <span>진행 {{ checkedCount }}/7일</span>
-                <span>7일 달성 시 보너스 ⭐</span>
+                <span>7일 달성 시 보너스</span>
               </div>
-              <div class="h-1.5 rounded-full overflow-hidden" style="background: rgba(151,168,241,0.15)">
+              <div class="h-1.5 rounded-full overflow-hidden" style="background: rgba(81,140,219,0.12)">
                 <div
                   class="h-full rounded-full transition-all duration-500"
-                  :style="{ background: 'linear-gradient(90deg,#97a8f1,#c4a0f0)', width: `${(checkedCount / 7) * 100}%` }"
+                  :style="{ background: 'var(--color-apjek-blue)', width: `${(checkedCount / 7) * 100}%` }"
                 />
               </div>
             </div>
@@ -509,10 +711,11 @@
               class="w-full py-3 rounded-2xl text-sm font-bold transition-all active:scale-95"
               :style="alreadyCheckedToday
                 ? { background: 'rgba(200,200,220,0.3)', color: '#c0c8e0', cursor: 'not-allowed' }
-                : { background: 'linear-gradient(135deg,#97a8f1 0%,#c4a0f0 100%)', color: 'white', boxShadow: '0 4px 16px rgba(151,168,241,0.4)' }"
+                : { background: 'var(--color-apjek-blue)', color: 'white', boxShadow: '0 4px 16px rgba(81,140,219,0.35)' }"
               @click="onAttendanceCheck"
             >
-              {{ alreadyCheckedToday ? '오늘 출석 완료 ✓' : `출석체크 하기  +${attendanceReward} ⭐` }}
+              <!-- T6: 실지급 재화는 코인 — 하드코딩 ⭐ 표기를 코인으로 정정 -->
+              {{ alreadyCheckedToday ? '오늘 출석 완료 ✓' : `출석체크 하기 · 코인 +${attendanceReward}` }}
             </button>
           </div>
         </div>
@@ -520,7 +723,7 @@
     </Transition>
   </Teleport>
 
-  <!-- ═══════════════ 무료 코인(광고 보상) 다이얼로그 ═══════════════ -->
+  <!-- ═══════════════ 무료 코인(광고 보상) 다이얼로그 — T8: 스타일만 아프젝 정합(로직 무변경) ═══════════════ -->
   <CommonModal
     v-model="showFreeCoinDialog"
     :title="$t('home.adCoinTitle')"
@@ -531,180 +734,22 @@
   >
     <div class="text-center py-2">
       <div class="text-6xl mb-3">📺</div>
-      <h4 class="font-semibold text-base mb-2">{{ $t('home.adCoinSubtitle') }}</h4>
-      <p class="text-sm text-gray-600 mb-3">{{ $t('home.adCoinDesc') }}</p>
-      <div class="bg-purple-50 rounded-lg p-3 text-left mb-3">
-        <p class="text-sm font-semibold text-purple-800 mb-1">{{ $t('home.adCoinRewardTitle') }}</p>
+      <h4 class="font-semibold text-base mb-2 text-apjek-text">{{ $t('home.adCoinSubtitle') }}</h4>
+      <p class="text-sm text-apjek-text-sub mb-3">{{ $t('home.adCoinDesc') }}</p>
+      <div class="rounded-xl p-3 text-left mb-3" style="background: var(--color-apjek-blue-soft)">
+        <p class="text-sm font-semibold mb-1" style="color: var(--color-apjek-blue-deep)">{{ $t('home.adCoinRewardTitle') }}</p>
         <div class="flex items-center justify-between">
-          <span class="text-sm text-purple-700">{{ $t('home.adCoinWatchOnce') }}</span>
-          <span class="font-semibold text-purple-800">{{ $t('home.adCoinAmount') }}</span>
+          <span class="text-sm" style="color: var(--color-apjek-blue-deep)">{{ $t('home.adCoinWatchOnce') }}</span>
+          <span class="font-bold" style="color: var(--color-apjek-blue-deep)">{{ $t('home.adCoinAmount') }}</span>
         </div>
-        <p class="text-xs text-purple-600 pt-2 border-t border-purple-200 mt-2">{{ $t('home.adCoinLimit') }}</p>
+        <p class="text-xs pt-2 mt-2" style="color: var(--color-apjek-blue); border-top: 1px solid rgba(81,140,219,0.25)">{{ $t('home.adCoinLimit') }}</p>
       </div>
-      <div class="bg-amber-50 rounded-lg p-3 text-xs text-amber-800 text-left">{{ $t('home.adCoinHint') }}</div>
+      <div class="rounded-xl p-3 text-xs text-left text-apjek-text-sub" style="background: var(--color-apjek-bg)">{{ $t('home.adCoinHint') }}</div>
     </div>
   </CommonModal>
 
   <!-- ═══════════════ Tier 모달 (레벨업 대체 — 별도 작업자가 내용 재작업) ═══════════════ -->
   <CommonTierModal :show="showTierModal" @close="showTierModal = false" />
-
-  <!-- ═══════════════ 피드 바텀시트 ═══════════════ -->
-  <!-- 스와이프 핸들 — 항상 바텀 nav 위 -->
-  <Teleport to="body">
-    <div class="fixed left-1/2 -translate-x-1/2 w-full max-w-md z-40" style="bottom: calc(98px + env(safe-area-inset-bottom, 0px))">
-      <div
-        class="flex justify-center items-center cursor-grab"
-        style="height: 28px; touch-action: none; background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); border-radius: 16px 16px 0 0; border: 1px solid rgba(0,0,0,0.08); border-bottom: none"
-        @pointerdown="onFeedHandlePointerDown"
-      >
-        <div class="w-10 h-1 rounded-full bg-black opacity-30" />
-      </div>
-    </div>
-  </Teleport>
-
-  <Teleport to="body">
-    <Transition name="sheet">
-      <div v-if="feedPanelOpen" ref="feedPanelRoot" class="fixed inset-0 z-[9998]" role="dialog" aria-modal="true" aria-label="피드">
-        <div class="fixed inset-0 bg-black/20" @click="feedPanelOpen = false" />
-        <!-- 모달 시트(role=dialog, aria-modal)는 뷰포트 하단에 밀착해 바텀 nav 를 덮는다.
-             백드롭이 nav 를 가리면서 패널만 nav 위에 떠 있으면, nav 가 "보이지만 눌리지 않는"
-             상태가 된다(탭이 백드롭에 먹혀 시트가 닫힘). 같은 파일의 아이템 선택/공유 시트도
-             bottom-0 이며, Material 3·Apple HIG 모두 모달 시트가 하단 내비를 덮도록 규정한다. -->
-        <div class="sheet-panel fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex flex-col">
-          <!-- max-height/overflow-y-auto 로 콘텐츠가 뷰포트를 넘겨도 스크롤 가능(이전엔 overflow-hidden
-               이라 넘치는 콘텐츠가 그냥 잘려 도달 불가능했다). 상단 여백은 아이템 선택 시트와 동일 규약. -->
-          <div
-            class="rounded-tl-[24px] rounded-tr-[24px] flex flex-col overflow-y-auto"
-            style="background: rgba(255,255,255,0.97); backdrop-filter: blur(20px); box-shadow: 0px -8px 25px rgba(0,0,0,0.15); max-height: calc(100dvh - 98px - 20px)"
-          >
-            <div
-              class="flex justify-center pt-3 pb-1 cursor-grab"
-              style="touch-action: none"
-              @pointerdown="onFeedPanelHandlePointerDown"
-            >
-              <div class="w-10 h-1 rounded-full bg-gray-300" />
-            </div>
-            <div class="flex items-center justify-between px-5 py-3">
-              <span class="font-bold text-[16px] text-black tracking-[-0.31px]">피드</span>
-              <button
-                type="button"
-                class="size-7 rounded-full flex items-center justify-center"
-                style="background: rgba(0,0,0,0.15)"
-                @click="feedPanelOpen = false"
-              >
-                <Icon name="lucide:x" class="w-4 h-4 text-black" />
-              </button>
-            </div>
-            <!-- 시트가 뷰포트 하단을 소유하므로 홈 인디케이터 영역만큼 바닥 여백을 더 준다. -->
-            <div class="flex flex-col gap-5 px-5" style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px))">
-              <!-- 공지사항 -->
-              <button
-                type="button"
-                class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] transition-all active:scale-[0.98]"
-                style="border: 1px solid rgba(0,0,0,0.1)"
-                @click="toast.info('공지사항 준비중입니다 🚀')"
-              >
-                <div class="flex items-center gap-3">
-                  <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                    <g clip-path="url(#clip_info2)">
-                      <path :d="feedSvg.p39ee6532" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                      <path d="M8 10.6667V8" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                      <path d="M8 5.33333H8.00667" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                    </g>
-                    <defs><clipPath id="clip_info2"><rect fill="white" width="16" height="16" /></clipPath></defs>
-                  </svg>
-                  <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">공지사항</span>
-                </div>
-                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                  <path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                </svg>
-              </button>
-
-              <!-- 프로필 + 친구 카드 -->
-              <div class="bg-white rounded-[16px] flex flex-col gap-6 p-[21px]" style="border: 1px solid rgba(0,0,0,0.1)">
-                <!-- 내 프로필 행 -->
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="size-16 rounded-full flex items-center justify-center text-3xl shrink-0"
-                      style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
-                    >🌍</div>
-                    <div>
-                      <p class="font-bold text-[18px] text-black tracking-[-0.44px]">{{ user?.nickname ?? '테라유저' }}</p>
-                      <p class="text-[12px] text-[#99a1af]">TERRAWORLD</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      class="rounded-[16px] flex items-center gap-1 px-2 py-[3px]"
-                      style="background: rgba(153,161,175,0.1)"
-                      @click="toast.info('수정은 더보기 탭에서 가능해요')"
-                    >
-                      <svg width="12" height="12" fill="none" viewBox="0 0 12 12">
-                        <g clip-path="url(#clip_pencil2)">
-                          <path :d="feedSvg.p27b3900" stroke="black" stroke-linecap="round" stroke-linejoin="round" />
-                          <path d="M7.5 2.5L9.5 4.5" stroke="black" stroke-linecap="round" stroke-linejoin="round" />
-                        </g>
-                        <defs><clipPath id="clip_pencil2"><rect fill="white" width="12" height="12" /></clipPath></defs>
-                      </svg>
-                      <span class="text-[12px] font-semibold text-black">수정</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded-full px-2 py-1 text-[10px] font-semibold text-white"
-                      style="background: black"
-                      @click="toast.info('더보기 탭에서 확인하세요')"
-                    >보유재화</button>
-                    <button
-                      type="button"
-                      class="rounded-full px-2 py-1 text-[10px] font-semibold text-white"
-                      style="background: black"
-                      @click="toast.info('더보기 탭에서 확인하세요')"
-                    >도감</button>
-                  </div>
-                </div>
-
-                <!-- 친구 행 — 실 친구 목록 (구 "친구A" 정적 목업 대체, audit A1-7) -->
-                <div v-if="feedFriendsLoading" class="w-full rounded-[12px] p-3 text-center" style="background: #f9fafb">
-                  <p class="text-[12px] text-[#99a1af]">친구 목록 불러오는 중…</p>
-                </div>
-                <template v-else-if="feedFriends.length > 0">
-                  <div
-                    v-for="friend in feedFriends"
-                    :key="friend.userId"
-                    class="w-full rounded-[12px] flex items-center gap-3 p-3"
-                    style="background: #f9fafb"
-                  >
-                    <div class="size-9 rounded-full flex items-center justify-center text-lg shrink-0" style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)">🌍</div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-[14px] font-semibold text-[#1e2939] tracking-[-0.15px] truncate">{{ friend.nickname }}</p>
-                      <p class="text-[10px] text-[#99a1af] tracking-[0.117px]">TERRAWORLD</p>
-                    </div>
-                    <button
-                      type="button"
-                      class="rounded-full px-2 py-1 text-[10px] font-semibold text-white shrink-0"
-                      style="background: black"
-                      @click="navigateTo('/friends')"
-                    >놀러가기</button>
-                  </div>
-                </template>
-                <div v-else class="w-full rounded-[12px] flex items-center justify-between gap-3 p-3" style="background: #f9fafb">
-                  <p class="text-[12px] text-[#99a1af]">{{ feedFriendsError ? '친구 목록을 불러오지 못했어요' : '아직 함께하는 친구가 없어요' }}</p>
-                  <button
-                    type="button"
-                    class="rounded-full px-2 py-1 text-[10px] font-semibold text-white shrink-0"
-                    style="background: black"
-                    @click="navigateTo('/friends')"
-                  >{{ feedFriendsError ? '친구 페이지로' : '친구 초대하기' }}</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
 
   <!-- Onboarding (첫 방문) -->
   <CommonOnboarding :show="showOnboarding" @close="showOnboarding = false" />
@@ -716,11 +761,12 @@ import type {
   AdRewardResponse,
   FreePlacementListResponse,
   HeartResponse,
+  InviteResponse,
   ItemResponse,
+  NotificationUnreadCountResponse,
   TerrariumResponse,
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
-import feedSvg from '~/components/icons/jar1/feedSvg'
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
@@ -815,31 +861,65 @@ onMounted(() => {
   adAvailable.value = (adNative && adAndroid) || import.meta.dev
 })
 const showTierModal = ref<boolean>(false)
-const feedPanelOpen = ref<boolean>(false)
 const showOnboarding = ref<boolean>(false)
 
-// 피드 패널 친구 목록 — 패널 첫 오픈 시 1회 lazy load (구 "친구A" 정적 목업 대체, audit A1-7).
-interface FeedFriend { userId: string, nickname: string }
-const feedFriends = shallowRef<FeedFriend[]>([])
-const feedFriendsLoading = ref<boolean>(false)
-const feedFriendsError = ref<boolean>(false)
-let feedFriendsLoaded = false
-watch(feedPanelOpen, async (open) => {
-  if (!open || feedFriendsLoaded) return
-  feedFriendsLoading.value = true
-  feedFriendsError.value = false
+// ─── T3 힐링 모드 — 풀블리드 감상 오버레이 (표시 전용, 배치/시들기/하트 로직 무변경) ───
+const healingMode = ref<boolean>(false)
+
+// ─── T4 아코디언 (친구 목록 / 보유 재화) ───
+const friendsOpen = ref<boolean>(false)
+const walletOpen = ref<boolean>(false)
+
+// 친구 목록 — 아코디언 첫 오픈 시 1회 lazy load (구 피드 패널의 친구 리스트 로직 이동).
+interface HomeFriend { userId: string, nickname: string }
+const homeFriends = shallowRef<HomeFriend[]>([])
+const homeFriendsLoading = ref<boolean>(false)
+const homeFriendsError = ref<boolean>(false)
+let homeFriendsLoaded = false
+watch(friendsOpen, async (open) => {
+  if (!open || homeFriendsLoaded) return
+  homeFriendsLoading.value = true
+  homeFriendsError.value = false
   try {
     const { data, error } = await sdk.listFriends({ client })
     if (error) throw error
-    feedFriends.value = (castData<FeedFriend[]>(data) ?? []).slice(0, 5)
-    feedFriendsLoaded = true
+    homeFriends.value = (castData<HomeFriend[]>(data) ?? []).slice(0, 5)
+    homeFriendsLoaded = true
   }
   catch {
-    // 실패는 빈 상태로 위장하지 않고 구분 표시 — 다음 패널 오픈 시 재시도된다.
-    feedFriendsError.value = true
+    // 실패는 빈 상태로 위장하지 않고 구분 표시 — 다음 아코디언 오픈 시 재시도된다.
+    homeFriendsError.value = true
   }
   finally {
-    feedFriendsLoading.value = false
+    homeFriendsLoading.value = false
+  }
+})
+
+// 보유 재화 — currency util 의 표시 메타 재사용. 코인류 3종 + 활동 토큰 4종 분리 표시.
+const mainCurrencies = CURRENCY_META.filter(c => c.code === 'COIN' || c.code === 'RUBY' || c.code === 'SPARKLE')
+const tokenCurrencies = CURRENCY_META.filter(c => c.code === 'DEW' || c.code === 'SUN' || c.code === 'BOLT' || c.code === 'WIND')
+
+// 잔액 표시 포맷 — profile 페이지와 동일 규약(소수 절사 + 천단위 구분).
+function formatBalance(amount: number): string {
+  return Math.floor(amount).toLocaleString()
+}
+
+// ─── T1 알림함 — 실 팝업 + 미읽음 마젠타 점 뱃지 ───
+const showNotifications = ref<boolean>(false)
+const notifyUnread = ref<number>(0)
+function onNotifyClick() {
+  showNotifications.value = true
+}
+// 미읽음 수는 홈 마운트 시 1회만 조회 — 백엔드 컨트롤러 구현 중이라 실서버 404 가능.
+// 실패하면 뱃지만 숨기고 재시도하지 않는다(알림이 안 떠도 홈은 깨지지 않아야 한다).
+onMounted(async () => {
+  try {
+    const { data, error } = await sdk.getUnreadNotificationCount({ client })
+    if (error) return
+    notifyUnread.value = castData<NotificationUnreadCountResponse>(data)?.count ?? 0
+  }
+  catch {
+    // 조용한 실패 — 뱃지 숨김 유지
   }
 })
 
@@ -867,25 +947,27 @@ function registerOverlayBackClose(overlayOpen: Ref<boolean>) {
 // bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적 —
 // aria-modal 선언만 하고 focus containment 가 없으면 스크린리더에 거짓 계약이 됨).
 // 아이템추가/공유 시트는 CommonBottomSheet 가 focus trap + 뒤로가기 + ESC 를 내장 처리하므로
-// 여기 등록하지 않는다(이중 등록 금지).
+// 여기 등록하지 않는다(이중 등록 금지). 힐링 모드는 스테이지 컨테이너 자체가 오버레이 루트가
+// 되므로 stageEl 을 트랩 루트로 재사용한다(스크롤 잠금 + ESC 닫기 포함).
 const attendanceRoot = ref<HTMLElement | null>(null)
-const feedPanelRoot = ref<HTMLElement | null>(null)
+const inviteRoot = ref<HTMLElement | null>(null)
+// ─── T10 초대코드 팝업 상태 — 발급 코드는 변형 없이 그대로 표시한다 ───
+const showInviteCode = ref<boolean>(false)
+const inviteCode = ref<string>('')
+const inviteCreating = ref<boolean>(false)
 useDialogFocusTrap(attendanceRoot, showAttendance, () => { showAttendance.value = false })
-useDialogFocusTrap(feedPanelRoot, feedPanelOpen, () => { feedPanelOpen.value = false })
+useDialogFocusTrap(inviteRoot, showInviteCode, () => { showInviteCode.value = false })
+useDialogFocusTrap(stageEl, healingMode, () => { healingMode.value = false })
 
 registerOverlayBackClose(showAttendance)
-registerOverlayBackClose(feedPanelOpen)
+registerOverlayBackClose(showInviteCode)
+registerOverlayBackClose(healingMode)
 
 const heartBusy = ref<boolean>(false)
 const heartFloats = ref<{ id: number }[]>([])
 const placementBusy = ref<boolean>(false)
 
 // ─── Computed ───
-const terrariumName = computed<string>(() => {
-  const nick = user.value?.nickname
-  return nick ? t('home.terrariumNameOf', { nickname: nick }) : t('home.terrariumNameDefault')
-})
-
 // 출석 (useAttendance 실 API — /rewards/attendance)
 const alreadyCheckedToday = computed<boolean>(() => Boolean(attendance.state.value?.today))
 const attendanceStreak = computed<number>(() => attendance.state.value?.streak ?? 0)
@@ -1041,14 +1123,14 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
 }
 
-// ─── 편집 모드 ───
+// ─── 편집(관리) 모드 ───
 function toggleEditMode() {
   editMode.value = !editMode.value
   showItemPicker.value = false
   selectedItemId.value = null
 }
 
-// ─── 휠 줌 (비편집 시만) ───
+// ─── 휠 줌 (비편집 시만 — 힐링 모드 포함) ───
 function onWheel(e: WheelEvent) {
   if (editMode.value) return
   e.preventDefault()
@@ -1302,7 +1384,7 @@ async function onAttendanceCheck() {
     // 서버 currency 로 잔액 동기화 (COIN/DEW 갱신) — 스토어에 반영해 다른 화면과 공유한다.
     userStore.updateCurrency(result.currency)
     const bonus = result.reward.bonus ? ` (${t('attendance.bonus')})` : ''
-    toast.success(`${t('attendance.dewReward', { n: result.reward.basicCoins })}${bonus}`)
+    toast.success(`${t('attendance.coinReward', { n: result.reward.basicCoins })}${bonus}`)
     showAttendance.value = false
   }
   else if (attendance.error.value) {
@@ -1357,9 +1439,76 @@ function onSnsShare() {
   void nativeShare({ title: 'TERRAWORLD', text: t('home.shareText'), url: import.meta.client ? window.location.href : '' })
 }
 
-function onInviteShare() {
-  showShareDialog.value = false
-  toast.info('초대코드 공유 준비중입니다 🚀')
+// ─── T10 초대코드 — 실제 발급(createInvite) + "나의 초대코드" 팝업 + 클립보드 복사 ───
+async function onInviteShare() {
+  if (inviteCreating.value) return
+  inviteCreating.value = true
+  try {
+    // friends 페이지와 동일 API — 8자 코드 + 7일 만료. 발급 코드를 변형 없이 그대로 표시한다.
+    const { data, error } = await sdk.createInvite({ client })
+    if (error) throw new Error(errMsg(error, '초대코드 발급에 실패했어요'))
+    const invite = castData<InviteResponse>(data)
+    const code = (invite as { inviteCode?: string } | null)?.inviteCode ?? ''
+    if (!code) throw new Error('초대코드 발급에 실패했어요')
+    inviteCode.value = code
+    showShareDialog.value = false
+    showInviteCode.value = true
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+  }
+  finally {
+    inviteCreating.value = false
+  }
+}
+
+async function onCopyInviteCode() {
+  if (!inviteCode.value || !import.meta.client) return
+  // friends 페이지 copyMyCode 와 동일 규약 — WebView 에서 clipboard 권한 거부/제스처 밖 호출로
+  // write 가 reject 될 수 있어, 복사 실패를 조용히 삼키지 않고 코드를 직접 노출한다.
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(inviteCode.value)
+      toast.success('초대코드를 복사했어요')
+      return
+    }
+    catch {
+      // 아래 폴백으로 진행 — 코드 직접 노출
+    }
+  }
+  toast.info(`초대코드: ${inviteCode.value}`)
+}
+
+// ─── T9 배경 설정 — 보유 BACKGROUND 아이템 선택 → setTerrariumBackground ───
+// 홈은 현재 배경을 시각 렌더하지 않는다(Jar1 정적 아트) — 설정 API 배선 + 선택 UI 까지가 범위.
+const showBackgroundPicker = ref<boolean>(false)
+const backgroundBusy = ref<boolean>(false)
+const ownedBackgrounds = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout === 'BACKGROUND'))
+// 응답 BackgroundInfo.id 는 terrarium_backgrounds PK. PUT 은 itemId. 동일 배경은 assetUrl 로 대조.
+const currentBackgroundAssetUrl = computed<string | null>(() => terrarium.value?.background?.assetUrl ?? null)
+
+async function onSelectBackground(item: ItemResponse) {
+  if (backgroundBusy.value) return
+  // 이미 현재 배경이면 호출 생략 — 서버 동일 배경 재설정 회피.
+  if (currentBackgroundAssetUrl.value && item.assetUrl && currentBackgroundAssetUrl.value === item.assetUrl) {
+    showBackgroundPicker.value = false
+    return
+  }
+  backgroundBusy.value = true
+  try {
+    const { error } = await sdk.setTerrariumBackground({ client, body: { itemId: item.id } })
+    if (error) throw new Error(errMsg(error, '배경 설정 실패'))
+    // 배치 변경과 동일 규약 — homeSnapshot 강제 갱신(fetch(true)) 후 단일 적용 경로로 반영.
+    await reloadAfterPlacement()
+    showBackgroundPicker.value = false
+    toast.success('배경이 설정되었어요!')
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+  }
+  finally {
+    backgroundBusy.value = false
+  }
 }
 
 async function onImageSave() {
@@ -1487,44 +1636,6 @@ async function onInstagramStoryShare() {
   }
 }
 
-// ─── 피드 스와이프 핸들 (위로 스와이프 → 열기) ───
-function onFeedHandlePointerDown(e: PointerEvent) {
-  const startY = e.clientY
-  const el = e.currentTarget as HTMLElement
-  el.setPointerCapture(e.pointerId)
-  function onMove(ev: PointerEvent) {
-    if (startY - ev.clientY > 30) feedPanelOpen.value = true
-  }
-  function onUp() {
-    el.removeEventListener('pointermove', onMove)
-    el.removeEventListener('pointerup', onUp)
-    el.removeEventListener('pointercancel', onUp)
-  }
-  el.addEventListener('pointermove', onMove)
-  el.addEventListener('pointerup', onUp)
-  el.addEventListener('pointercancel', onUp)
-}
-
-// ─── 피드 패널 내부 핸들 (아래로 스와이프 → 닫기) ───
-// 열기(onFeedHandlePointerDown)의 대칭 — 시각적으로 스와이프 가능하다고 암시하는 핸들 바가
-// 실제로는 아무 동작도 하지 않던 문제(전수 UX 점검에서 발견). 열기와 동일한 임계값(30px).
-function onFeedPanelHandlePointerDown(e: PointerEvent) {
-  const startY = e.clientY
-  const el = e.currentTarget as HTMLElement
-  el.setPointerCapture(e.pointerId)
-  function onMove(ev: PointerEvent) {
-    if (ev.clientY - startY > 30) feedPanelOpen.value = false
-  }
-  function onUp() {
-    el.removeEventListener('pointermove', onMove)
-    el.removeEventListener('pointerup', onUp)
-    el.removeEventListener('pointercancel', onUp)
-  }
-  el.addEventListener('pointermove', onMove)
-  el.addEventListener('pointerup', onUp)
-  el.addEventListener('pointercancel', onUp)
-}
-
 // ─── mount ───
 onMounted(async () => {
   if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
@@ -1541,6 +1652,54 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 </script>
 
 <style scoped>
+/* 상단 메뉴바 아이템 — 연블루 원 + 블루 아이콘 + 미니 라벨 (아프젝 T7) */
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 52px;
+  transition: transform 0.15s ease;
+}
+.menu-item:active {
+  transform: scale(0.93);
+}
+.menu-circle {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-apjek-surface);
+  border: 1px solid color-mix(in srgb, var(--color-apjek-blue) 30%, transparent);
+  color: var(--color-apjek-blue);
+}
+.menu-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  color: var(--color-apjek-blue-deep);
+}
+
+/* 모드 필 (힐링/관리/편집완료) — 단일행 유지 (wrap 시 인접 요소 겹침 방지 규약) */
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9999px;
+  padding: 0.7rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.15s ease;
+}
+.mode-pill:active {
+  transform: scale(0.95);
+}
+
 /* 하트 +1 float */
 @keyframes heartFloatUp {
   0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
@@ -1563,29 +1722,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 }
 .item-float { animation: itemFloat 2s ease-in-out infinite; }
 
-/* 바텀시트 slide-up.
-   Tailwind v4 의 `-translate-x-1/2` 는 `transform` 이 아니라 개별 `translate` 속성을 내보낸다
-   (`translate: var(--tw-translate-x) var(--tw-translate-y)`). CSS 는 개별 translate 를 먼저 적용한 뒤
-   transform 을 합성하므로, 여기서 transform 에 X 축을 또 넣으면 -50% 가 두 번 걸려 패널이 자기 폭만큼
-   왼쪽(-100%)에서 대각선으로 날아든다. X 중앙정렬은 translate 에 맡기고 transform 은 Y 축만 다룬다.
-   root(.sheet-enter-active)의 duration 이 Vue 의 transition 종료 판정 기준이므로 패널과 같게 맞춘다. */
-.sheet-enter-active,
-.sheet-leave-active { transition: opacity 0.3s ease; }
-.sheet-enter-active .sheet-panel,
-.sheet-leave-active .sheet-panel { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
-.sheet-enter-from,
-.sheet-leave-to { opacity: 0; }
-.sheet-enter-from .sheet-panel,
-.sheet-leave-to .sheet-panel { transform: translateY(100%); }
-
-@media (prefers-reduced-motion: reduce) {
-  .sheet-enter-active,
-  .sheet-leave-active,
-  .sheet-enter-active .sheet-panel,
-  .sheet-leave-active .sheet-panel { transition-duration: 0.01ms; }
-}
-
-/* 중앙 다이얼로그 spring 근사 */
+/* 중앙 다이얼로그 spring 근사 (출석/초대코드 팝업 공용) */
 .dialog-enter-active,
 .dialog-leave-active { transition: opacity 0.25s ease; }
 .dialog-enter-active > div:last-child,
@@ -1594,6 +1731,13 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 .dialog-leave-to { opacity: 0; }
 .dialog-enter-from > div:last-child,
 .dialog-leave-to > div:last-child { transform: translateY(20px) scale(0.92); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-enter-active,
+  .dialog-leave-active,
+  .dialog-enter-active > div:last-child,
+  .dialog-leave-active > div:last-child { transition-duration: 0.01ms; }
+}
 
 /* 편집 안내 fade */
 .edit-fade-enter-active,

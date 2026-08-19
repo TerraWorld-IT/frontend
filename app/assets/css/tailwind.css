@@ -53,6 +53,40 @@
   --color-rarity-rare: #0078BF;
   --color-rarity-epic: #bf00ff;
 
+  /* ============================================
+     아프젝(Apjek) 리디자인 팔레트 — 신규 Figma 비주얼 랭귀지.
+     화이트 서피스 + 연회색 카드 보더 + 블루 액센트 + 블랙 CTA + 파스텔 토큰 컬러.
+     값은 참고 스크린샷(fig-tabs.png) 픽셀 실측 기반 Figma 근사값.
+     기존 riso-* 토큰은 미마이그레이션 화면이 아직 사용하므로 삭제하지 않는다.
+     ============================================ */
+  --color-apjek-surface: #ffffff;        /* 카드/바 서피스 (흰색) */
+  --color-apjek-bg: #f7f7f8;             /* 앱 배경 — 아주 연한 회색 (Figma 근사값: 세그먼트 바탕 #F5F5F5) */
+  --color-apjek-text: #111111;           /* 텍스트 기본 (Figma 근사값 — 실측 #000~#121212) */
+  --color-apjek-text-sub: #686868;       /* 텍스트 보조 (섹션 설명 실측 #686868) */
+  --color-apjek-text-faint: #a1a1a1;     /* 텍스트 3차 — 비활성 탭/캡션 (실측 #A1A1A1~#AEAEAE) */
+  --color-apjek-border: #ececec;         /* 카드 보더 — 연회색 (실측 #EFEFEF, 근사) */
+  --color-apjek-border-strong: #dfdfdf;  /* 칩/입력 보더 (실측 #DFDFDF) */
+  --color-apjek-blue: #518cdb;           /* 블루 액센트 (활성 칩 실측 #518CDB) */
+  --color-apjek-blue-soft: #e5eefa;      /* 연한 블루 칩 배경 (보유중 칩 실측 #E5EEFA) */
+  --color-apjek-blue-deep: #3b78cc;      /* 연블루 배경 위 텍스트용 진블루 (Figma 근사값) */
+  --color-apjek-cta: #121212;            /* 블랙 CTA (실측 #000000 — 텍스트 기본과 톤 통일 위해 근사) */
+
+  /* 재화(토큰) 컬러 5종 — 글리프색 + 파스텔 타일 배경 (전부 Figma 근사값) */
+  --color-apjek-dew: #61cff7;            /* 이슬 — 물방울 파랑 */
+  --color-apjek-dew-bg: #ecfaff;
+  --color-apjek-sun: #f5a93c;            /* 햇살 — 노랑주황 */
+  --color-apjek-sun-bg: #fff1ec;
+  --color-apjek-bolt: #ffdd3c;           /* 번개 — 노랑 */
+  --color-apjek-bolt-bg: #fff8d9;
+  --color-apjek-wind: #a9a0e8;           /* 바람 — 연보라빛 하늘색 */
+  --color-apjek-wind-bg: #ece5ff;
+  --color-apjek-sparkle: #fb93cf;        /* 반짝이 — 핑크 */
+  --color-apjek-sparkle-bg: #ffd6ee;
+
+  /* 키우기 탭 블루 그라디언트 2색 (상→하, Figma 근사값) */
+  --color-apjek-grow-from: #5b95dc;
+  --color-apjek-grow-to: #3585bd;
+
   /* Radius scale (mobile-friendly, 16px base) */
   --radius: 1rem;
   --radius-sm: calc(var(--radius) - 4px);   /* 12px */
@@ -168,6 +202,70 @@
 }
 
 /* ============================================
+   아프젝 공용 컴포넌트 클래스 — 페이지 리스킨(후속 작업)이 공유하는 베이스.
+   components 레이어라 utilities 가 이긴다 — 페이지에서 유틸리티로 부분 override 가능.
+   기존 riso-shadow 류와 독립(그림자 미사용) — 충돌 없음.
+   ============================================ */
+@layer components {
+  /* 카드 — 흰 배경 + 라운드 16 + 연회색 보더 */
+  .apjek-card {
+    background-color: var(--color-apjek-surface);
+    border: 1px solid var(--color-apjek-border);
+    border-radius: var(--radius-lg); /* 16px */
+  }
+
+  /* CTA — 블랙 필 버튼 (라운드 풀). 다크모드는 CSS 변수 보정으로 처리 */
+  .apjek-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    background-color: var(--color-apjek-cta);
+    color: #ffffff;
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .apjek-cta:active {
+    opacity: 0.85;
+  }
+  .apjek-cta:disabled {
+    opacity: 0.4;
+  }
+
+  /* 칩 — 라운드 풀. 기본=흰 배경+보더, 액티브=연블루 배경+블루 텍스트 */
+  .apjek-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    background-color: var(--color-apjek-surface);
+    color: var(--color-apjek-text-sub);
+    border: 1px solid var(--color-apjek-border-strong);
+    border-radius: 9999px;
+    padding: 0.375rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap; /* 단일행 칩 규칙 — wrap 시 인접 row 겹침 방지 */
+  }
+  .apjek-chip-active {
+    background-color: var(--color-apjek-blue-soft);
+    color: var(--color-apjek-blue-deep);
+    border-color: transparent;
+  }
+
+  /* 섹션 타이틀 */
+  .apjek-section-title {
+    color: var(--color-apjek-text);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ============================================
    Utilities
    ============================================ */
 
@@ -237,6 +335,21 @@
    ============================================ */
 .dark {
   --color-riso-cream: #1b1814; /* 페이지/표면 기본 (bg-riso-cream → warm dark) */
+
+  /* 아프젝 토큰 다크 보정 — 완전한 다크 팔레트 설계는 범위 밖.
+     라이트 기준 정의 중 다크에서 명백히 깨지는 조합(흰 서피스 고정·검정 텍스트·
+     블랙 CTA 가 배경에 묻힘)만 CSS 변수 레벨에서 무난한 값으로 교체.
+     v4 유틸리티는 var() 참조를 남기므로 여기 재정의가 런타임에 그대로 반영된다. */
+  --color-apjek-surface: #262019;
+  --color-apjek-bg: #1b1814;
+  --color-apjek-text: #ece3d2;
+  --color-apjek-text-sub: #b5ab98;
+  --color-apjek-text-faint: #8b8275;
+  --color-apjek-border: rgba(236, 227, 210, 0.12);
+  --color-apjek-border-strong: rgba(236, 227, 210, 0.2);
+  --color-apjek-blue-soft: rgba(81, 140, 219, 0.24); /* 연블루 칩 배경 → 반투명 블루 */
+  --color-apjek-blue-deep: #8ab4f0;                  /* 연블루 위 텍스트 → 라이트 블루 */
+  --color-apjek-cta: #3d362c;                        /* 블랙 CTA → 배경과 구분되는 차콜 (텍스트 white 유지) */
 }
 
 /* 표면 (흰색 계열) */

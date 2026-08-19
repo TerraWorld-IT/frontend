@@ -1,13 +1,13 @@
 <template>
-  <div class="w-full rounded-[16px] border border-black/10 bg-white p-[16px]">
+  <div class="w-full rounded-[16px] border border-apjek-border bg-apjek-surface p-[16px]">
     <div class="flex items-center justify-between w-full mb-[4px]">
-      <p class="text-[14px] font-bold text-black tracking-[-0.15px] min-w-0 truncate">
+      <p class="text-[14px] font-bold text-apjek-text tracking-[-0.15px] min-w-0 truncate">
         {{ tracker.title }}
       </p>
       <div class="flex items-center gap-[8px] shrink-0">
         <span
           class="text-[11px]"
-          :style="{ color: tracker.status === 'ACTIVE' ? '#a0afd8' : '#f5a623' }"
+          :style="{ color: tracker.status === 'ACTIVE' ? 'var(--color-apjek-blue)' : 'var(--color-apjek-sun)' }"
         >
           {{ statusLabel(tracker.status) }}
         </span>
@@ -15,7 +15,7 @@
         <button
           v-if="tracker.status === 'ACTIVE' && !confirmingStop"
           type="button"
-          class="text-[11px] text-[#99a1af] underline transition active:scale-95"
+          class="text-[11px] text-apjek-text-faint underline transition active:scale-95"
           @click="confirmingStop = true"
         >
           중단
@@ -31,7 +31,7 @@
           </button>
           <button
             type="button"
-            class="text-[11px] text-[#99a1af] transition active:scale-95"
+            class="text-[11px] text-apjek-text-faint transition active:scale-95"
             :disabled="stopBusy"
             @click="confirmingStop = false"
           >
@@ -41,22 +41,30 @@
       </div>
     </div>
 
-    <!-- 친구 연동 상태 — partnerActive 일 때만 2배가 실제 성립 (M2: 상시 "2배" 뱃지 오표시 교정) -->
+    <!-- 친구 연동 상태 — partnerActive 일 때만 2배가 실제 성립 (M2: 상시 "2배" 뱃지 오표시 교정)
+         뱃지 팔레트: 진행중=반짝이 핑크 / 대기=연블루 (아프젝 토큰) -->
     <p v-if="tracker.friendLinked" class="w-full text-[12px] -mt-[2px] mb-[2px]">
-      <span class="text-[#525252]">{{ tracker.friendNickname ?? '친구' }}님과 함께</span>
+      <span class="text-apjek-text-sub">{{ tracker.friendNickname ?? '친구' }}님과 함께</span>
       <span
         v-if="tracker.partnerActive"
-        class="text-[10px] px-[6px] py-[2px] rounded-full ml-[4px]"
-        style="background: rgba(240,146,240,0.15); color: #f092f0"
+        class="text-[10px] px-[6px] py-[2px] rounded-full ml-[4px] bg-apjek-sparkle/15 text-apjek-sparkle"
       >함께 진행 중 · 완주 보상 2배</span>
       <span
         v-else
-        class="text-[10px] px-[6px] py-[2px] rounded-full ml-[4px]"
-        style="background: rgba(160,175,216,0.15); color: #a0afd8"
+        class="text-[10px] px-[6px] py-[2px] rounded-full ml-[4px] bg-apjek-blue-soft text-apjek-blue-deep"
       >친구 참여 대기 — 친구도 시작하면 2배</span>
+      <!-- 응원하기 (R3-FE) — 친구 참여 대기 중일 때만. 팝업/전송은 부모(record 페이지) 담당 -->
+      <button
+        v-if="!tracker.partnerActive && tracker.status === 'ACTIVE'"
+        type="button"
+        class="text-[10px] px-[8px] py-[3px] rounded-full ml-[4px] bg-apjek-cta text-white font-semibold transition active:scale-95"
+        @click="$emit('cheer', tracker)"
+      >
+        응원하기 💌
+      </button>
     </p>
 
-    <!-- 7일 원 -->
+    <!-- 7일 원 — 아프젝 블루 채움 (frame-habit-create) -->
     <div class="flex items-center justify-center gap-[12px] pt-[16px] pb-[4px]">
       <div
         v-for="hd in HABIT_DAYS"
@@ -71,41 +79,38 @@
         </div>
         <span
           class="text-[9px] tracking-[0.167px]"
-          :style="{ color: hd.day <= tracker.currentStreakDays ? '#97a8f1' : '#c0c8e0' }"
+          :style="{ color: hd.day <= tracker.currentStreakDays ? 'var(--color-apjek-blue)' : 'var(--color-apjek-text-faint)' }"
         >
           {{ hd.points }}
         </span>
       </div>
     </div>
 
-    <!-- 진행 바 -->
+    <!-- 진행 바 — 블루 (frame-habit-create 하단 진행 표시) -->
     <div class="w-full pt-[16px] pb-[14px]">
       <div class="flex items-start justify-between mb-[6px]">
-        <span class="text-[10px] tracking-[0.117px] text-[#a0afd8]">
+        <span class="text-[10px] tracking-[0.117px] text-apjek-blue">
           진행 {{ tracker.currentStreakDays }}/{{ tracker.cycleLengthDays }}일
         </span>
-        <span class="text-[10px] tracking-[0.117px] text-[#a0afd8]">
+        <span class="text-[10px] tracking-[0.117px] text-apjek-blue">
           7일 달성 시 반짝이 획득
         </span>
       </div>
-      <div class="h-[6px] w-full rounded-full overflow-hidden" style="background: rgba(151,168,241,0.15)">
+      <div class="h-[6px] w-full rounded-full overflow-hidden bg-apjek-blue-soft">
         <div
-          class="h-full rounded-full transition-all duration-500"
-          :style="{
-            width: `${Math.min(100, (tracker.currentStreakDays / tracker.cycleLengthDays) * 100)}%`,
-            background: 'linear-gradient(90deg,#97a8f1,#c4a0f0)',
-          }"
+          class="h-full rounded-full transition-all duration-500 bg-apjek-blue"
+          :style="{ width: `${Math.min(100, (tracker.currentStreakDays / tracker.cycleLengthDays) * 100)}%` }"
         />
       </div>
     </div>
 
-    <!-- 체크인 버튼 -->
+    <!-- 체크인 버튼 — 아프젝 다크 CTA -->
     <button
       type="button"
-      class="w-full h-[44px] rounded-[16px] text-[14px] font-semibold transition active:scale-95"
+      class="w-full h-[44px] rounded-full text-[14px] font-semibold transition active:scale-95"
       :class="checkedToday || tracker.status !== 'ACTIVE'
-        ? 'bg-neutral-100 text-neutral-400 cursor-default'
-        : 'bg-riso-sage text-white'"
+        ? 'bg-apjek-bg text-apjek-text-faint cursor-default'
+        : 'bg-apjek-cta text-white'"
       :disabled="checkedToday || tracker.status !== 'ACTIVE' || busy"
       @click="$emit('checkin', tracker)"
     >
@@ -131,6 +136,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   checkin: [tracker: HabitTrackerResponse]
   stop: [tracker: HabitTrackerResponse]
+  /** 친구 참여 대기 습관에서 응원 팝업 열기 요청 (R3-FE) */
+  cheer: [tracker: HabitTrackerResponse]
 }>()
 
 const confirmingStop = ref<boolean>(false)
@@ -176,12 +183,13 @@ function statusLabel(s: HabitTrackerResponse['status']): string {
   return s === 'ACTIVE' ? '진행중' : s === 'COMPLETED' ? '완료' : '중단'
 }
 
+// 7일 원 상태별 스타일 — 아프젝 블루 팔레트 (체크=블루 채움 / 오늘=점선 블루 / 미래=연블루)
 function dayStyle(day: number): Record<string, string> {
   const streak = props.tracker.currentStreakDays
   const isChecked = day <= streak
   const isCurrent = !isChecked && day === streak + 1
-  if (isChecked) return { background: 'linear-gradient(135deg,#97a8f1,#c4a0f0)', color: 'white' }
-  if (isCurrent) return { background: 'rgba(151,168,241,0.15)', border: '2px dashed #97a8f1', color: '#97a8f1' }
-  return { background: 'rgba(200,200,220,0.15)', border: '2px solid rgba(200,200,220,0.4)', color: '#c0c8e0' }
+  if (isChecked) return { background: 'var(--color-apjek-blue)', color: 'white' }
+  if (isCurrent) return { background: 'var(--color-apjek-blue-soft)', border: '2px dashed var(--color-apjek-blue)', color: 'var(--color-apjek-blue)' }
+  return { background: 'var(--color-apjek-blue-soft)', border: '2px solid transparent', color: 'var(--color-apjek-blue-deep)' }
 }
 </script>

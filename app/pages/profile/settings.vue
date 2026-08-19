@@ -10,11 +10,11 @@
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
       </button>
-      <h1 class="font-bold text-[29px] text-black tracking-[-0.9px] leading-[28px]">설정</h1>
+      <h1 class="font-bold text-[29px] text-apjek-text tracking-[-0.9px] leading-[28px]">설정</h1>
     </div>
 
-    <!-- 동의 항목 관리 (FE 실기능 보존, TW2 카드 스타일) -->
-    <div class="bg-white rounded-[16px] w-full relative border border-black/10">
+    <!-- 동의 항목 관리 (FE 실기능 보존, 아프젝 카드 스타일) -->
+    <div class="apjek-card w-full relative">
       <div class="p-[21px] flex flex-col gap-[16px]">
         <div class="flex items-center gap-[8px]">
           <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
@@ -25,16 +25,16 @@
             </g>
             <defs><clipPath id="clip_user_c"><rect fill="white" width="20" height="20" /></clipPath></defs>
           </svg>
-          <span class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[27px]">{{ $t('profile.consentSection') }}</span>
+          <span class="font-bold text-[18px] text-apjek-text tracking-[-0.44px] leading-[27px]">{{ $t('profile.consentSection') }}</span>
         </div>
-        <p class="text-[12px] text-[#525252]">{{ $t('profile.consentDesc') }}</p>
+        <p class="text-[12px] text-apjek-text-sub">{{ $t('profile.consentDesc') }}</p>
         <div class="flex flex-col gap-[8px]">
           <label
             v-for="item in consentToggles"
             :key="`${item.key}-${consentRenderKey}`"
-            class="w-full flex items-center justify-between p-[13px] bg-white border border-black/10 rounded-[12px] cursor-pointer"
+            class="w-full flex items-center justify-between p-[13px] bg-apjek-surface border border-apjek-border rounded-[12px] cursor-pointer"
           >
-            <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ t(`auth.consent.${item.key}`) }}</span>
+            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ t(`auth.consent.${item.key}`) }}</span>
             <input
               type="checkbox"
               :checked="item.value"
@@ -48,7 +48,7 @@
     </div>
 
     <!-- 계정 -->
-    <div class="bg-white rounded-[16px] w-full relative border border-black/10">
+    <div class="apjek-card w-full relative">
       <div class="p-[21px] flex flex-col gap-[24px]">
         <div class="flex items-center gap-[8px] pb-0">
           <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
@@ -59,14 +59,14 @@
             </g>
             <defs><clipPath id="clip_user_a"><rect fill="white" width="20" height="20" /></clipPath></defs>
           </svg>
-          <span class="font-bold text-[18px] text-black tracking-[-0.44px] leading-[27px]">{{ $t('profile.accountSection') }}</span>
+          <span class="font-bold text-[18px] text-apjek-text tracking-[-0.44px] leading-[27px]">{{ $t('profile.accountSection') }}</span>
         </div>
 
         <div class="flex flex-col gap-[8px]">
           <!-- 이용 안내 -->
           <button
             type="button"
-            class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
             @click="toast.info(t('profile.menuGuideComingSoon'))"
           >
             <div class="flex items-center gap-[12px]">
@@ -78,7 +78,7 @@
                 </g>
                 <defs><clipPath id="clip_guide"><rect fill="white" width="16" height="16" /></clipPath></defs>
               </svg>
-              <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ $t('profile.menuGuide') }}</span>
+              <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ $t('profile.menuGuide') }}</span>
             </div>
             <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
           </button>
@@ -86,7 +86,7 @@
           <!-- 로그인 -->
           <NuxtLink
             to="/auth/login"
-            class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
           >
             <div class="flex items-center gap-[12px]">
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
@@ -94,7 +94,7 @@
                 <path :d="P.login.arrow" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
                 <path d="M10 8H2" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
               </svg>
-              <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ $t('auth.login') }}</span>
+              <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ $t('auth.login') }}</span>
             </div>
             <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
           </NuxtLink>
@@ -102,7 +102,7 @@
           <!-- 로그아웃 (FE 실기능) -->
           <button
             type="button"
-            class="w-full bg-white rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-black/10"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
             :disabled="loggingOut"
             @click="onLogout"
           >
@@ -112,14 +112,14 @@
                 <path :d="P.logout.arrow" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
                 <path d="M14 8H6" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
               </svg>
-              <span class="text-[14px] font-semibold text-black tracking-[-0.15px]">{{ loggingOut ? $t('profile.loggingOut') : $t('profile.logout') }}</span>
+              <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ loggingOut ? $t('profile.loggingOut') : $t('profile.logout') }}</span>
             </div>
             <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
           </button>
         </div>
 
-        <div class="rounded-[12px] p-[12px] text-center" style="background: #f9fafb">
-          <p class="text-[12px] text-black leading-[16px]">
+        <div class="rounded-[12px] p-[12px] text-center bg-apjek-bg">
+          <p class="text-[12px] text-apjek-text leading-[16px]">
             {{ $t('profile.itemsHint') }}
           </p>
         </div>
