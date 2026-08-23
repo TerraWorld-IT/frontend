@@ -2,6 +2,7 @@
   홈 화면 — 아프젝 v2 '나의 테라' (2026-08-21 Figma 갱신본 기준, gap-plan §3.2 T1b/T2/T3b/T4b/T7b/T8/T10/T10b/T11/T12/T13/T14/T15).
   구조: 상단 원형 메뉴바 5종 상시(랭킹/공유하기/출석체크/광고보상/알림) + "나의 테라" 타이틀
   + 병 캐러셀(현재 병 / Lv.2 / Lv.3 카드 + 도트) + [힐링 모드][관리 모드] 필 + 아코디언(친구 목록 → 보유 재화, 기본 열림).
+  상단 메뉴의 랭킹/출석/알림은 페이지 이동 없이 홈 위 팝업(랭킹 팝업 / 출석 팝업 / 우측 알림 패널)으로 연다.
   실 데이터 배선은 기존 그대로: getMe / getTerrarium / listItems / listFreePlacements 병렬 로드,
   하트(clickTerrariumHeart) / 광고보상(claimAdReward) / 출석(useAttendance) / 공유(html2canvas)
   / 자유배치 드래그(updateFreePosition) / 티어(useTier) 실 API. scale/flip/zIndex 는 서버 영속.
@@ -40,8 +41,8 @@
         class="mx-auto w-full max-w-[400px] rounded-full px-2 py-2 flex items-center justify-evenly"
         style="background: color-mix(in srgb, var(--color-apjek-blue) 10%, transparent)"
       >
-        <!-- 랭킹 → 기존 /ranking 페이지 이동 (팝업화 T5 는 별도 워크스트림) -->
-        <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="navigateTo('/ranking')">
+        <!-- 랭킹 → 랭킹 팝업 (T5, 보유 아이템 수 기준 전체/친구) -->
+        <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="showRanking = true">
           <span class="menu-circle"><Icon name="lucide:trophy" class="w-5 h-5" /></span>
           <span class="menu-label">랭킹</span>
         </button>
@@ -492,6 +493,9 @@
     @story="onInstagramStoryShare"
   />
 
+  <!-- ═══════════════ T5 랭킹 팝업 (보유 아이템 수 — 전체/친구 세그먼트, 내부 스크롤) ═══════════════ -->
+  <TerrariumRankingModal :open="showRanking" :nickname="user?.nickname ?? ''" @close="showRanking = false" />
+
   <!-- ═══════════════ T1b 알림 패널 (우측 슬라이드인, 읽음 성공 시 뱃지 클리어) ═══════════════ -->
   <NotificationsCenter :open="showNotifications" @close="showNotifications = false" @read="notifyUnread = 0" />
 
@@ -531,13 +535,13 @@
   <!-- ═══════════════ T12 재화 환전 다이얼로그 (상점 컴포넌트 재사용) ═══════════════ -->
   <ShopExchangeDialog v-model="showExchange" />
 
-  <!-- ═══════════════ 출석체크 팝업 (아프젝 블루 정합 — 보상 수치는 서버 값 그대로) ═══════════════ -->
+  <!-- ═══════════════ T6 출석체크 팝업 — Figma "출석 체크 팝업" 3종(출석 전 / 오늘 완료 / 7일 완료). 보드·보상은 서버 AttendanceResponse 그대로 ═══════════════ -->
   <Teleport to="body">
     <Transition name="dialog">
       <div v-if="showAttendance" ref="attendanceRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="출석체크">
         <div class="fixed inset-0 bg-black/40" @click="showAttendance = false" />
         <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
-          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)">
+          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)" data-testid="attendance-popup">
             <div class="flex items-center justify-between mb-5">
               <div class="flex items-center gap-2.5">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background: var(--color-apjek-blue-soft)">
@@ -545,8 +549,7 @@
                 </div>
                 <div>
                   <h3 class="font-bold text-base" style="color: #111111">출석체크</h3>
-                  <!-- T6: 실지급은 코인 — ⭐(반짝이 암시) 카피 제거 -->
-                  <p class="text-[10px]" style="color: #a1a1a1">7일 연속 출석 시 보너스 획득</p>
+                  <p class="text-[10px]" style="color: #a1a1a1" data-testid="attendance-subtitle">{{ attendanceSubtitle }}</p>
                 </div>
               </div>
               <button
@@ -559,51 +562,50 @@
                 <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
               </button>
             </div>
-            <div class="flex justify-center gap-3 mb-6">
-              <div v-for="i in 7" :key="`att-dot-${i}`" class="flex flex-col items-center gap-1">
+            <!-- 7일 보드 — board[] 순서대로 1~7 원형 + "+코인N" 라벨, 수령한 칸은 체크 -->
+            <div class="flex justify-center gap-3 mb-6" data-testid="attendance-board">
+              <div v-for="cell in attendanceBoard" :key="`att-day-${cell.day}`" class="flex flex-col items-center gap-1">
                 <div
                   class="w-9 h-9 rounded-full flex items-center justify-center"
                   :style="{
-                    background: attDotChecked(i - 1)
+                    background: cell.claimed
                       ? 'var(--color-apjek-blue)'
-                      : attDotCurrent(i - 1) ? 'var(--color-apjek-blue-soft)' : 'rgba(200,200,220,0.15)',
-                    border: attDotChecked(i - 1)
+                      : attDotCurrent(cell.day) ? 'var(--color-apjek-blue-soft)' : 'rgba(200,200,220,0.15)',
+                    border: cell.claimed
                       ? 'none'
-                      : attDotCurrent(i - 1) ? '2px dashed #518cdb' : '2px solid rgba(200,200,220,0.4)',
+                      : attDotCurrent(cell.day) ? '2px dashed #518cdb' : '2px solid rgba(200,200,220,0.4)',
                   }"
                 >
-                  <Icon v-if="attDotChecked(i - 1)" name="lucide:check-circle-2" class="w-5 h-5 text-white" />
-                  <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(i - 1) ? '#518cdb' : '#c0c8e0' }">{{ i }}</span>
+                  <Icon v-if="cell.claimed" name="lucide:check-circle-2" class="w-5 h-5 text-white" />
+                  <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(cell.day) ? '#518cdb' : '#c0c8e0' }">{{ cell.day }}</span>
                 </div>
-                <!-- 일차별 표기 — 보상 스킴 변경은 결정 대기라 서버 값(attendanceReward) 그대로 -->
-                <span class="text-[9px]" :style="{ color: attDotChecked(i - 1) ? '#518cdb' : '#c0c8e0' }">
-                  {{ i === 7 ? '🎁' : `+${attendanceReward}` }}
-                </span>
+                <span class="text-[9px] whitespace-nowrap" :style="{ color: cell.claimed ? '#518cdb' : '#c0c8e0' }">+코인{{ cell.rewardBasicCoins }}</span>
               </div>
             </div>
             <div class="mb-5">
               <div class="flex justify-between text-[10px] mb-1.5" style="color: #a1a1a1">
-                <span>진행 {{ checkedCount }}/7일</span>
-                <span>7일 달성 시 보너스</span>
+                <span data-testid="attendance-progress">진행 {{ attendanceClaimedCount }}/7일</span>
+                <span>7일 달성 시 루비+{{ attendanceCycleBonusRuby }} 획득</span>
               </div>
               <div class="h-1.5 rounded-full overflow-hidden" style="background: rgba(81,140,219,0.12)">
                 <div
                   class="h-full rounded-full transition-all duration-500"
-                  :style="{ background: 'var(--color-apjek-blue)', width: `${(checkedCount / 7) * 100}%` }"
+                  :style="{ background: 'var(--color-apjek-blue)', width: `${(attendanceClaimedCount / 7) * 100}%` }"
                 />
               </div>
             </div>
+            <!-- CTA 3상태: 출석하기(검정) / 오늘 출석 완료(비활성) / 7일 출석 완료(비활성) -->
             <button
               type="button"
-              :disabled="alreadyCheckedToday || attendanceLoading"
+              :disabled="attendanceCtaDisabled"
               class="w-full py-3 rounded-2xl text-sm font-bold transition-all active:scale-95"
-              :style="alreadyCheckedToday
+              :style="attendanceCtaDisabled
                 ? { background: 'rgba(200,200,220,0.3)', color: '#c0c8e0', cursor: 'not-allowed' }
-                : { background: 'var(--color-apjek-blue)', color: 'white', boxShadow: '0 4px 16px rgba(81,140,219,0.35)' }"
+                : { background: 'var(--color-apjek-cta)', color: 'white' }"
+              data-testid="attendance-cta"
               @click="onAttendanceCheck"
             >
-              <!-- T6: 실지급 재화는 코인 — 하드코딩 ⭐ 표기를 코인으로 정정 -->
-              {{ alreadyCheckedToday ? '오늘 출석 완료 ✓' : `출석체크 하기 · 코인 +${attendanceReward}` }}
+              {{ attendanceCtaLabel }}
             </button>
           </div>
         </div>
@@ -638,6 +640,7 @@
 import { Capacitor } from '@capacitor/core'
 import type {
   AdRewardResponse,
+  AttendanceBoardDay,
   HeartResponse,
   InviteResponse,
   ItemResponse,
@@ -735,6 +738,7 @@ onBeforeUnmount(() => {
 
 const showShareDialog = ref<boolean>(false)
 const showAttendance = ref<boolean>(false)
+const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 // 광고 진입점 가용성 — SSR 은 항상 숨김, 클라 마운트 후 판정(하이드레이션 mismatch 회피).
 // T7b: 메뉴는 상시 노출하고, 비가용 환경은 탭 시 안내 토스트(§4 N-3).
@@ -947,10 +951,9 @@ registerOverlayBackClose(editMode)
 const showInviteCode = ref<boolean>(false)
 const inviteCode = ref<string>('')
 const inviteLink = ref<string>('')
-// 보상 수치 — 스펙 초안(N-B3) `CreateInviteResponse.inviterRuby/inviteeRuby` 가 SDK 에 생기면 채워진다.
-// TODO(WS-A N-B3 머지 후): InviteResponse 타입에서 optional chaining 제거.
-const inviteInviterRuby = ref<number | null>(null)
-const inviteInviteeRuby = ref<number | null>(null)
+// 보상 수치 — `InviteResponse.inviterRuby/inviteeRuby`(BE 설정값, 카피 표시용). 발급 응답으로 채운다.
+const inviteInviterRuby = ref<number>(0)
+const inviteInviteeRuby = ref<number>(0)
 const inviteCreating = ref<boolean>(false)
 
 const heartBusy = ref<boolean>(false)
@@ -958,18 +961,33 @@ const heartFloats = ref<{ id: number }[]>([])
 const placementBusy = ref<boolean>(false)
 
 // ─── Computed ───
-// 출석 (useAttendance 실 API — /rewards/attendance)
+// 출석 (useAttendance 실 API — /rewards/attendance). 7일 보드·일차·보너스는 서버 AttendanceResponse 가 SoT.
 const alreadyCheckedToday = computed<boolean>(() => Boolean(attendance.state.value?.today))
-const attendanceStreak = computed<number>(() => attendance.state.value?.streak ?? 0)
-const attendanceReward = computed<number>(() => attendance.state.value?.rewardBasicCoins ?? 5)
 const attendanceLoading = computed<boolean>(() => attendance.loading.value)
-// 주간 진행 도트 표시용 (streak 을 7 주기로 환산).
-const checkedCount = computed<number>(() => {
-  const s = attendanceStreak.value
-  const inWeek = s % 7
-  // streak 이 7 의 배수이고 오늘 이미 수령이면 만근 표시.
-  return (inWeek === 0 && s > 0 && alreadyCheckedToday.value) ? 7 : inWeek
+// 7일 보드(day 1~7 순서) — 미로드 시 빈 배열(팝업이 열려도 칸이 없을 뿐 크래시 없음).
+const attendanceBoard = computed<AttendanceBoardDay[]>(() => attendance.state.value?.board ?? [])
+// "진행 n/7일" = 이번 사이클에서 수령한 칸 수.
+const attendanceClaimedCount = computed<number>(() => attendanceBoard.value.filter(d => d.claimed).length)
+const attendanceCycleBonusRuby = computed<number>(() => attendance.state.value?.cycleBonusRuby ?? 0)
+// 다음 체크인 일차(체크인 전) / 오늘 일차(체크인 후) — 점선 강조는 체크인 전에만.
+const attendanceCycleDay = computed<number>(() => attendance.state.value?.cycleDay ?? 1)
+// 7일 달성 = 7일차 수령 + 사이클 보너스 수령 (오늘 7일차를 막 완료한 상태, 내일부터 새 사이클).
+const attendanceCycleDone = computed<boolean>(() => {
+  const st = attendance.state.value
+  if (!st) return false
+  return st.cycleBonusClaimed && (st.board.find(d => d.day === 7)?.claimed ?? false)
 })
+const attendanceSubtitle = computed<string>(() => {
+  if (attendanceCycleDone.value) return '7일 출석을 모두 달성했어요!'
+  if (alreadyCheckedToday.value) return '오늘 출석 완료!'
+  return '7일 연속 출석하면 보너스 루비를 받아요!'
+})
+const attendanceCtaLabel = computed<string>(() => {
+  if (attendanceCycleDone.value) return '7일 출석 완료'
+  if (alreadyCheckedToday.value) return '오늘 출석 완료'
+  return '출석하기'
+})
+const attendanceCtaDisabled = computed<boolean>(() => alreadyCheckedToday.value || attendanceLoading.value)
 
 // 보유 아이템 — slug 기준으로 소유 판정. 관리 패널 탭별로 layout 으로 나눈다
 // (아이템 배치 = FOREGROUND, 정령 = FIGURE, 배경 = BACKGROUND).
@@ -1035,11 +1053,9 @@ function itemButtons(placed: PlacedFreeItem) {
   ]
 }
 
-function attDotChecked(idx: number): boolean {
-  return idx < checkedCount.value
-}
-function attDotCurrent(idx: number): boolean {
-  return idx === checkedCount.value && !alreadyCheckedToday.value
+// 오늘 체크인할 칸(점선 강조) — 체크인 전의 cycleDay 칸만. 체크인 후에는 모두 체크/대기 표시.
+function attDotCurrent(day: number): boolean {
+  return day === attendanceCycleDay.value && !alreadyCheckedToday.value
 }
 
 // ─── API 로드 ───
@@ -1162,9 +1178,12 @@ function onManageEmptyCta() {
 }
 
 // 배치 초과 안내 — Figma 393×88 카드형 토스트 "🚫 배치 가능한 아이템 수를 초과 했습니다 / 배치 가능한 아이템 : N개"
-// TODO(C4 머지 후): 카드형 토스트({title, description, icon, variant:'card'})로 교체
 function toastSlotExceeded() {
-  toast.error(`🚫 배치 가능한 아이템 수를 초과 했습니다 · 배치 가능한 아이템 : ${maxSlots.value}개`)
+  toast.error('배치 가능한 아이템 수를 초과 했습니다', {
+    icon: '🚫',
+    description: `배치 가능한 아이템 : ${maxSlots.value}개`,
+    variant: 'card',
+  })
 }
 
 async function onManageTile(tile: ManageTile) {
@@ -1201,7 +1220,7 @@ async function onSaveManage() {
         return
       }
     }
-    toast.success('저장됨')
+    toast.success('저장됨', { variant: 'pill' })
     exitManageMode()
   }
   finally {
@@ -1465,11 +1484,13 @@ async function onAttendanceCheck() {
   if (alreadyCheckedToday.value) return
   const result = await attendance.checkIn()
   if (result) {
-    // 서버 currency 로 잔액 동기화 (COIN/DEW 갱신) — 스토어에 반영해 다른 화면과 공유한다.
+    // 서버 currency 로 잔액 동기화 (COIN/RUBY 갱신) — 스토어에 반영해 다른 화면과 공유한다.
     userStore.updateCurrency(result.currency)
-    const bonus = result.reward.bonus ? ` (${t('attendance.bonus')})` : ''
-    toast.success(`${t('attendance.coinReward', { n: result.reward.basicCoins })}${bonus}`)
-    showAttendance.value = false
+    // 필 토스트 "코인 +N" (+ 7일차면 " · 루비 +M") — 보상 수치는 체크인 응답 그대로.
+    const rubyBonus = result.reward.rubyBonus > 0 ? ` · 루비 +${result.reward.rubyBonus}` : ''
+    toast.success(`${t('attendance.coinReward', { n: result.reward.basicCoins })}${rubyBonus}`, { variant: 'pill' })
+    // 7일 달성 팝업 상태("7일 출석 완료")를 보여주기 위해 사이클 완료 시에는 닫지 않는다.
+    if (!attendanceCycleDone.value) showAttendance.value = false
   }
   else if (attendance.error.value) {
     toast.error(attendance.error.value)
@@ -1497,7 +1518,7 @@ async function onClaimAdReward() {
     if (ad) userStore.updateCurrency(ad.updatedCurrency)
     // reward.specialCoins 는 필드명만 구세대 — 실지급 재화는 RUBY(백엔드 AdRewardService, 고정 1).
     const reward = ad?.reward.specialCoins ?? 0
-    toast.success(t('home.adRewardEarned', { n: reward }))
+    toast.success(t('home.adRewardEarned', { n: reward }), { variant: 'pill' })
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
   }
   catch (e) {
@@ -1532,14 +1553,13 @@ async function onInviteShare() {
     // friends 페이지와 동일 API — 8자 코드 + 7일 만료. 발급 코드를 변형 없이 그대로 표시한다.
     const { data, error } = await sdk.createInvite({ client })
     if (error) throw new Error(errMsg(error, '초대코드 발급에 실패했어요'))
-    const invite = castData<InviteResponse & { inviterRuby?: number | null, inviteeRuby?: number | null }>(data)
-    const code = invite?.inviteCode ?? ''
-    if (!code) throw new Error('초대코드 발급에 실패했어요')
-    inviteCode.value = code
-    inviteLink.value = invite?.inviteLink ?? ''
-    // 보상 수치는 서버 응답 필드가 있을 때만 — 없으면 중립 카피(TODO(WS-A N-B3 머지 후) 타입 정식화).
-    inviteInviterRuby.value = typeof invite?.inviterRuby === 'number' ? invite.inviterRuby : null
-    inviteInviteeRuby.value = typeof invite?.inviteeRuby === 'number' ? invite.inviteeRuby : null
+    const invite = castData<InviteResponse>(data)
+    if (!invite?.inviteCode) throw new Error('초대코드 발급에 실패했어요')
+    inviteCode.value = invite.inviteCode
+    inviteLink.value = invite.inviteLink
+    // 보상 카피 "나 : 루비 +{inviterRuby} , 친구 : 루비 +{inviteeRuby}" — 서버 설정값 그대로.
+    inviteInviterRuby.value = invite.inviterRuby
+    inviteInviteeRuby.value = invite.inviteeRuby
     showShareDialog.value = false
     showInviteCode.value = true
   }
@@ -1664,8 +1684,11 @@ async function onImageSave() {
     const ok = await shareToInstagram(blob, filename, { title: 'TerraWorld', text: t('home.shareText') })
     if (!ok) return
     // Figma 393×88 카드형 토스트 "🖼️ 이미지 저장 완료 / 나의 테라 이미지가 사진첩에 저장되었어요"
-    // TODO(C4 머지 후): 카드형 토스트({title, description, icon, variant:'card'})로 교체
-    toast.success('🖼️ 이미지 저장 완료 · 나의 테라 이미지가 사진첩에 저장되었어요')
+    toast.success('이미지 저장 완료', {
+      icon: '🖼️',
+      description: '나의 테라 이미지가 사진첩에 저장되었어요',
+      variant: 'card',
+    })
     trackScreenshotSaved({ context: 'home' })
     trackShareCreated({ method: 'screenshot' })
   }
@@ -1737,17 +1760,43 @@ async function onInstagramStoryShare() {
   }
 }
 
-// ─── T14 병 캐러셀 + 해금 팝업 — useTier(getTierCatalog/unlockTier) 구동, tierOrder 1~3 → Lv1~3 ───
+// ─── T14 병 캐러셀 + 해금 팝업 — useTier(getTierCatalog/unlockTier/setActiveTier) 구동, TierInfo.level → Lv1~3 ───
 const jarLevels = computed<JarLevel[]>(() => toJarLevels(tier.catalog.value))
-// '보기' 선택 레벨 — 활성 병 전환 API(PUT /terrarium/active-tier)가 아직 없어 선택 표시만 한다.
-// TODO(WS-A N-B4 머지 후): 선택 시 active-tier 저장 + 해당 병 배치로 전환.
-const viewLevel = ref<number>(1)
+// 표시 중인 병 레벨(activeTier) — 카탈로그의 active 플래그가 SoT. 슬라이드 1 스테이지는 이 병의 배치다.
+const viewLevel = computed<number>(() => activeJarLevel(jarLevels.value))
+const tierSwitching = ref<boolean>(false)
 const unlockTarget = ref<JarLevel | null>(null)
 const unlockBusy = ref<boolean>(false)
 const unlockSuccess = ref<TierUnlockSuccess | null>(null)
 
+// 해금된 카드 탭 = 표시 병 전환(PUT /terrarium/active-tier). 배치·슬롯 수가 티어별이라 전환 성공 후
+// 홈 스냅샷(terrarium + free-placement)을 강제 재조회해 스테이지를 그 병의 배치로 바꾼다(댓글 #46).
+async function switchActiveTier(level: JarLevel): Promise<boolean> {
+  if (tierSwitching.value) return false
+  if (!level.unlocked) return false
+  if (level.active) return true
+  tierSwitching.value = true
+  try {
+    const outcome = await tier.setActive(level.tier)
+    if (!outcome.ok) {
+      const code = outcome.error?.code
+      if (code === 'TIER_LOCKED') toast.error('아직 해금되지 않은 테라리움이에요')
+      else toast.error(errMsg(outcome.error, '테라리움 전환에 실패했어요'))
+      return false
+    }
+    await reloadAfterPlacement()
+    return true
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+    return false
+  }
+  finally {
+    tierSwitching.value = false
+  }
+}
 function onSelectLevel(level: JarLevel) {
-  viewLevel.value = viewLevel.value === level.level ? 1 : level.level
+  void switchActiveTier(level)
 }
 function onUnlockRequest(level: JarLevel) {
   unlockSuccess.value = null
@@ -1769,9 +1818,10 @@ async function onUnlockConfirm(level: JarLevel) {
       return
     }
     userStore.updateCurrency(outcome.data.updatedCurrency)
-    unlockSuccess.value = { level: level.level, grantedSpirit: outcome.data.grantedSpirit ?? null }
-    // 슬롯 수(maxSlots)·정령 지급이 바뀌므로 홈 스냅샷과 프로필을 강제 갱신한다.
-    await Promise.all([reloadAfterPlacement(), userStore.fetchMe()])
+    unlockSuccess.value = { level: level.level, tier: level.tier, grantedSpirit: outcome.data.grantedSpirit ?? null }
+    // 해금해도 표시 병(activeTier)은 바뀌지 않는다(rev2 R1, 댓글 #46) — 현재 병의 maxSlots 는 그대로이므로
+    // 스냅샷은 두고, 정령 지급(ownedItems)·루비 잔액이 바뀐 프로필만 강제 갱신한다.
+    await userStore.fetchMe(true)
   }
   catch (e) {
     toast.error((e as Error).message)
@@ -1780,8 +1830,13 @@ async function onUnlockConfirm(level: JarLevel) {
     unlockBusy.value = false
   }
 }
-function onUnlockManage() {
+// [관리 모드 바로가기] — "새로운 테라리움을 관리해 보세요": 방금 해금한 병으로 전환한 뒤 관리 모드 진입.
+// X 로 닫으면 현재 병이 유지된다(댓글 #46). 전환 실패 시에는 모드 진입 없이 팝업만 닫는다.
+async function onUnlockManage() {
+  const unlocked = unlockSuccess.value
   closeUnlockModal()
+  const target = unlocked ? jarLevels.value.find(l => l.tier === unlocked.tier) ?? null : null
+  if (target && !(await switchActiveTier(target))) return
   enterManageMode()
 }
 

@@ -3,6 +3,8 @@
   우측에서 슬라이드인 하는 풀높이 패널: 헤더 "🔔 알림" + X, 행(제목 굵게 / 부제 회색 / 우측 상대시간),
   진입/퇴장 transform 0.28s + 백드롭 페이드.
   열 때 listNotifications 첫 페이지 로드 후 markNotificationsRead(ids:[]=전체) 로 읽음 처리(유지).
+  행은 type 과 무관하게 같은 모양(HABIT 포함 — 아프젝 v2 친구 습관 요청/수락/중단/연장). `route` 가 있는
+  알림은 탭 시 패널을 닫고 그 경로(`/record` 등)로 이동하고, 없으면 탭해도 이동하지 않는다.
   백엔드 컨트롤러 구현 중이라 실서버에서 404 가 날 수 있다 — 모든 호출은 조용한 실패
   처리(토스트/크래시 없음)로 홈 동작을 깨지 않는다. 읽음 성공 시 read emit → 부모가 뱃지 클리어.
 -->
@@ -42,16 +44,26 @@
             <p v-else-if="failed" class="py-10 text-center text-xs text-apjek-text-faint">알림을 불러오지 못했어요</p>
             <p v-else-if="items.length === 0" class="py-10 text-center text-xs text-apjek-text-faint">알림이 없어요</p>
             <ul v-else class="flex flex-col">
-              <li v-for="n in items" :key="n.id" class="py-4 border-b border-black/5 last:border-b-0">
-                <div class="flex items-start justify-between gap-3">
-                  <!-- 미읽음(readAt=null) 강조 — 마젠타 점. 목록은 읽음 처리 전 스냅샷이라
-                       이번 오픈에는 강조가 보이고 다음 오픈부터 읽음 표시가 된다. -->
-                  <p class="text-sm font-bold text-apjek-text min-w-0 leading-snug">
-                    <span v-if="isUnread(n)" class="inline-block w-1.5 h-1.5 rounded-full align-middle mr-1.5" style="background: #FF2BA7" />{{ n.title }}
-                  </p>
-                  <span class="text-[11px] shrink-0 text-apjek-text-faint pt-0.5">{{ relativeTime(n.createdAt) }}</span>
-                </div>
-                <p class="text-xs mt-1 text-apjek-text-sub leading-relaxed">{{ n.body }}</p>
+              <li v-for="n in items" :key="n.id" class="border-b border-black/5 last:border-b-0">
+                <!-- route 가 있으면 탭 가능한 행(이동), 없으면 정적 행 — 모양은 동일 -->
+                <component
+                  :is="n.route ? 'button' : 'div'"
+                  :type="n.route ? 'button' : undefined"
+                  class="w-full text-left py-4"
+                  :class="n.route ? 'active:bg-black/[0.03] transition-colors' : ''"
+                  :data-testid="`notification-row-${n.id}`"
+                  @click="onRowClick(n)"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <!-- 미읽음(readAt=null) 강조 — 마젠타 점. 목록은 읽음 처리 전 스냅샷이라
+                         이번 오픈에는 강조가 보이고 다음 오픈부터 읽음 표시가 된다. -->
+                    <p class="text-sm font-bold text-apjek-text min-w-0 leading-snug">
+                      <span v-if="isUnread(n)" class="inline-block w-1.5 h-1.5 rounded-full align-middle mr-1.5" style="background: #FF2BA7" />{{ n.title }}
+                    </p>
+                    <span class="text-[11px] shrink-0 text-apjek-text-faint pt-0.5">{{ relativeTime(n.createdAt) }}</span>
+                  </div>
+                  <p class="text-xs mt-1 text-apjek-text-sub leading-relaxed">{{ n.body }}</p>
+                </component>
               </li>
             </ul>
           </div>
@@ -129,6 +141,15 @@ async function loadAndMarkRead() {
 
 function isUnread(n: NotificationResponse): boolean {
   return !n.readAt
+}
+
+// 알림 탭 — 서버가 준 앱 내 경로(route, 예: HABIT → /record)로 이동. 패널을 먼저 닫아 라우트 이동 뒤
+// 오버레이/back-stack handler 가 남지 않게 한다. 외부 URL 은 딥링크 계약 밖이라 받지 않는다(앱 내 경로만).
+function onRowClick(n: NotificationResponse): void {
+  const route = n.route
+  if (!route || !route.startsWith('/')) return
+  emit('close')
+  void navigateTo(route)
 }
 
 // 상대시간 — Figma 표기("1분전"/"3시간전"/"2일전") 그대로. 미래/비정상 시각은 "방금 전".

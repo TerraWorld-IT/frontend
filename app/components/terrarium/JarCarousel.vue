@@ -3,8 +3,9 @@
   슬라이드 1 = 현재 병(부모가 slot 으로 넘기는 기존 Jar 스테이지), 슬라이드 2/3 = Lv.2/Lv.3 카드.
   - 잠금 카드: 원형 글로우 안 병 실루엣 + "Lv.N" + 🔒 [해금하기] + "루비 N개를 사용하여 새로운 테라리움 해금하기"
     → 탭 시 unlock emit(부모가 해금 팝업을 연다).
-  - 해금된 카드: 탭 시 select emit — 활성 병 전환 API(`PUT /terrarium/active-tier`)가 아직 없어
-    '보기'(선택 표시)만 한다. TODO(WS-A N-B4 머지 후): 선택 시 active-tier 저장 + 배치 전환.
+  - 해금된 카드: 탭 시 select emit — 부모가 표시 병 전환(`PUT /terrarium/active-tier`) 후 스냅샷을
+    재조회해 슬라이드 1 의 스테이지가 그 병의 배치로 바뀐다(배치는 티어별 저장, 댓글 #46).
+    selectedLevel = 현재 표시 중인 병(activeTier) 레벨.
   - 네이티브 가로 스크롤 스냅(swipe) + 하단 도트. locked(관리/힐링 모드)면 스와이프를 막고 첫 슬라이드로 고정.
   슬라이드에는 transform 을 두지 않는다 — 힐링 모드에서 스테이지가 fixed 로 승격될 때 containing block 이 바뀌면 안 된다.
   등록명: TerrariumJarCarousel.
@@ -40,7 +41,7 @@
             outline: selectedLevel === lv.level && lv.unlocked ? '2px solid var(--color-apjek-blue)' : 'none',
             outlineOffset: '-12px',
           }"
-          :aria-label="lv.unlocked ? `Lv.${lv.level} 테라리움 보기` : `Lv.${lv.level} 테라리움 해금하기`"
+          :aria-label="lv.unlocked ? `Lv.${lv.level} 테라리움으로 전환` : `Lv.${lv.level} 테라리움 해금하기`"
           @click="lv.unlocked ? emit('select', lv) : emit('unlock', lv)"
         >
           <!-- 병 실루엣 — 해금 전 회색, 해금 후 원본 톤 -->
@@ -62,7 +63,7 @@
           </template>
           <template v-else>
             <span class="apjek-chip apjek-chip-active text-xs">
-              <Icon name="lucide:check" class="w-3 h-3" />{{ selectedLevel === lv.level ? '보는 중' : '해금됨 · 보기' }}
+              <Icon name="lucide:check" class="w-3 h-3" />{{ selectedLevel === lv.level ? '보는 중' : '해금됨 · 이 병 보기' }}
             </span>
             <span class="text-[11px] text-apjek-text-faint text-center leading-snug px-6">배치 가능한 아이템 : {{ lv.slots }}개</span>
           </template>
@@ -93,7 +94,7 @@ import type { JarLevel } from '~/utils/tierLevels'
 const props = defineProps<{
   /** Lv1~3 레벨 목록(Lv1 포함 — Lv1 은 슬라이드 1 의 현재 병이라 카드로 그리지 않는다) */
   levels: JarLevel[]
-  /** '보기' 선택된 레벨(기본 1) */
+  /** 현재 표시 중인 병(activeTier) 레벨 — 해금 카드의 '보는 중' 표시 기준 */
   selectedLevel: number
   /** 관리/힐링 모드 — 스와이프 잠금 + 첫 슬라이드 고정 */
   locked: boolean

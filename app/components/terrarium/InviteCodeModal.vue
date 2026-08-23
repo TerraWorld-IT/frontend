@@ -2,18 +2,14 @@
   나의 초대코드 팝업 (아프젝 T10b — Figma "나의 초대코드 팝업" 393×481).
   헤더 "🔗 나의 초대코드" + X / "친구가 내 코드로 가입하면 보상을 받아요" / 보상 줄 / 💎 /
   연노랑(#f4f9c9) 코드 박스 "나의 초대코드 / TERRA - ABC123" / 버튼 2개 [🔗 코드 복사][공유 하기].
-  보상 줄("나 : 루비 +30 , 친구 : 루비 +10")은 서버 응답(inviterRuby/inviteeRuby)이 있을 때만 —
-  현 SDK 에 필드가 없어 부모가 optional chaining 으로 넘기고, 없으면 중립 카피를 쓴다.
+  보상 줄("나 : 루비 +30 , 친구 : 루비 +10")은 발급 응답 `InviteResponse.inviterRuby/inviteeRuby`(BE 설정값) 그대로.
   등록명: TerrariumInviteCodeModal.
 -->
 <template>
   <TerrariumHomeDialog :open="open" title="나의 초대코드" icon="🔗" aria-label="나의 초대코드" @close="emit('close')">
     <p class="text-center text-sm font-semibold text-apjek-text mb-1">친구가 내 코드로 가입하면 보상을 받아요</p>
-    <!-- 보상 수치 — 서버 필드가 있을 때만 비대칭 수치 표시, 없으면 중립 카피 -->
-    <p class="text-center text-xs text-apjek-text-sub mb-3">
-      <template v-if="hasReward">나 : 루비 +{{ inviterRuby }} , 친구 : 루비 +{{ inviteeRuby }}</template>
-      <template v-else>가입 시 양쪽 모두 루비 보상을 받아요</template>
-    </p>
+    <!-- 보상 수치 — 초대자/수락자 비대칭(서버 설정값) -->
+    <p class="text-center text-xs text-apjek-text-sub mb-3" data-testid="invite-reward">나 : 루비 +{{ inviterRuby }} , 친구 : 루비 +{{ inviteeRuby }}</p>
     <div class="text-center text-4xl mb-3" aria-hidden="true">💎</div>
     <div class="rounded-2xl py-5 px-4 text-center mb-4" style="background: #f4f9c9">
       <p class="text-[11px] font-medium mb-1" style="color: #8a8f66">나의 초대코드</p>
@@ -47,14 +43,13 @@ const props = defineProps<{
   open: boolean
   /** 서버 발급 코드(원본). 표시만 `TERRA - {code}` 포맷 — 복사/입력은 원본 코드를 쓴다. */
   code: string
-  /** 초대자 보상 루비 — 서버 응답 필드가 있을 때만 (없으면 null) */
-  inviterRuby: number | null
-  /** 피초대자 보상 루비 — 서버 응답 필드가 있을 때만 (없으면 null) */
-  inviteeRuby: number | null
+  /** 초대자(나) 보상 루비 — `InviteResponse.inviterRuby` */
+  inviterRuby: number
+  /** 수락자(친구) 보상 루비 — `InviteResponse.inviteeRuby` */
+  inviteeRuby: number
 }>()
 
 const emit = defineEmits<{ close: [], copy: [], share: [] }>()
 
-const hasReward = computed<boolean>(() => props.inviterRuby !== null && props.inviteeRuby !== null)
 const displayCode = computed<string>(() => (props.code ? `TERRA - ${props.code}` : ''))
 </script>
