@@ -268,8 +268,7 @@ const emit = defineEmits<{
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 
-// 루틴 상한 — FE 30(Figma). 서버는 현재 20 (409 TODO_ROUTINE_LIMIT_EXCEEDED → 서버 메시지 표시).
-// TODO(N-B10 스펙 머지 후): 서버도 30 으로 맞춰지면 409 분기 문구를 단순화한다.
+// 루틴 상한 30 — 계약 §7(N-B10) 서버 상한과 동일. 서버 409 TODO_ROUTINE_LIMIT_EXCEEDED 메시지는 그대로 표시한다.
 const ROUTINE_LIMIT_FE = 30
 
 type Segment = 'list' | 'routine'
@@ -410,7 +409,7 @@ async function createRoutine() {
     }
     const { data, error, response } = await sdk.createTodoRoutine({ client, body })
     if (error) {
-      // 409 = 서버 상한(현재 20) — 서버 메시지를 그대로 보여 FE 30 과의 차이를 숨기지 않는다.
+      // 409 = 서버 상한(30) — 서버 메시지를 그대로 보여 준다.
       toast.error(response.status === 409
         ? errMsg(error, '루틴 개수 상한에 도달했어요')
         : '루틴 추가에 실패했어요. 잠시 후 다시 시도해주세요')
