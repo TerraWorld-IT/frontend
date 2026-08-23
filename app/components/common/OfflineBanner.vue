@@ -8,7 +8,7 @@
   <Transition name="offline-banner">
     <div
       v-if="isOffline"
-      class="fixed left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-riso-dark text-white text-xs font-medium py-2 px-4"
+      class="fixed left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-apjek-cta text-white text-xs font-medium py-2 px-4"
       style="top: env(safe-area-inset-top, 0px)"
       role="status"
       aria-live="polite"
