@@ -4,7 +4,7 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disab
  * `role="dialog" aria-modal="true"` 를 선언한 bespoke 오버레이에 실제 focus containment 를
  * 부여하는 공용 composable. Modal.vue 의 focus-trap 로직(Codex Round 2/3 감사 지적 — aria-modal
  * 만 선언하고 실제 trap/initial-focus/restore 가 없으면 스크린리더 사용자에게 거짓 계약이 됨)을
- * bespoke 오버레이(index.vue/record/calendar/profile/shop/TierModal 등)에서 재사용하기 위해 추출.
+ * bespoke 오버레이(index.vue/record/calendar/profile/shop/GrowLostModal 등)에서 재사용하기 위해 추출.
  *
  * focus containment 와 함께 **배경 스크롤 잠금**도 부여한다(useOverlayScrollLock).
  * 모달이 열려 있는데 뒤 화면이 스크롤되던 문제를 이 한 곳에서 14개 오버레이에 일괄 적용한다.
