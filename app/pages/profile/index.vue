@@ -169,7 +169,7 @@
               <IconsCurrencyIcon :code="c.code" :size="40" />
               <div class="min-w-0">
                 <p class="text-[12px] text-apjek-text-sub leading-[16px] truncate">{{ c.label }}</p>
-                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px]">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
+                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
               </div>
             </div>
           </div>
@@ -183,7 +183,7 @@
             >
               <IconsCurrencyIcon :code="tkn.code" :size="40" />
               <span class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap">{{ tkn.label }}</span>
-              <span class="text-[14px] font-bold text-apjek-text leading-[18px]">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
+              <span class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums max-w-full truncate">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
             </div>
           </div>
         </div>

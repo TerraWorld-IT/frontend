@@ -16,6 +16,8 @@
         <img
           :src="mode === 'friend' ? '/illust/habit-friend.png' : '/illust/habit-solo.png'"
           alt=""
+          width="340"
+          height="279"
           class="w-full max-w-[340px] mx-auto h-auto object-contain select-none"
           aria-hidden="true"
           draggable="false"

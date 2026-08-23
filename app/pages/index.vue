@@ -138,8 +138,10 @@
             : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
         >
+          <!-- 관리 모드에서는 transform 전환 애니메이션을 끈다 — 0.44→1 로 움직이는 200ms 동안 드래그/리사이즈
+               좌표 환산(zoomLevel*stageFit)과 실제 렌더 배율이 어긋나 첫 입력이 잘못 저장될 수 있다. -->
           <div
-            class="transition-transform duration-200 ease-out relative shrink-0"
+            :class="editMode ? 'relative shrink-0' : 'transition-transform duration-200 ease-out relative shrink-0'"
             :style="{
               transform: `scale(${zoomLevel * stageFit * viewScale})`,
               transformOrigin: 'top center',
@@ -425,7 +427,7 @@
               >
                 <IconsCurrencyIcon :code="c.code" :size="36" />
                 <span class="text-[11px] text-apjek-text-sub whitespace-nowrap">{{ c.labelKo }}토큰</span>
-                <span class="text-[13px] font-bold text-apjek-text">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
+                <span class="text-[13px] font-bold text-apjek-text tabular-nums max-w-full truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
               </div>
             </div>
             <!-- 코인류 3종 (코인/반짝이/루비) — 아이콘 좌측 + 라벨/값 -->
@@ -438,7 +440,7 @@
                 <IconsCurrencyIcon :code="c.code" :size="36" />
                 <div class="min-w-0">
                   <p class="text-[11px] text-apjek-text-sub leading-[14px] truncate">{{ c.labelKo }}</p>
-                  <p class="text-[14px] font-bold text-apjek-text leading-[18px]">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
+                  <p class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
                 </div>
               </div>
             </div>
@@ -767,6 +769,11 @@ const healingMode = ref<boolean>(false)
 // 환산은 편집 모드에서만 일어나므로 viewScale 은 1 이고 기존 식(zoomLevel*stageFit)이 유지된다.
 const VIEW_SCALE = 0.44
 const viewScale = computed<number>(() => (editMode.value || healingMode.value ? 1 : VIEW_SCALE))
+// 보기 모드에서 휠로 바꾼 zoomLevel(0.5~2)이 관리/힐링 모드로 넘어가면 설계 기준 스테이지가 잘리거나
+// 반으로 줄고, 편집 중에는 휠이 막혀 되돌릴 수도 없다 — 모드 진입 시 줌을 1 로 되돌린다.
+watch([editMode, healingMode], ([edit, heal]) => {
+  if (edit || heal) zoomLevel.value = 1
+})
 // 병 뒤 글로우 원 — 보기 모드에서는 작아진 병을 감싸도록 스테이지 좌표계에서 더 크게 그린다.
 const backdropSize = computed<number>(() => (viewScale.value < 1 ? 620 : 430))
 function enterHealingMode() {
