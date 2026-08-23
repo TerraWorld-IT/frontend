@@ -204,14 +204,28 @@
     "specialCoin": "스페셜 코인"
   },
   "error": {
+    "generic": {
+      "cta": "재시도",
+      "desc": "일시적인 오류 입니다. 잠시 후에 다시 시도해 주세요.",
+      "subtitle": "Error",
+      "title": "오류"
+    },
     "goHome": "홈으로 돌아가기",
+    "maintenance": {
+      "cta": "확인했어요",
+      "desc": "원활한 서비스를 위해 점검을 진행 중입니다. 점검이 완료된 후 다시 접속해 주세요.",
+      "subtitle": "During maintenance",
+      "title": "서비스 점검 중"
+    },
+    "network": {
+      "cta": "재시도",
+      "desc": "네트워크가 필요한 기능입니다. 네트워크 연결 상태를 확인해주세요.",
+      "subtitle": "Access error",
+      "title": "접속 오류"
+    },
     "notFoundDesc": "요청하신 페이지가 존재하지 않습니다",
     "notFoundTitle": "페이지를 찾을 수 없어요",
-    "retry": "다시 시도하기",
-    "retryLater": "잠시 후 다시 시도해주세요",
-    "serverErrorDesc": "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
-    "serverErrorTitle": "잠시 문제가 생겼어요",
-    "unexpectedTitle": "앗, 문제가 발생했어요"
+    "retry": "다시 시도하기"
   },
   "exchange": {
     "amountPlaceholder": "교환할 수량",
@@ -340,7 +354,7 @@
       "title": "활동 기록하기"
     },
     "step2": {
-      "desc": "기록할 때마다 코인과 카테고리 토큰을 획득! 레벨업도 함께 올라가요",
+      "desc": "기록할 때마다 토큰과 반짝이 같은 재화를 획득해요. 모은 재화로 테라리움을 키우고 꾸며요",
       "title": "보상 모으기"
     },
     "step3": {

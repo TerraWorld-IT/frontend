@@ -204,14 +204,28 @@
     "specialCoin": "Special coin"
   },
   "error": {
+    "generic": {
+      "cta": "Retry",
+      "desc": "A temporary error occurred. Please try again in a moment.",
+      "subtitle": "Error",
+      "title": "Error"
+    },
     "goHome": "Back to home",
+    "maintenance": {
+      "cta": "Got it",
+      "desc": "We are performing maintenance to keep the service running smoothly. Please come back once maintenance is complete.",
+      "subtitle": "During maintenance",
+      "title": "Under maintenance"
+    },
+    "network": {
+      "cta": "Retry",
+      "desc": "This feature needs a network connection. Please check your connection status.",
+      "subtitle": "Access error",
+      "title": "Connection error"
+    },
     "notFoundDesc": "The page you requested does not exist",
     "notFoundTitle": "Page not found",
-    "retry": "Try again",
-    "retryLater": "Please try again in a moment",
-    "serverErrorDesc": "A temporary error occurred. Please try again shortly.",
-    "serverErrorTitle": "Something went wrong",
-    "unexpectedTitle": "Oops, something went wrong"
+    "retry": "Try again"
   },
   "exchange": {
     "amountPlaceholder": "Amount to exchange",
@@ -340,7 +354,7 @@
       "title": "Record your activities"
     },
     "step2": {
-      "desc": "Earn coins and category tokens every time you record! You level up too",
+      "desc": "Earn currency like tokens and sparkles every time you record. Use what you collect to grow and decorate your terrarium",
       "title": "Collect rewards"
     },
     "step3": {
