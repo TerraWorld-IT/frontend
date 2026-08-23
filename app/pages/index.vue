@@ -2,6 +2,7 @@
   홈 화면 — 아프젝 v2 '나의 테라' (2026-08-21 Figma 갱신본 기준, gap-plan §3.2 T1b/T2/T3b/T4b/T7b/T8/T10/T10b/T11/T12/T13/T14/T15).
   구조: 상단 원형 메뉴바 5종 상시(랭킹/공유하기/출석체크/광고보상/알림) + "나의 테라" 타이틀
   + 병 캐러셀(현재 병 / Lv.2 / Lv.3 카드 + 도트) + [힐링 모드][관리 모드] 필 + 아코디언(친구 목록 → 보유 재화, 기본 열림).
+  상단 메뉴의 랭킹/출석/알림은 페이지 이동 없이 홈 위 팝업(랭킹 팝업 / 출석 팝업 / 우측 알림 패널)으로 연다.
   실 데이터 배선은 기존 그대로: getMe / getTerrarium / listItems / listFreePlacements 병렬 로드,
   하트(clickTerrariumHeart) / 광고보상(claimAdReward) / 출석(useAttendance) / 공유(html2canvas)
   / 자유배치 드래그(updateFreePosition) / 티어(useTier) 실 API. scale/flip/zIndex 는 서버 영속.
@@ -40,8 +41,8 @@
         class="mx-auto w-full max-w-[400px] rounded-full px-2 py-2 flex items-center justify-evenly"
         style="background: color-mix(in srgb, var(--color-apjek-blue) 10%, transparent)"
       >
-        <!-- 랭킹 → 기존 /ranking 페이지 이동 (팝업화 T5 는 별도 워크스트림) -->
-        <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="navigateTo('/ranking')">
+        <!-- 랭킹 → 랭킹 팝업 (T5, 보유 아이템 수 기준 전체/친구) -->
+        <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="showRanking = true">
           <span class="menu-circle"><Icon name="lucide:trophy" class="w-5 h-5" /></span>
           <span class="menu-label">랭킹</span>
         </button>
@@ -492,6 +493,9 @@
     @story="onInstagramStoryShare"
   />
 
+  <!-- ═══════════════ T5 랭킹 팝업 (보유 아이템 수 — 전체/친구 세그먼트, 내부 스크롤) ═══════════════ -->
+  <TerrariumRankingModal :open="showRanking" :nickname="user?.nickname ?? ''" @close="showRanking = false" />
+
   <!-- ═══════════════ T1b 알림 패널 (우측 슬라이드인, 읽음 성공 시 뱃지 클리어) ═══════════════ -->
   <NotificationsCenter :open="showNotifications" @close="showNotifications = false" @read="notifyUnread = 0" />
 
@@ -734,6 +738,7 @@ onBeforeUnmount(() => {
 
 const showShareDialog = ref<boolean>(false)
 const showAttendance = ref<boolean>(false)
+const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 // 광고 진입점 가용성 — SSR 은 항상 숨김, 클라 마운트 후 판정(하이드레이션 mismatch 회피).
 // T7b: 메뉴는 상시 노출하고, 비가용 환경은 탭 시 안내 토스트(§4 N-3).

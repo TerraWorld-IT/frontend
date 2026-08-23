@@ -1,11 +1,11 @@
 <template>
-  <div class="riso-grain min-h-screen px-4 py-4 space-y-4">
+  <div class="min-h-screen space-y-4">
     <!-- 헤더 -->
     <div class="space-y-1">
-      <h2 class="font-bold text-[20px] leading-[28px] text-black tracking-[-0.45px]">
+      <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">
         {{ $t('ranking.title') }}
       </h2>
-      <p class="text-[14px] leading-[20px] text-[#525252] tracking-[-0.15px]">
+      <p class="text-[14px] leading-[20px] text-apjek-text-sub tracking-[-0.15px]">
         {{ $t('ranking.subtitle') }}
       </p>
     </div>
@@ -16,12 +16,8 @@
         v-for="tp in types"
         :key="tp.value"
         type="button"
-        class="flex-1 h-11 rounded-xl font-semibold text-[13px] transition-colors"
-        :class="
-          activeType === tp.value
-            ? 'bg-riso-pink text-white riso-shadow-sm'
-            : 'bg-white text-riso-dark border border-black/10'
-        "
+        class="flex-1 h-11 rounded-full font-semibold text-[13px] transition-colors apjek-chip"
+        :class="activeType === tp.value ? 'apjek-chip-active' : ''"
         @click="activeType = tp.value"
       >
         {{ tp.label }}
@@ -29,12 +25,12 @@
     </div>
 
     <!-- 월 선택 -->
-    <div class="flex items-center justify-between bg-white rounded-xl px-4 py-2 riso-shadow-sm">
-      <button type="button" class="px-2 py-1 text-riso-dark/70 active:scale-95" @click="shiftMonth(-1)">
+    <div class="flex items-center justify-between apjek-card px-4 py-2">
+      <button type="button" class="px-2 py-1 text-apjek-text-sub active:scale-95" @click="shiftMonth(-1)">
         ‹
       </button>
-      <span class="font-semibold text-[14px] text-riso-dark">{{ activeYearMonth }}</span>
-      <button type="button" class="px-2 py-1 text-riso-dark/70 active:scale-95 disabled:opacity-30" :disabled="isCurrentMonth" @click="shiftMonth(1)">
+      <span class="font-semibold text-[14px] text-apjek-text">{{ activeYearMonth }}</span>
+      <button type="button" class="px-2 py-1 text-apjek-text-sub active:scale-95 disabled:opacity-30" :disabled="isCurrentMonth" @click="shiftMonth(1)">
         ›
       </button>
     </div>
@@ -42,12 +38,13 @@
     <!-- 내 순위 -->
     <div
       v-if="data && data.myRank != null"
-      class="bg-riso-butter/40 rounded-xl px-4 py-3 flex items-center justify-between riso-shadow-sm"
+      class="rounded-2xl px-4 py-3 flex items-center justify-between"
+      style="background: var(--color-apjek-blue-soft)"
     >
-      <span class="text-[12px] text-riso-dark/70">{{ $t('ranking.myRank') }}</span>
+      <span class="text-[12px] text-apjek-text-sub">{{ $t('ranking.myRank') }}</span>
       <div class="flex items-center gap-3">
-        <span class="font-bold text-[18px] text-riso-dark">{{ $t('ranking.rankSuffix', { rank: data.myRank }) }}</span>
-        <span class="text-[12px] text-riso-dark/60">· {{ $t('ranking.scoreSuffix', { score: data.myScore ?? 0 }) }}</span>
+        <span class="font-bold text-[18px] text-apjek-text">{{ $t('ranking.rankSuffix', { rank: data.myRank }) }}</span>
+        <span class="text-[12px] text-apjek-text-sub">· {{ $t('ranking.scoreSuffix', { score: data.myScore ?? 0 }) }}</span>
       </div>
     </div>
 
@@ -57,10 +54,10 @@
     </div>
     <!-- 에러 상태 — 텍스트만으론 복구 수단이 없다 (audit C4-2) — 재시도 버튼 제공 -->
     <div v-else-if="fetchError" class="py-12 text-center space-y-3">
-      <p class="text-riso-poppy text-sm">{{ fetchError }}</p>
+      <p class="text-apjek-text-sub text-sm">{{ fetchError }}</p>
       <button
         type="button"
-        class="px-4 py-2 rounded-full bg-riso-sage text-white text-sm riso-shadow-sm active:scale-95 transition-transform"
+        class="px-4 py-2 rounded-full apjek-chip apjek-chip-active text-sm active:scale-95 transition-transform"
         @click="load"
       >
         {{ $t('common.retry') }}
@@ -70,8 +67,8 @@
       <li
         v-for="entry in data.entries"
         :key="`${entry.rank}-${entry.userId}`"
-        class="flex items-center justify-between bg-white rounded-xl px-4 py-3 riso-shadow-sm"
-        :class="entry.isSelf ? 'ring-2 ring-riso-pink' : ''"
+        class="flex items-center justify-between apjek-card px-4 py-3"
+        :style="entry.isSelf ? { borderColor: 'var(--color-apjek-blue)' } : {}"
       >
         <div class="flex items-center gap-3">
           <span
@@ -80,45 +77,33 @@
           >
             {{ entry.rank }}
           </span>
-          <span class="text-sm font-medium text-riso-dark">
+          <span class="text-sm font-medium text-apjek-text">
             {{ entry.nickname }}
-            <span v-if="entry.isSelf" class="text-[10px] text-riso-pink ml-1">{{ $t('ranking.me') }}</span>
+            <span v-if="entry.isSelf" class="text-[10px] text-apjek-text-faint ml-1">{{ $t('ranking.me') }}</span>
           </span>
         </div>
-        <span class="text-sm font-semibold text-riso-dark/80">{{ $t('ranking.scoreSuffix', { score: entry.score }) }}</span>
+        <span class="text-sm font-semibold text-apjek-text-sub">{{ $t('ranking.scoreSuffix', { score: entry.score }) }}</span>
       </li>
     </ol>
-    <div v-else class="py-12 text-center text-riso-dark/50 text-sm">
+    <div v-else class="py-12 text-center text-apjek-text-faint text-sm">
       {{ $t('ranking.noRecords') }}
     </div>
 
     <!-- decoration 안내 -->
-    <p v-if="activeType === 'decoration'" class="text-[11px] text-riso-dark/45 text-center pt-2">
+    <p v-if="activeType === 'decoration'" class="text-[11px] text-apjek-text-faint text-center pt-2">
       {{ $t('ranking.decorationNotice') }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { RankingResponse } from '@terraworld-it/openapi-frontend'
+
+// 월간 랭킹(참여/꾸미기) — 딥링크용으로 유지. 홈 상단 메뉴의 랭킹은 보유 아이템 수 기준
+// 팝업(TerrariumRankingModal, type=items)으로 열리며 이 페이지를 거치지 않는다.
 definePageMeta({ middleware: 'auth' })
 
 const { t } = useI18n()
-
-interface RankingEntry {
-  rank: number
-  userId: string
-  nickname: string
-  score: number
-  isSelf: boolean
-}
-
-interface RankingResponse {
-  type: 'engagement' | 'decoration'
-  yearMonth: string
-  entries: RankingEntry[]
-  myRank: number | null
-  myScore: number | null
-}
 
 const types = computed(() => [
   { value: 'engagement' as const, label: t('ranking.typeEngagement') },
@@ -152,10 +137,8 @@ function shiftMonth(delta: number) {
 }
 
 function rankColor(rank: number): string {
-  if (rank === 1) return 'text-riso-poppy'
-  if (rank === 2) return 'text-riso-walnut'
-  if (rank === 3) return 'text-riso-sage'
-  return 'text-riso-dark/60'
+  if (rank <= 3) return 'text-apjek-blue-deep'
+  return 'text-apjek-text-sub'
 }
 
 const { trackRankingViewed } = useGtagEvents()
@@ -175,7 +158,7 @@ async function load() {
       },
     })
     if (error) throw new Error(errMsg(error, t('ranking.loadError')))
-    // hey-api union unwrap → castData 로 로컬 RankingResponse shape 으로 정규화
+    // hey-api union unwrap → SDK RankingResponse 원본 타입 그대로 사용
     data.value = castData<RankingResponse>(result) ?? null
     trackRankingViewed({ type: activeType.value, yearMonth: activeYearMonth.value })
   }
