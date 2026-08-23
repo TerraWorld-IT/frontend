@@ -87,7 +87,9 @@
           </div>
           <p class="mt-[22px] text-[18px] font-bold text-white tracking-[-0.4px]">내일 새로운 정령이 찾아와요</p>
           <p class="mt-[4px] text-[12px] text-white/75 tracking-[-0.2px]">기록이 끊겨서 정령이 떠났어요</p>
+          <!-- 되살리기 보류(revive-dismiss) 중에는 당일 재시도 없음 — 버튼 숨김 (댓글 #32) -->
           <button
+            v-if="!isSnoozed(c)"
             type="button"
             class="mt-[14px] h-[34px] px-[16px] rounded-full bg-white/90 text-[12px] font-semibold text-apjek-text transition-all active:scale-95"
             @click="openLostModal(c)"
@@ -115,7 +117,7 @@
           :aria-disabled="isLost(c) ? 'true' : undefined"
         >
           <GrowStampBoard
-            :progress="stampsOf(c)"
+            :progress="c.stampCount"
             :goal="c.goal"
             :dormant="isLost(c)"
             :complete="isComplete(c)"
@@ -123,7 +125,7 @@
             kind-label="정령"
           />
 
-          <!-- 30 달성: 다음 정령 안내 카드 (알림받기 — notify-next API 미존재, 로컬 플래그) -->
+          <!-- 30 달성: 다음 정령 안내 카드 (알림받기 — POST /growth/{speciesCode}/notify-next 토글) -->
           <div v-if="isComplete(c)" class="rounded-[20px] bg-[#47515c] px-[18px] py-[16px] flex items-center gap-[12px]">
             <div class="flex-1 min-w-0">
               <p class="text-[15px] font-bold text-white tracking-[-0.3px]">새로운 정령이 내일 찾아와요</p>
@@ -132,12 +134,14 @@
               </p>
             </div>
             <button
-              class="shrink-0 h-[34px] px-[16px] rounded-full text-[13px] font-semibold transition-all active:scale-95 disabled:active:scale-100"
-              :class="isNotifyRequested(c) ? 'bg-white/25 text-white/80' : 'bg-[#ffffff] text-[#121212]'"
-              :disabled="isNotifyRequested(c)"
-              @click="onNotifyMe(c)"
+              class="shrink-0 h-[34px] px-[16px] rounded-full text-[13px] font-semibold transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100"
+              :class="c.notifyNext ? 'bg-white/25 text-white/80' : 'bg-[#ffffff] text-[#121212]'"
+              :aria-pressed="c.notifyNext"
+              :aria-label="c.notifyNext ? '다음 정령 도착 알림 신청 취소' : '다음 정령 도착 알림받기'"
+              :disabled="notifyBusy === c.speciesCode"
+              @click="onToggleNotify(c)"
             >
-              {{ isNotifyRequested(c) ? '알림 신청됨' : '알림받기' }}
+              {{ c.notifyNext ? '알림 신청됨' : '알림받기' }}
             </button>
           </div>
 
@@ -198,25 +202,21 @@
 <script setup lang="ts">
 import { h } from 'vue'
 import { useUserStore } from '~/stores/user'
-import type { GrowthResponse } from '@terraworld-it/openapi-frontend'
+import type { GrowthItem, GrowthResponse } from '@terraworld-it/openapi-frontend'
 import {
   BOOSTER_COST,
   BOOSTER_STAMPS,
-  REVIVE_RUBY_COST_DEFAULT,
-  SPIRIT_ACQUIRED_LABEL,
   isGrowthComplete,
   isGrowthLost,
-  localDateKey,
-  resolveSpiritStage,
-  stampCountOf,
-  type GrowthItemV2,
+  isReviveSnoozed,
+  spiritStageOf,
   type SpiritStage,
 } from '~/utils/grow'
 import svgPaths from './grow-svg-paths'
-// 키우기(Grow) 화면 — GET /growth 실 백엔드 배선 + SPARKLE 부스터(POST /growth/{speciesCode}/booster).
+// 키우기(Grow) 화면 — GET /growth 실 백엔드 배선 + SPARKLE 부스터(POST /growth/{speciesCode}/booster)
+// + 되살리기(POST /growth/{speciesCode}/revive | revive-dismiss) + 알림받기(notify-next 토글).
 // 디자인 SoT: 아프젝 v2 Figma(2026-08-21) 키우기 탭 — G2 단계 라벨 / G3 30 달성 / G4 기록 끊김 / G5b 교환 플래시 / G7 카피.
-// 서버 계약(N-B6: cycleState/revive/notify-next/stages) 은 스펙·백엔드 미구현 — 현행 SDK 로 동작하고
-// 새 필드는 GrowthItemV2 선택 필드 + 안전 폴백으로 읽는다.
+// 서버 계약(N-B6 rev2 R3): cycleState/stampCount/stages/completedToday/notifyNext/reviveRubyCost/reviveSnoozedUntil 가 SoT.
 definePageMeta({ middleware: 'auth' })
 
 const { sdk, client } = useOpenApi()
@@ -225,26 +225,10 @@ const userStore = useUserStore()
 
 const sparkle = computed<number>(() => Math.floor(balanceOf(userStore.currency, 'SPARKLE')))
 const ruby = computed<number>(() => Math.floor(balanceOf(userStore.currency, 'RUBY')))
-const rawItems = ref<GrowthItemV2[]>([])
+const rawItems = ref<GrowthItem[]>([])
 // §4-11: 키우기 탭에는 정령만 노출 — 판타지 식물(PLANT)은 응답에 남아 있어도 그리지 않는다.
-const items = computed<GrowthItemV2[]>(() => rawItems.value.filter((c) => c.kind === 'SPIRIT'))
+const items = computed<GrowthItem[]>(() => rawItems.value.filter((c) => c.kind === 'SPIRIT'))
 const boosting = ref<string | null>(null)
-
-// 로컬 저장 키 (달성일 하루 유지 / 알림받기 / 끊김 모달 당일 닫힘)
-const LS_COMPLETED_AT = 'tw:grow:completedAt:'
-const LS_NOTIFY_NEXT = 'tw:grow:notifyNext:'
-const LS_LOST_DISMISSED = 'tw:grow:lostDismissed:'
-
-function lsGet(key: string): string | null {
-  if (!import.meta.client) return null
-  try { return localStorage.getItem(key) }
-  catch { return null }
-}
-function lsSet(key: string, value: string): void {
-  if (!import.meta.client) return
-  try { localStorage.setItem(key, value) }
-  catch { /* 사파리 프라이빗 모드 등 — 표시 편의 기능이라 무시 */ }
-}
 
 // 반짝이(sparkle) 아이콘 — TW2 IconSparkle (16x16 인라인 SVG)
 function IconSparkle(props: { color?: string }) {
@@ -261,24 +245,23 @@ function IconSparkle(props: { color?: string }) {
   ])
 }
 
-// ── 파생 판정 (utils/grow — 서버 신규 필드 우선, 없으면 현행 필드 폴백) ──
-function stampsOf(c: GrowthItemV2): number {
-  return stampCountOf(c)
-}
-function isComplete(c: GrowthItemV2): boolean {
+// ── 파생 판정 (utils/grow — 서버 cycleState / stages 가 SoT) ──
+function isComplete(c: GrowthItem): boolean {
   return isGrowthComplete(c)
 }
-function isLost(c: GrowthItemV2): boolean {
+function isLost(c: GrowthItem): boolean {
   return isGrowthLost(c)
 }
-// G2 단계 라벨 — 서버 stages[] 우선, 없으면 FE 임계(10/20/30). 획득 라벨은 서버 nameKo.
-// TODO(G2 시드 변경 후 서버값 단일화): stageLabel/stages 가 Figma 라벨로 바뀌면 FE 임계 제거.
-function stageOf(c: GrowthItemV2): SpiritStage {
-  return resolveSpiritStage(stampsOf(c), c.goal, c.stages, c.nameKo || SPIRIT_ACQUIRED_LABEL)
+function isSnoozed(c: GrowthItem): boolean {
+  return isReviveSnoozed(c)
+}
+// G2 단계 라벨 — 서버 stages[] 기준. 획득 라벨은 서버 nameKo.
+function stageOf(c: GrowthItem): SpiritStage {
+  return spiritStageOf(c)
 }
 
 // 서버 stage 변화 감지 → 진화/성장 토스트. 표시했으면 true — 교환 완료 토스트와 중복 방지용.
-function notifyStageChange(prev: GrowthItemV2, next: GrowthItemV2): boolean {
+function notifyStageChange(prev: GrowthItem, next: GrowthItem): boolean {
   const before = stageOf(prev)
   const after = stageOf(next)
   if (before.tier === after.tier) return false
@@ -287,66 +270,118 @@ function notifyStageChange(prev: GrowthItemV2, next: GrowthItemV2): boolean {
   return true
 }
 
-// ── G3: 30 달성 배너 "달성일 하루 유지" ──
-// 서버 completedToday 가 있으면 그것을, 없으면 달성을 처음 본 날짜를 로컬에 적어 두고 당일만 보여 준다.
-const completedAtMap = ref<Record<string, string>>({})
-function showCompleteBanner(c: GrowthItemV2): boolean {
-  if (typeof c.completedToday === 'boolean') return c.completedToday
-  return completedAtMap.value[c.speciesCode] === localDateKey()
-}
-function rememberCompletion(list: GrowthItemV2[]): void {
-  const today = localDateKey()
-  for (const c of list) {
-    if (!isComplete(c)) continue
-    const key = LS_COMPLETED_AT + c.speciesCode
-    let stored = lsGet(key)
-    if (!stored) {
-      stored = today
-      lsSet(key, today)
-    }
-    completedAtMap.value[c.speciesCode] = stored
-  }
+// ── G3: 30 달성 배너 "달성일 하루 유지" — 서버 completedToday ──
+function showCompleteBanner(c: GrowthItem): boolean {
+  return c.completedToday
 }
 
-// ── G3: 알림받기 (notify-next API 미존재 → 로컬 플래그) ──
-// TODO(notify-next): POST /growth/{speciesCode}/notify-next 머지 후 서버 토글 + notifyNext 응답으로 교체.
-const notifyMap = ref<Record<string, boolean>>({})
-function isNotifyRequested(c: GrowthItemV2): boolean {
-  if (typeof c.notifyNext === 'boolean') return c.notifyNext
-  return notifyMap.value[c.speciesCode] === true
+/** 응답 개체로 해당 종만 교체(새 배열 재할당) */
+function replaceItem(updated: GrowthItem): void {
+  const idx = rawItems.value.findIndex((it) => it.speciesCode === updated.speciesCode)
+  if (idx === -1) {
+    rawItems.value = [...rawItems.value, updated]
+    return
+  }
+  const copy = [...rawItems.value]
+  copy[idx] = updated
+  rawItems.value = copy
 }
-function onNotifyMe(c: GrowthItemV2): void {
-  notifyMap.value[c.speciesCode] = true
-  lsSet(LS_NOTIFY_NEXT + c.speciesCode, '1')
-  toast.success('알림을 신청했어요')
+
+// ── G3: 알림받기 — POST /growth/{speciesCode}/notify-next (토글, 응답 GrowthItem) ──
+const notifyBusy = ref<string | null>(null)
+async function onToggleNotify(c: GrowthItem): Promise<void> {
+  if (notifyBusy.value) return
+  notifyBusy.value = c.speciesCode
+  try {
+    const { data, error } = await sdk.toggleGrowthNotifyNext({ client, path: { speciesCode: c.speciesCode } })
+    if (error) {
+      toast.error('알림 신청에 실패했어요')
+      return
+    }
+    const updated = castData<GrowthItem>(data)
+    if (updated) replaceItem(updated)
+    toast.success(updated?.notifyNext === false ? '알림 신청을 취소했어요' : '알림을 신청했어요')
+  }
+  finally {
+    notifyBusy.value = null
+  }
 }
 
 // ── G4: 기록 끊김 모달 ──
 const lostModalSpecies = ref<string | null>(null)
 const reviving = ref<boolean>(false)
-const lostRubyCost = computed<number>(() => {
-  const c = rawItems.value.find((it) => it.speciesCode === lostModalSpecies.value)
-  return c?.reviveRubyCost ?? REVIVE_RUBY_COST_DEFAULT
-})
-function openLostModal(c: GrowthItemV2): void {
+const lostItem = computed<GrowthItem | null>(() =>
+  rawItems.value.find((it) => it.speciesCode === lostModalSpecies.value) ?? null)
+const lostRubyCost = computed<number>(() => lostItem.value?.reviveRubyCost ?? 0)
+
+function openLostModal(c: GrowthItem): void {
   lostModalSpecies.value = c.speciesCode
 }
-function closeLostModal(): void {
-  // 닫으면 당일은 다시 띄우지 않는다(댓글 #32: 닫힌 뒤 "내일 찾아와요" 화면).
-  if (lostModalSpecies.value) lsSet(LS_LOST_DISMISSED + lostModalSpecies.value, localDateKey())
+// 닫으면 당일 재시도 없음(댓글 #32) — POST revive-dismiss → reviveSnoozedUntil 설정, 다음날 새 사이클.
+async function closeLostModal(): Promise<void> {
+  const species = lostModalSpecies.value
   lostModalSpecies.value = null
+  if (!species || reviving.value) return
+  const { data, error } = await sdk.dismissGrowthRevive({ client, path: { speciesCode: species } })
+  if (error) {
+    // 보류 반영 실패는 표시 편의 문제 — 다음 조회/열기에서 다시 판단한다.
+    return
+  }
+  const updated = castData<GrowthItem>(data)
+  if (updated) replaceItem(updated)
 }
-function maybeOpenLostModal(list: GrowthItemV2[]): void {
+function maybeOpenLostModal(list: GrowthItem[]): void {
   if (lostModalSpecies.value) return
-  const today = localDateKey()
-  const target = list.find((c) => isLost(c) && lsGet(LS_LOST_DISMISSED + c.speciesCode) !== today)
+  const target = list.find((c) => isLost(c) && !isSnoozed(c))
   if (target) lostModalSpecies.value = target.speciesCode
 }
-function onRevive(method: 'RUBY' | 'AD'): void {
-  // TODO(revive): POST /growth/{speciesCode}/revive {method: RUBY|AD, adNonce?} 스펙(N-B6) 머지 후 실호출.
-  // 현재는 API 가 없어 임시 안내만 띄운다 — 재화 차감·광고 호출은 하지 않는다.
-  void method
-  toast.info('곧 지원돼요')
+
+/** revive 공통 호출 — 성공 시 개체 교체 + 재화 재동기화, 실패는 코드별 안내 */
+async function callRevive(speciesCode: string, body: { method: 'RUBY' | 'AD'; adNonce?: string }): Promise<boolean> {
+  const { data, error } = await sdk.reviveGrowth({ client, path: { speciesCode }, body })
+  if (error) {
+    const code = errCode(error)
+    if (code === 'INSUFFICIENT_FUNDS') toast.error('루비가 부족해요')
+    else if (code === 'GROWTH_REVIVE_SNOOZED') toast.error('오늘은 다시 불러올 수 없어요 · 내일 새로운 정령이 찾아와요')
+    else if (code === 'NONCE_ALREADY_CONSUMED') toast.error('이미 사용된 광고 보상이에요')
+    else toast.error(errMsg(error, '정령을 다시 불러오지 못했어요'))
+    await userStore.fetchMe(true) // 재화 재동기화 — TTL 캐시 무시
+    return false
+  }
+  const updated = castData<GrowthItem>(data)
+  if (updated) replaceItem(updated)
+  lostModalSpecies.value = null
+  await userStore.fetchMe(true) // 루비 차감 반영 — TTL 캐시 무시
+  toast.success('정령이 돌아왔어요! 이어서 기록해요')
+  return true
+}
+
+async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
+  const species = lostModalSpecies.value
+  if (!species || reviving.value) return
+  reviving.value = true
+  try {
+    if (method === 'RUBY') {
+      await callRevive(species, { method: 'RUBY' })
+      return
+    }
+    // AD — 기존 보상형 광고 플로우(useAdMob) 재사용: Android 네이티브에서만 실 광고, 웹은 안내.
+    const { isAndroid, showRewardedAd, generateNonce } = useAdMob()
+    if (!isAndroid && !import.meta.dev) {
+      toast.info('앱에서 이용할 수 있어요')
+      return
+    }
+    const nonce = generateNonce()
+    const watched = await showRewardedAd({ ssvUserId: userStore.me?.userId, ssvCustomData: nonce })
+    if (!watched) {
+      toast.info('광고를 끝까지 시청하면 정령을 다시 불러올 수 있어요')
+      return
+    }
+    await callRevive(species, { method: 'AD', adNonce: nonce })
+  }
+  finally {
+    reviving.value = false
+  }
 }
 
 const pending = ref<boolean>(true)
@@ -361,22 +396,17 @@ async function loadGrowth(): Promise<void> {
     // 사라진 줄 안다. 실패는 실패로 표시하고 재시도 버튼을 준다.
     const { data, error } = await sdk.getGrowth({ client })
     if (error) throw new Error(errMsg(error, 'getGrowth failed'))
-    const next = (castData<GrowthResponse>(data)?.items ?? []) as GrowthItemV2[]
+    const next = castData<GrowthResponse>(data)?.items ?? []
     // 재로드 시(다른 탭에서 기록 등) 단계가 올라 있으면 성장 토스트. 최초 로드는 이전 상태가 없으므로 발화하지 않는다.
     if (rawItems.value.length) {
-      const prevMap = new Map<string, GrowthItemV2>(rawItems.value.map((it) => [it.speciesCode, it]))
+      const prevMap = new Map<string, GrowthItem>(rawItems.value.map((it) => [it.speciesCode, it]))
       for (const it of next) {
         const prev = prevMap.get(it.speciesCode)
         if (prev) notifyStageChange(prev, it)
       }
     }
     rawItems.value = next
-    const spirits = next.filter((c) => c.kind === 'SPIRIT')
-    rememberCompletion(spirits)
-    for (const c of spirits) {
-      if (lsGet(LS_NOTIFY_NEXT + c.speciesCode) === '1') notifyMap.value[c.speciesCode] = true
-    }
-    maybeOpenLostModal(spirits)
+    maybeOpenLostModal(next.filter((c) => c.kind === 'SPIRIT'))
   }
   catch (e) {
     loadFailed.value = true
@@ -420,7 +450,7 @@ onBeforeUnmount(() => {
   if (flashTimer) clearTimeout(flashTimer)
 })
 
-async function onUse(c: GrowthItemV2): Promise<void> {
+async function onUse(c: GrowthItem): Promise<void> {
   // SPARKLE 소비 → 부스터로 육성 진행 가속 (POST /growth/{speciesCode}/booster).
   if (boosting.value) return
   if (isLost(c)) {
@@ -436,20 +466,17 @@ async function onUse(c: GrowthItemV2): Promise<void> {
     const { data, error } = await sdk.buyGrowthBooster({ client, path: { speciesCode: c.speciesCode } })
     if (error) {
       // failure-path-first: 원인별 안내 + 잔액 재동기화
-      // (SDK error 타입은 loose 하나 런타임은 _Error{code} — unknown-guard 로 안전 추출)
-      const code = (error as unknown as { code?: string } | null)?.code
+      const code = errCode(error)
       if (code === 'INSUFFICIENT_FUNDS') toast.error('반짝이가 부족해요')
       else if (code === 'GROWTH_DORMANT' || code === 'GROWTH_LOST') openLostModal(c)
       else toast.error('반짝이 사용에 실패했어요')
       await userStore.fetchMe(true) // 재화 재동기화 — TTL 캐시 무시
       return
     }
-    const updated = castData<GrowthItemV2>(data)
+    const updated = castData<GrowthItem>(data)
     let stageToasted = false
     if (updated) {
-      const idx = rawItems.value.findIndex((it) => it.speciesCode === updated.speciesCode)
-      if (idx !== -1) rawItems.value[idx] = updated
-      rememberCompletion([updated])
+      replaceItem(updated)
       // 부스터로 단계가 올랐으면 성장 토스트를 우선하고 교환 완료 토스트는 생략
       stageToasted = notifyStageChange(c, updated)
     }
