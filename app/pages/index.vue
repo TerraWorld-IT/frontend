@@ -1,17 +1,19 @@
 <!--
-  홈 화면 — 아프젝(Apjek) 리디자인 리스킨 (frame-myterra-main 기준).
-  구조: 상단 원형 메뉴바(랭킹/공유하기/출석체크/광고보상/알림) + "나의 테라리움" 타이틀
-  + 유리병 스테이지 + 힐링/관리 모드 필 + 아코디언(친구 목록/보유 재화).
+  홈 화면 — 아프젝 v2 '나의 테라' (2026-08-21 Figma 갱신본 기준, gap-plan §3.2 T1b/T2/T3b/T4b/T7b/T8/T10/T10b/T11/T12/T13/T14/T15).
+  구조: 상단 원형 메뉴바 5종 상시(랭킹/공유하기/출석체크/광고보상/알림) + "나의 테라" 타이틀
+  + 병 캐러셀(현재 병 / Lv.2 / Lv.3 카드 + 도트) + [힐링 모드][관리 모드] 필 + 아코디언(친구 목록 → 보유 재화, 기본 열림).
   실 데이터 배선은 기존 그대로: getMe / getTerrarium / listItems / listFreePlacements 병렬 로드,
   하트(clickTerrariumHeart) / 광고보상(claimAdReward) / 출석(useAttendance) / 공유(html2canvas)
-  / 자유배치 드래그(updateFreePosition) 실 API. scale/flip/zIndex 는 API 미지원 → 클라 세션 상태.
-  관리 모드 = 기존 편집 모드(editMode) 동작 그대로. 힐링 모드 = 풀블리드 감상 오버레이(표시 전용).
+  / 자유배치 드래그(updateFreePosition) / 티어(useTier) 실 API. scale/flip/zIndex 는 서버 영속.
+  관리 모드 = 인트로 스플래시 → 상단 칩 3종 + 하단 고정 패널 + [저장하기]. 힐링 모드 = 인트로 → 풀블리드 + 상단 필바(BGM/X).
 -->
 <template>
   <!-- 루트 — 레이아웃 main 의 px-5/pt 를 음수 마진으로 상쇄해 상단 그라디언트를 풀블리드로 편다.
-       (main 의 pt 는 calc(1rem + safe-area) — -mt-4 는 1rem 몫만 상쇄해 세이프에어리어는 유지) -->
+       (main 의 pt 는 calc(1rem + safe-area) — -mt-4 는 1rem 몫만 상쇄해 세이프에어리어는 유지)
+       관리 모드에선 하단 고정 패널 높이만큼 여백을 더해 병이 패널 뒤로 숨지 않게 한다. -->
   <div
-    class="flex flex-col gap-5 min-h-screen -mx-5 -mt-4 px-5 pt-4 pb-6"
+    class="flex flex-col gap-5 min-h-screen -mx-5 -mt-4 px-5 pt-4"
+    :class="editMode ? 'pb-[300px]' : 'pb-6'"
     style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 55%)"
   >
     <!-- Loading -->
@@ -32,18 +34,18 @@
 
     <!-- Main -->
     <template v-else>
-      <!-- ─── T7 상단 원형 메뉴바 (편집 모드에선 숨김) ─── -->
+      <!-- ─── T7b 상단 원형 메뉴바 5종 상시 노출 (관리 모드에선 칩으로 대체) ─── -->
       <div
         v-if="!editMode"
         class="mx-auto w-full max-w-[400px] rounded-full px-2 py-2 flex items-center justify-evenly"
         style="background: color-mix(in srgb, var(--color-apjek-blue) 10%, transparent)"
       >
-        <!-- 랭킹 → 기존 /ranking 페이지 이동 -->
+        <!-- 랭킹 → 기존 /ranking 페이지 이동 (팝업화 T5 는 별도 워크스트림) -->
         <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="navigateTo('/ranking')">
           <span class="menu-circle"><Icon name="lucide:trophy" class="w-5 h-5" /></span>
           <span class="menu-label">랭킹</span>
         </button>
-        <!-- 공유하기 → 기존 공유 시트 -->
+        <!-- 공유하기 → 공유 모달 (T10) -->
         <button type="button" data-testid="home-share" class="menu-item" aria-label="공유하기" @click="showShareDialog = true">
           <span class="menu-circle"><Icon name="lucide:share-2" class="w-5 h-5" /></span>
           <span class="menu-label">공유하기</span>
@@ -59,21 +61,20 @@
           </span>
           <span class="menu-label">출석체크</span>
         </button>
-        <!-- 광고보상 — 기존 플랫폼 게이트 유지: 실 광고 가용 플랫폼(Android 네이티브/dev)에서만 노출.
-             웹/iOS 프로덕션은 광고 없이 보상만 청구되던 fail-open 진입점이었다 (audit B2-3). -->
+        <!-- 광고보상 — 상시 노출(T7b, §4 N-3). 실 광고 가용 플랫폼(Android 네이티브/dev)에서만 팝업,
+             웹/비지원 환경은 탭 시 안내 토스트(광고 없이 보상만 청구되던 fail-open 진입점은 계속 차단). -->
         <button
-          v-if="adAvailable"
           type="button"
           data-testid="home-freecoin"
           class="menu-item"
           :aria-label="$t('home.ariaFreeCoin')"
-          @click="showFreeCoinDialog = true"
+          @click="onAdMenuClick"
         >
           <span class="menu-circle"><Icon name="lucide:gift" class="w-5 h-5" /></span>
           <span class="menu-label">광고보상</span>
         </button>
-        <!-- 알림 (T1) — 알림함 팝업 + 미읽음 마젠타 점 뱃지 (마운트 시 1회 조회, 실패 시 숨김).
-             lucide:bell 은 clientBundle 미등재라 인라인 SVG 사용 (config 수정 금지 제약). -->
+        <!-- 알림 (T1b) — 우측 슬라이드 패널 + 미읽음 마젠타 점 뱃지 #FF2BA7 13px (마운트 시 1회 조회, 실패 시 숨김).
+             lucide:bell 은 clientBundle 미등재라 인라인 SVG 사용. -->
         <button type="button" data-testid="home-notify" class="menu-item" aria-label="알림" @click="onNotifyClick">
           <span class="menu-circle">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -82,273 +83,286 @@
             </svg>
             <span
               v-if="notifyUnread > 0"
-              class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white"
-              style="background: #f043c8"
+              class="absolute -top-1 -right-1 w-[13px] h-[13px] rounded-full border border-white"
+              style="background: #FF2BA7"
+              data-testid="home-notify-badge"
             />
           </span>
           <span class="menu-label">알림</span>
         </button>
       </div>
 
-      <!-- ─── 타이틀 ─── -->
-      <h1 class="text-center text-[22px] font-extrabold text-apjek-text tracking-[-0.5px]">나의 테라리움</h1>
+      <!-- ─── T11 타이틀 "나의 테라" (댓글 #1 크기 조정 24px/800) ─── -->
+      <h1 v-if="!editMode" class="text-center text-[24px] font-extrabold text-apjek-text tracking-[-0.5px]">나의 테라</h1>
 
-      <!-- ─── 편집(관리) 모드 액션 칩 — 기존 아이템추가/업그레이드 동작 그대로 ─── -->
-      <div v-if="editMode" class="flex justify-center gap-2 flex-wrap">
+      <!-- ─── T13 관리 모드 상단 칩 3종 [🌱 아이템 배치][정령][✏️ 배경 설정] (선택 칩 파랑 채움) ─── -->
+      <div v-else class="flex justify-center gap-2 flex-wrap" role="tablist" aria-label="관리 모드 탭">
         <button
+          v-for="chip in manageChips"
+          :key="chip.tab"
           type="button"
-          data-testid="home-add-item"
-          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
-          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
-          @click="showItemPicker = true"
+          role="tab"
+          :data-testid="`home-manage-${chip.tab}`"
+          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95 text-xs font-semibold whitespace-nowrap"
+          :style="manageTab === chip.tab
+            ? { background: 'var(--color-apjek-blue)', color: '#ffffff' }
+            : { background: 'var(--color-apjek-surface)', color: 'var(--color-apjek-text-sub)', border: '1px solid var(--color-apjek-border-strong)' }"
+          :aria-selected="manageTab === chip.tab"
+          @click="manageTab = chip.tab"
         >
-          <Icon name="lucide:plus" class="w-4 h-4 flex-shrink-0" />
-          <span class="text-xs font-semibold whitespace-nowrap">아이템 추가</span>
-        </button>
-        <button
-          type="button"
-          data-testid="home-tier"
-          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
-          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
-          @click="showTierModal = true"
-        >
-          <Icon name="lucide:trending-up" class="w-4 h-4 flex-shrink-0" />
-          <span class="text-xs font-semibold whitespace-nowrap">테라리움 업그레이드</span>
-        </button>
-        <!-- T9 배경 설정 — 보유 BACKGROUND 아이템 선택 시트 -->
-        <button
-          type="button"
-          data-testid="home-background"
-          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95"
-          style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
-          @click="showBackgroundPicker = true"
-        >
-          <Icon name="lucide:palette" class="w-4 h-4 flex-shrink-0" />
-          <span class="text-xs font-semibold whitespace-nowrap">배경 설정</span>
+          <span v-if="chip.icon" aria-hidden="true">{{ chip.icon }}</span>{{ chip.label }}
         </button>
       </div>
 
-      <!-- ─── 유리병 스테이지 (힐링 모드 시 풀블리드 오버레이로 승격) ─── -->
-      <!-- 스테이지는 항상 설계 기준 400×552 를 유지(shrink-0)하고 uniform scale 로 화면에 맞춘다.
-           이전에는 flex 축소로 스테이지 폭만 줄어(예: 376px) %-inset 병 아트는 세로로 왜곡되고
-           px 좌표계(편집존·아이템 x/y·posX 저장 /400)와 기준이 어긋났다 (2026-07-20 라이브 실측). -->
-      <div
-        id="my-terra-container"
-        ref="stageEl"
-        :class="healingMode
-          ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
-          : 'relative flex justify-center w-full overflow-hidden'"
-        :style="healingMode
-          ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)' }
-          : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem' }"
-        @wheel="onWheel"
+      <!-- ─── T14 병 캐러셀: 슬라이드1 = 현재 병 스테이지 / 슬라이드 2·3 = Lv.2·Lv.3 카드 ─── -->
+      <TerrariumJarCarousel
+        :levels="jarLevels"
+        :selected-level="viewLevel"
+        :locked="editMode || healingMode"
+        @unlock="onUnlockRequest"
+        @select="onSelectLevel"
       >
+        <!-- ─── 유리병 스테이지 (힐링 모드 시 풀블리드 오버레이로 승격) ─── -->
+        <!-- 스테이지는 항상 설계 기준 400×552 를 유지(shrink-0)하고 uniform scale 로 화면에 맞춘다.
+             이전에는 flex 축소로 스테이지 폭만 줄어(예: 376px) %-inset 병 아트는 세로로 왜곡되고
+             px 좌표계(편집존·아이템 x/y·posX 저장 /400)와 기준이 어긋났다 (2026-07-20 라이브 실측). -->
         <div
-          class="transition-transform duration-200 ease-out relative shrink-0"
-          :style="{
-            transform: `scale(${zoomLevel * stageFit})`,
-            transformOrigin: 'top center',
-            width: '400px',
-            height: '552px',
-            marginBottom: `${-552 * (1 - stageFit)}px`,
-          }"
+          id="my-terra-container"
+          ref="stageEl"
+          :class="healingMode
+            ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
+            : 'relative flex justify-center w-full overflow-hidden'"
+          :style="healingMode
+            ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)' }
+            : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem' }"
+          @wheel="onWheel"
         >
-          <!-- 병 뒤 은은한 원형 글로우 (아프젝 디자인의 라디얼 하이라이트).
-               inline transform 이라 Tailwind translate 유틸과의 이중 적용 함정 없음. -->
           <div
-            class="absolute pointer-events-none rounded-full"
-            style="left: 50%; top: 52%; width: 430px; height: 430px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 68%)"
-          />
-
-          <!-- 유리병 (Figma Jar1 픽셀-정확) -->
-          <div class="absolute inset-0">
-            <IconsJar1 />
-          </div>
-
-          <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
-          <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" />
-
-          <!-- 편집모드 안내 영역 -->
-          <Transition name="edit-fade">
-            <div
-              v-if="editMode"
-              class="absolute z-20 pointer-events-none rounded-xl"
-              :style="{
-                left: `${JAR.minX}px`,
-                top: `${JAR.minY + 60}px`,
-                width: `${JAR.maxX - JAR.minX}px`,
-                height: `${JAR.maxY - JAR.minY - 60}px`,
-                border: '2px dashed rgba(126,219,192,0.55)',
-                background: 'rgba(126,219,192,0.04)',
-              }"
-            >
-              <!-- 빈 병 첫 편집 안내 — 배치 아이템이 없으면 다음 행동(아이템 추가)을 알려준다.
-                   반투명 pill 배경: 병 하단 어두운 모래 영역과 겹칠 때 텍스트 대비 확보
-                   (2026-07-20 시각검증 실측) -->
-              <p
-                v-if="placedItems.length === 0"
-                class="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-[13px] font-semibold rounded-xl px-3 py-2 mx-auto w-fit"
-                style="color: #2e7d5f; background: rgba(255,255,255,0.82)"
-              >
-                위의 '아이템 추가' 버튼으로<br>첫 아이템을 배치해 보세요
-              </p>
-            </div>
-          </Transition>
-
-          <!-- 배치된 아이템들 (자유배치) -->
-          <div
-            v-for="placed in placedItems"
-            :key="placed.placementId"
-            class="absolute flex items-center justify-center select-none touch-none"
-            :class="animClass(placed)"
-            :style="itemStyle(placed)"
-            @pointerdown="(e) => onItemPointerDown(e, placed)"
-            @click="onItemClick(placed)"
+            class="transition-transform duration-200 ease-out relative shrink-0"
+            :style="{
+              transform: `scale(${zoomLevel * stageFit})`,
+              transformOrigin: 'top center',
+              width: '400px',
+              height: '552px',
+              marginBottom: `${-552 * (1 - stageFit)}px`,
+            }"
           >
-            <!-- 아이템 본체 -->
+            <!-- 병 뒤 원형 글로우 — 설정된 배경(BACKGROUND 아이템)이 URL 에셋이면 글로우 원 안에 배경 레이어로 렌더(T13),
+                 없으면 기존 라디얼 하이라이트. inline transform 이라 Tailwind translate 유틸과의 이중 적용 함정 없음. -->
             <div
-              class="relative flex items-center justify-center"
-              :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
+              class="absolute pointer-events-none rounded-full overflow-hidden"
+              style="left: 50%; top: 52%; width: 430px; height: 430px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 68%)"
+              data-testid="home-jar-backdrop"
             >
               <img
-                v-if="isUrl(placed.image)"
-                :src="placed.image"
-                :alt="placed.name"
-                class="w-11 h-11 object-contain pointer-events-none"
+                v-if="backgroundImageUrl"
+                :src="backgroundImageUrl"
+                alt=""
+                class="absolute inset-0 w-full h-full object-cover"
+                style="opacity: 0.85; mask-image: radial-gradient(circle, #000 0%, #000 60%, transparent 72%); -webkit-mask-image: radial-gradient(circle, #000 0%, #000 60%, transparent 72%)"
                 draggable="false"
               >
-              <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
-              <Icon
-                v-if="placed.isAnimated && !editMode"
-                name="lucide:sparkles"
-                class="w-3 h-3 text-yellow-400 absolute -top-1 -right-1 pointer-events-none"
-              />
             </div>
 
-            <!-- 편집 모드 선택 시 핸들/버튼 -->
-            <template v-if="editMode && selectedItemId === placed.placementId">
-              <!-- 선택 테두리 -->
-              <div
-                class="absolute pointer-events-none rounded-lg"
-                :style="{
-                  left: `${HALF - visualHalf(placed) - 2}px`,
-                  top: `${HALF - visualHalf(placed) - 2}px`,
-                  width: `${visualHalf(placed) * 2 + 4}px`,
-                  height: `${visualHalf(placed) * 2 + 4}px`,
-                  border: '1.5px dashed rgba(126,219,192,0.75)',
-                }"
-              />
+            <!-- 유리병 (Figma Jar1 픽셀-정확) -->
+            <div class="absolute inset-0">
+              <IconsJar1 />
+            </div>
 
-              <!-- 오른쪽 버튼 그룹 (앞으로/뒤로/반전/삭제) -->
-              <button
-                v-for="btn in itemButtons(placed)"
-                :key="btn.label"
-                type="button"
-                :title="btn.label"
-                class="absolute flex items-center justify-center rounded-full shadow-lg text-white z-30 transition-transform active:scale-90"
+            <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
+            <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" />
+
+            <!-- 편집모드 안내 영역 -->
+            <Transition name="edit-fade">
+              <div
+                v-if="editMode"
+                class="absolute z-20 pointer-events-none rounded-xl"
                 :style="{
-                  left: `${HALF + visualHalf(placed) + 6}px`,
-                  top: `${btn.offsetY}px`,
-                  width: '24px',
-                  height: '24px',
-                  background: btn.bg,
+                  left: `${JAR.minX}px`,
+                  top: `${JAR.minY + 60}px`,
+                  width: `${JAR.maxX - JAR.minX}px`,
+                  height: `${JAR.maxY - JAR.minY - 60}px`,
+                  border: '2px dashed rgba(81,140,219,0.55)',
+                  background: 'rgba(81,140,219,0.04)',
                 }"
-                @pointerdown.stop
-                @click.stop="btn.onClick()"
               >
-                <Icon :name="btn.icon" class="w-3 h-3" />
-              </button>
+                <!-- 빈 병 첫 편집 안내 — 배치 아이템이 없으면 다음 행동(하단 패널 타일 탭)을 알려준다. -->
+                <p
+                  v-if="placedItems.length === 0 && manageTab === 'items'"
+                  class="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-[13px] font-semibold rounded-xl px-3 py-2 mx-auto w-fit"
+                  style="color: var(--color-apjek-blue-deep); background: rgba(255,255,255,0.82)"
+                >
+                  아래 '보유 아이템 목록'에서<br>첫 아이템을 배치해 보세요
+                </p>
+              </div>
+            </Transition>
 
-              <!-- 4모서리 리사이즈 핸들 -->
+            <!-- 배치된 아이템들 (자유배치) -->
+            <div
+              v-for="placed in placedItems"
+              :key="placed.placementId"
+              class="absolute flex items-center justify-center select-none touch-none"
+              :class="animClass(placed)"
+              :style="itemStyle(placed)"
+              @pointerdown="(e) => onItemPointerDown(e, placed)"
+              @click="onItemClick(placed)"
+            >
+              <!-- 아이템 본체 -->
               <div
-                v-for="c in corners(placed)"
-                :key="c.key"
-                class="absolute z-30 rounded-full bg-white shadow-md border-2"
-                :style="{
-                  left: `${HALF + c.ox - HANDLE / 2}px`,
-                  top: `${HALF + c.oy - HANDLE / 2}px`,
-                  width: `${HANDLE}px`,
-                  height: `${HANDLE}px`,
-                  cursor: c.cursor,
-                  borderColor: '#7edbc0',
-                  touchAction: 'none',
-                }"
-                @pointerdown="(e) => onCornerPointerDown(e, placed, c.dirX, c.dirY)"
-              />
-            </template>
+                class="relative flex items-center justify-center"
+                :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
+              >
+                <img
+                  v-if="isUrl(placed.image)"
+                  :src="placed.image"
+                  :alt="placed.name"
+                  class="w-11 h-11 object-contain pointer-events-none"
+                  draggable="false"
+                >
+                <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
+                <Icon
+                  v-if="placed.isAnimated && !editMode"
+                  name="lucide:sparkles"
+                  class="w-3 h-3 text-yellow-400 absolute -top-1 -right-1 pointer-events-none"
+                />
+              </div>
+
+              <!-- 편집 모드 선택 시 핸들/버튼 -->
+              <template v-if="editMode && selectedItemId === placed.placementId">
+                <!-- 선택 테두리 -->
+                <div
+                  class="absolute pointer-events-none rounded-lg"
+                  :style="{
+                    left: `${HALF - visualHalf(placed) - 2}px`,
+                    top: `${HALF - visualHalf(placed) - 2}px`,
+                    width: `${visualHalf(placed) * 2 + 4}px`,
+                    height: `${visualHalf(placed) * 2 + 4}px`,
+                    border: '1.5px dashed rgba(81,140,219,0.75)',
+                  }"
+                />
+
+                <!-- 오른쪽 버튼 그룹 (앞으로/뒤로/반전/삭제) -->
+                <button
+                  v-for="btn in itemButtons(placed)"
+                  :key="btn.label"
+                  type="button"
+                  :title="btn.label"
+                  class="absolute flex items-center justify-center rounded-full shadow-lg text-white z-30 transition-transform active:scale-90"
+                  :style="{
+                    left: `${HALF + visualHalf(placed) + 6}px`,
+                    top: `${btn.offsetY}px`,
+                    width: '24px',
+                    height: '24px',
+                    background: btn.bg,
+                  }"
+                  @pointerdown.stop
+                  @click.stop="btn.onClick()"
+                >
+                  <Icon :name="btn.icon" class="w-3 h-3" />
+                </button>
+
+                <!-- 4모서리 리사이즈 핸들 -->
+                <div
+                  v-for="c in corners(placed)"
+                  :key="c.key"
+                  class="absolute z-30 rounded-full bg-white shadow-md border-2"
+                  :style="{
+                    left: `${HALF + c.ox - HANDLE / 2}px`,
+                    top: `${HALF + c.oy - HANDLE / 2}px`,
+                    width: `${HANDLE}px`,
+                    height: `${HANDLE}px`,
+                    cursor: c.cursor,
+                    borderColor: '#518cdb',
+                    touchAction: 'none',
+                  }"
+                  @pointerdown="(e) => onCornerPointerDown(e, placed, c.dirX, c.dirY)"
+                />
+              </template>
+            </div>
+
+            <!-- 하트 버튼 (편집모드 숨김 — 힐링 모드에선 유지) -->
+            <div v-show="!editMode" class="absolute right-0 top-1/2 -translate-y-1/2">
+              <button
+                type="button"
+                data-testid="home-heart"
+                class="relative transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
+                :disabled="heartBusy"
+                :aria-label="$t('home.ariaHeart')"
+                @click="onHeartClick"
+              >
+                <Icon name="lucide:heart" class="w-8 h-8 fill-[#f092f0] text-[#f092f0]" />
+                <span
+                  v-for="f in heartFloats"
+                  :key="f.id"
+                  class="heart-float absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 font-bold"
+                  style="color: #f092f0"
+                >
+                  <Icon name="lucide:star" class="w-4 h-4" style="color: #f092f0" />
+                  <span class="text-base">+0.1</span>
+                </span>
+              </button>
+            </div>
           </div>
 
-          <!-- 하트 버튼 (편집모드 숨김 — 힐링 모드에선 유지) -->
-          <div v-show="!editMode" class="absolute right-0 top-1/2 -translate-y-1/2">
+          <!-- ─── T3b/T2 힐링 모드 상단 필바 409×44 — 좌 음표 원형 토글(ON 파랑/OFF 회색 슬래시), 우 X 원형 ─── -->
+          <div
+            v-if="healingMode"
+            class="absolute left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[409px] h-11 rounded-full flex items-center justify-between px-1.5"
+            :style="{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))', background: 'rgba(255,255,255,0.88)', border: '1px solid var(--color-apjek-border)' }"
+            data-testid="home-healing-bar"
+          >
             <button
               type="button"
-              data-testid="home-heart"
-              class="relative transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
-              :disabled="heartBusy"
-              :aria-label="$t('home.ariaHeart')"
-              @click="onHeartClick"
+              class="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+              :style="bgm.enabled.value
+                ? { background: 'var(--color-apjek-blue)', color: '#ffffff' }
+                : { background: 'var(--color-apjek-bg)', color: 'var(--color-apjek-text-faint)' }"
+              :aria-label="bgm.enabled.value ? '음악 끄기' : '음악 켜기'"
+              :aria-pressed="bgm.enabled.value"
+              data-testid="home-bgm-toggle"
+              @click="onToggleBgm"
             >
-              <Icon name="lucide:heart" class="w-8 h-8 fill-[#f092f0] text-[#f092f0]" />
-              <span
-                v-for="f in heartFloats"
-                :key="f.id"
-                class="heart-float absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 font-bold"
-                style="color: #f092f0"
-              >
-                <Icon name="lucide:star" class="w-4 h-4" style="color: #f092f0" />
-                <span class="text-base">+0.1</span>
-              </span>
+              <Icon v-if="bgm.enabled.value" name="lucide:music" class="w-4 h-4" />
+              <Icon v-else name="lucide:volume-x" class="w-4 h-4" />
+            </button>
+            <span class="text-xs font-semibold text-apjek-text-sub">{{ bgm.enabled.value ? '음악 ON' : '음악 OFF' }}</span>
+            <button
+              type="button"
+              class="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+              style="background: var(--color-apjek-blue-soft)"
+              aria-label="힐링 모드 닫기"
+              data-testid="home-healing-close"
+              @click="healingMode = false"
+            >
+              <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
             </button>
           </div>
         </div>
+      </TerrariumJarCarousel>
 
-        <!-- 힐링 모드 닫기 (오버레이 상태에서만) -->
+      <!-- ─── T3 모드 필: 힐링/관리 (일반) — 관리 모드 중엔 하단 패널의 [저장하기]가 종료 동작 ─── -->
+      <div v-if="!editMode" class="flex justify-center gap-3">
         <button
-          v-if="healingMode"
           type="button"
-          class="absolute right-4 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 border border-apjek-border"
-          :style="{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }"
-          aria-label="힐링 모드 닫기"
-          @click="healingMode = false"
+          data-testid="home-healing"
+          class="mode-pill"
+          style="background: #def259; color: #4c5514"
+          @click="enterHealingMode"
         >
-          <Icon name="lucide:x" class="w-5 h-5 text-apjek-text-sub" />
+          <Icon name="lucide:sprout" class="w-4 h-4" />힐링 모드
+        </button>
+        <button
+          type="button"
+          data-testid="home-manage"
+          class="mode-pill"
+          style="background: #bcdadd; color: #2f5f63"
+          @click="enterManageMode"
+        >
+          <Icon name="lucide:pencil" class="w-4 h-4" />관리 모드
         </button>
       </div>
 
-      <!-- ─── T3 모드 필: 힐링/관리 (일반) · 편집 완료 (편집 중) ─── -->
-      <div class="flex justify-center gap-3">
-        <template v-if="!editMode">
-          <button
-            type="button"
-            data-testid="home-healing"
-            class="mode-pill"
-            style="background: #def259; color: #4c5514"
-            @click="healingMode = true"
-          >
-            <Icon name="lucide:sprout" class="w-4 h-4" />힐링 모드
-          </button>
-          <button
-            type="button"
-            data-testid="home-manage"
-            class="mode-pill"
-            style="background: #bcdadd; color: #2f5f63"
-            @click="toggleEditMode"
-          >
-            <Icon name="lucide:pencil" class="w-4 h-4" />관리 모드
-          </button>
-        </template>
-        <button
-          v-else
-          type="button"
-          class="mode-pill text-white"
-          style="background: linear-gradient(135deg, #7edbc0, #52b388); box-shadow: 0 2px 10px rgba(126,219,192,0.4)"
-          @click="toggleEditMode"
-        >
-          <Icon name="lucide:check" class="w-4 h-4" />편집 완료
-        </button>
-      </div>
-
-      <!-- ─── T4 아코디언: 친구 목록 / 보유 재화 (편집 모드에선 숨김) ─── -->
+      <!-- ─── T4b 아코디언: 친구 목록 → 보유 재화 (기본 열림, 접으면 기억 — 관리 모드에선 숨김) ─── -->
       <template v-if="!editMode">
         <TerrariumHomeAccordion v-model:open="friendsOpen" title="친구 목록" icon="lucide:users">
           <div class="px-4 pb-4 flex flex-col gap-2">
@@ -364,14 +378,16 @@
                 <div class="size-9 rounded-full flex items-center justify-center text-lg shrink-0" style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)">🌍</div>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-semibold text-apjek-text truncate">{{ friend.nickname }}</p>
-                  <p class="text-[10px] text-apjek-text-faint tracking-[0.1px]">TERRAWORLD</p>
+                  <p class="text-[10px] text-apjek-text-faint tracking-[0.1px]">TERRAWORLD 유저</p>
                 </div>
-                <!-- 놀러가기 — 기존 동작 유지(/friends 이동). 방문 모달 승격은 friends 페이지 작업 몫. -->
+                <!-- T15 놀러가기 — 방문 모달 직접 오픈 (friends 페이지와 동일 API) -->
                 <button
                   type="button"
-                  class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
+                  class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0 disabled:opacity-50"
                   style="background: var(--color-apjek-cta)"
-                  @click="navigateTo('/friends')"
+                  :disabled="visitingId !== null"
+                  :data-testid="`home-visit-${friend.userId}`"
+                  @click="onVisitFriend(friend)"
                 >놀러가기</button>
               </div>
             </template>
@@ -389,7 +405,16 @@
 
         <TerrariumHomeAccordion v-model:open="walletOpen" title="보유 재화" icon="lucide:circle-dollar-sign">
           <div class="px-4 pb-4 flex flex-col gap-2">
-            <!-- 코인류 3종 (코인/루비/반짝이) -->
+            <!-- T12 재화 환전 — 상점/더보기와 동일 다이얼로그 재사용 (댓글 #18/#47) -->
+            <button
+              type="button"
+              data-testid="home-exchange"
+              class="apjek-cta w-full py-2.5 text-sm"
+              @click="showExchange = true"
+            >
+              <span aria-hidden="true">⇄</span> 재화 환전
+            </button>
+            <!-- 코인류 3종 (코인/반짝이/루비) -->
             <div class="grid grid-cols-3 gap-2">
               <div
                 v-for="c in mainCurrencies"
@@ -423,225 +448,88 @@
     </template>
   </div>
 
-  <!-- ═══════════════ 아이템 추가 바텀시트 ═══════════════ -->
-  <CommonBottomSheet :open="showItemPicker" ariaLabel="아이템 선택" @close="showItemPicker = false">
-    <div class="px-5 pb-3 pt-3">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-bold text-base" style="color: #3a9e78">아이템 추가</h3>
-      </div>
+  <!-- ═══════════════ T13 관리 모드 하단 고정 패널 (보유 아이템/정령/배경 목록 + 저장하기) ═══════════════ -->
+  <TerrariumManagePanel
+    :open="editMode"
+    :tab="manageTab"
+    :tiles="manageTiles"
+    :busy="placementBusy || backgroundBusy"
+    :saving="saving"
+    :max-slots="maxSlots"
+    :placed-count="placedItems.length"
+    :empty-cta-label="manageEmptyCta"
+    @tile="onManageTile"
+    @save="onSaveManage"
+    @empty-cta="onManageEmptyCta"
+  />
 
-      <div v-if="placementBusy" class="flex justify-center py-8">
-        <CommonLoading variant="spinner" />
-      </div>
-      <div v-else-if="ownedItems.length === 0" class="text-center py-10 text-gray-400">
-        <div class="text-4xl mb-2">🛒</div>
-        <p class="text-sm">보유한 아이템이 없습니다</p>
-        <p class="text-xs mt-1">상점에서 구매해보세요!</p>
-      </div>
-      <div v-else class="grid grid-cols-4 gap-3">
-        <button
-          v-for="item in ownedItems"
-          :key="item.id"
-          type="button"
-          class="aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 relative transition-all"
-          :style="{
-            background: isItemPlaced(item.id) ? 'rgba(200,200,220,0.12)' : 'rgba(126,219,192,0.12)',
-            border: isItemPlaced(item.id) ? '1.5px solid rgba(200,200,220,0.3)' : '1.5px solid rgba(126,219,192,0.35)',
-            opacity: isItemPlaced(item.id) ? 0.45 : 1,
-            cursor: isItemPlaced(item.id) ? 'not-allowed' : 'pointer',
-          }"
-          :disabled="isItemPlaced(item.id)"
-          @click="!isItemPlaced(item.id) && onAddItem(item)"
-        >
-          <img
-            v-if="isUrl(item.assetUrl)"
-            :src="item.assetUrl"
-            :alt="item.name"
-            class="w-10 h-10 object-contain"
-          >
-          <div v-else class="text-3xl">{{ item.assetUrl }}</div>
-          <span class="text-[9px] font-medium text-center leading-tight" style="color: #6b8f7a">
-            {{ item.name }}
-          </span>
-          <div v-if="isItemPlaced(item.id)" class="absolute top-1 right-1">
-            <Icon name="lucide:check" class="w-3 h-3" style="color: #7edbc0" />
-          </div>
-        </button>
-      </div>
-    </div>
-  </CommonBottomSheet>
+  <!-- ═══════════════ T3b/T13 모드 진입 인트로 스플래시 1.2초 ═══════════════ -->
+  <TerrariumModeIntro
+    :open="introMode === 'healing'"
+    icon="🌱"
+    title="힐링 모드"
+    description="나의 테라를 천천히 감상해보세요"
+    @done="onHealingIntroDone"
+  />
+  <TerrariumModeIntro
+    :open="introMode === 'manage'"
+    icon="✏️"
+    title="관리 모드"
+    description="아이템으로 테라리움을 꾸미고 레벨과 아이템을 관리해요"
+    @done="onManageIntroDone"
+  />
 
-  <!-- ═══════════════ T9 배경 설정 바텀시트 (보유 BACKGROUND 아이템 → setTerrariumBackground) ═══════════════ -->
-  <CommonBottomSheet :open="showBackgroundPicker" ariaLabel="배경 설정" @close="showBackgroundPicker = false">
-    <div class="px-5 pb-3 pt-3">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-bold text-base" style="color: #3a9e78">배경 설정</h3>
-      </div>
+  <!-- ═══════════════ T10 공유하기 모달 (SNS/이미지 저장/초대코드 3행 + 인스타 4행 유지) ═══════════════ -->
+  <TerrariumShareModal
+    :open="showShareDialog"
+    :busy="capturingImage"
+    :invite-creating="inviteCreating"
+    :story-share-available="storyShareAvailable"
+    @close="showShareDialog = false"
+    @sns="onSnsShare"
+    @save="onImageSave"
+    @invite="onInviteShare"
+    @story="onInstagramStoryShare"
+  />
 
-      <div v-if="backgroundBusy" class="flex justify-center py-8">
-        <CommonLoading variant="spinner" />
-      </div>
-      <div v-else-if="ownedBackgrounds.length === 0" class="text-center py-10 text-gray-400">
-        <div class="text-4xl mb-2">🖼️</div>
-        <p class="text-sm">배경 아이템이 없어요</p>
-        <p class="text-xs mt-1">상점에서 배경 아이템을 구매해보세요!</p>
-        <button
-          type="button"
-          class="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold text-white"
-          style="background: var(--color-apjek-cta)"
-          @click="navigateTo('/shop')"
-        >상점 가기</button>
-      </div>
-      <div v-else class="grid grid-cols-2 gap-3">
-        <button
-          v-for="item in ownedBackgrounds"
-          :key="item.id"
-          type="button"
-          class="rounded-2xl p-3 flex flex-col items-center gap-2 relative transition-all"
-          :style="{
-            background: currentBackgroundAssetUrl === item.assetUrl ? 'rgba(126,219,192,0.12)' : 'rgba(0,0,0,0.03)',
-            border: currentBackgroundAssetUrl === item.assetUrl ? '1.5px solid rgba(126,219,192,0.55)' : '1.5px solid rgba(0,0,0,0.08)',
-          }"
-          @click="onSelectBackground(item)"
-        >
-          <img
-            v-if="isUrl(item.assetUrl)"
-            :src="item.assetUrl"
-            :alt="item.name"
-            class="w-full h-20 object-cover rounded-xl"
-          >
-          <div v-else class="text-4xl">{{ item.assetUrl }}</div>
-          <span class="text-[11px] font-medium text-center leading-tight" style="color: #6b8f7a">{{ item.name }}</span>
-          <div v-if="currentBackgroundAssetUrl === item.assetUrl" class="absolute top-2 right-2">
-            <Icon name="lucide:check" class="w-4 h-4" style="color: #52b388" />
-          </div>
-        </button>
-      </div>
-    </div>
-  </CommonBottomSheet>
-
-  <!-- ═══════════════ T10 공유하기 바텀시트 (SNS/이미지 저장/초대코드 3항목 + 인스타 유지) ═══════════════ -->
-  <CommonBottomSheet :open="showShareDialog" ariaLabel="공유" @close="showShareDialog = false">
-    <div class="px-5 pb-5 pt-4">
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="font-bold text-base text-apjek-text flex items-center gap-2">
-          <Icon name="lucide:share-2" class="w-4 h-4" />
-          공유하기
-        </h3>
-      </div>
-      <div class="flex flex-col gap-3">
-        <!-- SNS 공유하기 -->
-        <button
-          type="button"
-          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98]"
-          @click="onSnsShare"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-apjek-blue-soft)">
-            <Icon name="lucide:share-2" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
-          </div>
-          <div class="text-left flex-1 min-w-0">
-            <div class="text-sm font-bold text-apjek-text">SNS 공유하기</div>
-            <div class="text-xs text-apjek-text-faint">친구에게 나의 테라 사진을 공유해요</div>
-          </div>
-          <span class="apjek-chip shrink-0 text-xs">공유하기</span>
-        </button>
-        <!-- 인스타 스토리 (네이티브 전용 — 기존 동작 유지, 존폐는 결정 대기) -->
-        <button
-          v-if="storyShareAvailable"
-          type="button"
-          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98] disabled:opacity-50"
-          :disabled="capturingImage"
-          @click="onInstagramStoryShare"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: rgba(240,146,240,0.18)">
-            <Icon name="lucide:instagram" class="w-5 h-5" style="color: #f092f0" />
-          </div>
-          <div class="text-left flex-1 min-w-0">
-            <div class="text-sm font-bold text-apjek-text">인스타 스토리에 올리기</div>
-            <div class="text-xs text-apjek-text-faint">테라리움 스티커를 스토리 카메라 위에 올려요</div>
-          </div>
-          <span class="apjek-chip shrink-0 text-xs">올리기</span>
-        </button>
-        <!-- 이미지 저장하기 -->
-        <button
-          type="button"
-          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98] disabled:opacity-50"
-          :disabled="capturingImage"
-          @click="onImageSave"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-apjek-blue-soft)">
-            <Icon name="lucide:image-down" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
-          </div>
-          <div class="text-left flex-1 min-w-0">
-            <div class="text-sm font-bold text-apjek-text">이미지 저장하기</div>
-            <div class="text-xs text-apjek-text-faint">나의 테라를 이미지로 저장해요</div>
-          </div>
-          <span class="apjek-chip shrink-0 text-xs">저장하기</span>
-        </button>
-        <!-- 초대코드 복사하기 — 실 발급(createInvite) 후 코드 팝업 -->
-        <button
-          type="button"
-          class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98] disabled:opacity-50"
-          :disabled="inviteCreating"
-          @click="onInviteShare"
-        >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: var(--color-apjek-blue-soft)">
-            <Icon name="lucide:link" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
-          </div>
-          <div class="text-left flex-1 min-w-0">
-            <div class="text-sm font-bold text-apjek-text">초대코드 복사하기</div>
-            <div class="text-xs text-apjek-text-faint">코드를 복사해서 친구를 초대해요</div>
-          </div>
-          <span class="apjek-chip shrink-0 text-xs">{{ inviteCreating ? '발급 중…' : '복사하기' }}</span>
-        </button>
-      </div>
-    </div>
-  </CommonBottomSheet>
-
-  <!-- ═══════════════ T1 알림함 팝업 (읽음 성공 시 뱃지 클리어) ═══════════════ -->
+  <!-- ═══════════════ T1b 알림 패널 (우측 슬라이드인, 읽음 성공 시 뱃지 클리어) ═══════════════ -->
   <NotificationsCenter :open="showNotifications" @close="showNotifications = false" @read="notifyUnread = 0" />
 
-  <!-- ═══════════════ 나의 초대코드 팝업 (T10 — 실제 발급 코드 그대로 표시) ═══════════════ -->
-  <Teleport to="body">
-    <Transition name="dialog">
-      <div v-if="showInviteCode" ref="inviteRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="나의 초대코드">
-        <div class="fixed inset-0 bg-black/40" @click="showInviteCode = false" />
-        <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
-          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <Icon name="lucide:link" class="w-5 h-5" style="color: var(--color-apjek-blue)" />
-                <h3 class="font-bold text-base" style="color: #111111">나의 초대코드</h3>
-              </div>
-              <button
-                type="button"
-                class="w-7 h-7 rounded-full flex items-center justify-center"
-                style="background: var(--color-apjek-blue-soft)"
-                aria-label="닫기"
-                @click="showInviteCode = false"
-              >
-                <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
-              </button>
-            </div>
-            <!-- 보상 수치는 결정 대기 — 구체 수치 없이 중립 카피 유지 -->
-            <p class="text-center text-sm font-semibold mb-4" style="color: #333333">친구가 내 코드로 가입하면 함께 보상을 받아요</p>
-            <div class="rounded-2xl py-5 px-4 text-center mb-4" style="background: #f4f9c9">
-              <p class="text-[10px] font-medium mb-1" style="color: #8a8f66">나의 초대코드</p>
-              <p class="text-2xl font-extrabold tracking-[0.08em]" style="color: #111111">{{ inviteCode }}</p>
-            </div>
-            <button
-              type="button"
-              class="w-full py-3 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
-              style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
-              @click="onCopyInviteCode"
-            >
-              <Icon name="lucide:link" class="w-4 h-4" />코드 복사
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  <!-- ═══════════════ T10b 나의 초대코드 팝업 (실제 발급 코드 그대로, 표기만 TERRA - 코드) ═══════════════ -->
+  <TerrariumInviteCodeModal
+    :open="showInviteCode"
+    :code="inviteCode"
+    :inviter-ruby="inviteInviterRuby"
+    :invitee-ruby="inviteInviteeRuby"
+    @close="showInviteCode = false"
+    @copy="onCopyInviteCode"
+    @share="onShareInviteCode"
+  />
+
+  <!-- ═══════════════ T14 해금 팝업 / 해금 성공 팝업 ═══════════════ -->
+  <TerrariumTierUnlockModal
+    :open="unlockTarget !== null"
+    :target="unlockTarget"
+    :ruby-balance="rubyBalance"
+    :busy="unlockBusy"
+    :success="unlockSuccess"
+    @close="closeUnlockModal"
+    @unlock="onUnlockConfirm"
+    @manage="onUnlockManage"
+  />
+
+  <!-- ═══════════════ T15 친구 방문 모달 (friends 페이지와 동일 컴포넌트/핸들러) ═══════════════ -->
+  <FriendsVisitModal
+    :open="visitModalOpen"
+    :friend="visitFriend"
+    :terrarium="visitTerrarium"
+    :liking="likingId !== null"
+    @close="visitModalOpen = false"
+    @toggle-like="visitFriend && onToggleLike(visitFriend)"
+  />
+
+  <!-- ═══════════════ T12 재화 환전 다이얼로그 (상점 컴포넌트 재사용) ═══════════════ -->
+  <ShopExchangeDialog v-model="showExchange" />
 
   <!-- ═══════════════ 출석체크 팝업 (아프젝 블루 정합 — 보상 수치는 서버 값 그대로) ═══════════════ -->
   <Teleport to="body">
@@ -723,33 +611,24 @@
     </Transition>
   </Teleport>
 
-  <!-- ═══════════════ 무료 코인(광고 보상) 다이얼로그 — T8: 스타일만 아프젝 정합(로직 무변경) ═══════════════ -->
+  <!-- ═══════════════ T8 광고보상 팝업 — "AD 광고보상" / "광고를 시청해서 루비 1개를 보상받아요!" / [AD] > 💎 / 검정 필 `광고 보기` ═══════════════ -->
   <CommonModal
     v-model="showFreeCoinDialog"
     :title="$t('home.adCoinTitle')"
     :confirm-text="$t('home.adCoinConfirm')"
-    :show-cancel="true"
-    :cancel-text="$t('common.close')"
+    :show-cancel="false"
     @confirm="onClaimAdReward"
   >
-    <div class="text-center py-2">
-      <div class="text-6xl mb-3">📺</div>
-      <h4 class="font-semibold text-base mb-2 text-apjek-text">{{ $t('home.adCoinSubtitle') }}</h4>
-      <p class="text-sm text-apjek-text-sub mb-3">{{ $t('home.adCoinDesc') }}</p>
-      <div class="rounded-xl p-3 text-left mb-3" style="background: var(--color-apjek-blue-soft)">
-        <p class="text-sm font-semibold mb-1" style="color: var(--color-apjek-blue-deep)">{{ $t('home.adCoinRewardTitle') }}</p>
-        <div class="flex items-center justify-between">
-          <span class="text-sm" style="color: var(--color-apjek-blue-deep)">{{ $t('home.adCoinWatchOnce') }}</span>
-          <span class="font-bold" style="color: var(--color-apjek-blue-deep)">{{ $t('home.adCoinAmount') }}</span>
-        </div>
-        <p class="text-xs pt-2 mt-2" style="color: var(--color-apjek-blue); border-top: 1px solid rgba(81,140,219,0.25)">{{ $t('home.adCoinLimit') }}</p>
+    <div class="text-center py-2" data-testid="home-ad-body">
+      <p class="text-sm font-semibold text-apjek-text mb-4">{{ $t('home.adCoinDesc') }}</p>
+      <!-- [AD] > 💎 일러스트 플레이스홀더 (에셋은 WS-F 자산 대기) -->
+      <div class="flex items-center justify-center gap-3 mb-2" aria-hidden="true">
+        <span class="w-14 h-14 rounded-2xl flex items-center justify-center text-sm font-extrabold text-white" style="background: var(--color-apjek-cta)">AD</span>
+        <Icon name="lucide:chevron-right" class="w-5 h-5 text-apjek-text-faint" />
+        <span class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style="background: var(--color-apjek-blue-soft)">💎</span>
       </div>
-      <div class="rounded-xl p-3 text-xs text-left text-apjek-text-sub" style="background: var(--color-apjek-bg)">{{ $t('home.adCoinHint') }}</div>
     </div>
   </CommonModal>
-
-  <!-- ═══════════════ Tier 모달 (레벨업 대체 — 별도 작업자가 내용 재작업) ═══════════════ -->
-  <CommonTierModal :show="showTierModal" @close="showTierModal = false" />
 
   <!-- Onboarding (첫 방문) -->
   <CommonOnboarding :show="showOnboarding" @close="showOnboarding = false" />
@@ -759,7 +638,6 @@
 import { Capacitor } from '@capacitor/core'
 import type {
   AdRewardResponse,
-  FreePlacementListResponse,
   HeartResponse,
   InviteResponse,
   ItemResponse,
@@ -767,6 +645,9 @@ import type {
   TerrariumResponse,
   UserMeResponse,
 } from '@terraworld-it/openapi-frontend'
+import type { ManageTab, ManageTile } from '~/components/terrarium/ManagePanel.vue'
+import type { TierUnlockSuccess } from '~/components/terrarium/TierUnlockModal.vue'
+import type { JarLevel } from '~/utils/tierLevels'
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
@@ -781,6 +662,8 @@ const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardC
 const { hapticImpact, share: nativeShare, shareToInstagram } = useNative()
 const config = useRuntimeConfig()
 const attendance = useAttendance()
+const tier = useTier()
+const bgm = useBgm()
 
 // ─── 좌표계 (MyTerra.tsx 그대로) ───
 const JAR = { minX: 30, maxX: 370, minY: 160, maxY: 520 }
@@ -850,40 +733,93 @@ onBeforeUnmount(() => {
   stageFitObserver = null
 })
 
-const showItemPicker = ref<boolean>(false)
 const showShareDialog = ref<boolean>(false)
 const showAttendance = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 // 광고 진입점 가용성 — SSR 은 항상 숨김, 클라 마운트 후 판정(하이드레이션 mismatch 회피).
+// T7b: 메뉴는 상시 노출하고, 비가용 환경은 탭 시 안내 토스트(§4 N-3).
 const adAvailable = ref<boolean>(false)
 onMounted(() => {
   const { isNative: adNative, isAndroid: adAndroid } = useAdMob()
   adAvailable.value = (adNative && adAndroid) || import.meta.dev
 })
-const showTierModal = ref<boolean>(false)
+function onAdMenuClick() {
+  if (adAvailable.value) {
+    showFreeCoinDialog.value = true
+    return
+  }
+  toast.info('앱에서 이용할 수 있어요')
+}
 const showOnboarding = ref<boolean>(false)
+const showExchange = ref<boolean>(false)
 
-// ─── T3 힐링 모드 — 풀블리드 감상 오버레이 (표시 전용, 배치/시들기/하트 로직 무변경) ───
+// ─── T3b/T13 모드 진입 인트로 — 1.2초 스플래시 후 실제 모드 전환 ───
+const introMode = ref<'healing' | 'manage' | null>(null)
+
+// ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) (배치/시들기/하트 로직 무변경) ───
 const healingMode = ref<boolean>(false)
+function enterHealingMode() {
+  introMode.value = 'healing'
+}
+function onHealingIntroDone() {
+  if (introMode.value !== 'healing') return
+  introMode.value = null
+  healingMode.value = true
+  void bgm.play()
+}
+function onToggleBgm() {
+  void bgm.toggle()
+}
+// 힐링 모드 종료(X/ESC/뒤로가기) 시 BGM 정지 — 페이지 이탈 시 정지는 useBgm 이 unmount 에서 보장.
+watch(healingMode, (on) => {
+  if (!on) bgm.stop()
+})
 
-// ─── T4 아코디언 (친구 목록 / 보유 재화) ───
-const friendsOpen = ref<boolean>(false)
-const walletOpen = ref<boolean>(false)
+// ─── T4b 아코디언 (친구 목록 / 보유 재화) — 기본 열림, 사용자가 접으면 localStorage 기억 ───
+const ACCORDION_KEYS = { friends: 'tw-home-friends-open', wallet: 'tw-home-wallet-open' } as const
+const friendsOpen = ref<boolean>(true)
+const walletOpen = ref<boolean>(true)
+function readAccordionPref(key: string, fallback: boolean): boolean {
+  if (!import.meta.client) return fallback
+  try {
+    const raw = localStorage.getItem(key)
+    return raw === null ? fallback : raw === '1'
+  }
+  catch {
+    return fallback
+  }
+}
+function writeAccordionPref(key: string, open: boolean): void {
+  if (!import.meta.client) return
+  try {
+    localStorage.setItem(key, open ? '1' : '0')
+  }
+  catch {
+    // 저장소 접근 불가 — 세션 내 상태만 유지
+  }
+}
+onMounted(() => {
+  friendsOpen.value = readAccordionPref(ACCORDION_KEYS.friends, true)
+  walletOpen.value = readAccordionPref(ACCORDION_KEYS.wallet, true)
+})
+watch(friendsOpen, open => writeAccordionPref(ACCORDION_KEYS.friends, open))
+watch(walletOpen, open => writeAccordionPref(ACCORDION_KEYS.wallet, open))
 
-// 친구 목록 — 아코디언 첫 오픈 시 1회 lazy load (구 피드 패널의 친구 리스트 로직 이동).
-interface HomeFriend { userId: string, nickname: string }
-const homeFriends = shallowRef<HomeFriend[]>([])
+// 친구 목록 — 아코디언 첫 오픈 시 1회 lazy load (기본 열림이라 마운트 직후 로드된다).
+// T15 방문 모달이 좋아요 수를 쓰므로 friends 페이지의 FriendItem 과 같은 shape 로 받는다.
+interface HomeFriend { userId: string, nickname: string, likeCount: number, liked?: boolean }
+const homeFriends = ref<HomeFriend[]>([])
 const homeFriendsLoading = ref<boolean>(false)
 const homeFriendsError = ref<boolean>(false)
 let homeFriendsLoaded = false
-watch(friendsOpen, async (open) => {
-  if (!open || homeFriendsLoaded) return
+async function loadHomeFriends() {
+  if (homeFriendsLoaded || homeFriendsLoading.value) return
   homeFriendsLoading.value = true
   homeFriendsError.value = false
   try {
     const { data, error } = await sdk.listFriends({ client })
     if (error) throw error
-    homeFriends.value = (castData<HomeFriend[]>(data) ?? []).slice(0, 5)
+    homeFriends.value = (castData<HomeFriend[]>(data) ?? []).slice(0, 5).map(f => ({ ...f, likeCount: f.likeCount ?? 0, liked: f.liked ?? false }))
     homeFriendsLoaded = true
   }
   catch {
@@ -893,18 +829,70 @@ watch(friendsOpen, async (open) => {
   finally {
     homeFriendsLoading.value = false
   }
-})
+}
+// 클라이언트에서만 로드 — SSR 에서 호출하면 JWT 없이 실패해 "불러오지 못했어요" 가 그대로 하이드레이션된다.
+watch(friendsOpen, (open) => {
+  if (open && import.meta.client) void loadHomeFriends()
+}, { immediate: true })
 
-// 보유 재화 — currency util 의 표시 메타 재사용. 코인류 3종 + 활동 토큰 4종 분리 표시.
-const mainCurrencies = CURRENCY_META.filter(c => c.code === 'COIN' || c.code === 'RUBY' || c.code === 'SPARKLE')
+// ─── T15 친구 방문 모달 — friends 페이지와 동일 핸들러(visitFriendTerrarium / toggleFriendLike) ───
+const visitModalOpen = ref<boolean>(false)
+const visitFriend = ref<HomeFriend | null>(null)
+const visitTerrarium = ref<TerrariumResponse | null>(null)
+const visitingId = ref<string | null>(null)
+const likingId = ref<string | null>(null)
+async function onVisitFriend(friend: HomeFriend) {
+  if (visitingId.value) return
+  visitingId.value = friend.userId
+  visitFriend.value = friend
+  visitTerrarium.value = null
+  visitModalOpen.value = true
+  try {
+    const { data, error } = await sdk.visitFriendTerrarium({ client, path: { friendId: friend.userId } })
+    if (error) throw error
+    visitTerrarium.value = castData<TerrariumResponse>(data) ?? null
+  }
+  catch {
+    // 실패를 방치하면 모달이 로딩 상태로 영구 고착된다 — 닫고 안내.
+    visitModalOpen.value = false
+    toast.error(t('friends.visitError'))
+  }
+  finally {
+    visitingId.value = null
+  }
+}
+async function onToggleLike(friend: HomeFriend) {
+  if (likingId.value) return
+  likingId.value = friend.userId
+  try {
+    const { data, error } = await sdk.toggleFriendLike({ client, path: { friendId: friend.userId } })
+    if (error) throw error
+    const result = castData<{ liked: boolean, likeCount: number }>(data)
+    if (result) {
+      friend.liked = result.liked
+      friend.likeCount = result.likeCount
+      toast.success(result.liked ? '좋아요를 남겼어요 ♥' : '좋아요를 취소했어요')
+    }
+  }
+  catch {
+    toast.error(t('friends.likeError'))
+  }
+  finally {
+    likingId.value = null
+  }
+}
+
+// 보유 재화 — currency util 의 표시 메타 재사용. 코인류 3종(코인/반짝이/루비) + 활동 토큰 4종 분리 표시.
+const mainCurrencies = CURRENCY_META.filter(c => c.code === 'COIN' || c.code === 'SPARKLE' || c.code === 'RUBY')
 const tokenCurrencies = CURRENCY_META.filter(c => c.code === 'DEW' || c.code === 'SUN' || c.code === 'BOLT' || c.code === 'WIND')
+const rubyBalance = computed<number>(() => balanceOf(user.value?.currency, 'RUBY'))
 
 // 잔액 표시 포맷 — profile 페이지와 동일 규약(소수 절사 + 천단위 구분).
 function formatBalance(amount: number): string {
   return Math.floor(amount).toLocaleString()
 }
 
-// ─── T1 알림함 — 실 팝업 + 미읽음 마젠타 점 뱃지 ───
+// ─── T1b 알림 — 우측 슬라이드 패널 + 미읽음 마젠타 점 뱃지 ───
 const showNotifications = ref<boolean>(false)
 const notifyUnread = ref<number>(0)
 function onNotifyClick() {
@@ -925,7 +913,7 @@ onMounted(async () => {
 
 // Android 하드웨어 뒤로가기 — CommonModal 을 거치지 않는 이 페이지의 bespoke 오버레이(Teleport
 // v-if 패널)들은 각자 back-stack 에 직접 등록해야 뒤로가기가 라우트 이동/앱종료 대신 오버레이부터
-// 닫는다(showFreeCoinDialog 는 CommonModal 사용이라 Modal.vue 쪽에서 이미 처리됨 — 중복 등록 방지).
+// 닫는다(showFreeCoinDialog 는 CommonModal, 공유/초대/해금 팝업은 TerrariumHomeDialog 가 각자 처리 — 중복 등록 방지).
 const { pushBackHandler } = useBackButtonStack()
 function registerOverlayBackClose(overlayOpen: Ref<boolean>) {
   let unregister: (() => void) | null = null
@@ -937,31 +925,33 @@ function registerOverlayBackClose(overlayOpen: Ref<boolean>) {
       unregister = null
     }
   })
-  // Codex 감사 지적 — 오버레이가 열린 채로 라우트 이탈(딥링크/탭 네비게이션)해 이 페이지가
-  // unmount 되면 watch 의 close 분기가 안 돌아 스택에 stale handler 가 영구히 남는다.
+  // 오버레이가 열린 채로 라우트 이탈(딥링크/탭 네비게이션)해 이 페이지가 unmount 되면
+  // watch 의 close 분기가 안 돌아 스택에 stale handler 가 영구히 남는다.
   onBeforeUnmount(() => {
     unregister?.()
     unregister = null
   })
 }
-// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적 —
-// aria-modal 선언만 하고 focus containment 가 없으면 스크린리더에 거짓 계약이 됨).
-// 아이템추가/공유 시트는 CommonBottomSheet 가 focus trap + 뒤로가기 + ESC 를 내장 처리하므로
-// 여기 등록하지 않는다(이중 등록 금지). 힐링 모드는 스테이지 컨테이너 자체가 오버레이 루트가
-// 되므로 stageEl 을 트랩 루트로 재사용한다(스크롤 잠금 + ESC 닫기 포함).
+// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여. 힐링 모드는 스테이지
+// 컨테이너 자체가 오버레이 루트가 되므로 stageEl 을 트랩 루트로 재사용한다(스크롤 잠금 + ESC 닫기 포함).
 const attendanceRoot = ref<HTMLElement | null>(null)
-const inviteRoot = ref<HTMLElement | null>(null)
-// ─── T10 초대코드 팝업 상태 — 발급 코드는 변형 없이 그대로 표시한다 ───
-const showInviteCode = ref<boolean>(false)
-const inviteCode = ref<string>('')
-const inviteCreating = ref<boolean>(false)
 useDialogFocusTrap(attendanceRoot, showAttendance, () => { showAttendance.value = false })
-useDialogFocusTrap(inviteRoot, showInviteCode, () => { showInviteCode.value = false })
 useDialogFocusTrap(stageEl, healingMode, () => { healingMode.value = false })
 
 registerOverlayBackClose(showAttendance)
-registerOverlayBackClose(showInviteCode)
 registerOverlayBackClose(healingMode)
+// 관리 모드도 뒤로가기로 종료(하단 패널이 nav 를 덮으므로 탈출 경로 보장).
+registerOverlayBackClose(editMode)
+
+// ─── T10b 초대코드 팝업 상태 — 발급 코드는 변형 없이 그대로 표시(표기만 TERRA - 코드) ───
+const showInviteCode = ref<boolean>(false)
+const inviteCode = ref<string>('')
+const inviteLink = ref<string>('')
+// 보상 수치 — 스펙 초안(N-B3) `CreateInviteResponse.inviterRuby/inviteeRuby` 가 SDK 에 생기면 채워진다.
+// TODO(WS-A N-B3 머지 후): InviteResponse 타입에서 optional chaining 제거.
+const inviteInviterRuby = ref<number | null>(null)
+const inviteInviteeRuby = ref<number | null>(null)
+const inviteCreating = ref<boolean>(false)
 
 const heartBusy = ref<boolean>(false)
 const heartFloats = ref<{ id: number }[]>([])
@@ -981,11 +971,16 @@ const checkedCount = computed<number>(() => {
   return (inWeek === 0 && s > 0 && alreadyCheckedToday.value) ? 7 : inWeek
 })
 
-// 보유 아이템 (아이템추가 시트) — slug 기준으로 소유 판정.
+// 보유 아이템 — slug 기준으로 소유 판정. 관리 패널 탭별로 layout 으로 나눈다
+// (아이템 배치 = FOREGROUND, 정령 = FIGURE, 배경 = BACKGROUND).
 const ownedSlugs = computed<Set<string>>(() => new Set(user.value?.ownedItems ?? []))
 const ownedItems = computed<ItemResponse[]>(() =>
   allItems.value.filter(item => item.slug && ownedSlugs.value.has(item.slug)),
 )
+const ownedPlaceables = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout !== 'BACKGROUND' && i.layout !== 'FIGURE'))
+const ownedSpirits = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout === 'FIGURE'))
+const ownedBackgrounds = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout === 'BACKGROUND'))
+const maxSlots = computed<number>(() => terrarium.value?.maxSlots ?? 6)
 
 // ─── Helpers ───
 function isUrl(s: string | undefined | null): boolean {
@@ -1097,7 +1092,7 @@ function applySnapshot(snap: NonNullable<typeof homeSnapshot.snapshot>) {
 
 // immediate: 탭 복귀 시 캐시된 스냅샷을 네트워크 대기 없이 즉시 렌더 (FE-05).
 // 편집 모드 중에는 적용을 보류 — 진행 중 드래그/미저장 편집을 백그라운드 응답이
-// 되돌리지 않게 하고, 편집 종료 시점에 최신 스냅샷을 반영한다 (Codex 리뷰).
+// 되돌리지 않게 하고, 편집 종료 시점에 최신 스냅샷을 반영한다.
 let deferredSnapshotApply = false
 watch(() => homeSnapshot.snapshot, (snap) => {
   if (!snap) return
@@ -1123,11 +1118,95 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
 }
 
-// ─── 편집(관리) 모드 ───
-function toggleEditMode() {
-  editMode.value = !editMode.value
-  showItemPicker.value = false
+// ─── T13 관리 모드 — 인트로 → 칩 3종 + 하단 고정 패널 + [저장하기] ───
+const manageTab = ref<ManageTab>('items')
+const manageChips: { tab: ManageTab, label: string, icon: string }[] = [
+  { tab: 'items', label: '아이템 배치', icon: '🌱' },
+  { tab: 'spirits', label: '정령', icon: '' },
+  { tab: 'backgrounds', label: '배경 설정', icon: '✏️' },
+]
+const saving = ref<boolean>(false)
+// 편집 후 서버 저장이 아직 확정되지 않은 배치(드래그 종료 즉시 저장이 실패했거나 진행 중) —
+// [저장하기]가 최종 확정 시점이라 여기 남은 것만 재전송한다.
+const dirtyPlacementIds = ref<Set<number>>(new Set())
+
+function enterManageMode() {
+  introMode.value = 'manage'
+}
+function onManageIntroDone() {
+  if (introMode.value !== 'manage') return
+  introMode.value = null
+  manageTab.value = 'items'
   selectedItemId.value = null
+  editMode.value = true
+}
+function exitManageMode() {
+  editMode.value = false
+  selectedItemId.value = null
+}
+
+// 패널 타일 — 탭별 보유 목록. 배치(아이템/정령)/현재 적용(배경) 체크 표시.
+const manageTiles = computed<ManageTile[]>(() => {
+  if (manageTab.value === 'backgrounds') {
+    return ownedBackgrounds.value.map(i => ({ id: i.id, name: i.name, assetUrl: i.assetUrl, checked: currentBackgroundAssetUrl.value === i.assetUrl }))
+  }
+  const source = manageTab.value === 'spirits' ? ownedSpirits.value : ownedPlaceables.value
+  return source.map(i => ({ id: i.id, name: i.name, assetUrl: i.assetUrl, checked: isItemPlaced(i.id) }))
+})
+const manageEmptyCta = computed<string | undefined>(() => {
+  if (manageTab.value === 'spirits') return '키우기 가기'
+  return '상점 가기'
+})
+function onManageEmptyCta() {
+  navigateTo(manageTab.value === 'spirits' ? '/grow' : '/shop')
+}
+
+// 배치 초과 안내 — Figma 393×88 카드형 토스트 "🚫 배치 가능한 아이템 수를 초과 했습니다 / 배치 가능한 아이템 : N개"
+// TODO(C4 머지 후): 카드형 토스트({title, description, icon, variant:'card'})로 교체
+function toastSlotExceeded() {
+  toast.error(`🚫 배치 가능한 아이템 수를 초과 했습니다 · 배치 가능한 아이템 : ${maxSlots.value}개`)
+}
+
+async function onManageTile(tile: ManageTile) {
+  if (manageTab.value === 'backgrounds') {
+    const item = ownedBackgrounds.value.find(i => i.id === tile.id)
+    if (item) await onSelectBackground(item)
+    return
+  }
+  // 이미 배치된 타일 탭 = 스테이지의 해당 아이템 선택 토글(핸들로 이동/삭제).
+  if (tile.checked) {
+    const placed = placedItems.value.find(p => p.itemId === tile.id)
+    selectedItemId.value = placed && selectedItemId.value !== placed.placementId ? placed.placementId : null
+    return
+  }
+  if (placedItems.value.length >= maxSlots.value) {
+    toastSlotExceeded()
+    return
+  }
+  const item = (manageTab.value === 'spirits' ? ownedSpirits.value : ownedPlaceables.value).find(i => i.id === tile.id)
+  if (item) await onAddItem(item)
+}
+
+// [저장하기] — 미확정 배치를 재전송해 최종 확정하고 토스트 "저장됨" 후 메인으로(관리 모드 종료, 댓글 #41).
+async function onSaveManage() {
+  if (saving.value) return
+  saving.value = true
+  try {
+    const pendingIds = [...dirtyPlacementIds.value]
+    const targets = placedItems.value.filter(p => pendingIds.includes(p.placementId))
+    if (targets.length > 0) {
+      const results = await Promise.all(targets.map(p => persistPosition(p)))
+      if (results.some(ok => !ok)) {
+        toast.error('일부 배치를 저장하지 못했어요. 다시 시도해 주세요')
+        return
+      }
+    }
+    toast.success('저장됨')
+    exitManageMode()
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 // ─── 휠 줌 (비편집 시만 — 힐링 모드 포함) ───
@@ -1238,21 +1317,23 @@ function changeDepth(placed: PlacedFreeItem, delta: number) {
 
 // ─── 위치 저장 (드래그 종료 → updateFreePosition, entitlement 필요) ───
 // 미보유 안내 toast 는 세션 내 1회만 (매 드래그마다 반복 방지, FP-03).
+// 반환값: 서버 확정 여부 — [저장하기]가 미확정 건을 모아 재전송할 때 쓴다.
 const freePlacementNoticeShown = ref<boolean>(false)
-async function persistPosition(placed: PlacedFreeItem) {
+async function persistPosition(placed: PlacedFreeItem): Promise<boolean> {
   if (!user.value?.entitlements?.freePlacement) {
     // 미보유 시 preview — 저장 시도 안 함(403 회피). 저장 불가 안내 1회.
     if (!freePlacementNoticeShown.value) {
       freePlacementNoticeShown.value = true
       toast.info('자유배치 저장은 잠금해제 후 가능해요')
     }
-    return
+    return true
   }
+  dirtyPlacementIds.value.add(placed.placementId)
   try {
     const posX = clamp(placed.x / 400, 0, 1)
     const posY = clamp(placed.y / 552, 0, 1)
     // 저장 전 진행 중 snapshot fetch 를 세대 무효화 — 저장 완료 전에 도착하는 stale GET 이
-    // 스토어에 커밋되어 이 편집을 되돌리는 race 차단 (Codex 리뷰).
+    // 스토어에 커밋되어 이 편집을 되돌리는 race 차단.
     homeSnapshot.invalidate()
     // 낙서장 자유배치 편집 영속(req3 #2): 위치 + 크기/반전/깊이 함께 저장.
     const { error } = await sdk.updateFreePosition({
@@ -1263,7 +1344,7 @@ async function persistPosition(placed: PlacedFreeItem) {
     if (error) throw new Error(errMsg(error, '위치 저장 실패'))
     trackFreePlacementSaved({ itemCount: placedItems.value.length })
     // 저장 확정값을 스냅샷에 원자 반영 — invalidate 만으로는 탭 복귀 시 저장 전 좌표가
-    // 먼저 렌더되고 후속 편집이 그 stale 값을 재전송할 수 있다 (Codex 리뷰).
+    // 먼저 렌더되고 후속 편집이 그 stale 값을 재전송할 수 있다.
     homeSnapshot.patchFreePlacement(placed.placementId, {
       posX,
       posY,
@@ -1271,13 +1352,16 @@ async function persistPosition(placed: PlacedFreeItem) {
       flipped: placed.flipped,
       zIndex: placed.zIndex,
     })
+    dirtyPlacementIds.value.delete(placed.placementId)
+    return true
   }
   catch (e) {
     toast.error((e as Error).message)
+    return false
   }
 }
 
-// ─── 아이템 추가 (아이템추가 시트 → 슬롯 배치 후 free-placement 재로드) ───
+// ─── 아이템 추가 (관리 패널 타일 → 슬롯 배치 후 free-placement 재로드) ───
 async function onAddItem(item: ItemResponse) {
   if (isItemPlaced(item.id)) {
     toast.error('이미 배치된 아이템입니다.')
@@ -1295,13 +1379,13 @@ async function onAddItem(item: ItemResponse) {
     // 낙서장 자유배치(backend req3 #1): slotId 는 배치 인덱스(0..maxSlots-1), tier 슬롯 수만큼 배치 가능.
     // 시각 위치는 free placement(posX/posY)가 결정하므로 layout→slot 제약 없음. 첫 빈 인덱스 배정.
     const usedSlots = new Set((snapshot?.placedItems ?? []).map(p => p.slotId ?? 0))
-    const maxSlots = snapshot?.maxSlots ?? 6
+    const slotCap = snapshot?.maxSlots ?? 6
     let freeSlot = -1
-    for (let s = 0; s < maxSlots; s++) {
+    for (let s = 0; s < slotCap; s++) {
       if (!usedSlots.has(s)) { freeSlot = s; break }
     }
     if (freeSlot < 0) {
-      toast.error('배치할 빈 자리가 없어요 — 공간을 넓혀보세요')
+      toastSlotExceeded()
       return
     }
     const existing = (snapshot?.placedItems ?? []).map(p => ({ itemId: p.itemId, slotId: p.slotId ?? 0 }))
@@ -1311,7 +1395,6 @@ async function onAddItem(item: ItemResponse) {
     if (error) throw new Error(errMsg(error, '배치 실패'))
 
     await reloadAfterPlacement()
-    showItemPicker.value = false
     toast.success('아이템이 배치되었습니다!')
   }
   catch (e) {
@@ -1332,6 +1415,7 @@ async function removeItem(placed: PlacedFreeItem) {
     const { error } = await sdk.updateTerrariumPlacements({ client, body: { placedItems: existing } })
     if (error) throw new Error(errMsg(error, '제거 실패'))
     selectedItemId.value = null
+    dirtyPlacementIds.value.delete(placed.placementId)
     await reloadAfterPlacement()
     toast.success('아이템이 제거되었습니다!')
   }
@@ -1392,7 +1476,7 @@ async function onAttendanceCheck() {
   }
 }
 
-// ─── 광고 보상 (기존 로직 보존) ───
+// ─── 광고 보상 (기존 로직 보존 — 보상 표시는 서버 응답(RUBY 1) 기준) ───
 async function onClaimAdReward() {
   try {
     const { showRewardedAd, generateNonce } = useAdMob()
@@ -1411,6 +1495,7 @@ async function onClaimAdReward() {
     if (res.error) throw new Error(errMsg(res.error, '광고 보상 실패'))
     const ad = castData<AdRewardResponse>(res.data)
     if (ad) userStore.updateCurrency(ad.updatedCurrency)
+    // reward.specialCoins 는 필드명만 구세대 — 실지급 재화는 RUBY(백엔드 AdRewardService, 고정 1).
     const reward = ad?.reward.specialCoins ?? 0
     toast.success(t('home.adRewardEarned', { n: reward }))
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
@@ -1439,7 +1524,7 @@ function onSnsShare() {
   void nativeShare({ title: 'TERRAWORLD', text: t('home.shareText'), url: import.meta.client ? window.location.href : '' })
 }
 
-// ─── T10 초대코드 — 실제 발급(createInvite) + "나의 초대코드" 팝업 + 클립보드 복사 ───
+// ─── T10b 초대코드 — 실제 발급(createInvite) + "나의 초대코드" 팝업 + 클립보드 복사/시스템 공유 ───
 async function onInviteShare() {
   if (inviteCreating.value) return
   inviteCreating.value = true
@@ -1447,10 +1532,14 @@ async function onInviteShare() {
     // friends 페이지와 동일 API — 8자 코드 + 7일 만료. 발급 코드를 변형 없이 그대로 표시한다.
     const { data, error } = await sdk.createInvite({ client })
     if (error) throw new Error(errMsg(error, '초대코드 발급에 실패했어요'))
-    const invite = castData<InviteResponse>(data)
-    const code = (invite as { inviteCode?: string } | null)?.inviteCode ?? ''
+    const invite = castData<InviteResponse & { inviterRuby?: number | null, inviteeRuby?: number | null }>(data)
+    const code = invite?.inviteCode ?? ''
     if (!code) throw new Error('초대코드 발급에 실패했어요')
     inviteCode.value = code
+    inviteLink.value = invite?.inviteLink ?? ''
+    // 보상 수치는 서버 응답 필드가 있을 때만 — 없으면 중립 카피(TODO(WS-A N-B3 머지 후) 타입 정식화).
+    inviteInviterRuby.value = typeof invite?.inviterRuby === 'number' ? invite.inviterRuby : null
+    inviteInviteeRuby.value = typeof invite?.inviteeRuby === 'number' ? invite.inviteeRuby : null
     showShareDialog.value = false
     showInviteCode.value = true
   }
@@ -1466,6 +1555,7 @@ async function onCopyInviteCode() {
   if (!inviteCode.value || !import.meta.client) return
   // friends 페이지 copyMyCode 와 동일 규약 — WebView 에서 clipboard 권한 거부/제스처 밖 호출로
   // write 가 reject 될 수 있어, 복사 실패를 조용히 삼키지 않고 코드를 직접 노출한다.
+  // 복사 값은 원본 코드(친구의 코드 입력칸에 그대로 붙여넣을 수 있게) — 'TERRA - ' 접두는 표기 전용.
   if (navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(inviteCode.value)
@@ -1479,28 +1569,37 @@ async function onCopyInviteCode() {
   toast.info(`초대코드: ${inviteCode.value}`)
 }
 
-// ─── T9 배경 설정 — 보유 BACKGROUND 아이템 선택 → setTerrariumBackground ───
-// 홈은 현재 배경을 시각 렌더하지 않는다(Jar1 정적 아트) — 설정 API 배선 + 선택 UI 까지가 범위.
-const showBackgroundPicker = ref<boolean>(false)
+// [공유 하기] — 시스템 공유 시트(navigator.share / Capacitor Share), 미지원 환경은 useNative.share 가 클립보드 폴백.
+async function onShareInviteCode() {
+  if (!inviteCode.value) return
+  const url = inviteLink.value || (import.meta.client ? window.location.origin : '')
+  await nativeShare({
+    title: 'TERRAWORLD 초대코드',
+    text: `나의 초대코드 TERRA - ${inviteCode.value} 로 테라월드에 가입해요!`,
+    url,
+  })
+}
+
+// ─── T13 배경 설정 — 보유 BACKGROUND 아이템 선택 → setTerrariumBackground + 홈 병 배경 시각 렌더 ───
 const backgroundBusy = ref<boolean>(false)
-const ownedBackgrounds = computed<ItemResponse[]>(() => ownedItems.value.filter(i => i.layout === 'BACKGROUND'))
 // 응답 BackgroundInfo.id 는 terrarium_backgrounds PK. PUT 은 itemId. 동일 배경은 assetUrl 로 대조.
 const currentBackgroundAssetUrl = computed<string | null>(() => terrarium.value?.background?.assetUrl ?? null)
+// 병 뒤 배경 레이어 — URL 에셋만 이미지로 그린다(이모지 에셋은 글로우 유지).
+const backgroundImageUrl = computed<string | null>(() =>
+  isUrl(currentBackgroundAssetUrl.value) ? currentBackgroundAssetUrl.value : null,
+)
 
 async function onSelectBackground(item: ItemResponse) {
   if (backgroundBusy.value) return
   // 이미 현재 배경이면 호출 생략 — 서버 동일 배경 재설정 회피.
-  if (currentBackgroundAssetUrl.value && item.assetUrl && currentBackgroundAssetUrl.value === item.assetUrl) {
-    showBackgroundPicker.value = false
-    return
-  }
+  if (currentBackgroundAssetUrl.value && item.assetUrl && currentBackgroundAssetUrl.value === item.assetUrl) return
   backgroundBusy.value = true
   try {
     const { error } = await sdk.setTerrariumBackground({ client, body: { itemId: item.id } })
     if (error) throw new Error(errMsg(error, '배경 설정 실패'))
     // 배치 변경과 동일 규약 — homeSnapshot 강제 갱신(fetch(true)) 후 단일 적용 경로로 반영.
+    // 편집 모드 중 watch 는 적용을 보류하므로 여기서 직접 applySnapshot 한다(배경은 로컬 편집과 충돌 없음).
     await reloadAfterPlacement()
-    showBackgroundPicker.value = false
     toast.success('배경이 설정되었어요!')
   }
   catch (e) {
@@ -1513,12 +1612,12 @@ async function onSelectBackground(item: ItemResponse) {
 
 async function onImageSave() {
   // 다이얼로그가 즉시 닫혀 같은 버튼 재클릭은 막히지만, 사용자가 공유 다이얼로그를 다시 열어
-  // capture 가 끝나기 전에 "이미지 저장"을 또 누르는 재진입은 막히지 않는다(Codex 감사 지적).
+  // capture 가 끝나기 전에 "이미지 저장"을 또 누르는 재진입은 막히지 않는다.
   if (capturingImage.value) return
   showShareDialog.value = false
   if (!import.meta.client) return
   capturingImage.value = true
-  // Codex R1 #5: 바깥 컨테이너(w-full overflow-hidden)를 캡처하면 onclone 의 scale(1) 원복 후
+  // 바깥 컨테이너(w-full overflow-hidden)를 캡처하면 onclone 의 scale(1) 원복 후
   // 좁은 화면(<400px)에서 스테이지 좌우가 clip 된다 — 스토리 공유와 동일하게 내부 스테이지
   // (설계 400×552)를 직접 캡처한다.
   const target = document.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
@@ -1540,7 +1639,7 @@ async function onImageSave() {
         scale: 2,
         useCORS: true,
         logging: false,
-        // Codex R1 #6: withTimeout 은 race 만 끊고 html2canvas 자체는 취소 못 한다 —
+        // withTimeout 은 race 만 끊고 html2canvas 자체는 취소 못 한다 —
         // 내부 이미지 로드 대기(hang 의 전형 원인)를 외부 데드라인보다 짧게 잘라
         // 원본 promise 도 스스로 종료되게 한다.
         imageTimeout: 8_000,
@@ -1561,10 +1660,12 @@ async function onImageSave() {
       return
     }
     // shareToInstagram() 은 취소/실패 시에도 정상 반환하고(내부에서 실패 토스트는 이미 띄움),
-    // false 를 돌려준다 — 여기서 성공 토스트/추적이 실패 뒤에도 나가지 않도록 분기(Codex 감사 지적).
+    // false 를 돌려준다 — 여기서 성공 토스트/추적이 실패 뒤에도 나가지 않도록 분기.
     const ok = await shareToInstagram(blob, filename, { title: 'TerraWorld', text: t('home.shareText') })
     if (!ok) return
-    toast.success(t('home.shareReady'))
+    // Figma 393×88 카드형 토스트 "🖼️ 이미지 저장 완료 / 나의 테라 이미지가 사진첩에 저장되었어요"
+    // TODO(C4 머지 후): 카드형 토스트({title, description, icon, variant:'card'})로 교체
+    toast.success('🖼️ 이미지 저장 완료 · 나의 테라 이미지가 사진첩에 저장되었어요')
     trackScreenshotSaved({ context: 'home' })
     trackShareCreated({ method: 'screenshot' })
   }
@@ -1576,7 +1677,7 @@ async function onImageSave() {
   }
 }
 
-// ─── 인스타 스토리 공유 (2026-07-21 — Codex 설계 [B]) ───
+// ─── 인스타 스토리 공유 (2026-07-21 — 설계 [B]) ───
 // 네이티브 + 플러그인 존재 시에만 진입점 노출. 캡처는 400×552 스테이지를 투명 배경으로 —
 // onclone 에서 scale transform 을 원복해(스테이지는 화면상 축소 렌더) 설계 해상도로 뜬다.
 const storyShareAvailable = ref<boolean>(false)
@@ -1621,7 +1722,7 @@ async function onInstagramStoryShare() {
       trackShareCreated({ method: 'instagram_story' })
       return
     }
-    // 미설치/미설정/실패 — 기존 시스템 공유 시트로 폴백 (폴백 제거 금지, Codex 설계 [B]).
+    // 미설치/미설정/실패 — 기존 시스템 공유 시트로 폴백 (폴백 제거 금지, 설계 [B]).
     toast.info('인스타그램 스토리로 바로 열 수 없어 시스템 공유로 대신 열어요')
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
     if (blob) {
@@ -1636,18 +1737,66 @@ async function onInstagramStoryShare() {
   }
 }
 
+// ─── T14 병 캐러셀 + 해금 팝업 — useTier(getTierCatalog/unlockTier) 구동, tierOrder 1~3 → Lv1~3 ───
+const jarLevels = computed<JarLevel[]>(() => toJarLevels(tier.catalog.value))
+// '보기' 선택 레벨 — 활성 병 전환 API(PUT /terrarium/active-tier)가 아직 없어 선택 표시만 한다.
+// TODO(WS-A N-B4 머지 후): 선택 시 active-tier 저장 + 해당 병 배치로 전환.
+const viewLevel = ref<number>(1)
+const unlockTarget = ref<JarLevel | null>(null)
+const unlockBusy = ref<boolean>(false)
+const unlockSuccess = ref<TierUnlockSuccess | null>(null)
+
+function onSelectLevel(level: JarLevel) {
+  viewLevel.value = viewLevel.value === level.level ? 1 : level.level
+}
+function onUnlockRequest(level: JarLevel) {
+  unlockSuccess.value = null
+  unlockTarget.value = level
+}
+function closeUnlockModal() {
+  unlockTarget.value = null
+  unlockSuccess.value = null
+}
+async function onUnlockConfirm(level: JarLevel) {
+  if (unlockBusy.value) return
+  unlockBusy.value = true
+  try {
+    const outcome = await tier.unlock(level.tier)
+    if (!outcome.ok) {
+      const code = outcome.error?.code
+      if (code === 'INSUFFICIENT_FUNDS') toast.error('루비가 부족해요')
+      else toast.error(errMsg(outcome.error, '해금에 실패했어요'))
+      return
+    }
+    userStore.updateCurrency(outcome.data.updatedCurrency)
+    unlockSuccess.value = { level: level.level, grantedSpirit: outcome.data.grantedSpirit ?? null }
+    // 슬롯 수(maxSlots)·정령 지급이 바뀌므로 홈 스냅샷과 프로필을 강제 갱신한다.
+    await Promise.all([reloadAfterPlacement(), userStore.fetchMe()])
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+  }
+  finally {
+    unlockBusy.value = false
+  }
+}
+function onUnlockManage() {
+  closeUnlockModal()
+  enterManageMode()
+}
+
 // ─── mount ───
 onMounted(async () => {
   if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
     showOnboarding.value = true
   }
-  await Promise.all([load(), attendance.refresh()])
+  await Promise.all([load(), attendance.refresh(), tier.load()])
 })
 
 // middleware/auth.ts 는 named middleware라 pageMeta 에 명시해야 실행된다. 이게 빠져있어서
 // '/' 를 PUBLIC_EXACT 에서 제거해도 실제로는 미들웨어가 전혀 실행되지 않아 미로그인 상태에서
 // 메인 화면이 그대로 렌더링되고, API 401 인터셉터가 뒤늦게 로그인으로 리다이렉트하는 flash 버그가
-// 그대로 남아있었다 (Codex 감사로 발견).
+// 그대로 남아있었다.
 definePageMeta({ layout: 'default', middleware: 'auth' })
 </script>
 
@@ -1684,7 +1833,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
   color: var(--color-apjek-blue-deep);
 }
 
-/* 모드 필 (힐링/관리/편집완료) — 단일행 유지 (wrap 시 인접 요소 겹침 방지 규약) */
+/* 모드 필 (힐링/관리) — 단일행 유지 (wrap 시 인접 요소 겹침 방지 규약) */
 .mode-pill {
   display: inline-flex;
   align-items: center;
@@ -1722,7 +1871,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 }
 .item-float { animation: itemFloat 2s ease-in-out infinite; }
 
-/* 중앙 다이얼로그 spring 근사 (출석/초대코드 팝업 공용) */
+/* 중앙 다이얼로그 spring 근사 (출석 팝업) */
 .dialog-enter-active,
 .dialog-leave-active { transition: opacity 0.25s ease; }
 .dialog-enter-active > div:last-child,
