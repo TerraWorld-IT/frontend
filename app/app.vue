@@ -10,7 +10,15 @@
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
-  <CommonToast />
+  <!--
+    CommonToast 는 ClientOnly — 토스트는 클라이언트 상태뿐이라 SSR 산출물이 필요 없고, SSR 로 내보내면
+    하이드레이션 불일치가 난다: Nuxt 는 body 텔레포트 내용을 body 맨 앞에 순서대로 붙이고 Vue 는 body.firstChild
+    부터 커서(_lpa)로 차례로 맞추는데, 레이아웃은 비동기 컴포넌트라 그 안의 페이지 텔레포트(바텀시트 등)는
+    나중에 하이드레이션되고 레이아웃 밖의 토스트가 먼저 그 자리를 가져가 `#comment` vs `div` 가 어긋난다.
+  -->
+  <ClientOnly>
+    <CommonToast />
+  </ClientOnly>
   <CommonAppUpdateGate />
 </template>
 
