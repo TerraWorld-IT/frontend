@@ -1,9 +1,9 @@
 import type { AttendanceCheckInResponse, AttendanceResponse } from '@terraworld-it/openapi-frontend'
 
 /**
- * 출석 체크인 composable.
- * - state(): 오늘 수령 여부 + streak + 다음 보상
- * - checkIn(): 하루 1회 호출. 이미 수령 시 409 (sdk error)
+ * 출석 체크인 composable (아프젝 v2 — 7일 사이클 보드).
+ * - state(): 오늘 수령 여부 + streak + 7일 보드(board[]) + cycleDay + 사이클 보너스 루비(cycleBonusRuby/Claimed)
+ * - checkIn(): 하루 1회 호출. 이미 수령 시 409 (sdk error). 응답 reward 에 basicCoins + rubyBonus(7일차만 >0)
  *
  * 사용 예 (홈 우측 상단 위젯에서):
  *   const { state, checkIn, refresh } = useAttendance()

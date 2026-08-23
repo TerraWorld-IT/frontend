@@ -531,13 +531,13 @@
   <!-- ═══════════════ T12 재화 환전 다이얼로그 (상점 컴포넌트 재사용) ═══════════════ -->
   <ShopExchangeDialog v-model="showExchange" />
 
-  <!-- ═══════════════ 출석체크 팝업 (아프젝 블루 정합 — 보상 수치는 서버 값 그대로) ═══════════════ -->
+  <!-- ═══════════════ T6 출석체크 팝업 — Figma "출석 체크 팝업" 3종(출석 전 / 오늘 완료 / 7일 완료). 보드·보상은 서버 AttendanceResponse 그대로 ═══════════════ -->
   <Teleport to="body">
     <Transition name="dialog">
       <div v-if="showAttendance" ref="attendanceRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="출석체크">
         <div class="fixed inset-0 bg-black/40" @click="showAttendance = false" />
         <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
-          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)">
+          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)" data-testid="attendance-popup">
             <div class="flex items-center justify-between mb-5">
               <div class="flex items-center gap-2.5">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background: var(--color-apjek-blue-soft)">
@@ -545,8 +545,7 @@
                 </div>
                 <div>
                   <h3 class="font-bold text-base" style="color: #111111">출석체크</h3>
-                  <!-- T6: 실지급은 코인 — ⭐(반짝이 암시) 카피 제거 -->
-                  <p class="text-[10px]" style="color: #a1a1a1">7일 연속 출석 시 보너스 획득</p>
+                  <p class="text-[10px]" style="color: #a1a1a1" data-testid="attendance-subtitle">{{ attendanceSubtitle }}</p>
                 </div>
               </div>
               <button
@@ -559,51 +558,50 @@
                 <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
               </button>
             </div>
-            <div class="flex justify-center gap-3 mb-6">
-              <div v-for="i in 7" :key="`att-dot-${i}`" class="flex flex-col items-center gap-1">
+            <!-- 7일 보드 — board[] 순서대로 1~7 원형 + "+코인N" 라벨, 수령한 칸은 체크 -->
+            <div class="flex justify-center gap-3 mb-6" data-testid="attendance-board">
+              <div v-for="cell in attendanceBoard" :key="`att-day-${cell.day}`" class="flex flex-col items-center gap-1">
                 <div
                   class="w-9 h-9 rounded-full flex items-center justify-center"
                   :style="{
-                    background: attDotChecked(i - 1)
+                    background: cell.claimed
                       ? 'var(--color-apjek-blue)'
-                      : attDotCurrent(i - 1) ? 'var(--color-apjek-blue-soft)' : 'rgba(200,200,220,0.15)',
-                    border: attDotChecked(i - 1)
+                      : attDotCurrent(cell.day) ? 'var(--color-apjek-blue-soft)' : 'rgba(200,200,220,0.15)',
+                    border: cell.claimed
                       ? 'none'
-                      : attDotCurrent(i - 1) ? '2px dashed #518cdb' : '2px solid rgba(200,200,220,0.4)',
+                      : attDotCurrent(cell.day) ? '2px dashed #518cdb' : '2px solid rgba(200,200,220,0.4)',
                   }"
                 >
-                  <Icon v-if="attDotChecked(i - 1)" name="lucide:check-circle-2" class="w-5 h-5 text-white" />
-                  <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(i - 1) ? '#518cdb' : '#c0c8e0' }">{{ i }}</span>
+                  <Icon v-if="cell.claimed" name="lucide:check-circle-2" class="w-5 h-5 text-white" />
+                  <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(cell.day) ? '#518cdb' : '#c0c8e0' }">{{ cell.day }}</span>
                 </div>
-                <!-- 일차별 표기 — 보상 스킴 변경은 결정 대기라 서버 값(attendanceReward) 그대로 -->
-                <span class="text-[9px]" :style="{ color: attDotChecked(i - 1) ? '#518cdb' : '#c0c8e0' }">
-                  {{ i === 7 ? '🎁' : `+${attendanceReward}` }}
-                </span>
+                <span class="text-[9px] whitespace-nowrap" :style="{ color: cell.claimed ? '#518cdb' : '#c0c8e0' }">+코인{{ cell.rewardBasicCoins }}</span>
               </div>
             </div>
             <div class="mb-5">
               <div class="flex justify-between text-[10px] mb-1.5" style="color: #a1a1a1">
-                <span>진행 {{ checkedCount }}/7일</span>
-                <span>7일 달성 시 보너스</span>
+                <span data-testid="attendance-progress">진행 {{ attendanceClaimedCount }}/7일</span>
+                <span>7일 달성 시 루비+{{ attendanceCycleBonusRuby }} 획득</span>
               </div>
               <div class="h-1.5 rounded-full overflow-hidden" style="background: rgba(81,140,219,0.12)">
                 <div
                   class="h-full rounded-full transition-all duration-500"
-                  :style="{ background: 'var(--color-apjek-blue)', width: `${(checkedCount / 7) * 100}%` }"
+                  :style="{ background: 'var(--color-apjek-blue)', width: `${(attendanceClaimedCount / 7) * 100}%` }"
                 />
               </div>
             </div>
+            <!-- CTA 3상태: 출석하기(검정) / 오늘 출석 완료(비활성) / 7일 출석 완료(비활성) -->
             <button
               type="button"
-              :disabled="alreadyCheckedToday || attendanceLoading"
+              :disabled="attendanceCtaDisabled"
               class="w-full py-3 rounded-2xl text-sm font-bold transition-all active:scale-95"
-              :style="alreadyCheckedToday
+              :style="attendanceCtaDisabled
                 ? { background: 'rgba(200,200,220,0.3)', color: '#c0c8e0', cursor: 'not-allowed' }
-                : { background: 'var(--color-apjek-blue)', color: 'white', boxShadow: '0 4px 16px rgba(81,140,219,0.35)' }"
+                : { background: 'var(--color-apjek-cta)', color: 'white' }"
+              data-testid="attendance-cta"
               @click="onAttendanceCheck"
             >
-              <!-- T6: 실지급 재화는 코인 — 하드코딩 ⭐ 표기를 코인으로 정정 -->
-              {{ alreadyCheckedToday ? '오늘 출석 완료 ✓' : `출석체크 하기 · 코인 +${attendanceReward}` }}
+              {{ attendanceCtaLabel }}
             </button>
           </div>
         </div>
@@ -638,6 +636,7 @@
 import { Capacitor } from '@capacitor/core'
 import type {
   AdRewardResponse,
+  AttendanceBoardDay,
   HeartResponse,
   InviteResponse,
   ItemResponse,
@@ -958,18 +957,33 @@ const heartFloats = ref<{ id: number }[]>([])
 const placementBusy = ref<boolean>(false)
 
 // ─── Computed ───
-// 출석 (useAttendance 실 API — /rewards/attendance)
+// 출석 (useAttendance 실 API — /rewards/attendance). 7일 보드·일차·보너스는 서버 AttendanceResponse 가 SoT.
 const alreadyCheckedToday = computed<boolean>(() => Boolean(attendance.state.value?.today))
-const attendanceStreak = computed<number>(() => attendance.state.value?.streak ?? 0)
-const attendanceReward = computed<number>(() => attendance.state.value?.rewardBasicCoins ?? 5)
 const attendanceLoading = computed<boolean>(() => attendance.loading.value)
-// 주간 진행 도트 표시용 (streak 을 7 주기로 환산).
-const checkedCount = computed<number>(() => {
-  const s = attendanceStreak.value
-  const inWeek = s % 7
-  // streak 이 7 의 배수이고 오늘 이미 수령이면 만근 표시.
-  return (inWeek === 0 && s > 0 && alreadyCheckedToday.value) ? 7 : inWeek
+// 7일 보드(day 1~7 순서) — 미로드 시 빈 배열(팝업이 열려도 칸이 없을 뿐 크래시 없음).
+const attendanceBoard = computed<AttendanceBoardDay[]>(() => attendance.state.value?.board ?? [])
+// "진행 n/7일" = 이번 사이클에서 수령한 칸 수.
+const attendanceClaimedCount = computed<number>(() => attendanceBoard.value.filter(d => d.claimed).length)
+const attendanceCycleBonusRuby = computed<number>(() => attendance.state.value?.cycleBonusRuby ?? 0)
+// 다음 체크인 일차(체크인 전) / 오늘 일차(체크인 후) — 점선 강조는 체크인 전에만.
+const attendanceCycleDay = computed<number>(() => attendance.state.value?.cycleDay ?? 1)
+// 7일 달성 = 7일차 수령 + 사이클 보너스 수령 (오늘 7일차를 막 완료한 상태, 내일부터 새 사이클).
+const attendanceCycleDone = computed<boolean>(() => {
+  const st = attendance.state.value
+  if (!st) return false
+  return st.cycleBonusClaimed && (st.board.find(d => d.day === 7)?.claimed ?? false)
 })
+const attendanceSubtitle = computed<string>(() => {
+  if (attendanceCycleDone.value) return '7일 출석을 모두 달성했어요!'
+  if (alreadyCheckedToday.value) return '오늘 출석 완료!'
+  return '7일 연속 출석하면 보너스 루비를 받아요!'
+})
+const attendanceCtaLabel = computed<string>(() => {
+  if (attendanceCycleDone.value) return '7일 출석 완료'
+  if (alreadyCheckedToday.value) return '오늘 출석 완료'
+  return '출석하기'
+})
+const attendanceCtaDisabled = computed<boolean>(() => alreadyCheckedToday.value || attendanceLoading.value)
 
 // 보유 아이템 — slug 기준으로 소유 판정. 관리 패널 탭별로 layout 으로 나눈다
 // (아이템 배치 = FOREGROUND, 정령 = FIGURE, 배경 = BACKGROUND).
@@ -1035,11 +1049,9 @@ function itemButtons(placed: PlacedFreeItem) {
   ]
 }
 
-function attDotChecked(idx: number): boolean {
-  return idx < checkedCount.value
-}
-function attDotCurrent(idx: number): boolean {
-  return idx === checkedCount.value && !alreadyCheckedToday.value
+// 오늘 체크인할 칸(점선 강조) — 체크인 전의 cycleDay 칸만. 체크인 후에는 모두 체크/대기 표시.
+function attDotCurrent(day: number): boolean {
+  return day === attendanceCycleDay.value && !alreadyCheckedToday.value
 }
 
 // ─── API 로드 ───
@@ -1465,11 +1477,13 @@ async function onAttendanceCheck() {
   if (alreadyCheckedToday.value) return
   const result = await attendance.checkIn()
   if (result) {
-    // 서버 currency 로 잔액 동기화 (COIN/DEW 갱신) — 스토어에 반영해 다른 화면과 공유한다.
+    // 서버 currency 로 잔액 동기화 (COIN/RUBY 갱신) — 스토어에 반영해 다른 화면과 공유한다.
     userStore.updateCurrency(result.currency)
-    const bonus = result.reward.bonus ? ` (${t('attendance.bonus')})` : ''
-    toast.success(`${t('attendance.coinReward', { n: result.reward.basicCoins })}${bonus}`)
-    showAttendance.value = false
+    // 필 토스트 "코인 +N" (+ 7일차면 " · 루비 +M") — 보상 수치는 체크인 응답 그대로.
+    const rubyBonus = result.reward.rubyBonus > 0 ? ` · 루비 +${result.reward.rubyBonus}` : ''
+    toast.success(`${t('attendance.coinReward', { n: result.reward.basicCoins })}${rubyBonus}`, { variant: 'pill' })
+    // 7일 달성 팝업 상태("7일 출석 완료")를 보여주기 위해 사이클 완료 시에는 닫지 않는다.
+    if (!attendanceCycleDone.value) showAttendance.value = false
   }
   else if (attendance.error.value) {
     toast.error(attendance.error.value)
