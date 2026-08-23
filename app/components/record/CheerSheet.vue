@@ -1,6 +1,7 @@
 <template>
-  <!-- 응원 바텀시트 (R3b, Figma 393×552) — 구 중앙 모달(CheerPopup) 대체 -->
-  <CommonBottomSheet :open="open" ariaLabel="응원 메시지 보내기" @close="emit('close')">
+  <!-- 응원 바텀시트 (R3b, Figma 393×552 → 공용 고정 높이) — 구 중앙 모달(CheerPopup) 대체.
+       CTA 는 footer 슬롯에 고정해 키보드가 떠도 잘리지 않는다. -->
+  <CommonBottomSheet :open="open" ariaLabel="응원 메시지 보내기" fixed-height @close="emit('close')">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
         <Icon name="lucide:mail" class="w-[18px] h-[18px] text-apjek-text" />
@@ -24,7 +25,9 @@
         class="w-full rounded-[12px] p-[14px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
       />
       <div class="text-right text-[11px] text-apjek-text-faint -mt-[8px]">{{ message.length }}/100</div>
+    </div>
 
+    <template #footer>
       <button
         type="button"
         class="w-full h-[48px] rounded-full bg-apjek-cta text-white text-[14px] font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40"
@@ -34,7 +37,7 @@
         응원 전달하기
         <Icon name="lucide:mail" class="w-4 h-4" />
       </button>
-    </div>
+    </template>
   </CommonBottomSheet>
 </template>
 

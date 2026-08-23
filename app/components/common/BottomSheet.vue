@@ -13,6 +13,9 @@
   - Android 하드웨어 뒤로가기 → useBackButtonStack (열린 채 라우트 이탈 시 stale handler
     방지를 위해 onBeforeUnmount 정리 포함 — index.vue registerOverlayBackClose 패턴)
   - 콘텐츠 하단 safe-area 여백 (홈 인디케이터 가림 방지 — audit C7-1)
+  - footer 슬롯(옵션): 스크롤 영역 밖 하단 고정 — 주 CTA 를 여기 두면 콘텐츠가 길거나 키보드가
+    떠서 시트가 줄어도 CTA 가 잘리지 않는다(620 고정 시트의 투두/응원/습관 생성). 있으면
+    safe-area 여백도 footer 가 맡는다.
 
   트랜지션 함정 (frontend/CLAUDE.md): Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate`
   속성이라 transform 에 X 축을 넣으면 이중 적용된다. 수평 중앙은 `inset-x-0 mx-auto` 로 잡고
@@ -63,12 +66,23 @@
           <!-- 고정 헤더 (옵션) — 스크롤 영역 밖에 남아 콘텐츠 스크롤 시에도 고정된다 -->
           <slot name="header" />
 
-          <!-- 콘텐츠 — 단일 스크롤 영역. 하단 safe-area 여백은 여기서 일괄 처리(audit C7-1) -->
+          <!-- 콘텐츠 — 단일 스크롤 영역. 하단 safe-area 여백은 여기서 일괄 처리(audit C7-1).
+               footer 가 있으면 여백은 footer 가 맡고 여기는 짧은 간격만 둔다 -->
           <div
             class="flex-1 min-h-0 overflow-y-auto"
-            style="padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px))"
+            :style="{ paddingBottom: $slots.footer ? '12px' : 'calc(20px + env(safe-area-inset-bottom, 0px))' }"
           >
             <slot />
+          </div>
+
+          <!-- 고정 푸터 (옵션) — 주 CTA. 스크롤 영역 밖이라 콘텐츠 길이·키보드와 무관하게 보인다 -->
+          <div
+            v-if="$slots.footer"
+            class="shrink-0 px-5 pt-2"
+            style="padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px))"
+            data-testid="sheet-footer"
+          >
+            <slot name="footer" />
           </div>
         </div>
       </div>

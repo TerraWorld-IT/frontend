@@ -1,7 +1,7 @@
 <template>
-  <!-- 투두리스트 시트 (R1b, Figma 393×620) — 세그먼트 [리스트 메뉴][루틴 설정].
-       TODO(C4 머지 후): 공용 BottomSheet 620px 고정 + X 기본값에 그대로 탄다. -->
-  <CommonBottomSheet :open="open" ariaLabel="투두리스트 기록" @close="emit('close')">
+  <!-- 투두리스트 시트 (R1b, Figma 393×620 고정) — 세그먼트 [리스트 메뉴][루틴 설정].
+       목록은 최대 30개라 스크롤되므로 주 CTA(기록 완료 / 루틴 저장하기)는 footer 슬롯에 고정한다. -->
+  <CommonBottomSheet :open="open" ariaLabel="투두리스트 기록" fixed-height @close="emit('close')">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
         <span class="text-[18px]">💧</span>
@@ -96,22 +96,6 @@
         </button>
       </div>
 
-      <div class="flex items-center justify-between text-[12px] text-apjek-text-faint pt-[6px]">
-        <span>{{ checkedCount }}/{{ todos.length }} 완료</span>
-        <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
-        <span>완료 시 이슬토큰 지급</span>
-      </div>
-
-      <button
-        type="button"
-        class="w-full h-[48px] rounded-full flex items-center justify-center gap-2 text-[14px] font-semibold transition-all active:scale-[0.98] disabled:opacity-100"
-        :class="allChecked ? 'bg-apjek-cta text-white' : 'bg-apjek-bg text-apjek-text-faint cursor-default'"
-        :disabled="!allChecked || submitting"
-        @click="onSubmit"
-      >
-        <Icon name="lucide:check" class="w-4 h-4" />
-        {{ allChecked ? '기록 완료' : '모든 항목 체크 후 완료 가능' }}
-      </button>
     </div>
 
     <!-- ═══ 루틴 설정 ═══ -->
@@ -232,16 +216,38 @@
         </button>
       </div>
 
+    </div>
+
+    <!-- 하단 고정 CTA — 세그먼트별 -->
+    <template #footer>
+      <template v-if="segment === 'list'">
+        <div class="flex items-center justify-between text-[12px] text-apjek-text-faint pb-[8px]">
+          <span>{{ checkedCount }}/{{ todos.length }} 완료</span>
+          <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
+          <span>완료 시 이슬토큰 지급</span>
+        </div>
+        <button
+          type="button"
+          class="w-full h-[48px] rounded-full flex items-center justify-center gap-2 text-[14px] font-semibold transition-all active:scale-[0.98] disabled:opacity-100"
+          :class="allChecked ? 'bg-apjek-cta text-white' : 'bg-apjek-bg text-apjek-text-faint cursor-default'"
+          :disabled="!allChecked || submitting"
+          @click="onSubmit"
+        >
+          <Icon name="lucide:check" class="w-4 h-4" />
+          {{ allChecked ? '기록 완료' : '모든 항목 체크 후 완료 가능' }}
+        </button>
+      </template>
       <!-- 저장 — 추가/삭제는 즉시 API 로 반영되므로 이 버튼은 시트 닫기 역할이다 (일괄 반영 아님) -->
       <button
+        v-else
         type="button"
-        class="w-full h-[48px] rounded-full flex items-center justify-center gap-2 text-[14px] font-semibold bg-apjek-cta text-white transition-all active:scale-[0.98] mt-[6px]"
+        class="w-full h-[48px] rounded-full flex items-center justify-center gap-2 text-[14px] font-semibold bg-apjek-cta text-white transition-all active:scale-[0.98]"
         @click="emit('close')"
       >
         <Icon name="lucide:check" class="w-4 h-4" />
         루틴 저장하기
       </button>
-    </div>
+    </template>
   </CommonBottomSheet>
 </template>
 

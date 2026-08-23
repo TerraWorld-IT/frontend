@@ -1,7 +1,7 @@
 <template>
-  <!-- 습관 생성 3단계 바텀시트 (R2, Figma 393×620) — ① 유형 선택 ② 이름 ③ (친구) 요청 대상.
-       TODO(C4 머지 후): 공용 BottomSheet 가 620px 고정 + X 로 바뀌면 별도 조정 없이 그대로 탄다. -->
-  <CommonBottomSheet :open="open" ariaLabel="습관 기록 생성" @close="emit('close')">
+  <!-- 습관 생성 3단계 바텀시트 (R2, Figma 393×620 고정) — ① 유형 선택 ② 이름 ③ (친구) 요청 대상.
+       단계별 주 CTA 는 footer 슬롯에 고정해 키보드(②)·친구 카드 스크롤(③)과 무관하게 보인다. -->
+  <CommonBottomSheet :open="open" ariaLabel="습관 기록 생성" fixed-height @close="emit('close')">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
         <span class="text-[18px]">🌸</span>
@@ -44,16 +44,6 @@
             친구와 함께 기록
           </button>
         </div>
-
-        <button
-          type="button"
-          class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
-          :class="mode ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-          :disabled="!mode"
-          @click="goStep2"
-        >
-          다음
-        </button>
       </template>
 
       <!-- ② 습관 이름 -->
@@ -78,17 +68,6 @@
             @keydown.enter.exact.prevent="onPrimary"
           >
         </div>
-
-        <!-- 이름 입력 전 비활성 (댓글 #48) -->
-        <button
-          type="button"
-          class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
-          :class="canProceedName ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-          :disabled="!canProceedName || busy"
-          @click="onPrimary"
-        >
-          {{ mode === 'friend' ? '다음' : '생성 하기' }}
-        </button>
       </template>
 
       <!-- ③ 친구 선택 (친구 모드만) -->
@@ -135,18 +114,43 @@
             </button>
           </div>
         </div>
-
-        <button
-          type="button"
-          class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
-          :class="selectedFriendId ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-          :disabled="!selectedFriendId || busy"
-          @click="submit"
-        >
-          {{ busy ? '요청 보내는 중...' : '요청 보내기' }}
-        </button>
       </template>
     </div>
+
+    <!-- 하단 고정 CTA — 단계별 -->
+    <template #footer>
+      <button
+        v-if="step === 1"
+        type="button"
+        class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
+        :class="mode ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
+        :disabled="!mode"
+        @click="goStep2"
+      >
+        다음
+      </button>
+      <!-- 이름 입력 전 비활성 (댓글 #48) -->
+      <button
+        v-else-if="step === 2"
+        type="button"
+        class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
+        :class="canProceedName ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
+        :disabled="!canProceedName || busy"
+        @click="onPrimary"
+      >
+        {{ mode === 'friend' ? '다음' : '생성 하기' }}
+      </button>
+      <button
+        v-else
+        type="button"
+        class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
+        :class="selectedFriendId ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
+        :disabled="!selectedFriendId || busy"
+        @click="submit"
+      >
+        {{ busy ? '요청 보내는 중...' : '요청 보내기' }}
+      </button>
+    </template>
   </CommonBottomSheet>
 </template>
 
