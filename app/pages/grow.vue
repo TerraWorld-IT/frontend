@@ -69,8 +69,7 @@
               <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" />
             </div>
           </div>
-          <!-- 관리 모드 바로가기 (댓글 #53: 관리모드 > 정령 탭 바로 이동)
-               TODO(T13 홈 에이전트 관리모드 딥링크 계약 후): 정령 탭 직행 쿼리 연결 -->
+          <!-- 관리 모드 바로가기 (댓글 #53: 관리모드 > 정령 탭 바로 이동) — 홈 딥링크 `/?mode=manage&tab=spirit` -->
           <button
             class="mt-[16px] h-[38px] px-[18px] rounded-full bg-[#a9c9d3] inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#1f3d4d] transition-all active:scale-95"
             @click="onManage"
@@ -430,9 +429,9 @@ function onSparkleInfo(): void {
   navigateTo('/record')
 }
 
-// 성공 카드 "관리 모드 바로가기" → 나의 테라(홈)
+// 성공 카드 "관리 모드 바로가기" → 홈을 관리 모드 + 정령 탭으로 연다(utils/homeEntry 딥링크 계약).
 function onManage(): void {
-  void navigateTo('/')
+  void navigateTo({ path: '/', query: { mode: 'manage', tab: 'spirit' } })
 }
 
 // ── G5b: 교환 플래시 (도장판 카드 핑크 0.8초 후 흰색 복귀) ──

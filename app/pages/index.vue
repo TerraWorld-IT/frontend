@@ -651,6 +651,7 @@ import type {
 import type { ManageTab, ManageTile } from '~/components/terrarium/ManagePanel.vue'
 import type { TierUnlockSuccess } from '~/components/terrarium/TierUnlockModal.vue'
 import type { JarLevel } from '~/utils/tierLevels'
+import { hasHomeEntryQuery, parseHomeEntryQuery, stripHomeEntryQuery } from '~/utils/homeEntry'
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
@@ -1146,15 +1147,33 @@ const saving = ref<boolean>(false)
 // [저장하기]가 최종 확정 시점이라 여기 남은 것만 재전송한다.
 const dirtyPlacementIds = ref<Set<number>>(new Set())
 
-function enterManageMode() {
+// 인트로가 끝난 뒤 열 탭 — 딥링크(`/?mode=manage&tab=spirit`)로 정령 탭 직행할 때만 items 가 아니다.
+let pendingManageTab: ManageTab = 'items'
+function enterManageMode(tab: ManageTab = 'items') {
+  pendingManageTab = tab
   introMode.value = 'manage'
 }
 function onManageIntroDone() {
   if (introMode.value !== 'manage') return
   introMode.value = null
-  manageTab.value = 'items'
+  manageTab.value = pendingManageTab
+  pendingManageTab = 'items'
   selectedItemId.value = null
   editMode.value = true
+}
+
+// ─── 홈 진입 쿼리(관리 모드 딥링크) — 스냅샷 로드 뒤 1회 소비하고 주소에서 지운다 ───
+const route = useRoute()
+const router = useRouter()
+function consumeHomeEntryQuery() {
+  const query = route.query
+  if (!hasHomeEntryQuery(query)) return
+  const entry = parseHomeEntryQuery(query)
+  // 되돌아가기/새로고침에 다시 관리 모드로 빠지지 않도록 쿼리만 정리(히스토리 추가 없음)
+  void router.replace({ path: route.path, query: stripHomeEntryQuery(query) })
+  if (entry.mode === 'manage' && !editMode.value && introMode.value === null) {
+    enterManageMode(entry.tab ?? 'items')
+  }
 }
 function exitManageMode() {
   editMode.value = false
@@ -1846,6 +1865,7 @@ onMounted(async () => {
     showOnboarding.value = true
   }
   await Promise.all([load(), attendance.refresh(), tier.load()])
+  consumeHomeEntryQuery()
 })
 
 // middleware/auth.ts 는 named middleware라 pageMeta 에 명시해야 실행된다. 이게 빠져있어서
