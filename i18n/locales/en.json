@@ -110,6 +110,17 @@
     "hasAccount": "Already have an account?",
     "login": "Log in",
     "loginFailed": "Login failed",
+    "errorCode": {
+      "INVALID_EMAIL_OR_PASSWORD": "Invalid email or password",
+      "USER_NOT_FOUND": "No account with this email",
+      "USER_ALREADY_EXISTS": "This email is already registered",
+      "INVALID_EMAIL": "Invalid email format",
+      "INVALID_PASSWORD": "Invalid password",
+      "PASSWORD_TOO_SHORT": "Password must be at least 8 characters",
+      "PASSWORD_TOO_LONG": "Password is too long",
+      "EMAIL_NOT_VERIFIED": "Email verification required",
+      "TOO_MANY_REQUESTS": "Too many requests. Please try again later"
+    },
     "nicknamePlaceholder": "Nickname",
     "noAccount": "Don't have an account?",
     "password": "Password",

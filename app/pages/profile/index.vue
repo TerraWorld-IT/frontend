@@ -369,13 +369,20 @@
               </div>
               <div v-else class="grid grid-cols-3 gap-3">
                 <div
-                  v-for="itemId in ownedItems"
-                  :key="itemId"
+                  v-for="owned in ownedItemTiles"
+                  :key="owned.slug"
                   class="rounded-[12px] flex flex-col items-center justify-center gap-1 p-3 text-center bg-apjek-bg border border-apjek-border"
                 >
-                  <div class="text-3xl">📦</div>
-                  <span class="text-[11px] font-semibold text-gray-700 truncate w-full">{{ itemId }}</span>
-                  <span v-if="isPlaced(itemId)" class="text-[9px] text-[#7edbc0] font-semibold">배치됨</span>
+                  <img
+                    v-if="owned.assetUrl && /^(https?:)?\//.test(owned.assetUrl)"
+                    :src="owned.assetUrl"
+                    :alt="owned.name"
+                    class="w-9 h-9 object-contain"
+                    draggable="false"
+                  >
+                  <div v-else class="text-3xl" aria-hidden="true">{{ owned.assetUrl || '📦' }}</div>
+                  <span class="text-[11px] font-semibold text-gray-700 truncate w-full">{{ owned.name }}</span>
+                  <span v-if="isPlaced(owned.slug)" class="text-[9px] text-[#7edbc0] font-semibold">배치됨</span>
                 </div>
               </div>
             </div>
@@ -444,6 +451,7 @@
 import type { FriendInfo, TerrariumResponse, UserMeResponse } from '@terraworld-it/openapi-frontend'
 // `useUserStore` 는 auto-import 가 걸리지 않는다 (frontend/CLAUDE.md § 함정) — 명시 import.
 import { useUserStore } from '~/stores/user'
+import { useItemsStore } from '~/stores/items'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
 
 // 더보기(M5b) — Figma(2026-08-21) 카드 5개: 나의 프로필 / 친구목록 / 보유 재화 / 문의 및 알림 / 계정.
@@ -487,6 +495,15 @@ onBeforeUnmount(() => {
 
 const nickname = computed<string>(() => user.value?.nickname ?? 'TERRA유저')
 const ownedItems = computed<string[]>(() => user.value?.ownedItems ?? [])
+// 보유 아이템은 slug 만 내려온다 — 아이템 카탈로그(상점·홈과 같은 스토어)로 이름·에셋을 붙인다.
+// 카탈로그에 없는 slug(비활성화된 아이템 등)는 slug 그대로 표시해 목록에서 빠지지 않게 한다.
+const itemsStore = useItemsStore()
+const ownedItemTiles = computed<Array<{ slug: string; name: string; assetUrl: string }>>(() =>
+  ownedItems.value.map((slug) => {
+    const item = itemsStore.items.find(i => i.slug === slug)
+    return { slug, name: item?.name ?? slug, assetUrl: item?.assetUrl ?? '' }
+  }),
+)
 const ownedCount = computed<number>(() => user.value?.ownedItems?.length ?? 0)
 const placedCount = computed<number>(() => user.value?.placedItems?.length ?? 0)
 
@@ -704,6 +721,8 @@ async function load() {
   }
   // 친구 목록은 프로필 로드와 독립 — 실패해도 페이지 전체를 막지 않는다(카드 안 빈 상태로만 표시).
   void loadFriends()
+  // 보유 아이템 이름·에셋 표시용 카탈로그 — 실패해도 slug 로 표시되므로 페이지를 막지 않는다.
+  void itemsStore.fetchAll().catch(() => {})
 }
 
 onMounted(load)

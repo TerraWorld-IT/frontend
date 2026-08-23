@@ -254,6 +254,7 @@
 <script setup lang="ts">
 import type { TodoRoutineListResponse, TodoRoutineRequest, TodoRoutineResponse } from '@terraworld-it/openapi-frontend'
 import { addManualTodo, mergeRoutineTodos, sortTodos, TODO_LIMIT, type TodoItem } from '~/utils/todoList'
+import { kstTodayKey } from '~/utils/habitState'
 
 /**
  * 투두리스트 기록 시트 (R1b) — 리스트 메뉴(당일 항목 + 완료) / 루틴 설정(매일·요일 루틴 CRUD).
@@ -281,7 +282,43 @@ type Segment = 'list' | 'routine'
 const segment = ref<Segment>('list')
 
 // ── 리스트 ──
+// 항목은 서버 저장 대상이 아니라(완료 시 note 로만 전달) 시트가 소유한다. 다만 앱 재시작·새로고침으로
+// 당일 항목이 사라지지 않도록 KST 날짜 키로 localStorage 에 보관하고, 날짜가 바뀌면 비운다.
 const todos = ref<TodoItem[]>([])
+const TODO_STORAGE_PREFIX = 'tw.todos.'
+
+function todoStorageKey(): string {
+  return TODO_STORAGE_PREFIX + kstTodayKey()
+}
+
+function loadStoredTodos(): TodoItem[] {
+  if (!import.meta.client) return []
+  try {
+    const raw = localStorage.getItem(todoStorageKey())
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((t): t is TodoItem => !!t && typeof t === 'object' && typeof (t as TodoItem).id === 'string' && typeof (t as TodoItem).text === 'string')
+  }
+  catch {
+    return []
+  }
+}
+
+function persistTodos(items: TodoItem[]): void {
+  if (!import.meta.client) return
+  try {
+    // 어제 키 정리 — 오늘 키 하나만 남긴다.
+    Object.keys(localStorage).filter(k => k.startsWith(TODO_STORAGE_PREFIX) && k !== todoStorageKey()).forEach(k => localStorage.removeItem(k))
+    if (items.length === 0) localStorage.removeItem(todoStorageKey())
+    else localStorage.setItem(todoStorageKey(), JSON.stringify(items))
+  }
+  catch {
+    // 저장소 불가(프라이빗 모드 등)는 무시 — 메모리 상태만으로 동작한다.
+  }
+}
+
+watch(todos, (items) => persistTodos(items))
 const newText = ref<string>('')
 const checkedCount = computed<number>(() => todos.value.filter(t => t.checked).length)
 const allChecked = computed<boolean>(() => todos.value.length > 0 && todos.value.every(t => t.checked))
@@ -463,6 +500,7 @@ watch(() => props.open, (open) => {
     segment.value = 'list'
     routineFormOpen.value = false
     resetRoutineForm()
+    if (todos.value.length === 0) todos.value = loadStoredTodos()
     todos.value = sortTodos(todos.value)
     void loadRoutines()
   }

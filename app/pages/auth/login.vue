@@ -255,7 +255,7 @@ import { authClient } from '~/lib/auth-client'
 
 definePageMeta({ layout: false })
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { loadJwt } = useAuth()
 const toast = useToast()
 const { trackLogin, trackSignup } = useGtagEvents()
@@ -326,6 +326,13 @@ const submitting = ref<boolean>(false)
 // 첫 필드로 focus 이동해 스크린리더/키보드 사용자가 토스트 메시지 읽고 수동으로 탭백 안 해도
 // 되게 한다(Codex 감사 지적).
 const formError = ref<boolean>(false)
+
+// better-auth 오류는 영문 message 로 온다 — 알려진 code 는 로케일 문구로, 모르는 code 는 폴백 문구로 보여준다.
+function authErrorMessage(error: { code?: string; message?: string } | null | undefined, fallback: string): string {
+  const key = error?.code ? `auth.errorCode.${error.code}` : ''
+  if (key && te(key)) return t(key)
+  return fallback
+}
 const emailInput = ref<HTMLInputElement | null>(null)
 
 // P1-2 (PIPA 제15조): 분리 동의 상태. 필수(약관·개인정보) + 선택 5종.
@@ -417,7 +424,7 @@ async function onSubmit() {
         email: email.value,
         password: password.value,
       })
-      if (error) throw new Error(error.message ?? t('auth.loginFailed'))
+      if (error) throw new Error(authErrorMessage(error, t('auth.loginFailed')))
 
       const token = await loadJwt()
       if (!token) throw new Error(t('auth.tokenError'))
@@ -458,7 +465,7 @@ async function onSubmit() {
         consentVersion: CONSENT_VERSION,
         consentedAt: new Date().toISOString(),
       } as Parameters<typeof authClient.signUp.email>[0])
-      if (error) throw new Error(error.message ?? t('auth.signupFailed'))
+      if (error) throw new Error(authErrorMessage(error, t('auth.signupFailed')))
 
       // better-auth signs the user in automatically after signUp.email.
       // Pull the JWT immediately so the next API call has a bearer token.

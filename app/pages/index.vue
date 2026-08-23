@@ -162,6 +162,7 @@
                 class="absolute inset-0 w-full h-full object-cover"
                 style="opacity: 0.85; mask-image: radial-gradient(circle, #000 0%, #000 60%, transparent 72%); -webkit-mask-image: radial-gradient(circle, #000 0%, #000 60%, transparent 72%)"
                 draggable="false"
+                @error="backgroundImageFailed = true"
               >
             </div>
 
@@ -1624,8 +1625,11 @@ const backgroundBusy = ref<boolean>(false)
 // 응답 BackgroundInfo.id 는 terrarium_backgrounds PK. PUT 은 itemId. 동일 배경은 assetUrl 로 대조.
 const currentBackgroundAssetUrl = computed<string | null>(() => terrarium.value?.background?.assetUrl ?? null)
 // 병 뒤 배경 레이어 — URL 에셋만 이미지로 그린다(이모지 에셋은 글로우 유지).
+// 에셋 로드 실패(기본 배경 `/backgrounds/default.png` 처럼 파일이 없는 시드 URL)면 깨진 이미지 대신 글로우로 폴백.
+const backgroundImageFailed = ref<boolean>(false)
+watch(currentBackgroundAssetUrl, () => { backgroundImageFailed.value = false })
 const backgroundImageUrl = computed<string | null>(() =>
-  isUrl(currentBackgroundAssetUrl.value) ? currentBackgroundAssetUrl.value : null,
+  !backgroundImageFailed.value && isUrl(currentBackgroundAssetUrl.value) ? currentBackgroundAssetUrl.value : null,
 )
 
 async function onSelectBackground(item: ItemResponse) {
@@ -1864,7 +1868,12 @@ onMounted(async () => {
   if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
     showOnboarding.value = true
   }
-  await Promise.all([load(), attendance.refresh(), tier.load()])
+  // 셋 중 하나가 던져도 나머지 초기화(딥링크 쿼리 소비)가 막히지 않게 한다 — 마운트 훅의 미처리 예외는
+  // Vue 경고만 남기고 어디에도 보고되지 않아 조용히 깨진다.
+  const results = await Promise.allSettled([load(), attendance.refresh(), tier.load()])
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.error(`[home] 초기 로드 실패(${['load', 'attendance', 'tier'][i]})`, r.reason)
+  })
   consumeHomeEntryQuery()
 })
 

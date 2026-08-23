@@ -36,15 +36,23 @@ const props = defineProps<{
 const displayLabel = computed<string>(() => recordDisplayLabel(props.record))
 const displayIcon = computed<string>(() => recordDisplayIcon(props.record))
 
+// 날짜는 recordedDate(YYYY-MM-DD, KST 기준 날짜 문자열) 를 그대로 쓰고 시각은 createdAt 에서 뽑는다.
+// `new Date('YYYY-MM-DD')` 는 UTC 자정으로 해석돼 KST 에서 "09:00" 으로 보이는 함정이 있다.
 const formattedDate = computed<string>(() => {
-  const src = props.record.recordedDate || props.record.createdAt
-  const d = new Date(src)
-  if (Number.isNaN(d.getTime())) return src
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${yyyy}.${mm}.${dd} ${hh}:${mi}`
+  const created = props.record.createdAt ? new Date(props.record.createdAt) : null
+  const createdOk = !!created && !Number.isNaN(created.getTime())
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(props.record.recordedDate ?? '')
+  let datePart: string
+  if (dateOnly) {
+    datePart = (props.record.recordedDate as string).replace(/-/g, '.')
+  } else if (createdOk) {
+    datePart = `${created!.getFullYear()}.${String(created!.getMonth() + 1).padStart(2, '0')}.${String(created!.getDate()).padStart(2, '0')}`
+  } else {
+    return props.record.recordedDate || props.record.createdAt || ''
+  }
+  if (!createdOk) return datePart
+  const hh = String(created!.getHours()).padStart(2, '0')
+  const mi = String(created!.getMinutes()).padStart(2, '0')
+  return `${datePart} ${hh}:${mi}`
 })
 </script>

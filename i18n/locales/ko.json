@@ -110,6 +110,17 @@
     "hasAccount": "이미 계정이 있으신가요?",
     "login": "로그인",
     "loginFailed": "로그인에 실패했습니다",
+    "errorCode": {
+      "INVALID_EMAIL_OR_PASSWORD": "이메일 또는 비밀번호가 올바르지 않아요",
+      "USER_NOT_FOUND": "가입되지 않은 이메일이에요",
+      "USER_ALREADY_EXISTS": "이미 가입된 이메일이에요",
+      "INVALID_EMAIL": "이메일 형식이 올바르지 않아요",
+      "INVALID_PASSWORD": "비밀번호가 올바르지 않아요",
+      "PASSWORD_TOO_SHORT": "비밀번호는 8자 이상이어야 해요",
+      "PASSWORD_TOO_LONG": "비밀번호가 너무 길어요",
+      "EMAIL_NOT_VERIFIED": "이메일 인증이 필요해요",
+      "TOO_MANY_REQUESTS": "요청이 너무 많아요. 잠시 후 다시 시도해 주세요"
+    },
     "nicknamePlaceholder": "닉네임",
     "noAccount": "계정이 없으신가요?",
     "password": "비밀번호",

@@ -173,7 +173,7 @@
                   <div class="flex-1 min-w-0">
                     <div class="font-semibold text-sm text-apjek-text">{{ recordDisplayLabel(record) }}</div>
                     <div class="text-xs text-apjek-text-sub">
-                      {{ formatTime(record.recordedDate) }}
+                      {{ formatTime(record.createdAt) }}
                       <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
                     </div>
                   </div>

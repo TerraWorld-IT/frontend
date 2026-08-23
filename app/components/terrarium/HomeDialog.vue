@@ -36,7 +36,7 @@
                 <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
               </button>
             </div>
-            <div class="flex-1 min-h-0 overflow-y-auto">
+            <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               <slot />
             </div>
           </div>

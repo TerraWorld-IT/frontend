@@ -287,8 +287,9 @@ function isDone(day: number): boolean {
   return day <= doneCount.value
 }
 
+// 오늘 체크인을 마쳤으면 "오늘" 점선 원은 없다 — 다음 원은 내일이지 오늘이 아니다.
 function isToday(day: number): boolean {
-  return props.view !== 'cycleDone' && !isDone(day) && day === doneCount.value + 1
+  return props.view !== 'cycleDone' && !checkedToday.value && !isDone(day) && day === doneCount.value + 1
 }
 
 function circleClass(day: number): string {

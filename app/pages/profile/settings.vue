@@ -173,9 +173,9 @@ const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>
   { key: 'push', field: 'pushConsent', value: false },
 ])
 
-watch(
-  () => session.value?.data?.user,
-  (u) => {
+// 세션은 클라이언트에서만 읽힌다 — 서버 렌더(전부 미체크)와 첫 클라이언트 렌더를 같게 두고,
+// 마운트 뒤에 세션 값을 반영해 hydration 불일치(checked 속성)를 피한다.
+function applyConsentFromSession(u: unknown) {
     const cu = u as {
       marketingConsent?: boolean
       analyticsConsent?: boolean
@@ -191,9 +191,12 @@ watch(
       { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
       { key: 'push', field: 'pushConsent', value: cu.pushConsent ?? false },
     ]
-  },
-  { immediate: true },
-)
+}
+
+onMounted(() => {
+  applyConsentFromSession(session.value?.data?.user)
+  watch(() => session.value?.data?.user, (u) => applyConsentFromSession(u))
+})
 
 async function onConsentToggle(key: string, checked: boolean) {
   const item = consentToggles.value.find(c => c.key === key)
