@@ -4,7 +4,8 @@
     레벨만), 설명 "… 테라리움 입니다. / 배치 가능한 아이템 : N개", CTA 3상태:
       [💎 루비 N개로 해금하기](검정) / 비활성 "💎 루비 N개 사용 | 루비가 부족합니다" / 비활성 "이전 레벨을 먼저 해금해 주세요"
   - 성공 팝업: "해금 성공! {정령} 정령을 획득했어요. / 새로운 테라리움을 관리해 보세요" (정령 없으면 "해금 성공! / …")
-    + 연파랑 [✏️ 관리 모드 바로가기].
+    + 연파랑 [✏️ 관리 모드 바로가기]. 해금해도 표시 병은 바뀌지 않는다(댓글 #46) — 바로가기를 누르면
+    부모가 해금한 병으로 전환 후 관리 모드로 들어가고, X 로 닫으면 현재 병이 유지된다.
   실 해금 호출(useTier.unlock)은 부모가 소유 — unlock/manage emit 만 한다.
   등록명: TerrariumTierUnlockModal.
 -->
@@ -91,6 +92,8 @@ import type { JarLevel } from '~/utils/tierLevels'
 /** 해금 성공 결과 — 부모가 unlockTier 응답에서 추린다 */
 export interface TierUnlockSuccess {
   level: number
+  /** 해금된 티어 코드 — [관리 모드 바로가기] 가 이 병으로 전환한다 */
+  tier: string
   grantedSpirit: string | null
 }
 

@@ -1737,17 +1737,43 @@ async function onInstagramStoryShare() {
   }
 }
 
-// ─── T14 병 캐러셀 + 해금 팝업 — useTier(getTierCatalog/unlockTier) 구동, tierOrder 1~3 → Lv1~3 ───
+// ─── T14 병 캐러셀 + 해금 팝업 — useTier(getTierCatalog/unlockTier/setActiveTier) 구동, TierInfo.level → Lv1~3 ───
 const jarLevels = computed<JarLevel[]>(() => toJarLevels(tier.catalog.value))
-// '보기' 선택 레벨 — 활성 병 전환 API(PUT /terrarium/active-tier)가 아직 없어 선택 표시만 한다.
-// TODO(WS-A N-B4 머지 후): 선택 시 active-tier 저장 + 해당 병 배치로 전환.
-const viewLevel = ref<number>(1)
+// 표시 중인 병 레벨(activeTier) — 카탈로그의 active 플래그가 SoT. 슬라이드 1 스테이지는 이 병의 배치다.
+const viewLevel = computed<number>(() => activeJarLevel(jarLevels.value))
+const tierSwitching = ref<boolean>(false)
 const unlockTarget = ref<JarLevel | null>(null)
 const unlockBusy = ref<boolean>(false)
 const unlockSuccess = ref<TierUnlockSuccess | null>(null)
 
+// 해금된 카드 탭 = 표시 병 전환(PUT /terrarium/active-tier). 배치·슬롯 수가 티어별이라 전환 성공 후
+// 홈 스냅샷(terrarium + free-placement)을 강제 재조회해 스테이지를 그 병의 배치로 바꾼다(댓글 #46).
+async function switchActiveTier(level: JarLevel): Promise<boolean> {
+  if (tierSwitching.value) return false
+  if (!level.unlocked) return false
+  if (level.active) return true
+  tierSwitching.value = true
+  try {
+    const outcome = await tier.setActive(level.tier)
+    if (!outcome.ok) {
+      const code = outcome.error?.code
+      if (code === 'TIER_LOCKED') toast.error('아직 해금되지 않은 테라리움이에요')
+      else toast.error(errMsg(outcome.error, '테라리움 전환에 실패했어요'))
+      return false
+    }
+    await reloadAfterPlacement()
+    return true
+  }
+  catch (e) {
+    toast.error((e as Error).message)
+    return false
+  }
+  finally {
+    tierSwitching.value = false
+  }
+}
 function onSelectLevel(level: JarLevel) {
-  viewLevel.value = viewLevel.value === level.level ? 1 : level.level
+  void switchActiveTier(level)
 }
 function onUnlockRequest(level: JarLevel) {
   unlockSuccess.value = null
@@ -1769,9 +1795,10 @@ async function onUnlockConfirm(level: JarLevel) {
       return
     }
     userStore.updateCurrency(outcome.data.updatedCurrency)
-    unlockSuccess.value = { level: level.level, grantedSpirit: outcome.data.grantedSpirit ?? null }
-    // 슬롯 수(maxSlots)·정령 지급이 바뀌므로 홈 스냅샷과 프로필을 강제 갱신한다.
-    await Promise.all([reloadAfterPlacement(), userStore.fetchMe()])
+    unlockSuccess.value = { level: level.level, tier: level.tier, grantedSpirit: outcome.data.grantedSpirit ?? null }
+    // 해금해도 표시 병(activeTier)은 바뀌지 않는다(rev2 R1, 댓글 #46) — 현재 병의 maxSlots 는 그대로이므로
+    // 스냅샷은 두고, 정령 지급(ownedItems)·루비 잔액이 바뀐 프로필만 강제 갱신한다.
+    await userStore.fetchMe(true)
   }
   catch (e) {
     toast.error((e as Error).message)
@@ -1780,8 +1807,13 @@ async function onUnlockConfirm(level: JarLevel) {
     unlockBusy.value = false
   }
 }
-function onUnlockManage() {
+// [관리 모드 바로가기] — "새로운 테라리움을 관리해 보세요": 방금 해금한 병으로 전환한 뒤 관리 모드 진입.
+// X 로 닫으면 현재 병이 유지된다(댓글 #46). 전환 실패 시에는 모드 진입 없이 팝업만 닫는다.
+async function onUnlockManage() {
+  const unlocked = unlockSuccess.value
   closeUnlockModal()
+  const target = unlocked ? jarLevels.value.find(l => l.tier === unlocked.tier) ?? null : null
+  if (target && !(await switchActiveTier(target))) return
   enterManageMode()
 }
 

@@ -65,7 +65,7 @@ describe('TierUnlockModal', () => {
 
   it('success 가 있으면 성공 팝업 — 정령 획득 카피 + 관리 모드 바로가기', async () => {
     await mountSuspended(TierUnlockModal, {
-      props: { open: true, target: level(), rubyBalance: 0, busy: false, success: { level: 3, grantedSpirit: 'pigeon' } },
+      props: { open: true, target: level(), rubyBalance: 0, busy: false, success: { level: 3, tier: 'GRAND_TANK', grantedSpirit: 'pigeon' } },
     })
     expect(document.body.querySelector('[data-testid="tier-unlock-success"]')).not.toBeNull()
     expect(document.body.textContent).toContain('비둘기 정령을 획득했어요')

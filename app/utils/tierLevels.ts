@@ -1,20 +1,12 @@
-import type { TierCatalogResponse, TierInfo } from '@terraworld-it/openapi-frontend'
+import type { TierCatalogResponse } from '@terraworld-it/openapi-frontend'
 
 /**
- * 테라리움 티어 → 홈 병 캐러셀 레벨 뷰 변환 (아프젝 T14 FE 선행분).
+ * 테라리움 티어 → 홈 병 캐러셀 레벨 뷰 변환 (아프젝 T14).
  *
- * 현행 카탈로그(`GET /terrarium/tiers`)는 4티어(반짝이+루비)지만 Figma 는 3레벨 루비 전용이다.
- * tierOrder 1~3 을 Lv1~3 으로 매핑하고 4번째 이상은 숨긴다. 스펙 초안(N-B4)의 신규 필드
- * `level` / `descriptionKo` / `active` 는 아직 SDK 에 없어 optional chaining 으로 읽고 폴백한다.
- * TODO(WS-A N-B4 머지 후): TierInfo 에 level/descriptionKo/active 가 생기면 폴백 맵을 제거한다.
+ * 카탈로그(`GET /terrarium/tiers`)는 아프젝 v2 부터 3레벨 루비 전용이며 `TierInfo` 가
+ * `level` / `descriptionKo` / `active` 를 직접 내려준다. 그 값을 그대로 쓰고, 4번째 이상
+ * 레벨(비활성 티어가 섞여 오는 경우)만 숨긴다.
  */
-
-/** Figma 해금 팝업 설명 카피 — 레벨별 폴백(서버 descriptionKo 우선) */
-export const TIER_LEVEL_DESCRIPTIONS: Record<number, string> = {
-  1: '기본 유리병 테라리움 입니다.',
-  2: '언덕과 바위가 있는 오픈형 테라리움 입니다.',
-  3: '케이스형 테라리움 입니다. 비둘기 정령이 함께 해금됩니다.',
-}
 
 /** 정령 코드 → 한글 이름 (해금 성공 카피 "비둘기 정령을 획득했어요") */
 export const SPIRIT_NAME_KO: Record<string, string> = {
@@ -33,24 +25,23 @@ export function spiritNameKo(code: string | null | undefined): string {
 
 /** 홈 캐러셀이 쓰는 레벨 뷰 모델 */
 export interface JarLevel {
-  /** Lv 번호 (1~3) */
+  /** Lv 번호 (1~3) — `TierInfo.level` */
   level: number
-  /** 티어 코드 (unlockTier 호출용) */
+  /** 티어 코드 (unlockTier / setActiveTier 호출용) */
   tier: string
   nameKo: string
   rubyCost: number
   slots: number
   spiritCode: string | null
   unlocked: boolean
+  /** 현재 표시 중인 병(activeTier)인지 — 카탈로그 내 정확히 하나만 true */
+  active: boolean
   /** 이전 레벨이 해금됐는지 — 순차 해금 CTA 판정 */
   prevUnlocked: boolean
   descriptionKo: string
 }
 
-/** 스펙 초안의 선택 필드(아직 SDK 미반영) */
-type TierInfoDraft = TierInfo & { level?: number | null, descriptionKo?: string | null, active?: boolean | null }
-
-/** 캐러셀에 노출할 최대 레벨 (Figma 3레벨 — 4번째 티어는 숨김) */
+/** 캐러셀에 노출할 최대 레벨 (Figma 3레벨) */
 export const MAX_JAR_LEVEL = 3
 
 /**
@@ -59,24 +50,28 @@ export const MAX_JAR_LEVEL = 3
  */
 export function toJarLevels(catalog: TierCatalogResponse | null | undefined): JarLevel[] {
   if (!catalog) return []
-  const sorted = [...catalog.tiers].sort((a, b) => a.tierOrder - b.tierOrder)
+  const sorted = [...catalog.tiers].sort((a, b) => a.level - b.level)
   const levels: JarLevel[] = []
-  for (const raw of sorted) {
-    const t = raw as TierInfoDraft
-    const level = t.level ?? t.tierOrder
-    if (level > MAX_JAR_LEVEL) continue
+  for (const t of sorted) {
+    if (t.level > MAX_JAR_LEVEL) continue
     const prev = levels[levels.length - 1]
     levels.push({
-      level,
+      level: t.level,
       tier: t.tier,
       nameKo: t.nameKo,
       rubyCost: t.rubyCost,
       slots: t.slots,
       spiritCode: t.spiritCode ?? null,
-      unlocked: level === 1 ? true : t.unlocked,
+      unlocked: t.level === 1 ? true : t.unlocked,
+      active: t.active,
       prevUnlocked: prev ? prev.unlocked : true,
-      descriptionKo: t.descriptionKo ?? TIER_LEVEL_DESCRIPTIONS[level] ?? '',
+      descriptionKo: t.descriptionKo,
     })
   }
   return levels
+}
+
+/** 현재 표시 중인 병 레벨 — `active` 가 하나도 없으면(카탈로그 미로드 등) Lv1 */
+export function activeJarLevel(levels: JarLevel[]): number {
+  return levels.find(l => l.active)?.level ?? 1
 }
