@@ -157,9 +157,7 @@ import { HABIT_REWARD_SPARKLE } from '~/utils/habitState'
 /**
  * 습관 기록 생성 바텀시트 (R2). 유형(나의/친구) → 이름(≤30자, 생성 후 수정 불가) → (친구) 요청 대상.
  * API 호출·토스트는 부모(record 페이지) 책임 — 본 시트는 입력 수집 후 submit 으로 위임한다.
- * TODO(N-B5 스펙 머지 후): 친구 요청은 createHabit(friendUserId) 가 PENDING 트래커를 만들고
- * 상대 수락(accept) 으로 ACTIVE 가 된다. 현행은 생성 즉시 ACTIVE 이며 상대가 같은 친구로
- * 습관을 만들면 연동된다(폴리필 "요청 대기" 표시는 useHabits/habitState 참조).
+ * 친구 요청은 createHabit(friendUserId) 가 PENDING 트래커를 만들고 상대 수락(accept) 으로 ACTIVE 가 된다.
  */
 const props = defineProps<{
   open: boolean
