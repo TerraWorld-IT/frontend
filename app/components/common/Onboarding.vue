@@ -1,10 +1,16 @@
 <template>
   <Teleport to="body">
+    <!--
+      z-[9998]: 다이얼로그 밴드(9997~9998) 최상단 — 홈의 힐링 모드 스테이지(z-9990)·출석/홈 팝업(9997)
+      보다 위, 토스트(9999)·AppUpdateGate(10000) 보다 아래. 이전 z-[100] 은 홈 스테이지/팝업 밴드 아래라
+      첫 로그인 온보딩이 병 스테이지 뒤로 깔려 반투명으로만 보였다(2026-08-23 런타임 스모크).
+    -->
     <Transition name="onboarding-fade">
       <div
         v-if="show"
         ref="rootEl"
-        class="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-6"
+        data-testid="onboarding-root"
+        class="fixed inset-0 z-[9998] bg-black/40 flex items-center justify-center p-6"
         role="dialog"
         aria-modal="true"
         aria-label="시작하기 안내"
