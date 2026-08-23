@@ -4,13 +4,13 @@
       <div
         v-if="show"
         ref="rootEl"
-        class="fixed inset-0 z-[100] bg-riso-dark/60 flex items-center justify-center p-6"
+        class="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-6"
         role="dialog"
         aria-modal="true"
         aria-label="시작하기 안내"
         @click.self="$emit('close')"
       >
-        <div class="w-full max-w-sm bg-white rounded-[2rem] overflow-hidden riso-shadow">
+        <div class="w-full max-w-[393px] bg-apjek-surface text-apjek-text rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <!-- Step content — 좌우 스와이프로도 이전/다음 이동(Codex 감사 지적 — 이전엔 버튼 전용) -->
           <div
             class="relative aspect-[4/3] flex items-center justify-center p-8"
@@ -20,8 +20,8 @@
           >
             <div class="text-center space-y-3">
               <span class="text-6xl block">{{ currentStep.icon }}</span>
-              <h3 class="font-bold text-xl text-riso-dark">{{ currentStep.title }}</h3>
-              <p class="text-sm text-riso-dark/60 leading-relaxed">{{ currentStep.desc }}</p>
+              <h3 class="font-bold text-xl text-apjek-text">{{ currentStep.title }}</h3>
+              <p class="text-sm text-apjek-text-sub leading-relaxed">{{ currentStep.desc }}</p>
             </div>
           </div>
 
@@ -34,7 +34,7 @@
                 :key="idx"
                 :class="[
                   'w-2 h-2 rounded-full transition-all',
-                  idx === step ? 'bg-riso-sage w-6' : 'bg-riso-dark/15',
+                  idx === step ? 'bg-apjek-blue w-6' : 'bg-apjek-border-strong',
                 ]"
               />
             </div>
@@ -44,7 +44,7 @@
               <button
                 v-if="step > 0"
                 data-testid="onboarding-prev"
-                class="flex-1 h-11 rounded-full border border-riso-walnut/15 text-riso-dark/60 text-sm font-medium active:scale-95 transition-transform"
+                class="flex-1 h-11 rounded-full border border-apjek-border-strong bg-apjek-surface text-apjek-text-sub text-sm font-medium active:scale-95 transition-transform"
                 @click="step--"
               >
                 {{ $t('onboarding.prev') }}
@@ -52,7 +52,7 @@
               <button
                 v-if="step < steps.length - 1"
                 data-testid="onboarding-next"
-                class="flex-1 h-11 rounded-full bg-riso-sage text-white text-sm font-medium riso-shadow-sm active:scale-95 transition-transform"
+                class="apjek-cta flex-1 h-11 py-0 text-sm font-semibold active:scale-95 transition-transform"
                 @click="step++"
               >
                 {{ $t('onboarding.next') }}
@@ -60,7 +60,7 @@
               <button
                 v-else
                 data-testid="onboarding-start"
-                class="flex-1 h-11 rounded-full bg-riso-pink text-white text-sm font-medium riso-shadow-sm active:scale-95 transition-transform"
+                class="apjek-cta flex-1 h-11 py-0 text-sm font-semibold active:scale-95 transition-transform"
                 @click="onComplete"
               >
                 {{ $t('onboarding.start') }}
@@ -70,7 +70,7 @@
             <!-- Skip -->
             <button
               v-if="step < steps.length - 1"
-              class="w-full text-center text-xs text-riso-dark/30 hover:text-riso-dark/50"
+              class="w-full text-center text-xs text-apjek-text-faint hover:text-apjek-text-sub"
               @click="onComplete"
             >
               {{ $t('onboarding.skip') }}
@@ -97,31 +97,31 @@ const steps = computed(() => [
     icon: '📝',
     title: t('onboarding.step1.title'),
     desc: t('onboarding.step1.desc'),
-    bg: '#FFF8EB',
+    bg: 'var(--color-apjek-dew-bg)',
   },
   {
     icon: '🪙',
     title: t('onboarding.step2.title'),
     desc: t('onboarding.step2.desc'),
-    bg: '#F4E4BA44',
+    bg: 'var(--color-apjek-sun-bg)',
   },
   {
     icon: '🛍️',
     title: t('onboarding.step3.title'),
     desc: t('onboarding.step3.desc'),
-    bg: '#E8A0BF22',
+    bg: 'var(--color-apjek-sparkle-bg)',
   },
   {
     icon: '🫧',
     title: t('onboarding.step4.title'),
     desc: t('onboarding.step4.desc'),
-    bg: '#7B9E6B22',
+    bg: 'var(--color-apjek-bolt-bg)',
   },
   {
     icon: '💌',
     title: t('onboarding.step5.title'),
     desc: t('onboarding.step5.desc'),
-    bg: '#A8D8EA33',
+    bg: 'var(--color-apjek-wind-bg)',
   },
 ])
 
