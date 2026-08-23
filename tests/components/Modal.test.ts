@@ -63,6 +63,22 @@ describe('Modal (common)', () => {
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
   })
 
+  // 백드롭 탭 = cancel (X/ESC 와 동일 경로). 카드 안 클릭은 닫히지 않는다.
+  it('백드롭 클릭 시 cancel + update:modelValue=false emit, 카드 내부 클릭은 무시', async () => {
+    const wrapper = await mountSuspended(Modal, { props: { modelValue: true, title: 'T' } })
+    const card = document.body.querySelector('[data-testid="modal-card"]') as HTMLElement
+    card.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('cancel')).toBeFalsy()
+
+    const backdrop = document.body.querySelector('[data-testid="modal-backdrop"]') as HTMLElement | null
+    expect(backdrop).not.toBeNull()
+    backdrop!.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
+  })
+
   it('showClose=false 면 X 미렌더', async () => {
     await mountSuspended(Modal, { props: { modelValue: true, showClose: false } })
     expect(document.body.querySelector('[data-testid="modal-close"]')).toBeNull()

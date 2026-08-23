@@ -10,11 +10,11 @@
         :aria-labelledby="title ? 'modal-title' : undefined"
         :aria-describedby="message ? 'modal-message' : undefined"
         tabindex="-1"
-        @click.self="cancel"
         @keydown.esc="cancel"
       >
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        <!-- Backdrop — 탭/클릭 시 cancel (X·ESC 와 같은 경로). 루트의 .self 는 백드롭이 루트를 전부 덮어
+             실제로는 발화하지 않던 것이라 백드롭 자체에 핸들러를 건다 -->
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-testid="modal-backdrop" @click="cancel" />
 
         <!--
           모달 카드 — 아프젝 Figma(2026-08-23 C4): 393 폭, r24, 흰 서피스, 헤더(선택 아이콘 + 제목)

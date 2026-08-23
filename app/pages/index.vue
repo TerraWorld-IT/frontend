@@ -1924,10 +1924,11 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
   transform: scale(0.95);
 }
 
-/* 하트 +1 float */
+/* 하트 +1 float — X 중앙은 `-translate-x-1/2`(개별 translate 속성)가 맡으므로 transform 은 Y/scale 만
+   (Tailwind v4 함정: transform 에 X 를 넣으면 이중 적용돼 왼쪽으로 밀린다) */
 @keyframes heartFloatUp {
-  0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-50px) scale(1.2); }
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
 }
 .heart-float {
   animation: heartFloatUp 0.6s ease-out forwards;
