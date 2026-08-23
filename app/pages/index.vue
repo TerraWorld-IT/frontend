@@ -357,7 +357,7 @@
           data-testid="home-manage"
           class="mode-pill"
           style="background: #bcdadd; color: #2f5f63"
-          @click="enterManageMode"
+          @click="enterManageMode()"
         >
           <Icon name="lucide:pencil" class="w-4 h-4" />관리 모드
         </button>

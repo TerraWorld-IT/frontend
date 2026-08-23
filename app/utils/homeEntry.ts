@@ -28,7 +28,7 @@ const TAB_ALIASES: Record<string, ManageTab> = {
   'backgrounds': 'backgrounds',
 }
 
-function firstString(value: LocationQuery[string]): string | null {
+function firstString(value: LocationQuery[string] | undefined): string | null {
   const v = Array.isArray(value) ? value[0] : value
   return typeof v === 'string' ? v : null
 }
