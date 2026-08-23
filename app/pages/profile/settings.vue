@@ -8,7 +8,7 @@
         aria-label="뒤로가기"
         @click="goBack"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-apjek-text"><path d="m15 18-6-6 6-6" /></svg>
       </button>
       <h1 class="font-bold text-[29px] text-apjek-text tracking-[-0.9px] leading-[28px]">설정</h1>
     </div>
@@ -16,12 +16,12 @@
     <!-- 동의 항목 관리 (FE 실기능 보존, 아프젝 카드 스타일) -->
     <div class="apjek-card w-full relative">
       <div class="p-[21px] flex flex-col gap-[16px]">
-        <div class="flex items-center gap-[8px]">
+        <div class="flex items-center gap-[8px] text-apjek-text">
           <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
             <g clip-path="url(#clip_user_c)">
-              <path :d="P.user.circle" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              <path :d="P.user.head" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              <path :d="P.user.body" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <path :d="P.user.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <path :d="P.user.head" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <path :d="P.user.body" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
             </g>
             <defs><clipPath id="clip_user_c"><rect fill="white" width="20" height="20" /></clipPath></defs>
           </svg>
@@ -50,12 +50,12 @@
     <!-- 계정 -->
     <div class="apjek-card w-full relative">
       <div class="p-[21px] flex flex-col gap-[24px]">
-        <div class="flex items-center gap-[8px] pb-0">
+        <div class="flex items-center gap-[8px] pb-0 text-apjek-text">
           <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
             <g clip-path="url(#clip_user_a)">
-              <path :d="P.user.circle" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              <path :d="P.user.head" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              <path :d="P.user.body" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <path :d="P.user.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <path :d="P.user.head" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              <path :d="P.user.body" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
             </g>
             <defs><clipPath id="clip_user_a"><rect fill="white" width="20" height="20" /></clipPath></defs>
           </svg>
@@ -63,40 +63,40 @@
         </div>
 
         <div class="flex flex-col gap-[8px]">
-          <!-- 이용 안내 -->
-          <button
-            type="button"
+          <!-- 이용 안내 → 이용약관 재사용(§4-13, 더보기 계정 카드와 동일 동작) -->
+          <NuxtLink
+            to="/legal/terms"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
-            @click="toast.info(t('profile.menuGuideComingSoon'))"
           >
-            <div class="flex items-center gap-[12px]">
+            <div class="flex items-center gap-[12px] text-apjek-text">
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
                 <g clip-path="url(#clip_guide)">
-                  <path :d="P.info.circle" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  <path d="M8 10.6667V8" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                  <path d="M8 5.33333H8.00667" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  <path :d="P.info.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  <path d="M8 10.6667V8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  <path d="M8 5.33333H8.00667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
                 </g>
                 <defs><clipPath id="clip_guide"><rect fill="white" width="16" height="16" /></clipPath></defs>
               </svg>
               <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ $t('profile.menuGuide') }}</span>
             </div>
-            <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-          </button>
+            <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
+          </NuxtLink>
 
-          <!-- 로그인 -->
+          <!-- 로그인 — 비로그인 시에만 (더보기 계정 카드와 동일) -->
           <NuxtLink
+            v-if="!isLoggedIn"
             to="/auth/login"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
           >
-            <div class="flex items-center gap-[12px]">
+            <div class="flex items-center gap-[12px] text-apjek-text">
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                <path :d="P.login.door" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path :d="P.login.arrow" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path d="M10 8H2" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path :d="P.login.door" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path :d="P.login.arrow" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path d="M10 8H2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
               </svg>
               <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ $t('auth.login') }}</span>
             </div>
-            <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
+            <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
           </NuxtLink>
 
           <!-- 로그아웃 (FE 실기능) -->
@@ -106,15 +106,15 @@
             :disabled="loggingOut"
             @click="onLogout"
           >
-            <div class="flex items-center gap-[12px]">
+            <div class="flex items-center gap-[12px] text-apjek-text">
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                <path :d="P.logout.door" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path :d="P.logout.arrow" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path d="M14 8H6" stroke="#525252" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path :d="P.logout.door" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path :d="P.logout.arrow" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path d="M14 8H6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
               </svg>
               <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ loggingOut ? $t('profile.loggingOut') : $t('profile.logout') }}</span>
             </div>
-            <svg width="16" height="16" fill="none" viewBox="0 0 16 16"><path d="M6 12L10 8L6 4" stroke="#AEAEAE" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
+            <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
           </button>
         </div>
 
@@ -135,6 +135,7 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const toast = useToast()
 const { t } = useI18n()
+const { isLoggedIn } = useAuth()
 
 function goBack() {
   navigateTo('/profile')
