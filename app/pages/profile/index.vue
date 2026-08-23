@@ -17,51 +17,7 @@
         <h1 class="font-bold text-[29px] text-apjek-text tracking-[-0.9px] leading-[28px]">더보기</h1>
       </div>
 
-      <!-- 공지사항 — 아프젝 블랙 필 배너 (공지 API 결정 대기 — 스텁 토스트 유지) -->
-      <button
-        type="button"
-        class="w-full rounded-full bg-apjek-cta text-white flex items-center justify-between px-[16px] py-[13px] transition-all active:scale-[0.98]"
-        @click="toast.info('공지사항 기능은 준비중입니다 🚀')"
-      >
-        <div class="flex items-center gap-[12px]">
-          <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-            <g clip-path="url(#clip_notice)">
-              <path :d="P.info.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path d="M8 10.6667V8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path d="M8 5.33333H8.00667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-            </g>
-            <defs><clipPath id="clip_notice"><rect fill="white" width="16" height="16" /></clipPath></defs>
-          </svg>
-          <span class="text-[14px] font-semibold tracking-[-0.15px]">공지사항</span>
-        </div>
-        <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="opacity-70">
-          <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-        </svg>
-      </button>
-
-      <!-- 알림 (스텁 유지) -->
-      <button
-        type="button"
-        class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] transition-all active:scale-[0.98] border border-apjek-border"
-        @click="toast.info('알림 기능은 준비중입니다 🚀')"
-      >
-        <div class="flex items-center gap-[12px] text-apjek-text">
-          <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-            <g clip-path="url(#clip_alarm)">
-              <path :d="P.info.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path d="M8 10.6667V8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path d="M8 5.33333H8.00667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-            </g>
-            <defs><clipPath id="clip_alarm"><rect fill="white" width="16" height="16" /></clipPath></defs>
-          </svg>
-          <span class="text-[14px] font-semibold tracking-[-0.15px]">알림</span>
-        </div>
-        <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint">
-          <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-        </svg>
-      </button>
-
-      <!-- 나의 프로필 -->
+      <!-- ① 나의 프로필 (M5b) -->
       <div class="apjek-card w-full">
         <div class="p-[21px] flex flex-col gap-[20px]">
           <div class="flex items-center justify-between">
@@ -100,12 +56,22 @@
               <p class="text-[12px] text-apjek-text-faint leading-[16px]">TERRAWORLD 유저</p>
             </div>
           </div>
+
+          <!-- 도감 축소(§4-10): 보유 아이템 n · 배치 m 작은 링크 → 보유 아이템 다이얼로그 -->
+          <button
+            type="button"
+            class="self-start inline-flex items-center gap-[4px] text-[12px] text-apjek-text-sub underline underline-offset-2 decoration-apjek-border-strong active:opacity-70"
+            @click="showItemsDialog = true"
+          >
+            보유 아이템 {{ ownedCount }} · 배치 {{ placedCount }}
+            <svg width="12" height="12" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" /></svg>
+          </button>
         </div>
       </div>
 
-      <!-- 친구목록 -->
+      <!-- ② 친구목록 (M5b) — 실제 친구 최대 3행 + [놀러가기] → 방문 모달 -->
       <div class="apjek-card w-full">
-        <div class="p-[21px] flex flex-col gap-[20px]">
+        <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-[8px] text-apjek-text">
               <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
@@ -118,70 +84,89 @@
               </svg>
               <span class="apjek-section-title text-[18px] leading-[27px]">친구목록</span>
             </div>
-            <!-- 우측 "나의 초대코드" 링크 → /friends -->
-            <NuxtLink to="/friends" class="flex items-center gap-[2px] text-apjek-text">
+            <!-- 우측 "> 나의 초대코드" → 친구 관리(초대코드 발급·입력) -->
+            <NuxtLink to="/friends" class="flex items-center gap-[2px] text-apjek-text active:opacity-70">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
               <span class="text-[12px] font-semibold">나의 초대코드</span>
             </NuxtLink>
           </div>
 
-          <!-- 친구 행 + 놀러가기 → /friends -->
-          <NuxtLink
-            to="/friends"
-            class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px] bg-apjek-bg"
-          >
+          <!-- 친구 목록 로딩 -->
+          <div v-if="friendsLoading" class="flex flex-col gap-[8px]" aria-busy="true">
+            <div v-for="n in 2" :key="n" class="h-[60px] rounded-[12px] bg-apjek-bg animate-pulse" />
+          </div>
+
+          <!-- 친구 행 (최대 3) -->
+          <div v-else-if="friendRows.length" class="flex flex-col gap-[8px]">
             <div
-              class="size-[36px] rounded-full flex items-center justify-center text-[18px] shrink-0"
-              style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
+              v-for="friend in friendRows"
+              :key="friend.userId"
+              class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px] bg-apjek-bg"
             >
-              🌍
+              <div
+                class="size-[36px] rounded-full flex items-center justify-center text-[14px] font-bold text-apjek-text shrink-0"
+                style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
+              >
+                {{ friendInitial(friend.nickname) }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-[14px] font-semibold text-apjek-text leading-[20px] tracking-[-0.15px] truncate">{{ friend.nickname }}</p>
+                <p class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">TERRAWORLD 유저</p>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 rounded-full bg-apjek-cta text-white text-[12px] font-semibold px-[12px] py-[6px] whitespace-nowrap transition-all active:scale-95 disabled:opacity-60"
+                :disabled="visitingId === friend.userId"
+                @click="onVisit(friend)"
+              >
+                {{ visitingId === friend.userId ? '이동 중…' : '놀러가기' }}
+              </button>
             </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-[14px] font-semibold text-apjek-text leading-[20px] tracking-[-0.15px]">친구 관리</p>
-              <p class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">초대 코드 발급 · 입력</p>
-            </div>
-            <span class="shrink-0 rounded-full bg-apjek-cta text-white text-[12px] font-semibold px-[12px] py-[6px] whitespace-nowrap">놀러가기</span>
-          </NuxtLink>
+            <NuxtLink
+              v-if="friends.length > friendRows.length"
+              to="/friends"
+              class="self-center text-[12px] text-apjek-text-sub underline underline-offset-2"
+            >
+              친구 {{ friends.length }}명 모두 보기
+            </NuxtLink>
+          </div>
+
+          <!-- 친구 0명 / 로드 실패 -->
+          <div v-else class="rounded-[12px] bg-apjek-bg px-[12px] py-[16px] flex flex-col items-center gap-[10px]">
+            <p class="text-[13px] text-apjek-text-sub">{{ friendsError ? '친구 목록을 불러오지 못했어요' : '아직 친구가 없어요' }}</p>
+            <NuxtLink v-if="!friendsError" to="/friends" class="apjek-cta h-[36px] px-[16px] text-[12px]">친구 초대하기</NuxtLink>
+            <button v-else type="button" class="apjek-cta h-[36px] px-[16px] text-[12px]" @click="loadFriends">다시 시도</button>
+          </div>
         </div>
       </div>
 
-      <!-- 보유 재화 -->
+      <!-- ③ 보유 재화 (M5b) — [⇄ 재화 환전] → 환전 다이얼로그 직접 오픈(T12/댓글 #18 홈과 동일) -->
       <div class="apjek-card w-full">
         <div class="p-[21px] flex flex-col gap-[20px]">
-          <div class="flex items-center gap-[8px] text-apjek-text">
-            <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-              <path :d="P.star" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-            </svg>
-            <span class="apjek-section-title text-[18px] leading-[27px]">보유 재화</span>
-          </div>
-
-          <!-- 재화 환전 — 다크 필 버튼 → /shop 환전 진입 -->
-          <NuxtLink to="/shop" class="apjek-cta w-full">
-            <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-              <path :d="P.exchange.up" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path d="M13.3333 4.66667H2.66667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path :d="P.exchange.down" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              <path d="M2.66667 11.3333H13.3333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-            </svg>
-            재화 환전
-          </NuxtLink>
-
-          <!-- 토큰 4종 (상단 행) -->
-          <div class="grid grid-cols-4 gap-[8px]">
-            <div
-              v-for="tkn in tokenCells"
-              :key="tkn.code"
-              class="rounded-[12px] flex flex-col items-center p-[13px] gap-[4px] bg-apjek-bg"
-            >
-              <div class="flex items-center justify-center h-5">
-                <IconsCurrencyIcon :code="tkn.code" :size="18" />
-              </div>
-              <span class="text-[11px] text-apjek-text-sub text-center">{{ tkn.label }}</span>
-              <span class="text-[12px] font-semibold text-apjek-text text-center">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-[8px] text-apjek-text">
+              <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+                <path :d="P.star" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
+              </svg>
+              <span class="apjek-section-title text-[18px] leading-[27px]">보유 재화</span>
             </div>
+            <button
+              type="button"
+              data-testid="profile-exchange-trigger"
+              class="apjek-cta h-[34px] px-[12px] text-[12px] active:scale-[0.97] transition-transform"
+              @click="showExchange = true"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 16 16">
+                <path :d="P.exchange.up" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path d="M13.3333 4.66667H2.66667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path :d="P.exchange.down" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                <path d="M2.66667 11.3333H13.3333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+              </svg>
+              재화 환전
+            </button>
           </div>
 
-          <!-- 코인 · 반짝이 · 루비 (하단 행) -->
+          <!-- 코인 · 반짝이 · 루비 (상단 3열) -->
           <div class="grid grid-cols-3 gap-[8px]">
             <div
               v-for="c in coinCells"
@@ -195,53 +180,83 @@
               <span class="text-[14px] font-bold text-apjek-text text-center tracking-[-0.15px]">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
             </div>
           </div>
+
+          <!-- 토큰 4종 (하단 4열) -->
+          <div class="grid grid-cols-4 gap-[8px]">
+            <div
+              v-for="tkn in tokenCells"
+              :key="tkn.code"
+              class="rounded-[12px] flex flex-col items-center p-[13px] gap-[4px] bg-apjek-bg"
+            >
+              <div class="flex items-center justify-center h-5">
+                <IconsCurrencyIcon :code="tkn.code" :size="18" />
+              </div>
+              <span class="text-[11px] text-apjek-text-sub text-center whitespace-nowrap">{{ tkn.label }}</span>
+              <span class="text-[12px] font-semibold text-apjek-text text-center">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- 도감 -->
+      <!-- ④ 문의 및 알림 (M5b/M1/M6) — 공지사항(검정 행) / 고객센터(흰 행) -->
       <div class="apjek-card w-full">
-        <div class="p-[21px] flex flex-col gap-[20px]">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-[8px] text-apjek-text">
-              <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-                <path :d="P.star" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              </svg>
-              <span class="apjek-section-title text-[18px] leading-[27px]">도감</span>
-            </div>
-            <button type="button" class="flex items-center gap-[4px] text-apjek-text active:scale-95 transition-all" @click="showItemsDialog = true">
-              <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
-                <path :d="P.eye.outer" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path :d="P.eye.inner" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              </svg>
-              <span class="text-[14px] font-semibold tracking-[-0.15px]">자세히보기</span>
-            </button>
+        <div class="p-[21px] flex flex-col gap-[16px]">
+          <div class="flex items-center gap-[8px] text-apjek-text">
+            <span class="text-[18px] leading-none" aria-hidden="true">🔔</span>
+            <span class="apjek-section-title text-[18px] leading-[27px]">문의 및 알림</span>
           </div>
-          <div class="grid grid-cols-2 gap-[16px]">
-            <div class="rounded-[12px] flex flex-col items-start p-[16px] h-[92px] bg-apjek-bg">
-              <span class="text-[30px] font-bold text-apjek-text tracking-[0.4px] leading-[36px]">{{ ownedCount }}</span>
-              <span class="text-[14px] font-semibold text-apjek-text-sub tracking-[-0.15px] mt-[4px]">보유 중</span>
-            </div>
-            <div class="rounded-[12px] flex flex-col items-start p-[16px] h-[92px] bg-apjek-bg">
-              <span class="text-[30px] font-bold text-apjek-text tracking-[0.4px] leading-[36px]">{{ placedCount }}</span>
-              <span class="text-[14px] font-semibold text-apjek-text-sub tracking-[-0.15px] mt-[4px]">배치됨</span>
-            </div>
+
+          <div class="flex flex-col gap-[8px]">
+            <!-- 공지사항 — 검정 행 → 공지 팝업 (정적 notices.json, §4-6) -->
+            <button
+              type="button"
+              class="w-full rounded-[12px] bg-apjek-cta text-white flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98]"
+              @click="openNotices"
+            >
+              <div class="flex items-center gap-[12px]">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+                  <g clip-path="url(#clip_notice)">
+                    <path :d="P.info.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                    <path d="M8 10.6667V8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                    <path d="M8 5.33333H8.00667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  </g>
+                  <defs><clipPath id="clip_notice"><rect fill="white" width="16" height="16" /></clipPath></defs>
+                </svg>
+                <span class="text-[14px] font-semibold tracking-[-0.15px]">공지사항</span>
+              </div>
+              <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="opacity-70">
+                <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+              </svg>
+            </button>
+
+            <!-- 고객센터 — 흰 행 → 메일 문의 (M6) -->
+            <a
+              :href="supportMailto"
+              class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+            >
+              <div class="flex items-center gap-[12px] text-apjek-text">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+                  <g clip-path="url(#clip_support)">
+                    <path :d="P.info.circle" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                    <path d="M8 10.6667V8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                    <path d="M8 5.33333H8.00667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  </g>
+                  <defs><clipPath id="clip_support"><rect fill="white" width="16" height="16" /></clipPath></defs>
+                </svg>
+                <div class="flex flex-col items-start">
+                  <span class="text-[14px] font-semibold tracking-[-0.15px]">고객센터</span>
+                  <span class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">{{ supportEmail }}</span>
+                </div>
+              </div>
+              <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint">
+                <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+              </svg>
+            </a>
           </div>
         </div>
       </div>
 
-      <!-- 월간 랭킹 (계정과 무관 — 단독 진입 행, 기존 동선 유지) -->
-      <NuxtLink
-        to="/ranking"
-        class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] transition-all active:scale-[0.98] border border-apjek-border"
-      >
-        <div class="flex items-center gap-[12px] text-apjek-text">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
-          <span class="text-[14px] font-semibold tracking-[-0.15px]">{{ $t('profile.menuRanking') }}</span>
-        </div>
-        <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-      </NuxtLink>
-
-      <!-- 계정 -->
+      <!-- ⑤ 계정 (M7) — 이용 안내 / 로그인(비로그인 시) / 설정 / 로그아웃 -->
       <div class="apjek-card w-full">
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center gap-[8px] text-apjek-text">
@@ -257,11 +272,10 @@
           </div>
 
           <div class="flex flex-col gap-[8px]">
-            <!-- 이용 안내 (준비 중 토스트) -->
-            <button
-              type="button"
+            <!-- 이용 안내 → 이용약관 재사용(§4-13) -->
+            <NuxtLink
+              to="/legal/terms"
               class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
-              @click="toast.info(t('profile.menuGuideComingSoon'))"
             >
               <div class="flex items-center gap-[12px] text-apjek-text">
                 <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
@@ -275,9 +289,26 @@
                 <span class="text-[14px] font-semibold tracking-[-0.15px]">{{ $t('profile.menuGuide') }}</span>
               </div>
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
-            </button>
+            </NuxtLink>
 
-            <!-- 설정 (계정 · 동의 항목 관리 — /profile/settings 서브페이지, 기존 동선 유지) -->
+            <!-- 로그인 — 비로그인 시에만 -->
+            <NuxtLink
+              v-if="!isLoggedIn"
+              to="/auth/login"
+              class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+            >
+              <div class="flex items-center gap-[12px] text-apjek-text">
+                <svg width="16" height="16" fill="none" viewBox="0 0 16 16">
+                  <path :d="P.login.door" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  <path :d="P.login.arrow" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                  <path d="M10 8H2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+                </svg>
+                <span class="text-[14px] font-semibold tracking-[-0.15px]">{{ $t('auth.login') }}</span>
+              </div>
+              <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
+            </NuxtLink>
+
+            <!-- 설정 (동의 항목 관리 — PIPA 철회 경로라 진입점을 유지한다) -->
             <NuxtLink
               to="/profile/settings"
               class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] transition-all active:scale-[0.98] border border-apjek-border"
@@ -286,7 +317,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
                 <div class="flex flex-col items-start">
                   <span class="text-[14px] font-semibold tracking-[-0.15px]">설정</span>
-                  <span class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">계정 · 동의 항목 관리</span>
+                  <span class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">동의 항목 관리</span>
                 </div>
               </div>
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
@@ -313,7 +344,7 @@
         </div>
       </div>
 
-      <!-- 보유 아이템 다이얼로그 -->
+      <!-- 보유 아이템 다이얼로그 (도감 축소 — 프로필 카드 링크에서 오픈) -->
       <Transition name="fade">
         <div v-if="showItemsDialog" class="fixed inset-0 bg-black/50 z-50" @click="showItemsDialog = false" />
       </Transition>
@@ -352,7 +383,24 @@
         </div>
       </Transition>
 
-      <!-- M2: 닉네임 수정 바텀시트 — focus trap / 스크롤 잠금 / 뒤로가기는 CommonBottomSheet 내장 -->
+      <!-- M1 공지사항 팝업 -->
+      <ProfileNoticesDialog :open="showNotices" @close="showNotices = false" />
+
+      <!-- 재화 환전 다이얼로그 (상점·홈과 동일 컴포넌트) -->
+      <ShopExchangeDialog v-model="showExchange" />
+
+      <!-- 놀러가기 모달 — 친구 테라리움 실렌더 (friends 페이지와 동일 컴포넌트) -->
+      <FriendsVisitModal
+        :open="visitModalOpen"
+        :friend="visitFriend"
+        :terrarium="visitTerrarium"
+        :liking="likingId !== null"
+        @close="visitModalOpen = false"
+        @toggle-like="visitFriend && onToggleLike(visitFriend)"
+      />
+
+      <!-- M2: 닉네임 수정 바텀시트 — focus trap / 스크롤 잠금 / 뒤로가기는 CommonBottomSheet 내장
+           TODO(C4 머지 후): 고정 높이·X 우상단 리스킨 반영 확인 -->
       <CommonBottomSheet
         :open="showNicknameSheet"
         ariaLabel="프로필 수정"
@@ -393,23 +441,29 @@
 </template>
 
 <script setup lang="ts">
-import type { UserMeResponse } from '@terraworld-it/openapi-frontend'
+import type { FriendInfo, TerrariumResponse, UserMeResponse } from '@terraworld-it/openapi-frontend'
 // `useUserStore` 는 auto-import 가 걸리지 않는다 (frontend/CLAUDE.md § 함정) — 명시 import.
 import { useUserStore } from '~/stores/user'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
 
+// 더보기(M5b) — Figma(2026-08-21) 카드 5개: 나의 프로필 / 친구목록 / 보유 재화 / 문의 및 알림 / 계정.
+// 공지사항은 정적 notices.json(§4-6), 고객센터는 메일(M6), 이용 안내는 /legal/terms(§4-13).
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const userStore = useUserStore()
 const toast = useToast()
 const { t } = useI18n()
 const { sdk, client } = useOpenApi()
+const { isLoggedIn } = useAuth()
+const runtimeConfig = useRuntimeConfig()
 
 const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 // 프로필은 스토어의 TTL 캐시(15초) 뷰를 그대로 읽는다 — 탭 왕복마다 getMe 를 다시 치지 않는다.
 const user = computed<UserMeResponse | null>(() => userStore.me as UserMeResponse | null)
 const showItemsDialog = ref<boolean>(false)
+const showNotices = ref<boolean>(false)
+const showExchange = ref<boolean>(false)
 
 // bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
 const itemsDialogRoot = ref<HTMLElement | null>(null)
@@ -439,6 +493,97 @@ const placedCount = computed<number>(() => user.value?.placedItems?.length ?? 0)
 function isPlaced(slug: string): boolean {
   // ownedItems 는 slug(string), placedItems[].itemId 는 number → itemSlug 로 매칭.
   return (user.value?.placedItems ?? []).some(p => p.itemSlug === slug)
+}
+
+// ── M6: 고객센터 메일 — runtimeConfig public.supportEmail, 미설정 시 기본 주소 ──
+const supportEmail = computed<string>(() => {
+  const v = (runtimeConfig.public as { supportEmail?: string }).supportEmail
+  return v && v.trim() ? v.trim() : 'support@terraworld.app'
+})
+const supportMailto = computed<string>(() => `mailto:${supportEmail.value}?subject=${encodeURIComponent('[TERRAWORLD] 문의')}`)
+
+// ── M1: 공지사항 팝업 ──
+function openNotices() {
+  showNotices.value = true
+}
+
+// ── 친구목록 (M5b): 실제 친구 최대 3행 + 놀러가기 모달 ──
+interface FriendRow extends FriendInfo {
+  liked?: boolean
+}
+const friends = ref<FriendRow[]>([])
+const friendsLoading = ref<boolean>(false)
+const friendsError = ref<boolean>(false)
+const friendRows = computed<FriendRow[]>(() => friends.value.slice(0, 3))
+const likingId = ref<string | null>(null)
+const visitingId = ref<string | null>(null)
+const visitModalOpen = ref<boolean>(false)
+const visitFriend = ref<FriendRow | null>(null)
+const visitTerrarium = ref<TerrariumResponse | null>(null)
+
+function friendInitial(nick: string): string {
+  return (nick || '?').trim().charAt(0).toUpperCase() || '?'
+}
+
+async function loadFriends() {
+  friendsLoading.value = true
+  friendsError.value = false
+  try {
+    // hey-api SDK 는 HTTP 에러를 throw 하지 않고 {error} 로 반환 — 미검사 시 실패가
+    // "친구 없음" 빈 상태로 위장된다 (audit C4-5).
+    const { data, error } = await sdk.listFriends({ client })
+    if (error) throw error
+    const list = castData<FriendRow[]>(data)
+    friends.value = (list ?? []).map(f => ({ ...f, liked: f.liked ?? false }))
+  }
+  catch {
+    friendsError.value = true
+  }
+  finally {
+    friendsLoading.value = false
+  }
+}
+
+async function onVisit(friend: FriendRow) {
+  if (visitingId.value) return
+  visitingId.value = friend.userId
+  visitFriend.value = friend
+  visitTerrarium.value = null
+  visitModalOpen.value = true
+  try {
+    const { data, error } = await sdk.visitFriendTerrarium({ client, path: { friendId: friend.userId } })
+    if (error) throw error
+    visitTerrarium.value = castData<TerrariumResponse>(data) ?? null
+  }
+  catch {
+    // 실패를 방치하면 모달이 로딩 상태로 영구 고착된다 (audit C4-5).
+    visitModalOpen.value = false
+    toast.error(t('friends.visitError'))
+  }
+  finally {
+    visitingId.value = null
+  }
+}
+
+async function onToggleLike(friend: FriendRow) {
+  if (likingId.value) return
+  likingId.value = friend.userId
+  try {
+    const { data, error } = await sdk.toggleFriendLike({ client, path: { friendId: friend.userId } })
+    if (error) throw error
+    const result = castData<{ liked: boolean, likeCount: number }>(data)
+    if (result) {
+      friend.liked = result.liked
+      friend.likeCount = result.likeCount
+      toast.success(result.liked ? '좋아요를 남겼어요 ♥' : '좋아요를 취소했어요')
+    }
+  }
+  catch {
+    toast.error(t('friends.likeError'))
+  }
+  finally {
+    likingId.value = null
+  }
 }
 
 // ── M2: 프로필(닉네임) 수정 ─────────────────────────────────────────────
@@ -515,9 +660,9 @@ const P = {
     up: 'M10.6667 2L13.3333 4.66667L10.6667 7.33333',
     down: 'M5.33333 14L2.66667 11.3333L5.33333 8.66667',
   },
-  eye: {
-    outer: 'M1.37467 7.768C1.31911 7.91768 1.31911 8.08232 1.37467 8.232C1.9158 9.5441 2.83434 10.666 4.01385 11.4554C5.19335 12.2448 6.5807 12.6663 8 12.6663C9.4193 12.6663 10.8066 12.2448 11.9862 11.4554C13.1657 10.666 14.0842 9.5441 14.6253 8.232C14.6809 8.08232 14.6809 7.91768 14.6253 7.768C14.0842 6.4559 13.1657 5.33403 11.9862 4.5446C10.8066 3.75517 9.4193 3.33374 8 3.33374C6.5807 3.33374 5.19335 3.75517 4.01385 4.5446C2.83434 5.33403 1.9158 6.4559 1.37467 7.768Z',
-    inner: 'M8 10C9.10457 10 10 9.10457 10 8C10 6.89543 9.10457 6 8 6C6.89543 6 6 6.89543 6 8C6 9.10457 6.89543 10 8 10Z',
+  login: {
+    door: 'M10 2H12.6667C13.0203 2 13.3594 2.14048 13.6095 2.39052C13.8595 2.64057 14 2.97971 14 3.33333V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H10',
+    arrow: 'M6.66667 11.3333L10 8L6.66667 4.66667',
   },
   logout: {
     door: 'M6 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V3.33333C2 2.97971 2.14048 2.64057 2.39052 2.39052C2.64057 2.14048 2.97971 2 3.33333 2H6',
@@ -561,6 +706,8 @@ async function load() {
   finally {
     pending.value = false
   }
+  // 친구 목록은 프로필 로드와 독립 — 실패해도 페이지 전체를 막지 않는다(카드 안 빈 상태로만 표시).
+  void loadFriends()
 }
 
 onMounted(load)

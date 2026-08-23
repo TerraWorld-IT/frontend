@@ -197,6 +197,8 @@ export default defineNuxtConfig({
       minAppVersion: process.env.NUXT_PUBLIC_MIN_APP_VERSION || '',
       iosStoreUrl: process.env.NUXT_PUBLIC_IOS_STORE_URL || '',
       androidStoreUrl: process.env.NUXT_PUBLIC_ANDROID_STORE_URL || 'market://details?id=app.terraworld.mobile',
+      // 더보기 > 고객센터 문의 메일(M6). 외부 폼으로 바꾸면 이 값만 교체 — 코드 변경 0.
+      supportEmail: process.env.NUXT_PUBLIC_SUPPORT_EMAIL || 'support@terraworld.app',
     },
   },
 
