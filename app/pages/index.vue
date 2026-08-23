@@ -951,10 +951,9 @@ registerOverlayBackClose(editMode)
 const showInviteCode = ref<boolean>(false)
 const inviteCode = ref<string>('')
 const inviteLink = ref<string>('')
-// 보상 수치 — 스펙 초안(N-B3) `CreateInviteResponse.inviterRuby/inviteeRuby` 가 SDK 에 생기면 채워진다.
-// TODO(WS-A N-B3 머지 후): InviteResponse 타입에서 optional chaining 제거.
-const inviteInviterRuby = ref<number | null>(null)
-const inviteInviteeRuby = ref<number | null>(null)
+// 보상 수치 — `InviteResponse.inviterRuby/inviteeRuby`(BE 설정값, 카피 표시용). 발급 응답으로 채운다.
+const inviteInviterRuby = ref<number>(0)
+const inviteInviteeRuby = ref<number>(0)
 const inviteCreating = ref<boolean>(false)
 
 const heartBusy = ref<boolean>(false)
@@ -1179,9 +1178,12 @@ function onManageEmptyCta() {
 }
 
 // 배치 초과 안내 — Figma 393×88 카드형 토스트 "🚫 배치 가능한 아이템 수를 초과 했습니다 / 배치 가능한 아이템 : N개"
-// TODO(C4 머지 후): 카드형 토스트({title, description, icon, variant:'card'})로 교체
 function toastSlotExceeded() {
-  toast.error(`🚫 배치 가능한 아이템 수를 초과 했습니다 · 배치 가능한 아이템 : ${maxSlots.value}개`)
+  toast.error('배치 가능한 아이템 수를 초과 했습니다', {
+    icon: '🚫',
+    description: `배치 가능한 아이템 : ${maxSlots.value}개`,
+    variant: 'card',
+  })
 }
 
 async function onManageTile(tile: ManageTile) {
@@ -1218,7 +1220,7 @@ async function onSaveManage() {
         return
       }
     }
-    toast.success('저장됨')
+    toast.success('저장됨', { variant: 'pill' })
     exitManageMode()
   }
   finally {
@@ -1516,7 +1518,7 @@ async function onClaimAdReward() {
     if (ad) userStore.updateCurrency(ad.updatedCurrency)
     // reward.specialCoins 는 필드명만 구세대 — 실지급 재화는 RUBY(백엔드 AdRewardService, 고정 1).
     const reward = ad?.reward.specialCoins ?? 0
-    toast.success(t('home.adRewardEarned', { n: reward }))
+    toast.success(t('home.adRewardEarned', { n: reward }), { variant: 'pill' })
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
   }
   catch (e) {
@@ -1551,14 +1553,13 @@ async function onInviteShare() {
     // friends 페이지와 동일 API — 8자 코드 + 7일 만료. 발급 코드를 변형 없이 그대로 표시한다.
     const { data, error } = await sdk.createInvite({ client })
     if (error) throw new Error(errMsg(error, '초대코드 발급에 실패했어요'))
-    const invite = castData<InviteResponse & { inviterRuby?: number | null, inviteeRuby?: number | null }>(data)
-    const code = invite?.inviteCode ?? ''
-    if (!code) throw new Error('초대코드 발급에 실패했어요')
-    inviteCode.value = code
-    inviteLink.value = invite?.inviteLink ?? ''
-    // 보상 수치는 서버 응답 필드가 있을 때만 — 없으면 중립 카피(TODO(WS-A N-B3 머지 후) 타입 정식화).
-    inviteInviterRuby.value = typeof invite?.inviterRuby === 'number' ? invite.inviterRuby : null
-    inviteInviteeRuby.value = typeof invite?.inviteeRuby === 'number' ? invite.inviteeRuby : null
+    const invite = castData<InviteResponse>(data)
+    if (!invite?.inviteCode) throw new Error('초대코드 발급에 실패했어요')
+    inviteCode.value = invite.inviteCode
+    inviteLink.value = invite.inviteLink
+    // 보상 카피 "나 : 루비 +{inviterRuby} , 친구 : 루비 +{inviteeRuby}" — 서버 설정값 그대로.
+    inviteInviterRuby.value = invite.inviterRuby
+    inviteInviteeRuby.value = invite.inviteeRuby
     showShareDialog.value = false
     showInviteCode.value = true
   }
@@ -1683,8 +1684,11 @@ async function onImageSave() {
     const ok = await shareToInstagram(blob, filename, { title: 'TerraWorld', text: t('home.shareText') })
     if (!ok) return
     // Figma 393×88 카드형 토스트 "🖼️ 이미지 저장 완료 / 나의 테라 이미지가 사진첩에 저장되었어요"
-    // TODO(C4 머지 후): 카드형 토스트({title, description, icon, variant:'card'})로 교체
-    toast.success('🖼️ 이미지 저장 완료 · 나의 테라 이미지가 사진첩에 저장되었어요')
+    toast.success('이미지 저장 완료', {
+      icon: '🖼️',
+      description: '나의 테라 이미지가 사진첩에 저장되었어요',
+      variant: 'card',
+    })
     trackScreenshotSaved({ context: 'home' })
     trackShareCreated({ method: 'screenshot' })
   }
