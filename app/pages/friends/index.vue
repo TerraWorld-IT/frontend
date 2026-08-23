@@ -43,6 +43,9 @@
         </div>
         <p class="text-[12px] text-apjek-text-sub leading-[18px]">
           {{ $t('friends.codeHint') }}
+          <template v-if="myInviterRuby !== null && myInviteeRuby !== null">
+            {{ $t('friends.codeHintReward', { inviter: myInviterRuby, invitee: myInviteeRuby }) }}
+          </template>
         </p>
       </div>
 
@@ -193,6 +196,9 @@ const { trackInviteCreated, trackInviteAccepted } = useGtagEvents()
 
 const myCode = ref<string>('')
 const myExpiresAt = ref<string>('')
+// 초대 보상 카피 수치 — 발급 응답(InviteResponse.inviterRuby/inviteeRuby)이 오기 전엔 null(수치 줄 미표시).
+const myInviterRuby = ref<number | null>(null)
+const myInviteeRuby = ref<number | null>(null)
 const inputCode = ref<string>('')
 const creating = ref<boolean>(false)
 const accepting = ref<boolean>(false)
@@ -291,8 +297,11 @@ async function onCreateInvite() {
     if (error) throw new Error(errMsg(error, t('friends.createError')))
     const invite = castData<InviteResponse>(data)
     if (invite) {
-      myCode.value = (invite as { inviteCode?: string }).inviteCode ?? ''
-      myExpiresAt.value = (invite as { expiresAt?: string }).expiresAt ?? ''
+      myCode.value = invite.inviteCode
+      myExpiresAt.value = invite.expiresAt
+      // 보상 카피 수치 — BE 설정값(inviterRuby/inviteeRuby) 그대로, 하드코딩하지 않는다.
+      myInviterRuby.value = invite.inviterRuby
+      myInviteeRuby.value = invite.inviteeRuby
       trackInviteCreated()
     }
   }
@@ -348,7 +357,8 @@ async function onAcceptInvite() {
     })
     if (error) throw new Error(errMsg(error, t('friends.acceptError')))
     const result = castData<InviteAcceptResponse>(data)
-    const reward = (result as { reward?: { specialCoins?: number } })?.reward?.specialCoins ?? 5
+    // 수락자(나) 지급분 = reward.inviteeRuby (specialCoins 는 하위호환 동일값).
+    const reward = result?.reward.inviteeRuby ?? 0
     toast.success(t('friends.acceptSuccess', { reward }))
     trackInviteAccepted({ specialCoinsRewarded: reward })
     inputCode.value = ''

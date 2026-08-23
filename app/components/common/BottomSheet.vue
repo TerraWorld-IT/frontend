@@ -1,13 +1,21 @@
 <!--
   공용 바텀시트 — 2026-07-20 통일 정책(audit C2): 시트마다 radius/배경/백드롭/핸들/닫기/
   max-height/모션이 제각각이던 것을 단일 규약으로 통일한다. 모든 시트는 통일된 기본
-  높이(baseHeight)로 뜨고, 더 필요하면 사용자 액션(핸들 드래그/탭)으로 확대(expandedHeight)한다.
+  높이(baseHeight)로 뜨고, expandable 인 시트만 사용자 액션(핸들 드래그/탭)으로 확대(expandedHeight)한다.
+
+  아프젝 Figma 정합(2026-08-23 C4): 흰 패널 r24 상단, 기본 높이 393×620 고정(댓글 #31) →
+  baseHeight 기본값 `min(620px, 88dvh)`, expandable 기본 false(명시 true 인 시트만 확대),
+  X 는 헤더 우측 연파랑 원형으로 우상단 고정. fixedHeight=true 면 콘텐츠 양과 무관하게
+  baseHeight 를 height 로 고정한다(기본은 max-height 캡 — 짧은 시트는 자연 높이).
 
   내장 처리 (사용처에서 중복 등록 금지):
   - focus trap + 배경 스크롤 잠금 + ESC 닫기 → useDialogFocusTrap
   - Android 하드웨어 뒤로가기 → useBackButtonStack (열린 채 라우트 이탈 시 stale handler
     방지를 위해 onBeforeUnmount 정리 포함 — index.vue registerOverlayBackClose 패턴)
   - 콘텐츠 하단 safe-area 여백 (홈 인디케이터 가림 방지 — audit C7-1)
+  - footer 슬롯(옵션): 스크롤 영역 밖 하단 고정 — 주 CTA 를 여기 두면 콘텐츠가 길거나 키보드가
+    떠서 시트가 줄어도 CTA 가 잘리지 않는다(620 고정 시트의 투두/응원/습관 생성). 있으면
+    safe-area 여백도 footer 가 맡는다.
 
   트랜지션 함정 (frontend/CLAUDE.md): Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate`
   속성이라 transform 에 X 축을 넣으면 이중 적용된다. 수평 중앙은 `inset-x-0 mx-auto` 로 잡고
@@ -26,14 +34,11 @@
       >
         <div class="sheet-backdrop fixed inset-0 bg-black/40" @click="onBackdropClick" />
         <div
-          class="sheet-panel fixed bottom-0 inset-x-0 w-full max-w-md mx-auto rounded-t-3xl shadow-2xl flex flex-col"
-          :style="{
-            background: 'rgba(255,255,255,0.97)',
-            backdropFilter: 'blur(20px)',
-            maxHeight: expanded ? expandedHeight : baseHeight,
-          }"
+          class="sheet-panel fixed bottom-0 inset-x-0 w-full max-w-md mx-auto rounded-t-2xl bg-apjek-surface text-apjek-text shadow-2xl flex flex-col"
+          :style="panelStyle"
         >
-          <!-- 핸들 바 — expandable 이면 드래그(위 40px 확대 / 아래 40px 축소·닫기) + 탭 토글 -->
+          <!-- 핸들 바 — expandable 이면 드래그(위 40px 확대 / 아래 40px 축소·닫기) + 탭 토글.
+               비확대 시트는 핸들 없이 상단 여백만 둔다(Figma: 헤더 + X 만 노출). -->
           <button
             v-if="expandable"
             type="button"
@@ -43,32 +48,41 @@
             @pointerdown="onHandlePointerDown"
             @click="onHandleClick"
           >
-            <span class="w-12 h-1 rounded-full bg-gray-200" />
+            <span class="w-12 h-1 rounded-full bg-apjek-border-strong" />
           </button>
-          <div v-else class="w-full flex justify-center items-center shrink-0" style="height: 28px">
-            <span class="w-12 h-1 rounded-full bg-gray-200" />
-          </div>
+          <div v-else class="w-full shrink-0" style="height: 16px" />
 
-          <!-- 닫기 X -->
+          <!-- 닫기 X — 우상단 고정, 연파랑 원형(Figma). 핸들(상단 28px 중앙 48px 폭)과 겹치지 않는다 -->
           <button
             v-if="showClose"
             type="button"
-            class="absolute top-3 right-4 w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center"
+            class="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center active:opacity-70"
             aria-label="닫기"
             @click="emit('close')"
           >
-            <Icon name="lucide:x" class="w-4 h-4 text-gray-500" />
+            <Icon name="lucide:x" class="w-4 h-4" />
           </button>
 
           <!-- 고정 헤더 (옵션) — 스크롤 영역 밖에 남아 콘텐츠 스크롤 시에도 고정된다 -->
           <slot name="header" />
 
-          <!-- 콘텐츠 — 단일 스크롤 영역. 하단 safe-area 여백은 여기서 일괄 처리(audit C7-1) -->
+          <!-- 콘텐츠 — 단일 스크롤 영역. 하단 safe-area 여백은 여기서 일괄 처리(audit C7-1).
+               footer 가 있으면 여백은 footer 가 맡고 여기는 짧은 간격만 둔다 -->
           <div
             class="flex-1 min-h-0 overflow-y-auto"
-            style="padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px))"
+            :style="{ paddingBottom: $slots.footer ? '12px' : 'calc(20px + env(safe-area-inset-bottom, 0px))' }"
           >
             <slot />
+          </div>
+
+          <!-- 고정 푸터 (옵션) — 주 CTA. 스크롤 영역 밖이라 콘텐츠 길이·키보드와 무관하게 보인다 -->
+          <div
+            v-if="$slots.footer"
+            class="shrink-0 px-5 pt-2"
+            style="padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px))"
+            data-testid="sheet-footer"
+          >
+            <slot name="footer" />
           </div>
         </div>
       </div>
@@ -83,21 +97,34 @@ const props = withDefaults(defineProps<{
   ariaLabel: string
   /** 핸들 드래그/탭으로 expandedHeight 까지 확대 가능 여부 */
   expandable?: boolean
-  /** 기본 max-height (짧은 콘텐츠는 자연 높이, 긴 콘텐츠는 이 값으로 캡) */
+  /** 기본 max-height (짧은 콘텐츠는 자연 높이, 긴 콘텐츠는 이 값으로 캡). Figma 620 고정 높이 기준 */
   baseHeight?: string
   /** 확대 시 max-height */
   expandedHeight?: string
+  /** true 면 baseHeight 를 max-height 가 아닌 height 로 고정 (콘텐츠가 짧아도 같은 높이) */
+  fixedHeight?: boolean
   showClose?: boolean
 }>(), {
-  expandable: true,
-  baseHeight: '62dvh',
+  expandable: false,
+  baseHeight: 'min(620px, 88dvh)',
   expandedHeight: 'calc(100dvh - 98px - 20px)',
+  fixedHeight: false,
   showClose: true,
 })
 
 const emit = defineEmits<{ close: [] }>()
 
 const expanded = ref<boolean>(false)
+
+const panelStyle = computed<Record<string, string>>(() => {
+  const current = expanded.value ? props.expandedHeight : props.baseHeight
+  const style: Record<string, string> = { maxHeight: current }
+  if (props.fixedHeight && !expanded.value) {
+    style.height = current
+    style.maxHeight = props.expandedHeight
+  }
+  return style
+})
 
 /**
  * 백드롭 탭 — 키보드가 열려 있으면(모바일에서 키보드가 시트보다 높아 "키보드를 닫으려는"

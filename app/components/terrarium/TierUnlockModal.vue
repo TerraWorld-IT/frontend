@@ -1,0 +1,122 @@
+<!--
+  테라리움 해금 팝업 + 해금 성공 팝업 (아프젝 T14 — Figma "해금 팝업 Lv.2/Lv.3", "해금 성공 Lv.2/Lv.3").
+  - 해금 팝업: 헤더 "Lv.N 테라리움 해금하기" + X, 병 일러스트(플레이스홀더) + 검정 원형 "SET" 정령 뱃지(정령 있는
+    레벨만), 설명 "… 테라리움 입니다. / 배치 가능한 아이템 : N개", CTA 3상태:
+      [💎 루비 N개로 해금하기](검정) / 비활성 "💎 루비 N개 사용 | 루비가 부족합니다" / 비활성 "이전 레벨을 먼저 해금해 주세요"
+  - 성공 팝업: "해금 성공! {정령} 정령을 획득했어요. / 새로운 테라리움을 관리해 보세요" (정령 없으면 "해금 성공! / …")
+    + 연파랑 [✏️ 관리 모드 바로가기]. 해금해도 표시 병은 바뀌지 않는다(댓글 #46) — 바로가기를 누르면
+    부모가 해금한 병으로 전환 후 관리 모드로 들어가고, X 로 닫으면 현재 병이 유지된다.
+  실 해금 호출(useTier.unlock)은 부모가 소유 — unlock/manage emit 만 한다.
+  등록명: TerrariumTierUnlockModal.
+-->
+<template>
+  <!-- 해금 팝업 -->
+  <TerrariumHomeDialog
+    :open="open && !success"
+    :title="target ? `Lv.${target.level} 테라리움 해금하기` : '테라리움 해금하기'"
+    aria-label="테라리움 해금하기"
+    @close="emit('close')"
+  >
+    <div v-if="target" class="flex flex-col items-center" data-testid="tier-unlock-body">
+      <!-- 병 일러스트 플레이스홀더 + SET 정령 뱃지 -->
+      <div class="relative w-[160px] h-[220px] mb-3" aria-hidden="true">
+        <IconsJar1 />
+        <div
+          v-if="target.spiritCode"
+          class="absolute -right-2 top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shadow-lg"
+          style="background: var(--color-apjek-cta)"
+        >
+          <span class="text-[9px] font-bold leading-none">SET</span>
+          <span class="text-base leading-none">{{ spiritEmoji }}</span>
+        </div>
+      </div>
+      <p class="text-sm text-apjek-text text-center leading-relaxed">{{ target.descriptionKo }}</p>
+      <p class="text-sm text-apjek-text-sub text-center mb-5">배치 가능한 아이템 : {{ target.slots }}개</p>
+
+      <!-- CTA 3상태 -->
+      <button
+        v-if="!target.prevUnlocked"
+        type="button"
+        class="apjek-cta w-full py-3"
+        disabled
+        data-testid="tier-unlock-cta"
+      >이전 레벨을 먼저 해금해 주세요</button>
+      <button
+        v-else-if="rubyBalance < target.rubyCost"
+        type="button"
+        class="apjek-cta w-full py-3"
+        disabled
+        data-testid="tier-unlock-cta"
+      >💎 루비 {{ target.rubyCost }}개 사용 | 루비가 부족합니다</button>
+      <button
+        v-else
+        type="button"
+        class="apjek-cta w-full py-3"
+        :disabled="busy"
+        data-testid="tier-unlock-cta"
+        @click="emit('unlock', target)"
+      >{{ busy ? '해금 중…' : `💎 루비 ${target.rubyCost}개로 해금하기` }}</button>
+    </div>
+  </TerrariumHomeDialog>
+
+  <!-- 해금 성공 팝업 -->
+  <TerrariumHomeDialog
+    :open="open && !!success"
+    title="해금 성공!"
+    icon="🎉"
+    aria-label="해금 성공"
+    @close="emit('close')"
+  >
+    <div v-if="success" class="flex flex-col items-center" data-testid="tier-unlock-success">
+      <div class="relative w-[160px] h-[220px] mb-3" aria-hidden="true">
+        <IconsJar1 />
+      </div>
+      <p class="text-sm font-semibold text-apjek-text text-center leading-relaxed">
+        해금 성공!<template v-if="success.grantedSpirit"> {{ spiritNameKo(success.grantedSpirit) }} 정령을 획득했어요.</template>
+      </p>
+      <p class="text-sm text-apjek-text-sub text-center mb-5">새로운 테라리움을 관리해 보세요</p>
+      <button
+        type="button"
+        class="w-full py-3 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+        style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
+        data-testid="tier-unlock-manage"
+        @click="emit('manage')"
+      >✏️ 관리 모드 바로가기</button>
+    </div>
+  </TerrariumHomeDialog>
+</template>
+
+<script setup lang="ts">
+import type { JarLevel } from '~/utils/tierLevels'
+
+/** 해금 성공 결과 — 부모가 unlockTier 응답에서 추린다 */
+export interface TierUnlockSuccess {
+  level: number
+  /** 해금된 티어 코드 — [관리 모드 바로가기] 가 이 병으로 전환한다 */
+  tier: string
+  grantedSpirit: string | null
+}
+
+const props = defineProps<{
+  open: boolean
+  /** 해금 대상 레벨(없으면 본문 비움) */
+  target: JarLevel | null
+  /** 현재 루비 잔액 — 부족 판정 */
+  rubyBalance: number
+  /** 해금 호출 진행 중 */
+  busy: boolean
+  /** 성공 결과 — 있으면 성공 팝업으로 전환 */
+  success: TierUnlockSuccess | null
+}>()
+
+const emit = defineEmits<{ close: [], unlock: [level: JarLevel], manage: [] }>()
+
+// 정령 뱃지 이모지 — 코드별 근사(에셋은 WS-F 자산 대기)
+const spiritEmoji = computed<string>(() => {
+  const code = (props.target?.spiritCode ?? '').toLowerCase()
+  if (code.includes('pigeon')) return '🕊️'
+  if (code.includes('cat')) return '🐱'
+  if (code.includes('fish')) return '🐟'
+  return '✨'
+})
+</script>

@@ -1,3 +1,4 @@
+import { skipHydrate } from 'pinia'
 import type { PlacedItemDetail, TerrariumResponse } from '@terraworld-it/openapi-frontend'
 
 export const useTerrariumStore = defineStore('terrarium', () => {
@@ -35,11 +36,12 @@ export const useTerrariumStore = defineStore('terrarium', () => {
     guard.invalidate()
   }
 
+  // readonly 상태는 skipHydrate — 사유는 stores/user.ts 참조(Pinia 가 readonly ref 에 SSR 상태를 대입해 경고).
   return {
-    data: readonly(data),
+    data: skipHydrate(readonly(data)),
     placedItems,
     maxSlots,
-    loading: readonly(loading),
+    loading: skipHydrate(readonly(loading)),
     fetch,
     invalidate: guard.invalidate,
     reset,

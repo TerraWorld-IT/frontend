@@ -188,6 +188,8 @@ export default defineNuxtConfig({
       admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
       // 인스타 스토리 직접 공유(source_application) — Meta App ID. 미설정 시 시스템 공유 폴백.
       metaAppId: process.env.NUXT_PUBLIC_META_APP_ID || '',
+      // 힐링 모드 BGM 음원 URL(useBgm). 빈 값 = 무음 플레이스홀더(토글 UI 만 동작) — 음원은 외부 제공 대기.
+      bgmUrl: process.env.NUXT_PUBLIC_BGM_URL || '',
       // 아이템 에셋 base (낙서장 req4/8). 로컬 `/items` 기본 → R2 CDN 은 env 로만 교체.
       // slug→`${assetBase}/${slug}.png` 규약이라 나중에 png 파일만 바꾸면 코드 변경 0.
       assetBase: process.env.NUXT_PUBLIC_ASSET_BASE || '/items',
@@ -197,6 +199,8 @@ export default defineNuxtConfig({
       minAppVersion: process.env.NUXT_PUBLIC_MIN_APP_VERSION || '',
       iosStoreUrl: process.env.NUXT_PUBLIC_IOS_STORE_URL || '',
       androidStoreUrl: process.env.NUXT_PUBLIC_ANDROID_STORE_URL || 'market://details?id=app.terraworld.mobile',
+      // 더보기 > 고객센터 문의 메일(M6). 외부 폼으로 바꾸면 이 값만 교체 — 코드 변경 0.
+      supportEmail: process.env.NUXT_PUBLIC_SUPPORT_EMAIL || 'support@terraworld.app',
     },
   },
 

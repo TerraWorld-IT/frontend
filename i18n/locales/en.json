@@ -110,6 +110,17 @@
     "hasAccount": "Already have an account?",
     "login": "Log in",
     "loginFailed": "Login failed",
+    "errorCode": {
+      "INVALID_EMAIL_OR_PASSWORD": "Invalid email or password",
+      "USER_NOT_FOUND": "No account with this email",
+      "USER_ALREADY_EXISTS": "This email is already registered",
+      "INVALID_EMAIL": "Invalid email format",
+      "INVALID_PASSWORD": "Invalid password",
+      "PASSWORD_TOO_SHORT": "Password must be at least 8 characters",
+      "PASSWORD_TOO_LONG": "Password is too long",
+      "EMAIL_NOT_VERIFIED": "Email verification required",
+      "TOO_MANY_REQUESTS": "Too many requests. Please try again later"
+    },
     "nicknamePlaceholder": "Nickname",
     "noAccount": "Don't have an account?",
     "password": "Password",
@@ -204,14 +215,28 @@
     "specialCoin": "Special coin"
   },
   "error": {
+    "generic": {
+      "cta": "Retry",
+      "desc": "A temporary error occurred. Please try again in a moment.",
+      "subtitle": "Error",
+      "title": "Error"
+    },
     "goHome": "Back to home",
+    "maintenance": {
+      "cta": "Got it",
+      "desc": "We are performing maintenance to keep the service running smoothly. Please come back once maintenance is complete.",
+      "subtitle": "During maintenance",
+      "title": "Under maintenance"
+    },
+    "network": {
+      "cta": "Retry",
+      "desc": "This feature needs a network connection. Please check your connection status.",
+      "subtitle": "Access error",
+      "title": "Connection error"
+    },
     "notFoundDesc": "The page you requested does not exist",
     "notFoundTitle": "Page not found",
-    "retry": "Try again",
-    "retryLater": "Please try again in a moment",
-    "serverErrorDesc": "A temporary error occurred. Please try again shortly.",
-    "serverErrorTitle": "Something went wrong",
-    "unexpectedTitle": "Oops, something went wrong"
+    "retry": "Try again"
   },
   "exchange": {
     "amountPlaceholder": "Amount to exchange",
@@ -240,14 +265,15 @@
     "accepting": "Accepting…",
     "acceptSuccess": "Friend added! Ruby +{reward}",
     "codeCopied": "Invite code copied",
-    "codeHint": "When a friend enters this code, you both get Ruby +5.",
+    "codeHint": "When a friend enters this code, you both get a Ruby reward.",
+    "codeHintReward": "Me: Ruby +{inviter}, Friend: Ruby +{invitee}",
     "codeIs": "Invite code: {code}",
     "copy": "Copy",
     "createCode": "Generate invite code",
     "createError": "Failed to generate invite code",
     "creating": "Generating…",
     "enterCode": "Enter friend code",
-    "enterCodeHint": "Enter the 8-character code from a friend to get Ruby +5.",
+    "enterCodeHint": "Enter the 8-character code from a friend to get a Ruby reward.",
     "expiresDays": "Expires in 7 days",
     "likeButton": "Like",
     "likeCount": "{n} likes",
@@ -256,7 +282,7 @@
     "listTitle": "My friends",
     "myCode": "My invite code",
     "noFriends": "No friends yet. Share your invite code!",
-    "shareText": "Want to be my friend on TerraWorld? Enter code {code} and we both get Ruby +5!",
+    "shareText": "Want to be my friend on TerraWorld? Enter code {code} for a Ruby reward!",
     "shareTitle": "TerraWorld invite",
     "subtitle": "Share your invite code and grow your terrarium together",
     "title": "Friends",
@@ -267,20 +293,14 @@
     "visitTitle": "{nickname}'s terrarium"
   },
   "home": {
-    "adCoinAmount": "💎 +5 special coins",
-    "adCoinConfirm": "Watch ad to get coins",
-    "adCoinDesc": "Watch a short ad to get special coins for free!",
-    "adCoinHint": "Use special coins to buy rare and special items!",
-    "adCoinLimit": "* Up to 3 times per day",
-    "adCoinRewardTitle": "🎁 Reward details",
-    "adCoinSubtitle": "Watch ads and earn rewards",
-    "adCoinTitle": "Get free 💎 coins",
-    "adCoinWatchOnce": "Watch one ad",
-    "adRewardEarned": "+{n} special coins earned!",
+    "adCoinConfirm": "Watch ad",
+    "adCoinDesc": "Watch an ad to earn 1 ruby!",
+    "adCoinTitle": "AD Ad reward",
+    "adRewardEarned": "Ruby +{n} earned!",
     "adWatchRequired": "You must finish watching the ad to receive the reward",
     "ariaEffect": "Effect: {type}",
     "ariaEvolution": "Switch evolution stage",
-    "ariaFreeCoin": "Get free coins",
+    "ariaFreeCoin": "Ad reward",
     "ariaHeart": "Get heart reward",
     "ariaLevelUp": "Level up terrarium",
     "ariaSaveTerrarium": "Save terrarium",
@@ -340,7 +360,7 @@
       "title": "Record your activities"
     },
     "step2": {
-      "desc": "Earn coins and category tokens every time you record! You level up too",
+      "desc": "Earn currency like tokens and sparkles every time you record. Use what you collect to grow and decorate your terrarium",
       "title": "Collect rewards"
     },
     "step3": {

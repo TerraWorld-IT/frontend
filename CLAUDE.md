@@ -86,7 +86,7 @@ frontend/
 │   ├── components/
 │   │   ├── common/                 # Toast, Modal, Loading, Onboarding, AdSenseBanner,
 │   │   │                           #   BottomSheet(공용 바텀시트 — 기본높이 62dvh + 핸들 확대,
-│   │   │                           #    키보드 열림 시 백드롭 탭은 키보드만 닫음), TierModal,
+│   │   │                           #    키보드 열림 시 백드롭 탭은 키보드만 닫음),
 │   │   │                           #   OfflineBanner, AppUpdateGate
 │   │   │                           #   (CustomCategoryManager/ThemeGallery 는 2026-07-20 제거)
 │   │   │                           #   (CurrencyDisplay/ExchangeModal/RewardToast/AttendanceWidget/

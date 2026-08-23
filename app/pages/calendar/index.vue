@@ -17,12 +17,22 @@
     </div>
 
     <template v-else>
-      <!-- 헤더 — 아프젝: 타이틀 + 서브 (fig-calendar) -->
-      <div class="space-y-1">
-        <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">{{ $t('calendar.title') }}</h2>
-        <p class="text-[14px] leading-[20px] text-apjek-text-sub tracking-[-0.15px]">
-          {{ $t('calendar.subtitle') }}
-        </p>
+      <!-- 헤더 — 아프젝: "캘린더 / 나의 기록을 한눈에 확인해요" + 우상단 X(모달형 → /record 복귀) (R5b) -->
+      <div class="flex items-start justify-between gap-3">
+        <div class="space-y-1 min-w-0">
+          <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">{{ $t('calendar.title') }}</h2>
+          <p class="text-[14px] leading-[20px] text-apjek-text-sub tracking-[-0.15px]">
+            {{ $t('calendar.subtitle') }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="size-[34px] rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center shrink-0 transition-all active:scale-95"
+          aria-label="기록하기로 돌아가기"
+          @click="navigateTo('/record')"
+        >
+          <Icon name="lucide:x" class="w-4 h-4 text-apjek-text" />
+        </button>
       </div>
 
       <!-- 활동 통계 (FE 실 통계 — 아프젝 디자인엔 없으나 실기능 보존, 팔레트만 정합) -->
@@ -106,7 +116,8 @@
           </div>
         </div>
 
-        <!-- 날짜 그리드 — 오늘/선택 = 다크 필 (fig-calendar) -->
+        <!-- 날짜 그리드 (R5b) — 오늘=검정 원, 기록 있는 날=도장 아이콘 + 강조색(#A1CCDB 계열, 댓글 #19),
+             선택=강조 외곽선, 미래일=흐림 -->
         <div class="grid grid-cols-7 gap-2">
           <div v-for="i in startingDayOfWeek" :key="`empty-${i}`" class="aspect-square" />
 
@@ -114,20 +125,22 @@
             v-for="day in daysInMonth"
             :key="day"
             type="button"
-            class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold hover:shadow-md hover:scale-105 active:scale-95"
+            class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold flex flex-col items-center justify-center gap-[2px] active:scale-95"
             :class="[
-              isSelectedDay(day) || isToday(day)
-                ? 'bg-apjek-cta text-white shadow-lg border border-transparent'
-                : hasRecords(day)
-                  ? 'border border-apjek-border bg-apjek-blue-soft text-apjek-text'
-                  : 'border border-apjek-border bg-apjek-surface text-apjek-text',
+              hasRecords(day) ? 'bg-[#A1CCDB]/35 text-apjek-text' : 'bg-apjek-surface text-apjek-text',
+              isSelectedDay(day) ? 'ring-2 ring-[#A1CCDB]' : 'border border-apjek-border',
+              isFuture(day) ? 'opacity-40' : '',
             ]"
+            :aria-label="`${day}일${hasRecords(day) ? ' 기록 있음' : ''}${isToday(day) ? ' 오늘' : ''}`"
             @click="selectDay(day)"
           >
-            <div class="text-xs">{{ day }}</div>
-            <div v-if="noteMap[dateKey(day)]" class="absolute top-1 right-1">
-              <div class="w-1.5 h-1.5 rounded-full bg-apjek-blue" />
-            </div>
+            <span
+              class="text-xs leading-none size-[22px] rounded-full flex items-center justify-center"
+              :class="isToday(day) ? 'bg-apjek-cta text-white' : ''"
+            >{{ day }}</span>
+            <!-- 도장 — TODO(자산): 디자이너 도장 이미지(댓글 #23)로 교체. 현재 🌸 플레이스홀더 -->
+            <span v-if="hasRecords(day)" class="text-[11px] leading-none" aria-hidden="true">🌸</span>
+            <span v-if="noteMap[dateKey(day)]" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-apjek-blue" />
           </button>
         </div>
       </div>
@@ -160,7 +173,7 @@
                   <div class="flex-1 min-w-0">
                     <div class="font-semibold text-sm text-apjek-text">{{ recordDisplayLabel(record) }}</div>
                     <div class="text-xs text-apjek-text-sub">
-                      {{ formatTime(record.recordedDate) }}
+                      {{ formatTime(record.createdAt) }}
                       <span v-if="record.duration"> · {{ $t('calendar.durationMin', { n: record.duration }) }}</span>
                     </div>
                   </div>
@@ -348,6 +361,14 @@ function isToday(day: number): boolean {
     && today.getMonth() === viewMonth.value
     && today.getDate() === day
   )
+}
+
+// 미래일 흐림 (Figma 캘린더) — 보는 달 기준 오늘 이후
+function isFuture(day: number): boolean {
+  const today = new Date()
+  const target = new Date(viewYear.value, viewMonth.value, day)
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  return target.getTime() > todayStart.getTime()
 }
 
 function isSelectedDay(day: number): boolean {

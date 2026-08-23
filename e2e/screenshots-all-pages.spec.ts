@@ -1084,23 +1084,6 @@ test.describe('cycle 7 onboarding step + UX', () => {
     await shot(page, 'flow-40-profile-lv10-with-records')
   })
 
-  test('flow-30-record-form-memo-typed', async ({ page }) => {
-    // record 산책 선택 + memo 타이핑 후
-    await signUpAndLogin(page)
-    await page.goto('/record')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    const walkBtn = page.locator('button', { hasText: /산책/ }).first()
-    if (await walkBtn.isVisible().catch(() => false)) {
-      await walkBtn.click()
-      await page.waitForTimeout(400)
-    }
-    const memoInput = page.locator('textarea, input[name="memo"]').first()
-    if (await memoInput.isVisible().catch(() => false)) {
-      await memoInput.fill('오늘 30분 산책하며 봄을 느꼈다. 길가의 진달래가 활짝.')
-      await page.waitForTimeout(300)
-    }
-    await shot(page, 'flow-30-record-memo-typed')
-  })
 })
 
 // ─────────────────────────────────────────────────────────
@@ -1204,21 +1187,8 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await shot(page, 'flow-44-friends-code-created-complete')
   })
 
-  test('flow-45-record-form-마운트', async ({ page }) => {
-    // 카테고리 선택 → RecordForm 마운트 + duration input visible
-    await signUpAndLogin(page)
-    await page.goto('/record')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    const walkCard = page.locator('[data-testid="record-category-1"]').first()
-    await walkCard.waitFor({ timeout: 10_000 }).catch(() => {})
-    await walkCard.click().catch(() => {})
-    // RecordForm 의 label[for="record-duration"] 까지 명시 wait
-    await page.locator('label[for="record-duration"]').first().waitFor({ timeout: 10_000 }).catch(() => {})
-    await page.waitForTimeout(800)
-    await page.locator('label[for="record-duration"]').first().scrollIntoViewIfNeeded().catch(() => {})
-    await page.waitForTimeout(300)
-    await shot(page, 'flow-45-record-form-mounted')
-  })
+  // flow-30/45/51 (구 RecordForm/CategoryGrid/PartnerSelect 기반 기록 폼) 제거 — 해당 컴포넌트는
+  // 습관/일상 개편 후 소비처 0 으로 삭제됨 (2026-08-23 아프젝 v2 기록 탭).
 
   test('flow-46-record-사진첨부-button', async ({ page }) => {
     // 사진 첨부 area visible (default 상태)
@@ -1288,29 +1258,6 @@ test.describe('cycle 11 자잘한 미캡처', () => {
 
   // flow-50 (profile 커스텀 카테고리 폼) 제거 — CustomCategoryManager 는 습관/일상 개편 후
   // 소비처가 없어 프로필에서 철거됨 (2026-07-20 사용자 결정).
-
-  test('flow-51-record-partner-input', async ({ page }) => {
-    // record 친구함께 탭 → PartnerSelect checkbox 활성 + input fill
-    await signUpAndLogin(page)
-    await page.goto('/record')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    const friendTab = page.locator('button', { hasText: /친구와 함께/ }).first()
-    if (await friendTab.isVisible().catch(() => false)) {
-      await friendTab.click()
-      await page.waitForTimeout(400)
-    }
-    // PartnerSelect 의 checkbox + input
-    const partnerCheck = page.locator('input[type="checkbox"]').first()
-    if (await partnerCheck.isVisible().catch(() => false)) {
-      await partnerCheck.check()
-      await page.waitForTimeout(300)
-    }
-    const partnerInput = page.locator('input[type="text"]').first()
-    if (await partnerInput.isVisible().catch(() => false)) {
-      await partnerInput.fill('PartnerUserId123')
-    }
-    await shot(page, 'flow-51-record-partner-input-active')
-  })
 
   test('flow-49b-calendar-메모-작성', async ({ page }) => {
     // calendar 날짜 클릭 → 일별 카드 → "작성" link/button (text 정밀 매칭)

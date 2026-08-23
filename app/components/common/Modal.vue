@@ -10,39 +10,61 @@
         :aria-labelledby="title ? 'modal-title' : undefined"
         :aria-describedby="message ? 'modal-message' : undefined"
         tabindex="-1"
-        @click.self="cancel"
         @keydown.esc="cancel"
       >
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-riso-dark/30 backdrop-blur-sm" />
+        <!-- Backdrop — 탭/클릭 시 cancel (X·ESC 와 같은 경로). 루트의 .self 는 백드롭이 루트를 전부 덮어
+             실제로는 발화하지 않던 것이라 백드롭 자체에 핸들러를 건다 -->
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-testid="modal-backdrop" @click="cancel" />
 
         <!--
-          Modal card — max-height + overflow-y-auto (Codex 감사 지적): 이전엔 높이 제약이
-          전혀 없어서 slot 콘텐츠가 긴 사용처(ExchangeModal/ItemSelectDialog/friends 페이지 등)에서
-          작은 화면 세로 방향에 카드가 뷰포트를 넘어도 스크롤할 방법이 없었다. items-start + my-auto
-          로 safe centering(짧을 땐 중앙, 길면 상단부터 스크롤 가능) 적용.
+          모달 카드 — 아프젝 Figma(2026-08-23 C4): 393 폭, r24, 흰 서피스, 헤더(선택 아이콘 + 제목)
+          + 우상단 연파랑 원형 X, 본문, 검정 필 CTA(비활성 회색).
+          max-height + overflow-y-auto (Codex 감사 지적): slot 콘텐츠가 긴 사용처(ExchangeModal /
+          ItemSelectDialog / friends 페이지 등)에서 작은 화면 세로 방향에 카드가 뷰포트를 넘어도
+          스크롤할 수 있어야 한다. items-start + my-auto 로 safe centering(짧을 땐 중앙, 길면
+          상단부터 스크롤 가능) 적용.
         -->
         <div
-          class="relative bg-riso-cream rounded-2xl p-6 w-full max-w-sm riso-shadow border border-riso-walnut/10 my-auto overflow-y-auto"
+          data-testid="modal-card"
+          class="relative bg-apjek-surface text-apjek-text rounded-2xl p-6 w-full max-w-[393px] my-auto overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
           style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)"
         >
-          <h3 v-if="title" id="modal-title" class="text-lg font-bold mb-2">{{ title }}</h3>
-          <p v-if="message" id="modal-message" class="text-sm text-riso-dark/60 mb-5">{{ message }}</p>
+          <!-- 우상단 닫기 X — 연파랑 원형. cancel 과 동일 경로 -->
+          <button
+            v-if="showClose"
+            type="button"
+            data-testid="modal-close"
+            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center active:opacity-70"
+            :aria-label="resolvedCancelText"
+            @click="cancel"
+          >
+            <Icon name="lucide:x" class="w-4 h-4" />
+          </button>
+
+          <!-- 헤더: 선택 아이콘 슬롯 + 제목 (X 와 겹치지 않게 우측 여백) -->
+          <div v-if="title || $slots.icon" class="flex items-center gap-2 pr-10 mb-2">
+            <slot name="icon" />
+            <h3 v-if="title" id="modal-title" class="text-lg font-bold leading-snug">{{ title }}</h3>
+          </div>
+          <p v-if="message" id="modal-message" class="text-sm text-apjek-text-sub mb-5">{{ message }}</p>
           <slot />
 
           <div class="flex gap-3 mt-5">
             <button
               v-if="showCancel"
               ref="cancelBtn"
-              class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white border border-riso-walnut/15 text-riso-dark/60 active:bg-gray-50"
+              type="button"
+              class="flex-1 py-3 rounded-full text-sm font-semibold bg-apjek-surface border border-apjek-border-strong text-apjek-text-sub active:bg-apjek-bg"
               @click="cancel"
             >
               {{ resolvedCancelText }}
             </button>
             <button
               ref="confirmBtn"
-              class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white riso-shadow-sm active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all"
+              type="button"
+              class="apjek-cta flex-1 py-3 text-sm font-bold transition-opacity"
               :class="confirmClass"
+              :disabled="confirmDisabled"
               @click="confirm"
             >
               {{ resolvedConfirmText }}
@@ -71,11 +93,18 @@ const props = withDefaults(defineProps<{
   confirmText?: string
   cancelText?: string
   showCancel?: boolean
+  /** 우상단 원형 X 표시 여부 (cancel 과 동일 경로) */
+  showClose?: boolean
+  /** confirm 비활성 — 회색 필 (Figma "이전 레벨을 먼저 해금해 주세요" 류) */
+  confirmDisabled?: boolean
+  /** danger 도 검정 CTA 유지(Figma) — 라벨로 구분한다. 호환을 위해 prop 은 남긴다. */
   variant?: 'primary' | 'danger'
 }>(), {
   confirmText: undefined,
   cancelText: undefined,
   showCancel: true,
+  showClose: true,
+  confirmDisabled: false,
   variant: 'primary',
 })
 
@@ -95,11 +124,13 @@ let previousActiveElement: Element | null = null
 const { pushBackHandler } = useBackButtonStack()
 let unregisterBackHandler: (() => void) | null = null
 
-const confirmClass = computed(() =>
-  props.variant === 'danger' ? 'bg-riso-poppy' : 'bg-riso-sage',
+// 비활성은 apjek-cta:disabled 의 opacity 대신 회색 필로 명시(Figma 비활성 버튼 = 회색 채움).
+const confirmClass = computed<string>(() =>
+  props.confirmDisabled ? 'modal-cta-disabled' : '',
 )
 
 function confirm() {
+  if (props.confirmDisabled) return
   emit('confirm')
   emit('update:modelValue', false)
 }
@@ -193,4 +224,13 @@ onBeforeUnmount(() => {
 .modal-leave-active { transition: all 0.15s ease-in; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-from .relative { transform: scale(0.95); }
+
+/* 비활성 CTA — apjek-cta 의 opacity 대신 회색 채움(Figma). scoped 라 specificity 가
+   components 레이어의 .apjek-cta 보다 높아 배경/글자색을 덮는다. */
+.modal-cta-disabled,
+.modal-cta-disabled:disabled {
+  background-color: var(--color-apjek-border-strong);
+  color: var(--color-apjek-text-faint);
+  opacity: 1;
+}
 </style>
