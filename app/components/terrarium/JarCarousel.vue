@@ -43,7 +43,7 @@
         >
           <button
             type="button"
-            class="relative w-[300px] max-w-[88%] aspect-[300/420] rounded-full flex flex-col items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+            class="relative w-[300px] max-w-[88%] aspect-[300/380] rounded-full flex flex-col items-center justify-center gap-2 transition-transform active:scale-[0.98]"
             :style="{
               background: 'radial-gradient(circle, color-mix(in srgb, var(--color-apjek-surface) 95%, transparent) 0%, color-mix(in srgb, var(--color-apjek-surface) 55%, transparent) 55%, transparent 72%)',
             }"

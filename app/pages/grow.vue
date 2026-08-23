@@ -24,9 +24,7 @@
       class="h-[38px] rounded-full bg-white border border-white/60 inline-flex items-center gap-[8px] pl-[8px] pr-[14px] transition-all active:scale-95"
       @click="onSparkleInfo"
     >
-      <span class="w-6 h-6 rounded-full bg-apjek-sparkle-bg flex items-center justify-center shrink-0">
-        <IconSparkle color="#fb93cf" />
-      </span>
+      <img src="/icons/token/sparkle.png" alt="" class="w-6 h-6 shrink-0 select-none" aria-hidden="true" draggable="false">
       <span class="text-[12px] font-semibold text-apjek-text whitespace-nowrap">보유 반짝이 : {{ sparkle }}</span>
     </button>
 
@@ -66,7 +64,7 @@
               :style="{ background: 'radial-gradient(circle, rgba(251,147,207,0.35) 0%, rgba(251,147,207,0) 70%)' }"
             />
             <div class="relative">
-              <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" />
+              <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
             </div>
           </div>
           <!-- 관리 모드 바로가기 (댓글 #53: 관리모드 > 정령 탭 바로 이동) — 홈 딥링크 `/?mode=manage&tab=spirit` -->
@@ -104,7 +102,7 @@
             v-else
             :class="stageOf(c).tier === 'stage1' ? 'scale-[0.85] origin-bottom' : ''"
           >
-            <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" />
+            <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
           </div>
           <p class="mt-[30px] text-[22px] font-bold text-white tracking-[-0.5px]">{{ stageOf(c).label }}</p>
         </div>

@@ -140,59 +140,50 @@
         </div>
       </div>
 
-      <!-- ③ 보유 재화 (M5b) — [⇄ 재화 환전] → 환전 다이얼로그 직접 오픈(T12/댓글 #18 홈과 동일) -->
+      <!-- ③ 보유 재화 (M5b) — Figma "더보기": 헤더 아래 전폭 [⇄ 재화 환전] 검정 버튼 → 환전 다이얼로그,
+           코인·반짝이·루비 3열(아이콘 좌측 + 라벨/값) / 토큰 4열(아이콘 위 + 라벨 + 값). 타일 배경 없음. -->
       <div class="apjek-card w-full">
         <div class="p-[21px] flex flex-col gap-[20px]">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-[8px] text-apjek-text">
-              <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-                <path :d="P.star" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.66667" />
-              </svg>
-              <span class="apjek-section-title text-[18px] leading-[27px]">보유 재화</span>
-            </div>
-            <button
-              type="button"
-              data-testid="profile-exchange-trigger"
-              class="apjek-cta h-[34px] px-[12px] text-[12px] active:scale-[0.97] transition-transform"
-              @click="showExchange = true"
-            >
-              <svg width="14" height="14" fill="none" viewBox="0 0 16 16">
-                <path :d="P.exchange.up" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path d="M13.3333 4.66667H2.66667" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path :d="P.exchange.down" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-                <path d="M2.66667 11.3333H13.3333" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
-              </svg>
-              재화 환전
-            </button>
+          <div class="flex items-center gap-[8px] text-apjek-text">
+            <Icon name="lucide:coins" class="w-5 h-5" aria-hidden="true" />
+            <span class="apjek-section-title text-[18px] leading-[27px]">보유 재화</span>
           </div>
 
-          <!-- 코인 · 반짝이 · 루비 (상단 3열) -->
+          <button
+            type="button"
+            data-testid="profile-exchange-trigger"
+            class="apjek-cta w-full h-[44px] text-[14px] gap-[8px] active:scale-[0.98] transition-transform"
+            @click="showExchange = true"
+          >
+            <Icon name="lucide:arrow-left-right" class="w-4 h-4" aria-hidden="true" />
+            재화 환전
+          </button>
+
+          <!-- 코인 · 반짝이 · 루비 (상단 3열) — 아이콘 좌측, 라벨 위 / 값 아래 -->
           <div class="grid grid-cols-3 gap-[8px]">
             <div
               v-for="c in coinCells"
               :key="c.code"
-              class="rounded-[12px] flex flex-col items-center p-[16px] gap-[4px] bg-apjek-bg"
+              class="flex items-center gap-[8px] min-w-0"
             >
-              <div class="flex items-center justify-center h-5">
-                <IconsCurrencyIcon :code="c.code" :size="20" />
+              <IconsCurrencyIcon :code="c.code" :size="40" />
+              <div class="min-w-0">
+                <p class="text-[12px] text-apjek-text-sub leading-[16px] truncate">{{ c.label }}</p>
+                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px]">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
               </div>
-              <span class="text-[12px] font-semibold text-apjek-text-sub text-center">{{ c.label }}</span>
-              <span class="text-[14px] font-bold text-apjek-text text-center tracking-[-0.15px]">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
             </div>
           </div>
 
-          <!-- 토큰 4종 (하단 4열) -->
+          <!-- 토큰 4종 (하단 4열) — 아이콘 위, 라벨, 값 -->
           <div class="grid grid-cols-4 gap-[8px]">
             <div
               v-for="tkn in tokenCells"
               :key="tkn.code"
-              class="rounded-[12px] flex flex-col items-center p-[13px] gap-[4px] bg-apjek-bg"
+              class="flex flex-col items-center gap-[6px]"
             >
-              <div class="flex items-center justify-center h-5">
-                <IconsCurrencyIcon :code="tkn.code" :size="18" />
-              </div>
-              <span class="text-[11px] text-apjek-text-sub text-center whitespace-nowrap">{{ tkn.label }}</span>
-              <span class="text-[12px] font-semibold text-apjek-text text-center">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
+              <IconsCurrencyIcon :code="tkn.code" :size="40" />
+              <span class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap">{{ tkn.label }}</span>
+              <span class="text-[14px] font-bold text-apjek-text leading-[18px]">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
             </div>
           </div>
         </div>
@@ -202,7 +193,7 @@
       <div class="apjek-card w-full">
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center gap-[8px] text-apjek-text">
-            <span class="text-[18px] leading-none" aria-hidden="true">🔔</span>
+            <Icon name="lucide:bell" class="w-5 h-5" aria-hidden="true" />
             <span class="apjek-section-title text-[18px] leading-[27px]">문의 및 알림</span>
           </div>
 
@@ -691,10 +682,10 @@ const coinCells: Array<{ code: CurrencyCode; label: string }> = [
 ]
 
 const tokenCells: Array<{ code: CurrencyCode; label: string }> = [
-  { code: 'DEW', label: '이슬' },
-  { code: 'SUN', label: '햇살' },
-  { code: 'BOLT', label: '번개' },
-  { code: 'WIND', label: '바람' },
+  { code: 'DEW', label: '이슬토큰' },
+  { code: 'SUN', label: '햇살토큰' },
+  { code: 'BOLT', label: '번개토큰' },
+  { code: 'WIND', label: '바람토큰' },
 ]
 
 // balances.amount 는 정수 계약 — 다른 화면과 통일해 정수로 표시.
