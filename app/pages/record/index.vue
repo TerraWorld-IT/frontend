@@ -31,13 +31,13 @@
            있음=^ 접기/펼침 토글 (R6b). -->
       <div class="rounded-[16px] border border-apjek-blue bg-apjek-surface p-[16px]">
         <div class="flex items-center gap-[14px]">
-          <div
-            class="size-[56px] rounded-[18px] shrink-0 flex items-center justify-center text-[26px]"
-            style="background: radial-gradient(circle at 32% 32%, #ffe3f3 0%, var(--color-apjek-sparkle-bg) 55%, rgba(251, 147, 207, 0.35) 100%)"
+          <img
+            src="/icons/token/sparkle.png"
+            alt=""
+            class="size-[56px] shrink-0 select-none"
             aria-hidden="true"
+            draggable="false"
           >
-            🌸
-          </div>
           <div class="flex-1 min-w-0">
             <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px]">1주일 연속 기록</p>
             <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-sparkle">+반짝이</p>
@@ -165,41 +165,14 @@
           :key="card.modal"
           class="apjek-card p-[16px] flex items-center gap-[14px] w-full"
         >
-          <!-- 파스텔 타일 아이콘 — 글리프는 기존 Figma svg 재사용, 색만 토큰 컬러로 -->
-          <div
-            class="size-[56px] rounded-[18px] shrink-0 flex items-center justify-center"
-            :style="{ background: card.tileBg, color: card.accent }"
+          <!-- 타일 아이콘 — Figma 토큰 아이콘 PNG(이슬/햇살/번개/바람) 그대로. 파스텔 배경은 이미지에 포함. -->
+          <img
+            :src="card.icon"
+            alt=""
+            class="size-[56px] shrink-0 select-none"
+            aria-hidden="true"
+            draggable="false"
           >
-            <!-- 투두(물방울) 아이콘 -->
-            <svg v-if="card.modal === 'todo'" class="w-5 h-7" fill="none" viewBox="0 0 13.0012 18.8869">
-              <path :d="svgPaths.p2050f600" fill="currentColor" />
-              <path :d="svgPaths.p33366f00" fill="currentColor" />
-            </svg>
-            <!-- 일기(햇살) 아이콘 -->
-            <svg v-else-if="card.modal === 'diary'" class="w-6 h-6" fill="none" viewBox="0 0 20 20">
-              <g clip-path="url(#clip_diary)">
-                <path :d="svgPaths.p16c5400" fill="currentColor" />
-                <path :d="svgPaths.p1278f00" fill="currentColor" />
-                <path :d="svgPaths.p1cdb9500" fill="currentColor" />
-                <path :d="svgPaths.p7f01a80" fill="currentColor" />
-                <path :d="svgPaths.p1bdb4e00" fill="currentColor" />
-                <path :d="svgPaths.p10744b00" fill="currentColor" />
-                <path :d="svgPaths.p4834b80" fill="currentColor" />
-                <path :d="svgPaths.p11269980" fill="currentColor" />
-                <path :d="svgPaths.p311b7500" fill="currentColor" />
-              </g>
-              <defs><clipPath id="clip_diary"><rect fill="white" width="20" height="20" /></clipPath></defs>
-            </svg>
-            <!-- 집중(번개) 아이콘 -->
-            <svg v-else-if="card.modal === 'focus'" class="w-6 h-6" fill="none" viewBox="0 0 20 20">
-              <path :d="svgPaths.p3a2fa580" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
-            </svg>
-            <!-- 거리(바람) 아이콘 -->
-            <svg v-else class="w-6 h-5" fill="none" viewBox="0 0 17 14">
-              <path :d="svgPaths.p11a72f00" fill="currentColor" />
-              <path :d="svgPaths.p1131d400" fill="currentColor" />
-            </svg>
-          </div>
 
           <div class="flex-1 min-w-0">
             <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px] truncate">
@@ -545,10 +518,10 @@ import type {
   RecordResponse,
   RewardInfo,
 } from '@terraworld-it/openapi-frontend'
+import { TOKEN_ICON_SRC } from '~/utils/currency'
 import { useUserStore } from '~/stores/user'
 import { deriveHabitView, type HabitView } from '~/utils/habitState'
 import type { DailyTokenKind } from '~/components/record/RecordCompleteToast.vue'
-import svgPaths from './svg-paths'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -860,11 +833,11 @@ const categories = ref<CategoryResponse[]>([])
 const recentRecords = shallowRef<RecordResponse[]>([])
 
 // 아프젝 리스트 카드 — 파스텔 타일 배경 + 토큰 글리프/서브텍스트 색 (tailwind.css 토큰 참조)
-const DAILY_CARDS: { title: string; token: string; accent: string; tileBg: string; modal: DailyModal }[] = [
-  { title: '투두리스트 기록', token: '이슬토큰', accent: 'var(--color-apjek-dew)', tileBg: 'var(--color-apjek-dew-bg)', modal: 'todo' },
-  { title: '일기 기록', token: '햇살토큰', accent: 'var(--color-apjek-sun)', tileBg: 'var(--color-apjek-sun-bg)', modal: 'diary' },
-  { title: '집중 기록', token: '번개토큰', accent: 'var(--color-apjek-bolt)', tileBg: 'var(--color-apjek-bolt-bg)', modal: 'focus' },
-  { title: '거리 기록', token: '바람토큰', accent: 'var(--color-apjek-wind)', tileBg: 'var(--color-apjek-wind-bg)', modal: 'distance' },
+const DAILY_CARDS: { title: string; token: string; accent: string; icon: string; modal: DailyModal }[] = [
+  { title: '투두리스트 기록', token: '이슬토큰', accent: 'var(--color-apjek-dew)', icon: TOKEN_ICON_SRC.DEW, modal: 'todo' },
+  { title: '일기 기록', token: '햇살토큰', accent: 'var(--color-apjek-sun)', icon: TOKEN_ICON_SRC.SUN, modal: 'diary' },
+  { title: '집중 기록', token: '번개토큰', accent: 'var(--color-apjek-bolt)', icon: TOKEN_ICON_SRC.BOLT, modal: 'focus' },
+  { title: '거리 기록', token: '바람토큰', accent: 'var(--color-apjek-wind)', icon: TOKEN_ICON_SRC.WIND, modal: 'distance' },
 ]
 
 // dailyType → categoryId 매핑. 시스템 카테고리 이름으로 안정 매칭(admin 편집/row-order

@@ -12,14 +12,16 @@
     <div class="px-5 pt-4 pb-2 flex flex-col gap-[16px]">
       <!-- ① 유형 선택 -->
       <template v-if="step === 1">
-        <!-- 일러스트 자리 (고양이 정령 + 달팽이 / 친구 2마리) — TODO(자산): 디자이너 제공 이미지로 교체 -->
-        <div
-          class="w-full h-[132px] rounded-[20px] flex items-center justify-center text-[44px]"
-          style="background: radial-gradient(circle at 50% 40%, #ffe3f3 0%, var(--color-apjek-sparkle-bg) 60%, #fff 100%)"
+        <!-- 일러스트 — Figma "시작하기 1 - 나의 선택 / 친구 선택" 프레임의 캐릭터 이미지(public/illust). -->
+        <img
+          :src="mode === 'friend' ? '/illust/habit-friend.png' : '/illust/habit-solo.png'"
+          alt=""
+          width="340"
+          height="279"
+          class="w-full max-w-[340px] mx-auto h-auto object-contain select-none"
           aria-hidden="true"
+          draggable="false"
         >
-          {{ mode === 'friend' ? '🐱🐱' : '🐱🐌' }}
-        </div>
         <p class="text-[14px] text-apjek-text-sub leading-[20px] text-center whitespace-pre-line">{{ introText }}</p>
 
         <div class="flex gap-[8px]">

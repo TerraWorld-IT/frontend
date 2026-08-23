@@ -25,6 +25,17 @@ export const CURRENCY_META: CurrencyMeta[] = [
   { code: 'WIND', labelKo: '바람', icon: 'lucide:palette' },
 ]
 
+/** Figma 토큰 아이콘 PNG 경로 (public/icons/token, 60x60@3x). */
+export const TOKEN_ICON_SRC: Record<CurrencyCode, string> = {
+  COIN: '/icons/token/coin.png',
+  RUBY: '/icons/token/ruby.png',
+  SPARKLE: '/icons/token/sparkle.png',
+  DEW: '/icons/token/dew.png',
+  SUN: '/icons/token/sun.png',
+  BOLT: '/icons/token/bolt.png',
+  WIND: '/icons/token/wind.png',
+}
+
 /** balances[] 에서 특정 화폐 잔액 조회 (없으면 0). */
 export function balanceOf(
   currency: CurrencyResponse | null | undefined,

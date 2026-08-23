@@ -132,27 +132,29 @@
           ref="stageEl"
           :class="healingMode
             ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
-            : 'relative flex justify-center w-full overflow-hidden'"
+            : 'relative flex justify-center items-center w-full overflow-hidden'"
           :style="healingMode
             ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)' }
-            : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem' }"
+            : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
         >
+          <!-- 관리 모드에서는 transform 전환 애니메이션을 끈다 — 0.44→1 로 움직이는 200ms 동안 드래그/리사이즈
+               좌표 환산(zoomLevel*stageFit)과 실제 렌더 배율이 어긋나 첫 입력이 잘못 저장될 수 있다. -->
           <div
-            class="transition-transform duration-200 ease-out relative shrink-0"
+            :class="editMode ? 'relative shrink-0' : 'transition-transform duration-200 ease-out relative shrink-0'"
             :style="{
-              transform: `scale(${zoomLevel * stageFit})`,
+              transform: `scale(${zoomLevel * stageFit * viewScale})`,
               transformOrigin: 'top center',
               width: '400px',
               height: '552px',
-              marginBottom: `${-552 * (1 - stageFit)}px`,
+              marginBottom: `${-552 * (1 - stageFit * viewScale)}px`,
             }"
           >
             <!-- 병 뒤 원형 글로우 — 설정된 배경(BACKGROUND 아이템)이 URL 에셋이면 글로우 원 안에 배경 레이어로 렌더(T13),
                  없으면 기존 라디얼 하이라이트. inline transform 이라 Tailwind translate 유틸과의 이중 적용 함정 없음. -->
             <div
               class="absolute pointer-events-none rounded-full overflow-hidden"
-              style="left: 50%; top: 52%; width: 430px; height: 430px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 68%)"
+              :style="{ left: '50%', top: '52%', width: `${backdropSize}px`, height: `${backdropSize}px`, transform: 'translate(-50%, -50%)', background: 'radial-gradient(circle, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.92) 56%, rgba(255,255,255,0) 70%)' }"
               data-testid="home-jar-backdrop"
             >
               <img
@@ -416,32 +418,30 @@
             >
               <span aria-hidden="true">⇄</span> 재화 환전
             </button>
-            <!-- 코인류 3종 (코인/반짝이/루비) -->
-            <div class="grid grid-cols-3 gap-2">
-              <div
-                v-for="c in mainCurrencies"
-                :key="c.code"
-                class="rounded-xl bg-gray-50 flex flex-col items-center p-3 gap-1"
-              >
-                <div class="flex items-center justify-center h-5">
-                  <IconsCurrencyIcon :code="c.code" :size="20" />
-                </div>
-                <span class="text-[11px] font-medium text-apjek-text-sub">{{ c.labelKo }}</span>
-                <span class="text-sm font-bold text-apjek-text">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
-              </div>
-            </div>
-            <!-- 활동 토큰 4종 (이슬/햇살/번개/바람) -->
+            <!-- 활동 토큰 4종 (이슬/햇살/번개/바람) — Figma: 아이콘 위 + 값 (타일 배경 없음) -->
             <div class="grid grid-cols-4 gap-2">
               <div
                 v-for="c in tokenCurrencies"
                 :key="c.code"
-                class="rounded-xl bg-gray-50 flex flex-col items-center p-2.5 gap-1"
+                class="flex flex-col items-center gap-1"
               >
-                <div class="flex items-center justify-center h-5">
-                  <IconsCurrencyIcon :code="c.code" :size="18" />
+                <IconsCurrencyIcon :code="c.code" :size="36" />
+                <span class="text-[11px] text-apjek-text-sub whitespace-nowrap">{{ c.labelKo }}토큰</span>
+                <span class="text-[13px] font-bold text-apjek-text tabular-nums max-w-full truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
+              </div>
+            </div>
+            <!-- 코인류 3종 (코인/반짝이/루비) — 아이콘 좌측 + 라벨/값 -->
+            <div class="grid grid-cols-3 gap-2">
+              <div
+                v-for="c in mainCurrencies"
+                :key="c.code"
+                class="flex items-center gap-2 min-w-0"
+              >
+                <IconsCurrencyIcon :code="c.code" :size="36" />
+                <div class="min-w-0">
+                  <p class="text-[11px] text-apjek-text-sub leading-[14px] truncate">{{ c.labelKo }}</p>
+                  <p class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
                 </div>
-                <span class="text-[10px] text-apjek-text-sub">{{ c.labelKo }}</span>
-                <span class="text-xs font-semibold text-apjek-text">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
               </div>
             </div>
           </div>
@@ -764,6 +764,18 @@ const introMode = ref<'healing' | 'manage' | null>(null)
 
 // ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) (배치/시들기/하트 로직 무변경) ───
 const healingMode = ref<boolean>(false)
+// 보기 모드 축소 배율 — Figma "나의테라 - 기본" 은 병이 화면 폭의 약 35%, 흰 글로우 원이 약 62% 다.
+// 관리 모드(배치 편집)·힐링 모드(풀블리드)는 설계 기준 큰 병을 그대로 쓴다. 드래그/리사이즈 좌표
+// 환산은 편집 모드에서만 일어나므로 viewScale 은 1 이고 기존 식(zoomLevel*stageFit)이 유지된다.
+const VIEW_SCALE = 0.44
+const viewScale = computed<number>(() => (editMode.value || healingMode.value ? 1 : VIEW_SCALE))
+// 보기 모드에서 휠로 바꾼 zoomLevel(0.5~2)이 관리/힐링 모드로 넘어가면 설계 기준 스테이지가 잘리거나
+// 반으로 줄고, 편집 중에는 휠이 막혀 되돌릴 수도 없다 — 모드 진입 시 줌을 1 로 되돌린다.
+watch([editMode, healingMode], ([edit, heal]) => {
+  if (edit || heal) zoomLevel.value = 1
+})
+// 병 뒤 글로우 원 — 보기 모드에서는 작아진 병을 감싸도록 스테이지 좌표계에서 더 크게 그린다.
+const backdropSize = computed<number>(() => (viewScale.value < 1 ? 620 : 430))
 function enterHealingMode() {
   introMode.value = 'healing'
 }
