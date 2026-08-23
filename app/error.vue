@@ -42,9 +42,9 @@
         >
           {{ primaryLabel }}
         </button>
-        <!-- 점검 중엔 홈 이동도 의미가 없으므로 숨긴다 -->
+        <!-- 점검 중엔 홈 이동이 무의미하고, 404 는 주 버튼이 이미 홈 이동이라 보조 링크를 숨긴다 -->
         <button
-          v-if="kind !== 'maintenance'"
+          v-if="kind !== 'maintenance' && kind !== 'notFound'"
           type="button"
           class="text-sm font-medium text-apjek-text-sub underline underline-offset-4 py-2"
           @click="handleGoHome"
@@ -142,6 +142,8 @@ const primaryLabel = computed<string>(() => {
   switch (kind.value) {
     case 'maintenance': return t('error.maintenance.cta')
     case 'network': return t('error.network.cta')
+    // 404 는 재시도할 대상이 없으므로 주 버튼이 홈 이동이다
+    case 'notFound': return t('error.goHome')
     default: return t('error.generic.cta')
   }
 })
