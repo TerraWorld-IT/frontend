@@ -1,3 +1,4 @@
+import { skipHydrate } from 'pinia'
 import type { FreePlacementListResponse, TerrariumResponse } from '@terraworld-it/openapi-frontend'
 
 /**
@@ -77,9 +78,10 @@ export const useHomeSnapshotStore = defineStore('homeSnapshot', () => {
     guard.invalidate()
   }
 
+  // readonly 상태는 skipHydrate — 사유는 stores/user.ts 참조(Pinia 가 readonly ref 에 SSR 상태를 대입해 경고).
   return {
-    snapshot: readonly(snapshot),
-    loading: readonly(loading),
+    snapshot: skipHydrate(readonly(snapshot)),
+    loading: skipHydrate(readonly(loading)),
     fetch,
     patchFreePlacement,
     invalidate: guard.invalidate,

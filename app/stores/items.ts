@@ -1,3 +1,4 @@
+import { skipHydrate } from 'pinia'
 import type { ItemListResponse, ItemResponse } from '@terraworld-it/openapi-frontend'
 
 export const useItemsStore = defineStore('items', () => {
@@ -35,9 +36,10 @@ export const useItemsStore = defineStore('items', () => {
     return items.value.find((i) => i.slug === slug)
   }
 
+  // readonly 상태는 skipHydrate — 사유는 stores/user.ts 참조(Pinia 가 readonly ref 에 SSR 상태를 대입해 경고).
   return {
-    items: readonly(items),
-    loading: readonly(loading),
+    items: skipHydrate(readonly(items)),
+    loading: skipHydrate(readonly(loading)),
     fetchAll,
     getById,
     getBySlug,

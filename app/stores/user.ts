@@ -1,3 +1,4 @@
+import { skipHydrate } from 'pinia'
 import type { CurrencyResponse, UserMeResponse } from '@terraworld-it/openapi-frontend'
 import type { CurrencyCode } from '~/utils/currency'
 import { setBalance } from '~/utils/currency'
@@ -64,12 +65,17 @@ export const useUserStore = defineStore('user', () => {
     guard.invalidate()
   }
 
+  // readonly 로 내보내는 상태는 `skipHydrate` 로 감싼다. Pinia 는 setup 스토어가 돌려준 ref 를
+  // SSR 페이로드로 하이드레이션할 때 `ref.value = initialState[key]` 를 그대로 대입하는데, readonly
+  // 프록시에는 쓰기가 막혀 `[Vue warn] Set operation on key "value" failed: target is readonly`
+  // 가 readonly ref 마다 한 번씩 찍힌다(홈 6회·상점 4회 등 — 2026-08-23 런타임 스모크). 데이터는
+  // 페이지 마운트 후 액션으로 다시 받으므로 하이드레이션 생략이 동작을 바꾸지 않는다.
   return {
-    me: readonly(me),
+    me: skipHydrate(readonly(me)),
     currency,
     nickname,
     ownedItems,
-    loading: readonly(loading),
+    loading: skipHydrate(readonly(loading)),
     fetchMe,
     invalidate: guard.invalidate,
     updateCurrency,
