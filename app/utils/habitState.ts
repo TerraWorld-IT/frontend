@@ -51,13 +51,15 @@ export function hasExtendRequest(tracker: Pick<HabitTrackerResponse, 'extendStat
  * 카드 표시 상태 — 우선순위: 수신 요청 > 완주 대기 > 내 요청 대기 > 친구 미기록 > 진행.
  * 연장 요청 수신(extendStatus=PENDING_RECEIVED)은 보통 내 트래커도 완주 상태라 cycleDone 뷰 안에서
  * [수락][거절] 행으로 처리한다(`hasExtendRequest`).
+ * 친구 미기록(partnerIdle)은 서버 `partnerCheckedToday`(상대의 오늘 체크인 여부) 가 SoT 다 —
+ * `partnerActive` 는 상대 트래커의 생존 여부라 "오늘 기록했는가" 의 근거가 아니다.
  */
 export function deriveHabitView(
-  tracker: Pick<HabitTrackerResponse, 'status' | 'friendLinked' | 'partnerStatus' | 'partnerActive'>,
+  tracker: Pick<HabitTrackerResponse, 'status' | 'friendLinked' | 'partnerStatus' | 'partnerCheckedToday'>,
 ): HabitView {
   if (tracker.partnerStatus === 'PENDING_RECEIVED') return 'pendingReceived'
   if (tracker.status === 'COMPLETED_UNCLAIMED' || tracker.status === 'COMPLETED') return 'cycleDone'
   if (tracker.status === 'PENDING') return 'pending'
-  if (tracker.friendLinked && tracker.partnerStatus === 'ACCEPTED' && tracker.partnerActive === false) return 'partnerIdle'
+  if (tracker.friendLinked && tracker.partnerStatus === 'ACCEPTED' && !tracker.partnerCheckedToday) return 'partnerIdle'
   return 'active'
 }

@@ -22,12 +22,13 @@ function tracker(over: Partial<HabitTrackerResponse> = {}): HabitTrackerResponse
     partnerStatus: 'NONE',
     extendStatus: 'NONE',
     rewardSparkle: 100,
+    partnerCheckedToday: false,
     ...over,
   }
 }
 
 function pair(over: Partial<HabitTrackerResponse> = {}): HabitTrackerResponse {
-  return tracker({ friendLinked: true, partnerStatus: 'ACCEPTED', partnerActive: true, rewardSparkle: 200, ...over })
+  return tracker({ friendLinked: true, partnerStatus: 'ACCEPTED', partnerActive: true, partnerCheckedToday: true, rewardSparkle: 200, ...over })
 }
 
 describe('deriveHabitView', () => {
@@ -52,13 +53,25 @@ describe('deriveHabitView', () => {
     expect(deriveHabitView(pair({ status: 'PENDING', partnerStatus: 'PENDING_RECEIVED', partnerActive: false }))).toBe('pendingReceived')
   })
 
-  it('ACCEPTED 인데 상대 미참여(partnerActive=false) 면 partnerIdle, 참여 중이면 active', () => {
-    expect(deriveHabitView(pair({ partnerActive: false }))).toBe('partnerIdle')
+  it('ACCEPTED + 상대 트래커 생존(partnerActive=true) 이어도 오늘 미기록(partnerCheckedToday=false) 이면 partnerIdle', () => {
+    expect(deriveHabitView(pair({ partnerActive: true, partnerCheckedToday: false }))).toBe('partnerIdle')
+  })
+
+  it('ACCEPTED + 상대가 오늘 기록(partnerCheckedToday=true) 했으면 active', () => {
+    expect(deriveHabitView(pair({ partnerActive: true, partnerCheckedToday: true }))).toBe('active')
     expect(deriveHabitView(pair())).toBe('active')
   })
 
+  it('partnerActive 는 partnerIdle 판정에 쓰지 않는다 — 오늘 기록 여부만 본다', () => {
+    // 상대 트래커 상태값이 어떻든 partnerCheckedToday 가 판정 근거
+    expect(deriveHabitView(pair({ partnerActive: false, partnerCheckedToday: true }))).toBe('active')
+    expect(deriveHabitView(pair({ partnerActive: undefined, partnerCheckedToday: false }))).toBe('partnerIdle')
+    // solo 트래커는 partnerCheckedToday 와 무관하게 active
+    expect(deriveHabitView(tracker({ partnerCheckedToday: false }))).toBe('active')
+  })
+
   it('상대 중단(PARTNER_STOPPED) 은 기본 진행(active) — 안내는 카드가 별도 표시', () => {
-    const t = pair({ partnerStatus: 'PARTNER_STOPPED', partnerActive: false, rewardSparkle: 100 })
+    const t = pair({ partnerStatus: 'PARTNER_STOPPED', partnerActive: false, partnerCheckedToday: false, rewardSparkle: 100 })
     expect(deriveHabitView(t)).toBe('active')
     expect(isPartnerStopped(t)).toBe(true)
     expect(isPartnerStopped(pair())).toBe(false)
