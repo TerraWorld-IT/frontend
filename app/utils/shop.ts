@@ -9,12 +9,6 @@ import type { CurrencyCode } from '~/utils/currency'
  * - 보유중 카드는 목록 뒤로 정렬한다(Figma 댓글 #57).
  */
 
-// TODO(N-B9 스펙 머지 후): SDK ItemResponse 가 purchasable 을 직접 제공하면 이 확장 타입을 제거한다.
-export type ShopItem = ItemResponse & {
-  /** 상점 판매 가능 여부(정령 아이템 등 비판매 = false). 기본 true. */
-  purchasable?: boolean
-}
-
 /** 카테고리명 → 활동 토큰 코드 (BE 시스템 카테고리 4종 고정) */
 export const CATEGORY_TOKEN_CODE: Record<string, CurrencyCode> = {
   산책: 'DEW',
@@ -67,9 +61,9 @@ export function priceParts(item: Pick<ItemResponse, 'priceType' | 'categoryName'
   return [{ code: 'COIN', label: PRICE_CURRENCY_LABEL.COIN, amount: item.priceAmount }]
 }
 
-/** 상점 노출 여부 — purchasable 미제공(현행 SDK)은 true 로 본다. */
-export function isPurchasable(item: ShopItem): boolean {
-  return item.purchasable !== false
+/** 상점 노출 여부 — 서버 `purchasable`(정령 아이템 등 비판매 = false) 가 SoT. */
+export function isPurchasable(item: Pick<ItemResponse, 'purchasable'>): boolean {
+  return item.purchasable
 }
 
 /**

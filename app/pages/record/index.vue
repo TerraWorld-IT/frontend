@@ -115,6 +115,8 @@
                 @cheer="onCheerRequest"
                 @complete="onCompleteHabit"
                 @extend="onExtendHabit"
+                @accept="onAcceptHabit"
+                @decline="onDeclineHabit"
               />
             </template>
 
@@ -536,6 +538,7 @@ import type {
   CreateRecordRequest,
   CreateRecordResponse,
   FriendInfo,
+  HabitCycleRewardResponse,
   HabitTrackerResponse,
   PagedRecordResponse,
   PhotoUploadResponse,
@@ -561,9 +564,10 @@ const {
   create: createHabit,
   checkIn,
   stop: stopHabit,
+  accept: acceptHabit,
+  decline: declineHabit,
   complete: completeHabit,
   extend: extendHabit,
-  isCycleDone,
 } = useHabits()
 
 // ─── 습관 기록 상태 (R2/R7) ───
@@ -578,10 +582,10 @@ const creatingHabit = ref<boolean>(false)
 const habitBusy = ref<boolean>(false)
 const friends = ref<FriendInfo[]>([])
 
-// 표시 대상 = 진행 중 트래커. 목록 API 는 ACTIVE 만 주지만 N-B5 이후 PENDING/COMPLETED 가
-// 올 수 있어 BROKEN 만 제외한다.
+// 표시 대상 = 진행 중 트래커(PENDING/ACTIVE/COMPLETED_UNCLAIMED). 목록 API 가 COMPLETED/BROKEN 을
+// 제외하지만 방어적으로 한 번 더 거른다.
 const liveTrackers = computed<HabitTrackerResponse[]>(() =>
-  trackers.value.filter(tr => tr.status !== 'BROKEN'))
+  trackers.value.filter(tr => tr.status !== 'BROKEN' && tr.status !== 'COMPLETED'))
 const soloTrackers = computed<HabitTrackerResponse[]>(() => liveTrackers.value.filter(tr => !tr.friendLinked))
 const friendTrackers = computed<HabitTrackerResponse[]>(() => liveTrackers.value.filter(tr => !!tr.friendLinked))
 const visibleTrackers = computed<HabitTrackerResponse[]>(() => (mode.value === 'solo' ? soloTrackers.value : friendTrackers.value))
@@ -589,7 +593,7 @@ const visibleTrackers = computed<HabitTrackerResponse[]>(() => (mode.value === '
 const hasAnyHabit = computed<boolean>(() => liveTrackers.value.length > 0)
 
 function viewOf(tr: HabitTrackerResponse): HabitView {
-  return deriveHabitView(tr, { cycleDone: isCycleDone(tr) })
+  return deriveHabitView(tr)
 }
 
 // mode 전환 시 표시 목록이 즉시 교체됨 — 전환 전 키보드 해제 (utils/keyboard.ts 참조).
@@ -617,12 +621,18 @@ async function onHabitCreate(payload: { title: string; friendUserId: string | nu
   if (creatingHabit.value) return
   creatingHabit.value = true
   try {
-    // 서버가 friendUserId 를 수락된 invite 로 검증해 연동 — 양측 완주 시 반짝이 2배.
-    const { tracker, status } = await createHabit(payload.title, payload.friendUserId)
+    // 서버가 friendUserId 를 수락된 invite 로 검증해 연동 — 상대 수락 전 PENDING, 양측 완주 시 반짝이 200.
+    const { data: tracker, status, code } = await createHabit(payload.title, payload.friendUserId)
     if (!tracker) {
-      // TODO(N-B5 스펙 머지 후): 409 HABIT_LIMIT_EXCEEDED 에러코드로 분기.
-      if (status === 409) toast.error('이미 진행 중인 습관이 있어요')
-      else if (payload.friendUserId) toast.error('친구 요청에 실패했어요 — 수락된 친구인지 확인해주세요')
+      if (status === 409 && code === 'HABIT_LIMIT_EXCEEDED') {
+        // 활성 1개 제한 — 서버가 SoT. 로컬 목록이 비어 있었다면(다른 기기에서 생성 등) 다시 받아 카드를 보여 준다.
+        toast.error('이미 진행 중인 습관이 있어요')
+        habitCreateOpen.value = false
+        habitOpen.value = true
+        await loadHabits()
+      }
+      else if (status === 409) toast.error('이미 진행 중인 습관이 있어요')
+      else if (payload.friendUserId) toast.error('친구 요청에 실패했어요. 수락된 친구인지 확인해주세요')
       else toast.error('습관 생성에 실패했어요')
       return
     }
@@ -641,21 +651,16 @@ async function onCheckIn(tr: HabitTrackerResponse) {
   if (tr.status !== 'ACTIVE' || habitBusy.value) return
   habitBusy.value = true
   try {
-    const result = await checkIn(tr.id)
+    const { data: result, status, code } = await checkIn(tr.id)
     if (!result) {
-      toast.error('체크인에 실패했어요')
+      // 수락 전(PENDING) 체크인 — 친구 수락 후 기록 시작.
+      if (status === 409 && code === 'HABIT_NOT_ACTIVE') toast.info('친구가 수락하면 기록이 시작돼요')
+      else toast.error('체크인에 실패했어요')
       return
     }
     if (result.cycleCompleted) {
-      // 현행 백엔드는 7일째 체크인에서 즉시 지급 — 카드는 7/7 완료 화면으로 전환된다(마커).
-      // TODO(N-B5 스펙 머지 후): 보상은 [기록 완료하기](complete) 시점에 지급되므로 이 문구를 옮긴다.
-      if (result.sparkleGranted > 0) {
-        toast.success(`7일 완주! 반짝이 ${result.sparkleGranted}개 획득`)
-        await userStore.fetchMe(true) // 반짝이 지급 반영 — TTL 캐시 무시
-      }
-      else {
-        toast.success('7일 완주!')
-      }
+      // 7일째 — 카드는 완주 대기(COMPLETED_UNCLAIMED) 화면으로 전환. 보상은 [기록 완료하기]/[연장] 에서 지급.
+      toast.success('7일 완주! 기록을 완료하거나 1주일 연장해 보세요')
     }
     else {
       toast.success('오늘 체크인 완료')
@@ -692,8 +697,7 @@ async function onStopHabit(tr: HabitTrackerResponse) {
   }
 }
 
-// 요청 대기 중 취소 — TODO(N-B5 스펙 머지 후): DELETE /habits/{id} 가 PENDING 이면 양측 CANCELLED.
-// 현행은 내 트래커 중단(stop)과 같은 호출이다.
+// 요청 대기 중 취소 — DELETE /habits/{id} 가 PENDING 이면 양측 요청 취소(CANCELLED, 트래커 BROKEN).
 async function onCancelRequest(tr: HabitTrackerResponse) {
   if (habitBusy.value) return
   habitBusy.value = true
@@ -712,18 +716,29 @@ async function onCancelRequest(tr: HabitTrackerResponse) {
   }
 }
 
+// 완주 보상 반영 — 지급분이 있으면 토스트 + 지갑 갱신, 멱등 재생(alreadyClaimed)이면 조용히 목록만 맞춘다.
+async function applyCycleReward(reward: HabitCycleRewardResponse): Promise<void> {
+  if (reward.alreadyClaimed || reward.sparkleGranted <= 0) {
+    await loadHabits()
+    return
+  }
+  userStore.updateCurrency(reward.updatedCurrency)
+  toast.success(`7일 완주! 반짝이 ${reward.sparkleGranted}개 획득 ⭐`)
+}
+
 async function onCompleteHabit(tr: HabitTrackerResponse) {
   if (habitBusy.value) return
   habitBusy.value = true
   try {
-    const ok = await completeHabit(tr.id)
-    if (ok) {
-      toast.success(`'${tr.title}' 기록을 완료했어요`)
-      collapseIfEmpty()
-    }
-    else {
+    const { data, status, code } = await completeHabit(tr.id)
+    if (!data) {
+      // 완주 대기 상태가 아님(이미 종료/중단 등) — 서버 상태로 다시 맞춘다.
+      if (status === 409 && code === 'HABIT_INVALID_STATE') await loadHabits()
       toast.error('기록 완료 처리에 실패했어요')
+      return
     }
+    await applyCycleReward(data)
+    collapseIfEmpty()
   }
   finally {
     habitBusy.value = false
@@ -734,15 +749,60 @@ async function onExtendHabit(tr: HabitTrackerResponse) {
   if (habitBusy.value) return
   habitBusy.value = true
   try {
-    const ok = await extendHabit(tr.id)
-    if (!ok) {
+    const { data, status, code } = await extendHabit(tr.id)
+    if (!data) {
+      if (status === 409 && code === 'HABIT_INVALID_STATE') await loadHabits()
       toast.error('연장에 실패했어요')
       return
     }
-    // 친구 연장은 상대 수락 필요 — 상단 필 토스트 "친구A 에게 연장 요청 성공!" (댓글 #56).
-    // TODO(N-B5 스펙 머지 후): POST /habits/{id}/extend 응답 extendStatus=PENDING_SENT 로 대기 표시.
-    if (tr.friendLinked) toast.success(`${tr.friendNickname ?? '친구'} 에게 연장 요청 성공!`)
-    else toast.success('기록을 1주일 연장했어요')
+    await applyCycleReward(data)
+    // friend 연장은 상대 수락 필요(응답 트래커 PENDING / extendStatus=PENDING_SENT) — 상단 토스트 (댓글 #56).
+    const next = data.tracker
+    if (next.status === 'PENDING' && next.extendStatus === 'PENDING_SENT') {
+      toast.success(`${next.friendNickname ?? tr.friendNickname ?? '친구'} 에게 연장 요청 성공!`)
+    }
+    else {
+      toast.success('기록을 1주일 연장했어요')
+    }
+  }
+  finally {
+    habitBusy.value = false
+  }
+}
+
+// 친구가 보낸 함께 기록/연장 요청 수락 — 내 미러 트래커 id 로 호출, 양측 ACTIVE.
+async function onAcceptHabit(tr: HabitTrackerResponse) {
+  if (habitBusy.value) return
+  habitBusy.value = true
+  try {
+    const { data, status, code } = await acceptHabit(tr.id)
+    if (!data) {
+      // 요청이 이미 취소/만료됨 — 서버 상태로 다시 맞춘다.
+      if (status === 409 && code === 'HABIT_INVALID_STATE') await loadHabits()
+      toast.error('요청 수락에 실패했어요')
+      return
+    }
+    mode.value = 'friend'
+    toast.success(`${data.friendNickname ?? tr.friendNickname ?? '친구'}님과 함께 기록을 시작해요`)
+  }
+  finally {
+    habitBusy.value = false
+  }
+}
+
+// 친구가 보낸 요청 거절 — 양측 BROKEN(목록 제외).
+async function onDeclineHabit(tr: HabitTrackerResponse) {
+  if (habitBusy.value) return
+  habitBusy.value = true
+  try {
+    const { data, status, code } = await declineHabit(tr.id)
+    if (!data) {
+      if (status === 409 && code === 'HABIT_INVALID_STATE') await loadHabits()
+      toast.error('요청 거절에 실패했어요')
+      return
+    }
+    toast.success('함께 기록 요청을 거절했어요')
+    collapseIfEmpty()
   }
   finally {
     habitBusy.value = false

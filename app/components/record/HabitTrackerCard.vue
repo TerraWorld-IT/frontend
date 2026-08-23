@@ -7,7 +7,7 @@
           {{ tracker.title }}
         </p>
         <button
-          v-if="view !== 'cycleDone'"
+          v-if="view !== 'cycleDone' && view !== 'pendingReceived'"
           type="button"
           class="w-7 h-7 rounded-full bg-apjek-bg flex items-center justify-center shrink-0 transition active:scale-95"
           :aria-label="view === 'pending' ? '요청 취소' : '기록 중단'"
@@ -20,9 +20,13 @@
       <p v-if="tracker.friendLinked" class="text-[12px] text-apjek-text-sub mt-[2px]">
         {{ tracker.friendNickname ?? '친구' }}님과 함께
       </p>
+      <!-- 상대 중단(PARTNER_STOPPED) — 나는 계속 기록·완주 가능, 보상은 solo 값 -->
+      <p v-if="partnerStopped" class="text-[12px] text-apjek-text-sub mt-[4px]" role="status">
+        친구가 기록을 중단했어요 · 완주 보상은 {{ rewardSparkle }} 반짝이
+      </p>
 
       <!-- 트래커 본체 — 요청 대기면 흐림 + 비활성 -->
-      <div :class="view === 'pending' ? 'opacity-40 pointer-events-none select-none' : ''">
+      <div :class="view === 'pending' || view === 'pendingReceived' ? 'opacity-40 pointer-events-none select-none' : ''">
         <!-- 7일 원형 — 미체크 연파랑 외곽선+숫자 / 오늘 점선 / 체크 파랑 ✓. 원 클릭 = 오늘 체크인 (댓글 #29) -->
         <div class="flex items-center justify-between gap-[6px] pt-[16px] pb-[4px]">
           <button
@@ -71,7 +75,7 @@
           기록 완료하기
         </button>
         <button
-          v-if="!tracker.friendLinked"
+          v-if="!tracker.friendLinked || partnerStopped"
           type="button"
           class="w-full h-[44px] rounded-full border border-apjek-text bg-apjek-surface text-[14px] font-semibold text-apjek-text transition-all active:scale-[0.98] disabled:opacity-50"
           :disabled="busy"
@@ -79,6 +83,38 @@
         >
           기록 1주일 연장 하기
         </button>
+        <!-- 친구가 먼저 연장을 요청함(extendStatus=PENDING_RECEIVED) — [수락하기][거절하기] -->
+        <div
+          v-else-if="extendRequested"
+          class="rounded-[14px] bg-apjek-cta text-white p-[14px] flex flex-col gap-[10px] mt-[4px]"
+          role="group"
+          aria-label="친구의 기록 연장 요청"
+        >
+          <div class="min-w-0">
+            <p class="text-[13px] font-bold leading-[18px]">{{ tracker.friendNickname ?? '친구' }}님이 기록 연장을 요청했어요</p>
+            <p class="text-[11px] leading-[16px] opacity-80 mt-[2px]">수락하면 함께 1주일 연장 · 새 기록 시작</p>
+          </div>
+          <div class="flex gap-[8px]">
+            <button
+              type="button"
+              class="flex-1 h-[32px] rounded-full bg-white text-apjek-text text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+              :disabled="busy"
+              aria-label="기록 연장 요청 수락하기"
+              @click="emit('accept', tracker)"
+            >
+              수락하기
+            </button>
+            <button
+              type="button"
+              class="flex-1 h-[32px] rounded-full border border-white/70 text-white text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+              :disabled="busy"
+              aria-label="기록 연장 요청 거절하기"
+              @click="emit('decline', tracker)"
+            >
+              거절하기
+            </button>
+          </div>
+        </div>
         <!-- 친구 연장 — 다크 카드 + [요청하기] (상대 수락 필요, 댓글 #56) -->
         <div v-else class="rounded-[14px] bg-apjek-cta text-white p-[14px] flex items-center gap-[12px] mt-[4px]">
           <div class="flex-1 min-w-0">
@@ -111,11 +147,46 @@
         </button>
       </div>
 
-      <!-- 요청 대기 — 다크 카드 + [취소하기] → 요청 취소 팝업 -->
+      <!-- 요청 수신(partnerStatus=PENDING_RECEIVED) — 다크 카드 + [수락하기][거절하기] -->
+      <div
+        v-else-if="view === 'pendingReceived'"
+        class="rounded-[14px] bg-apjek-cta text-white p-[14px] flex flex-col gap-[10px] mt-[10px]"
+        role="group"
+        aria-label="친구의 함께 기록 요청"
+      >
+        <div class="min-w-0">
+          <p class="text-[13px] font-bold leading-[18px]">{{ tracker.friendNickname ?? '친구' }}님이 함께 기록을 요청했어요</p>
+          <p class="text-[11px] leading-[16px] opacity-80 mt-[2px]">수락하면 1주일 동안 함께 기록해요 · 완주 시 반짝이 {{ rewardSparkle }}개</p>
+        </div>
+        <div class="flex gap-[8px]">
+          <button
+            type="button"
+            class="flex-1 h-[32px] rounded-full bg-white text-apjek-text text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+            :disabled="busy"
+            aria-label="함께 기록 요청 수락하기"
+            @click="emit('accept', tracker)"
+          >
+            수락하기
+          </button>
+          <button
+            type="button"
+            class="flex-1 h-[32px] rounded-full border border-white/70 text-white text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+            :disabled="busy"
+            aria-label="함께 기록 요청 거절하기"
+            @click="emit('decline', tracker)"
+          >
+            거절하기
+          </button>
+        </div>
+      </div>
+
+      <!-- 요청 대기(내가 보낸 시작/연장 요청) — 다크 카드 + [취소하기] → 요청 취소 팝업 -->
       <div v-else-if="view === 'pending'" class="rounded-[14px] bg-apjek-cta text-white p-[14px] flex items-center gap-[12px] mt-[10px]">
         <div class="flex-1 min-w-0">
           <p class="text-[13px] font-bold leading-[18px]">아직 친구가 수락하지 않았어요</p>
-          <p class="text-[11px] leading-[16px] opacity-80 mt-[2px]">수락하면 기록이 시작돼요</p>
+          <p class="text-[11px] leading-[16px] opacity-80 mt-[2px]">
+            {{ tracker.extendStatus === 'PENDING_SENT' ? '수락하면 연장된 기록이 시작돼요' : '수락하면 기록이 시작돼요' }}
+          </p>
         </div>
         <button
           type="button"
@@ -159,32 +230,37 @@
 </template>
 
 <script setup lang="ts">
-import { habitRewardSparkle, isCheckedToday, type HabitTrackerV2, type HabitView } from '~/utils/habitState'
+import type { HabitTrackerResponse } from '@terraworld-it/openapi-frontend'
+import { habitRewardSparkle, hasExtendRequest, isCheckedToday, isPartnerStopped, type HabitView } from '~/utils/habitState'
 
 /**
  * 습관 트래커 카드 (R7) — 제목 + X, 7일 원형(탭=체크인), 진행 텍스트/바, 상태별 하단 패널
- * (7/7 완료 · 친구 미기록 · 요청 대기), 핑크 그라디언트 수풀, 중단/요청취소 팝업(R9).
+ * (7/7 완료 · 친구 미기록 · 요청 대기 · 요청 수신), 핑크 그라디언트 수풀, 중단/요청취소 팝업(R9).
  * 표시 상태(view)는 부모가 `deriveHabitView` 로 계산해 내려준다. API 호출은 부모 책임.
  */
 const props = defineProps<{
-  tracker: HabitTrackerV2
+  tracker: HabitTrackerResponse
   view: HabitView
   /** 체크인/중단/완료 진행 중 여부 (페이지 전역 busy — 카드 간 공유) */
   busy?: boolean
 }>()
 
 const emit = defineEmits<{
-  checkin: [tracker: HabitTrackerV2]
+  checkin: [tracker: HabitTrackerResponse]
   /** 기록 중단 (확인 팝업 통과) */
-  stop: [tracker: HabitTrackerV2]
+  stop: [tracker: HabitTrackerResponse]
   /** 요청 대기 중 요청 취소 (확인 팝업 통과) */
-  cancelRequest: [tracker: HabitTrackerV2]
+  cancelRequest: [tracker: HabitTrackerResponse]
   /** 친구 미기록 상태에서 응원 시트 열기 */
-  cheer: [tracker: HabitTrackerV2]
+  cheer: [tracker: HabitTrackerResponse]
   /** 7/7 완료 후 기록 완료하기 */
-  complete: [tracker: HabitTrackerV2]
+  complete: [tracker: HabitTrackerResponse]
   /** 7/7 완료 후 1주일 연장 (친구면 연장 요청) */
-  extend: [tracker: HabitTrackerV2]
+  extend: [tracker: HabitTrackerResponse]
+  /** 친구가 보낸 요청(시작/연장) 수락 */
+  accept: [tracker: HabitTrackerResponse]
+  /** 친구가 보낸 요청(시작/연장) 거절 */
+  decline: [tracker: HabitTrackerResponse]
 }>()
 
 const DAYS: number[] = [1, 2, 3, 4, 5, 6, 7]
@@ -194,8 +270,10 @@ const cancelOpen = ref<boolean>(false)
 
 const checkedToday = computed<boolean>(() => isCheckedToday(props.tracker))
 const rewardSparkle = computed<number>(() => habitRewardSparkle(props.tracker))
+const partnerStopped = computed<boolean>(() => isPartnerStopped(props.tracker))
+const extendRequested = computed<boolean>(() => hasExtendRequest(props.tracker))
 
-// 완주 직후 서버는 streak 를 0 으로 되돌리므로 cycleDone 뷰는 7/7 로 고정 표시한다.
+// 완주 대기(COMPLETED_UNCLAIMED) 뷰는 7/7 로 고정 표시한다.
 const doneCount = computed<number>(() =>
   props.view === 'cycleDone' ? props.tracker.cycleLengthDays : props.tracker.currentStreakDays)
 

@@ -143,10 +143,11 @@
 <script setup lang="ts">
 import type {
   CurrencyResponse,
+  ItemResponse,
   PurchaseResponse,
 } from '@terraworld-it/openapi-frontend'
 import { balanceOf } from '~/utils/currency'
-import { isPurchasable, priceParts, sortOwnedLast, tokenCodeForItem, type ShopItem } from '~/utils/shop'
+import { isPurchasable, priceParts, sortOwnedLast, tokenCodeForItem } from '~/utils/shop'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
 
@@ -174,7 +175,7 @@ const showExchange = ref<boolean>(false)
 // 재화/소유목록/아이템 카탈로그는 스토어가 TTL 캐시를 소유한다. 홈에서 막 넘어온 경우
 // 두 요청 모두 캐시 적중이라 네트워크 왕복 없이 즉시 그려진다.
 const currency = computed<CurrencyResponse | null>(() => userStore.currency)
-const items = computed<ShopItem[]>(() => itemsStore.items as ShopItem[])
+const items = computed<readonly ItemResponse[]>(() => itemsStore.items)
 const ownedSlugs = computed<Set<string>>(() => new Set(userStore.ownedItems))
 const purchasing = ref<number | null>(null)
 const fetchError = ref<Error | null>(null)
@@ -216,11 +217,11 @@ onMounted(() => {
 })
 
 // --- 파생 ---
-const filteredItems = computed<ShopItem[]>(() => {
+const filteredItems = computed<ItemResponse[]>(() => {
   // 루비샵은 상품 구성 확정 전 — 카탈로그 없이 빈 상태만 노출
   if (shopCat.value === 'ruby') return []
   const list = items.value.filter((it) => {
-    // 비판매 아이템(정령 등, purchasable=false — N-B9 스펙 머지 후 서버 제공) 은 상점에 그리지 않는다.
+    // 비판매 아이템(정령 등, purchasable=false) 은 상점에 그리지 않는다.
     if (!isPurchasable(it)) return false
     const isBg = it.layout === 'BACKGROUND'
     if (shopCat.value === 'background') return isBg
@@ -236,13 +237,13 @@ const emptyMessage = computed<string>(() => {
   return '판매 중인 아이템이 없어요'
 })
 
-function isOwned(item: ShopItem): boolean {
+function isOwned(item: ItemResponse): boolean {
   return ownedSlugs.value.has(item.slug ?? '')
 }
 
 // 상품 이미지 — assetUrl(required 계약)이 URL 이면 우선 사용, 아니면 slug 규약 경로로 fallback.
 // (홈 item picker isUrl 패턴 참조. slug:null 상품 깨짐 방지 + req4 png 교체 취지 유지.)
-function itemImageUrl(item: ShopItem): string {
+function itemImageUrl(item: ItemResponse): string {
   const url = item.assetUrl
   if (url && (url.startsWith('http') || url.startsWith('/'))) return url
   return itemAssetUrl(item.slug ?? '', item.isAnimated ? 'gif' : 'png')
@@ -251,7 +252,7 @@ function itemImageUrl(item: ShopItem): string {
 // canAfford — 7화폐 정규화 잔액으로 판정. priceType 별 주 재화.
 // TOKEN/MIXED 의 토큰 종류는 카테고리명(산책→이슬 …)으로 매핑해 검증하고, 매핑 불가(커스텀 카테고리)
 // 는 낙관(true) — 서버가 최종 잔액을 검증한다.
-function canAfford(item: ShopItem): boolean {
+function canAfford(item: ItemResponse): boolean {
   const coin = balanceOf(currency.value, 'COIN')
   const ruby = balanceOf(currency.value, 'RUBY')
   if (item.priceType === 'BASIC') return coin >= item.priceAmount
@@ -266,7 +267,7 @@ function canAfford(item: ShopItem): boolean {
 }
 
 // --- 구매 (idempotencyKey) ---
-async function onPurchase(item: ShopItem) {
+async function onPurchase(item: ItemResponse) {
   if (isOwned(item) || !canAfford(item) || purchasing.value) return
   purchasing.value = item.id
   try {

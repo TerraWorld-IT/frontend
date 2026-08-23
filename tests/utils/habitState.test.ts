@@ -1,8 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { deriveHabitView, habitRewardSparkle, isCheckedToday, type HabitTrackerV2 } from '~/utils/habitState'
+import type { HabitTrackerResponse } from '@terraworld-it/openapi-frontend'
+import {
+  deriveHabitView,
+  habitRewardSparkle,
+  hasExtendRequest,
+  isCheckedToday,
+  isPartnerStopped,
+} from '~/utils/habitState'
 
-// 트래커 카드 표시 상태 도출 — 스펙(partnerStatus) 우선, 부재 시 현행 필드 폴리필.
-function tracker(over: Partial<HabitTrackerV2> = {}): HabitTrackerV2 {
+// 트래커 카드 표시 상태 도출 — 서버 status / partnerStatus / extendStatus 가 SoT (아프젝 v2 R2).
+function tracker(over: Partial<HabitTrackerResponse> = {}): HabitTrackerResponse {
   return {
     id: 1,
     title: '수영 강습',
@@ -12,36 +19,49 @@ function tracker(over: Partial<HabitTrackerV2> = {}): HabitTrackerV2 {
     status: 'ACTIVE',
     lastCheckedDate: null,
     friendLinked: false,
+    partnerStatus: 'NONE',
+    extendStatus: 'NONE',
+    rewardSparkle: 100,
     ...over,
   }
 }
 
+function pair(over: Partial<HabitTrackerResponse> = {}): HabitTrackerResponse {
+  return tracker({ friendLinked: true, partnerStatus: 'ACCEPTED', partnerActive: true, rewardSparkle: 200, ...over })
+}
+
 describe('deriveHabitView', () => {
-  const today = '2026-08-23'
-
-  it('solo 는 완주 마커가 없으면 항상 active', () => {
-    expect(deriveHabitView(tracker(), { cycleDone: false, todayKey: today })).toBe('active')
-    expect(deriveHabitView(tracker({ currentStreakDays: 3 }), { cycleDone: false, todayKey: today })).toBe('active')
+  it('solo ACTIVE 는 항상 active', () => {
+    expect(deriveHabitView(tracker())).toBe('active')
+    expect(deriveHabitView(tracker({ currentStreakDays: 3 }))).toBe('active')
   })
 
-  it('완주 마커 또는 COMPLETED 는 cycleDone 이 최우선', () => {
-    expect(deriveHabitView(tracker(), { cycleDone: true, todayKey: today })).toBe('cycleDone')
-    expect(deriveHabitView(tracker({ status: 'COMPLETED', friendLinked: true, partnerActive: false }), { cycleDone: false, todayKey: today })).toBe('cycleDone')
+  it('COMPLETED_UNCLAIMED(7/7 완료, 보상 미수령) 는 cycleDone', () => {
+    expect(deriveHabitView(tracker({ status: 'COMPLETED_UNCLAIMED' }))).toBe('cycleDone')
+    expect(deriveHabitView(pair({ status: 'COMPLETED_UNCLAIMED' }))).toBe('cycleDone')
+    // 연장 요청을 내가 받은 완주 트래커도 cycleDone 뷰 안에서 [수락][거절] 로 처리한다
+    expect(deriveHabitView(pair({ status: 'COMPLETED_UNCLAIMED', extendStatus: 'PENDING_RECEIVED' }))).toBe('cycleDone')
   })
 
-  it('친구 폴리필 — 내 기록 0 이고 상대 미참여면 pending, 내 기록이 있으면 partnerIdle', () => {
-    const base = { friendLinked: true, partnerActive: false }
-    expect(deriveHabitView(tracker(base), { cycleDone: false, todayKey: today })).toBe('pending')
-    expect(deriveHabitView(tracker({ ...base, currentStreakDays: 1, lastCheckedDate: today }), { cycleDone: false, todayKey: today })).toBe('partnerIdle')
-    // 완주 후 새 사이클(streak 0, completedCycles 1)은 요청 대기로 오판하지 않는다
-    expect(deriveHabitView(tracker({ ...base, completedCycles: 1 }), { cycleDone: false, todayKey: today })).toBe('partnerIdle')
-    expect(deriveHabitView(tracker({ friendLinked: true, partnerActive: true }), { cycleDone: false, todayKey: today })).toBe('active')
+  it('내가 보낸 요청(시작/연장) 대기 = status PENDING → pending', () => {
+    expect(deriveHabitView(pair({ status: 'PENDING', partnerStatus: 'PENDING_SENT', partnerActive: false }))).toBe('pending')
+    expect(deriveHabitView(pair({ status: 'PENDING', extendStatus: 'PENDING_SENT' }))).toBe('pending')
   })
 
-  it('partnerStatus 가 오면 폴리필보다 우선한다', () => {
-    expect(deriveHabitView(tracker({ friendLinked: true, partnerActive: true, partnerStatus: 'PENDING_SENT' }), { cycleDone: false, todayKey: today })).toBe('pending')
-    expect(deriveHabitView(tracker({ friendLinked: true, partnerActive: false, partnerStatus: 'ACCEPTED' }), { cycleDone: false, todayKey: today })).toBe('partnerIdle')
-    expect(deriveHabitView(tracker({ friendLinked: true, partnerActive: true, partnerStatus: 'ACCEPTED' }), { cycleDone: false, todayKey: today })).toBe('active')
+  it('친구가 보낸 요청 수신(partnerStatus PENDING_RECEIVED) 은 최우선 pendingReceived', () => {
+    expect(deriveHabitView(pair({ status: 'PENDING', partnerStatus: 'PENDING_RECEIVED', partnerActive: false }))).toBe('pendingReceived')
+  })
+
+  it('ACCEPTED 인데 상대 미참여(partnerActive=false) 면 partnerIdle, 참여 중이면 active', () => {
+    expect(deriveHabitView(pair({ partnerActive: false }))).toBe('partnerIdle')
+    expect(deriveHabitView(pair())).toBe('active')
+  })
+
+  it('상대 중단(PARTNER_STOPPED) 은 기본 진행(active) — 안내는 카드가 별도 표시', () => {
+    const t = pair({ partnerStatus: 'PARTNER_STOPPED', partnerActive: false, rewardSparkle: 100 })
+    expect(deriveHabitView(t)).toBe('active')
+    expect(isPartnerStopped(t)).toBe(true)
+    expect(isPartnerStopped(pair())).toBe(false)
   })
 })
 
@@ -52,9 +72,15 @@ describe('보조 규칙', () => {
     expect(isCheckedToday({ lastCheckedDate: null }, '2026-08-23')).toBe(false)
   })
 
-  it('보상 표시는 서버 rewardSparkle 우선, 없으면 solo 100 / friend 200', () => {
+  it('보상 표시는 서버 rewardSparkle 그대로 (solo 100 / pair 200 / 상대 중단 100)', () => {
     expect(habitRewardSparkle(tracker())).toBe(100)
-    expect(habitRewardSparkle(tracker({ friendLinked: true }))).toBe(200)
-    expect(habitRewardSparkle(tracker({ rewardSparkle: 150 }))).toBe(150)
+    expect(habitRewardSparkle(pair())).toBe(200)
+    expect(habitRewardSparkle(pair({ partnerStatus: 'PARTNER_STOPPED', rewardSparkle: 100 }))).toBe(100)
+  })
+
+  it('연장 요청 수신 여부는 extendStatus=PENDING_RECEIVED', () => {
+    expect(hasExtendRequest(pair({ extendStatus: 'PENDING_RECEIVED' }))).toBe(true)
+    expect(hasExtendRequest(pair({ extendStatus: 'PENDING_SENT' }))).toBe(false)
+    expect(hasExtendRequest(tracker())).toBe(false)
   })
 })
