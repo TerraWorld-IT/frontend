@@ -13,6 +13,7 @@ function item(over: Partial<ItemResponse> & { id: number }): ItemResponse {
     layout: 'FOREGROUND',
     isAnimated: false,
     isActive: true,
+    purchasable: true,
     ...over,
   }
 }
@@ -63,8 +64,8 @@ describe('utils/shop', () => {
     })
   })
 
-  it('isPurchasable — purchasable 미제공은 true, false 만 비판매', () => {
+  it('isPurchasable — 서버 purchasable 그대로 (정령 등 비판매 = false)', () => {
     expect(isPurchasable(item({ id: 1 }))).toBe(true)
-    expect(isPurchasable({ ...item({ id: 2 }), purchasable: false })).toBe(false)
+    expect(isPurchasable(item({ id: 2, purchasable: false }))).toBe(false)
   })
 })

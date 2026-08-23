@@ -508,17 +508,14 @@ function openNotices() {
 }
 
 // ── 친구목록 (M5b): 실제 친구 최대 3행 + 놀러가기 모달 ──
-interface FriendRow extends FriendInfo {
-  liked?: boolean
-}
-const friends = ref<FriendRow[]>([])
+const friends = ref<FriendInfo[]>([])
 const friendsLoading = ref<boolean>(false)
 const friendsError = ref<boolean>(false)
-const friendRows = computed<FriendRow[]>(() => friends.value.slice(0, 3))
+const friendRows = computed<FriendInfo[]>(() => friends.value.slice(0, 3))
 const likingId = ref<string | null>(null)
 const visitingId = ref<string | null>(null)
 const visitModalOpen = ref<boolean>(false)
-const visitFriend = ref<FriendRow | null>(null)
+const visitFriend = ref<FriendInfo | null>(null)
 const visitTerrarium = ref<TerrariumResponse | null>(null)
 
 function friendInitial(nick: string): string {
@@ -533,8 +530,7 @@ async function loadFriends() {
     // "친구 없음" 빈 상태로 위장된다 (audit C4-5).
     const { data, error } = await sdk.listFriends({ client })
     if (error) throw error
-    const list = castData<FriendRow[]>(data)
-    friends.value = (list ?? []).map(f => ({ ...f, liked: f.liked ?? false }))
+    friends.value = castData<FriendInfo[]>(data) ?? []
   }
   catch {
     friendsError.value = true
@@ -544,7 +540,7 @@ async function loadFriends() {
   }
 }
 
-async function onVisit(friend: FriendRow) {
+async function onVisit(friend: FriendInfo) {
   if (visitingId.value) return
   visitingId.value = friend.userId
   visitFriend.value = friend
@@ -565,7 +561,7 @@ async function onVisit(friend: FriendRow) {
   }
 }
 
-async function onToggleLike(friend: FriendRow) {
+async function onToggleLike(friend: FriendInfo) {
   if (likingId.value) return
   likingId.value = friend.userId
   try {
