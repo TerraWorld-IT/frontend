@@ -115,7 +115,7 @@
         </button>
       </div>
 
-      <!-- ─── T14 병 캐러셀: 슬라이드1 = 현재 병 스테이지 / 슬라이드 2·3 = Lv.2·Lv.3 카드 ─── -->
+      <!-- ─── T14 병 캐러셀: Lv.1/2/3 레벨당 한 장 — 활성 병 레벨은 스테이지(slot), 나머지는 전환/해금 카드 ─── -->
       <TerrariumJarCarousel
         :levels="jarLevels"
         :selected-level="viewLevel"
@@ -123,7 +123,7 @@
         @unlock="onUnlockRequest"
         @select="onSelectLevel"
       >
-        <!-- ─── 유리병 스테이지 (힐링 모드 시 풀블리드 오버레이로 승격) ─── -->
+        <!-- ─── 유리병 스테이지 (힐링 모드 시 풀블리드 오버레이로 승격) — 캐러셀이 활성 레벨 슬라이드에 배치 ─── -->
         <!-- 스테이지는 항상 설계 기준 400×552 를 유지(shrink-0)하고 uniform scale 로 화면에 맞춘다.
              이전에는 flex 축소로 스테이지 폭만 줄어(예: 376px) %-inset 병 아트는 세로로 왜곡되고
              px 좌표계(편집존·아이템 x/y·posX 저장 /400)와 기준이 어긋났다 (2026-07-20 라이브 실측). -->
@@ -1762,7 +1762,7 @@ async function onInstagramStoryShare() {
 
 // ─── T14 병 캐러셀 + 해금 팝업 — useTier(getTierCatalog/unlockTier/setActiveTier) 구동, TierInfo.level → Lv1~3 ───
 const jarLevels = computed<JarLevel[]>(() => toJarLevels(tier.catalog.value))
-// 표시 중인 병 레벨(activeTier) — 카탈로그의 active 플래그가 SoT. 슬라이드 1 스테이지는 이 병의 배치다.
+// 표시 중인 병 레벨(activeTier) — 카탈로그의 active 플래그가 SoT. 이 레벨의 슬라이드가 라이브 스테이지다.
 const viewLevel = computed<number>(() => activeJarLevel(jarLevels.value))
 const tierSwitching = ref<boolean>(false)
 const unlockTarget = ref<JarLevel | null>(null)
