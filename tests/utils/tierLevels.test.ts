@@ -12,7 +12,7 @@ function catalog(overrides: Partial<TierCatalogResponse['tiers'][number]>[] = []
   ]
   return {
     currentTier: 'GLASS_JAR',
-    tiers: base.map((t, i) => ({ ...t, ...(overrides[i] ?? {}) })),
+    tiers: base.map((t, i) => ({ ...t, ...overrides[i] })),
   }
 }
 
