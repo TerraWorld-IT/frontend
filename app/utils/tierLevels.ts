@@ -45,6 +45,19 @@ export interface JarLevel {
 export const MAX_JAR_LEVEL = 3
 
 /**
+ * 티어 코드 → 병 레벨. 카탈로그 없이 티어 코드만 있는 응답(친구 테라리움 `activeTier`)에서 병 아트를
+ * 고르는 용도. `tier_configs` 의 코드·레벨(GLASS_JAR=1 / LARGE_JAR=2 / GRAND_TANK=3)을 따르고
+ * 모르는 코드는 Lv.1 로 둔다.
+ */
+export function levelOfTier(tier: string | null | undefined): number {
+  switch ((tier ?? '').toUpperCase()) {
+    case 'LARGE_JAR': return 2
+    case 'GRAND_TANK': return 3
+    default: return 1
+  }
+}
+
+/**
  * 카탈로그 → 레벨 목록(오름차순, Lv1 포함). 카탈로그가 없으면 빈 배열.
  * Lv1 은 기본 병이라 항상 unlocked 로 취급한다(서버 unlocked 가 false 여도 기본 병은 표시 대상).
  */

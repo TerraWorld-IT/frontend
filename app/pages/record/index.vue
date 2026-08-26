@@ -195,32 +195,15 @@
         </div>
       </div>
 
-      <!-- 최근 기록 — 위쪽 카드는 정적이라 즉시 그려진다. 서버 응답을 기다리는 건 이 블록뿐. -->
-      <div v-if="pending">
-        <h3 class="font-bold mb-3 text-apjek-text text-[15px]">{{ $t('record.recentRecords') }}</h3>
-        <CommonLoading variant="skeleton" container-class="py-2" />
-      </div>
-      <!-- HTTP 에러가 침묵으로 "빈 목록"이 되어 진짜 빈 것과 구분 불가하던 문제(audit C4-1) -->
-      <div v-else-if="loadError" class="apjek-card p-5 text-center">
+      <!-- 최근 기록 목록은 Figma(8/21) 기록탭에 없다 — 캘린더 페이지가 기록 조회를 맡는다.
+           카테고리·친구 목록 로드 실패만 재시도 카드로 알린다(HTTP 에러 침묵 방지, audit C4-1). -->
+      <div v-if="loadError" class="apjek-card p-5 text-center">
         <p class="text-[13px] text-apjek-text-sub mb-3">기록 정보를 불러오지 못했어요</p>
         <button
           type="button"
           class="px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
           @click="retryInitial()"
         >다시 시도</button>
-      </div>
-      <div v-else-if="recentRecords.length > 0">
-        <h3 class="font-bold mb-3 text-apjek-text text-[15px]">{{ $t('record.recentRecords') }}</h3>
-        <div class="space-y-2">
-          <!-- record/RecordCard.vue 의 auto-import 명은 RecordCard — 파일명이 디렉토리명으로
-               시작하면 Nuxt 가 prefix 중복을 접는다. RecordRecordCard 는 미해석 커스텀 엘리먼트로
-               조용히 렌더되어(프로덕션은 경고도 drop) 최근 기록 카드가 화면에서 사라졌었다. -->
-          <RecordCard
-            v-for="record in recentRecords"
-            :key="record.id"
-            :record="record"
-          />
-        </div>
       </div>
     </div>
 
@@ -383,15 +366,15 @@
               <Icon name="lucide:zap" class="w-4 h-4" />기록 저장
             </button>
           </div>
-          <!-- 진행 중 — 흰 [시간 저장] (중간 저장) -->
+          <!-- 진행 중 — Figma: 검정 [기록 저장] (누르면 타이머를 멈추고 지금까지의 시간을 저장) -->
           <button
             v-else
             type="button"
-            class="w-full h-12 rounded-full flex items-center justify-center gap-2 font-semibold text-apjek-text border border-apjek-text bg-apjek-surface transition-all active:scale-[0.98] disabled:opacity-50"
+            class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold bg-apjek-cta transition-all active:scale-[0.98] disabled:opacity-50"
             :disabled="submitting"
             @click="stopFocus"
           >
-            <Icon name="lucide:square" class="w-4 h-4" />시간 저장
+            <Icon name="lucide:zap" class="w-4 h-4" />기록 저장
           </button>
         </div>
       </div>
@@ -513,9 +496,7 @@ import type {
   FriendInfo,
   HabitCycleRewardResponse,
   HabitTrackerResponse,
-  PagedRecordResponse,
   PhotoUploadResponse,
-  RecordResponse,
   RewardInfo,
 } from '@terraworld-it/openapi-frontend'
 import { TOKEN_ICON_SRC } from '~/utils/currency'
@@ -827,10 +808,8 @@ const openModal = ref<DailyModal | null>(null)
 // 일상 기록 시트 4종의 focus trap + 배경 스크롤 잠금 + ESC + Android 뒤로가기는
 // CommonBottomSheet 가 내장 처리한다(이중 등록 금지).
 const submitting = ref<boolean>(false)
-const pending = ref<boolean>(true)
 const categories = ref<CategoryResponse[]>([])
 // FE-10: 교체-대입 전용 리스트(로드/생성 모두 새 배열 재할당) — deep reactivity 불필요.
-const recentRecords = shallowRef<RecordResponse[]>([])
 
 // 아프젝 리스트 카드 — 파스텔 타일 배경 + 토큰 글리프/서브텍스트 색 (tailwind.css 토큰 참조)
 const DAILY_CARDS: { title: string; token: string; accent: string; icon: string; modal: DailyModal }[] = [
@@ -910,7 +889,6 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
     const created = castData<CreateRecordResponse>(data)
     let reward: RewardInfo | null = null
     if (created) {
-      recentRecords.value = [created.record, ...recentRecords.value].slice(0, 5)
       reward = created.reward ?? null
       if (reward) {
         trackRecordCreated({
@@ -1434,37 +1412,28 @@ const loadError = ref<boolean>(false)
 async function loadInitial() {
   loadError.value = false
   try {
-    const [catRes, recRes, friRes] = await Promise.all([
+    const [catRes, friRes] = await Promise.all([
       sdk.listCategories({ client }),
-      sdk.listRecords({ client, query: { page: 0, size: 5 } }),
       sdk.listFriends({ client }),
     ])
     if (!catRes.error) {
       categories.value = castData<CategoryListResponse>(catRes.data)?.categories ?? []
-    }
-    if (!recRes.error) {
-      recentRecords.value = castData<PagedRecordResponse>(recRes.data)?.content ?? []
     }
     if (!friRes.error) {
       friends.value = (castData<FriendInfo[]>(friRes.data) ?? []) as FriendInfo[]
     }
     // HTTP 에러(res.error)는 throw 하지 않아 조용히 빈 목록으로 위장되던 문제(audit C4-1) —
     // 하나라도 실패하면 에러 상태로 승격해 재시도 UI 를 보인다.
-    if (catRes.error || recRes.error || friRes.error) {
+    if (catRes.error || friRes.error) {
       loadError.value = true
     }
   }
   catch {
     loadError.value = true
   }
-  finally {
-    // 실패해도 스켈레톤을 영구히 남기지 않는다.
-    pending.value = false
-  }
 }
 
 function retryInitial() {
-  pending.value = true
   void loadInitial()
 }
 

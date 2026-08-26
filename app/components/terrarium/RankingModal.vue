@@ -61,7 +61,7 @@
           :style="entry.isSelf ? { borderColor: 'var(--color-apjek-blue)' } : {}"
           :data-testid="`ranking-row-${entry.rank}`"
         >
-          <span class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style="background: var(--color-apjek-bg)" aria-hidden="true">🌱</span>
+          <span class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style="background: var(--color-apjek-bg)" aria-hidden="true">🌍</span>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-bold text-apjek-text truncate">#{{ entry.rank }} {{ entry.nickname }}<span v-if="entry.isSelf" class="ml-1 text-[10px] font-semibold text-apjek-text-faint">(나)</span></p>
             <p class="text-xs text-apjek-text-sub">보유 아이템 수 : {{ entry.score }}</p>

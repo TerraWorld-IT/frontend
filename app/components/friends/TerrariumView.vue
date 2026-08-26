@@ -9,7 +9,7 @@
     2) 없으면(백엔드 미탑재/자유배치 미사용) slot 기반 placedItems 를 홈의 결정적 폴백 좌표
        (DEFAULT_POSITIONS)에 배치.
     읽기 전용 — 드래그/편집 없음.
-  - 아이템 이미지 분기(isUrl → img w-11 h-11 / 이모지 text-4xl), 내부 wrapper 의
+  - 아이템 이미지 분기(isUrl → img w-24 h-24 / 이모지 text-4xl), 내부 wrapper 의
     scale/scaleX(flip) transform, zIndex(10+depth), isAnimated 부유 애니메이션도 홈 수식과 동일.
 -->
 <template>
@@ -24,10 +24,9 @@
         marginBottom: `${-552 * (1 - stageFit)}px`,
       }"
     >
-      <!-- 유리병 (홈과 동일한 Figma Jar1 픽셀-정확 아트) -->
-      <div class="absolute inset-0">
-        <IconsJar1 />
-      </div>
+      <!-- 유리병 — 홈과 동일한 병 아트(친구가 표시 중인 티어의 레벨). 질감 오버레이는 아이템 위. -->
+      <TerrariumJarArt :level="jarLevel" layer="base" />
+      <TerrariumJarArt :level="jarLevel" layer="texture" style="z-index: 5000" />
 
       <!-- 배치된 아이템들 (읽기 전용) -->
       <div
@@ -46,7 +45,7 @@
             v-if="isUrl(item.image)"
             :src="item.image"
             :alt="item.name"
-            class="w-11 h-11 object-contain"
+            class="w-24 h-24 object-contain"
             draggable="false"
           >
           <div v-else class="text-4xl">{{ item.image }}</div>
@@ -63,14 +62,17 @@
 
 <script setup lang="ts">
 import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
+import { levelOfTier } from '~/utils/tierLevels'
 
 const props = defineProps<{
   terrarium: TerrariumResponse
 }>()
 
 // ─── 좌표계 (pages/index.vue 와 동일 상수) ───
-const BASE_SIZE = 52
+// pages/index.vue 와 같은 값(96) — 홈과 친구 병의 아이템 크기가 같아야 한다.
+const BASE_SIZE = 96
 const HALF = BASE_SIZE / 2
+const jarLevel = computed<number>(() => levelOfTier(props.terrarium.activeTier ?? props.terrarium.tier))
 // 홈의 비자유배치 폴백 좌표 — EDIT 영역 안 8지점. 슬롯 기반 응답의 결정적 배치에 재사용.
 const DEFAULT_POSITIONS = [
   { x: 140, y: 280 }, { x: 240, y: 260 }, { x: 105, y: 380 }, { x: 200, y: 390 },

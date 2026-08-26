@@ -18,18 +18,16 @@
     @close="emit('close')"
   >
     <div v-if="target" class="flex flex-col items-center" data-testid="tier-unlock-body">
-      <!-- 병 일러스트 플레이스홀더 + SET 정령 뱃지 -->
-      <div class="relative w-[160px] h-[220px] mb-3" aria-hidden="true">
-        <IconsJar1 />
-        <div
-          v-if="target.spiritCode"
-          class="absolute -right-2 top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center text-white shadow-lg"
-          style="background: var(--color-apjek-cta)"
-        >
-          <span class="text-[9px] font-bold leading-none">SET</span>
-          <span class="text-base leading-none">{{ spiritEmoji }}</span>
-        </div>
-      </div>
+      <!-- 해금 병 일러스트 — 디자이너 "테라리움해금2/3"(Lv.3 은 SET 정령 뱃지가 이미지에 포함) -->
+      <img
+        :src="unlockArtSrc(target.level)"
+        alt=""
+        width="240"
+        height="240"
+        class="w-[240px] h-[240px] object-contain mb-3 select-none"
+        aria-hidden="true"
+        draggable="false"
+      >
       <p class="text-sm text-apjek-text text-center leading-relaxed">{{ target.descriptionKo }}</p>
       <p class="text-sm text-apjek-text-sub text-center mb-5">배치 가능한 아이템 : {{ target.slots }}개</p>
 
@@ -68,9 +66,15 @@
     @close="emit('close')"
   >
     <div v-if="success" class="flex flex-col items-center" data-testid="tier-unlock-success">
-      <div class="relative w-[160px] h-[220px] mb-3" aria-hidden="true">
-        <IconsJar1 />
-      </div>
+      <img
+        :src="unlockArtSrc(success.level)"
+        alt=""
+        width="240"
+        height="240"
+        class="w-[240px] h-[240px] object-contain mb-3 select-none"
+        aria-hidden="true"
+        draggable="false"
+      >
       <p class="text-sm font-semibold text-apjek-text text-center leading-relaxed">
         해금 성공!<template v-if="success.grantedSpirit"> {{ spiritNameKo(success.grantedSpirit) }} 정령을 획득했어요.</template>
       </p>
@@ -111,12 +115,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [], unlock: [level: JarLevel], manage: [] }>()
 
-// 정령 뱃지 이모지 — 코드별 근사(에셋은 WS-F 자산 대기)
-const spiritEmoji = computed<string>(() => {
-  const code = (props.target?.spiritCode ?? '').toLowerCase()
-  if (code.includes('pigeon')) return '🕊️'
-  if (code.includes('cat')) return '🐱'
-  if (code.includes('fish')) return '🐟'
-  return '✨'
-})
+/** 해금 일러스트 — Lv.2 / Lv.3 두 장(Lv.1 은 기본 병이라 해금 대상이 아님). */
+function unlockArtSrc(level: number): string {
+  return level >= 3 ? '/illust/unlock-lv3.webp' : '/illust/unlock-lv2.webp'
+}
 </script>

@@ -7,7 +7,7 @@
     :src="tier === 'stage1' ? '/spirits/stage1.png' : '/spirits/stage2.png'"
     :alt="nameKo"
     :width="tier === 'stage1' ? 140 : 156"
-    :height="tier === 'stage1' ? 137 : 173"
+    :height="tier === 'stage1' ? 138 : 173"
     :class="tier === 'stage1' ? 'w-[140px]' : 'w-[156px]'"
     class="h-auto object-contain animate-float select-none"
     draggable="false"

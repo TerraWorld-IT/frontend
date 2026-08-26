@@ -168,10 +168,10 @@
               >
             </div>
 
-            <!-- 유리병 (Figma Jar1 픽셀-정확) -->
-            <div class="absolute inset-0">
-              <IconsJar1 />
-            </div>
+            <!-- 유리병 — 디자이너 Lv.1/2/3 병 이미지(표시 중 병 레벨). 질감 오버레이는 아이템 위에 겹치되
+                 편집 모드에선 핸들·드래그 시야를 가리지 않도록 뺀다. -->
+            <TerrariumJarArt :level="viewLevel" layer="base" />
+            <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" style="z-index: 5000" />
 
             <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
             <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" />
@@ -220,7 +220,7 @@
                   v-if="isUrl(placed.image)"
                   :src="placed.image"
                   :alt="placed.name"
-                  class="w-11 h-11 object-contain pointer-events-none"
+                  class="w-24 h-24 object-contain pointer-events-none"
                   draggable="false"
                 >
                 <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
@@ -468,6 +468,7 @@
   <!-- ═══════════════ T3b/T13 모드 진입 인트로 스플래시 1.2초 ═══════════════ -->
   <TerrariumModeIntro
     :open="introMode === 'healing'"
+    :level="viewLevel"
     icon="🌱"
     title="힐링 모드"
     description="나의 테라를 천천히 감상해보세요"
@@ -475,6 +476,7 @@
   />
   <TerrariumModeIntro
     :open="introMode === 'manage'"
+    :level="viewLevel"
     icon="✏️"
     title="관리 모드"
     description="아이템으로 테라리움을 꾸미고 레벨과 아이템을 관리해요"
@@ -673,7 +675,9 @@ const bgm = useBgm()
 // ─── 좌표계 (MyTerra.tsx 그대로) ───
 const JAR = { minX: 30, maxX: 370, minY: 160, maxY: 520 }
 const EDIT = { minX: JAR.minX, maxX: JAR.maxX, minY: JAR.minY + 60, maxY: JAR.maxY }
-const BASE_SIZE = 52
+// 아이템 기본 박스 — Figma 홈의 식물이 병 폭의 약 1/3 이라 96px(scale 1). posX/posY 는 정규화 중심 좌표라
+// 기존 배치의 위치는 그대로이고 크기만 커진다. friends/TerrariumView.vue 와 같은 값을 유지할 것.
+const BASE_SIZE = 96
 const HALF = BASE_SIZE / 2
 const HANDLE = 10
 // 새 아이템 기본 배치 위치 (EDIT 영역 안). 자유배치 posX/posY(0~1) 로 변환해 저장.

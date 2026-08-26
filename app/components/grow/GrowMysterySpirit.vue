@@ -4,7 +4,7 @@
     src="/spirits/mystery.png"
     alt="수수께끼 정령"
     width="110"
-    height="116"
+    height="115"
     class="w-[110px] h-auto object-contain animate-float select-none"
     draggable="false"
   >

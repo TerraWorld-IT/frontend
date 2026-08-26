@@ -21,9 +21,9 @@
           </p>
           <p class="text-sm text-apjek-text-sub leading-relaxed">{{ description }}</p>
         </div>
-        <!-- 병 일러스트 — 홈과 같은 Jar1 을 축소 렌더 -->
+        <!-- 병 일러스트 — 홈에 표시 중인 병(레벨)을 축소 렌더 -->
         <div class="relative w-[220px] h-[304px] mode-intro-jar" aria-hidden="true">
-          <IconsJar1 />
+          <TerrariumJarArt :level="level" />
         </div>
       </div>
     </Transition>
@@ -39,8 +39,11 @@ const props = withDefaults(defineProps<{
   description: string
   /** 표시 시간(ms) — Figma 가이드 1.2초 */
   durationMs?: number
+  /** 그릴 병 레벨(홈 표시 중 병) */
+  level?: number
 }>(), {
   durationMs: 1200,
+  level: 1,
 })
 
 const emit = defineEmits<{ done: [] }>()

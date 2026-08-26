@@ -12,12 +12,12 @@
     <div class="px-5 pt-4 pb-2 flex flex-col gap-[16px]">
       <!-- ① 유형 선택 -->
       <template v-if="step === 1">
-        <!-- 일러스트 — Figma "시작하기 1 - 나의 선택 / 친구 선택" 프레임의 캐릭터 이미지(public/illust). -->
+        <!-- 일러스트 — 디자이너 제공 "습관기록_나 / 친구" (파란 반원 배경 포함, public/illust). -->
         <img
-          :src="mode === 'friend' ? '/illust/habit-friend.png' : '/illust/habit-solo.png'"
+          :src="mode === 'friend' ? '/illust/habit-friend.webp' : '/illust/habit-solo.webp'"
           alt=""
           width="340"
-          height="279"
+          height="257"
           class="w-full max-w-[340px] mx-auto h-auto object-contain select-none"
           aria-hidden="true"
           draggable="false"

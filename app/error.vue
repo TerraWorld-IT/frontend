@@ -1,6 +1,6 @@
 <template>
   <!--
-    아프젝 온보딩 섹션 3페이지(2026-08-23 C6): 점검 중 / 접속 오류(네트워크) / 일시 오류.
+    아프젝 온보딩 섹션 3페이지(2026-08-23 C6): 점검 중 / 접속 오류(네트워크) / 일시 오류 — 일러스트는 디자이너 제공 3종.
     풀페이지 그라디언트(연파랑 → 흰) + 중앙 원형 일러스트 + 타이틀/영문 부제 + 본문 + 검정 필 CTA.
     404 는 오류 변형(카피만 "페이지를 찾을 수 없어요")으로 유지한다.
     h-dvh + items-start + overflow-y-auto + my-auto: login.vue 와 동일한 safe-centering 패턴 —
@@ -21,13 +21,16 @@
         {{ subtitle }}
       </p>
 
-      <!-- 중앙 원형 일러스트 자리 — 에셋 확정 전 이모지 플레이스홀더(점검 🪴 / 네트워크 📶 / 오류 🦖) -->
-      <div
-        class="my-10 w-44 h-44 rounded-full bg-apjek-surface flex items-center justify-center text-7xl shadow-[0_8px_32px_rgba(81,140,219,0.18)]"
+      <!-- 중앙 원형 일러스트 — 디자이너 "이미지_E서비스점검중 / E접속오류 / E에러"(파란 원 포함) -->
+      <img
+        :src="illustSrc"
+        alt=""
+        width="176"
+        height="176"
+        class="my-10 w-44 h-44 object-contain select-none"
         aria-hidden="true"
+        draggable="false"
       >
-        {{ emoji }}
-      </div>
 
       <!-- 본문 카피 -->
       <p class="text-sm text-apjek-text-sub leading-relaxed whitespace-pre-line">
@@ -104,11 +107,11 @@ const kind = computed<ErrorKind>(() => {
   return 'generic'
 })
 
-const emoji = computed<string>(() => {
+const illustSrc = computed<string>(() => {
   switch (kind.value) {
-    case 'maintenance': return '🪴'
-    case 'network': return '📶'
-    default: return '🦖'
+    case 'maintenance': return '/illust/error-maintenance.webp'
+    case 'network': return '/illust/error-network.webp'
+    default: return '/illust/error-generic.webp'
   }
 })
 

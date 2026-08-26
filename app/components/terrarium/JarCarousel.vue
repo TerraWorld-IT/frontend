@@ -51,13 +51,13 @@
             :aria-label="slide.data.unlocked ? `Lv.${slide.level} 테라리움으로 전환` : `Lv.${slide.level} 테라리움 해금하기`"
             @click="slide.data.unlocked ? emit('select', slide.data) : emit('unlock', slide.data)"
           >
-            <!-- 병 실루엣 — 해금 전 회색, 해금 후 원본 톤 -->
+            <!-- 병 아트(레벨별) — 해금 전 회색, 해금 후 원본 톤 -->
             <div
               class="relative w-[150px] h-[207px] mb-1"
               :style="slide.data.unlocked ? {} : { filter: 'grayscale(1) brightness(0.92)', opacity: 0.55 }"
               aria-hidden="true"
             >
-              <IconsJar1 />
+              <TerrariumJarArt :level="slide.level" />
             </div>
             <span class="text-base font-extrabold text-apjek-text">Lv.{{ slide.level }}</span>
             <template v-if="!slide.data.unlocked">

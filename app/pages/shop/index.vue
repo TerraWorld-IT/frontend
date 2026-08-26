@@ -90,8 +90,8 @@
             {{ item.name }}
           </p>
 
-          <!-- 일러스트 영역 -->
-          <div class="w-20 h-[130px] flex items-center justify-center">
+          <!-- 일러스트 영역 — 디자이너 식물 PNG(public/items/<slug>.png) -->
+          <div class="w-full h-[130px] flex items-center justify-center">
             <div
               class="flex items-center justify-center"
               :class="item.rarity === 'RARE' ? 'animate-sway' : item.isAnimated ? 'animate-float' : ''"
@@ -99,31 +99,34 @@
               <img
                 :src="itemImageUrl(item)"
                 :alt="item.name"
-                class="w-16 h-16 object-contain"
+                width="112"
+                height="112"
+                class="w-[112px] h-[112px] object-contain"
                 @error="onAssetError"
               >
             </div>
           </div>
 
-          <!-- 가격 — 토큰 아이콘 + "이슬토큰 25" (S5: priceType TOKEN/MIXED 는 카테고리 토큰 매핑) -->
-          <div class="flex flex-col items-center gap-[2px] mt-2 mb-2">
+          <!-- 가격 — Figma: 미니 토큰 아이콘 / 토큰명(작게) / 수량(굵게) 세로 2줄 (MIXED 는 재화별 반복) -->
+          <div class="flex items-start justify-center gap-[12px] mt-2 mb-3">
             <div
               v-for="part in priceParts(item)"
               :key="part.label"
-              class="flex items-center gap-1 text-apjek-text-sub"
+              class="flex flex-col items-center gap-[2px]"
             >
-              <IconsCurrencyIcon v-if="part.code" :code="part.code" :size="14" color="currentColor" />
-              <span class="text-[12px] whitespace-nowrap">{{ part.label }} {{ part.amount }}</span>
+              <IconsCurrencyIcon v-if="part.code" :code="part.code" :size="20" />
+              <span class="text-[10px] text-apjek-text-sub leading-[14px] whitespace-nowrap">{{ part.label }}</span>
+              <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums">{{ part.amount }}</span>
             </div>
           </div>
 
-          <!-- CTA — 검정 [구매하기] / 회색 [보유중](disabled) / 재화 부족 시 비활성 -->
+          <!-- CTA — 검정 [구매하기] / 연파랑 [보유중](disabled) / 재화 부족 시 비활성 -->
           <button
             type="button"
             :disabled="isOwned(item) || !canAfford(item) || purchasing === item.id"
             class="w-full h-8 rounded-full text-[12px] font-semibold text-center transition-all disabled:active:scale-100"
             :class="isOwned(item)
-              ? 'bg-apjek-bg text-apjek-text-faint border border-apjek-border cursor-default'
+              ? 'bg-apjek-blue-soft text-apjek-blue-deep cursor-default'
               : canAfford(item)
                 ? 'bg-apjek-cta text-white active:opacity-85'
                 : 'bg-apjek-bg text-apjek-text-faint border border-apjek-border cursor-not-allowed'"
