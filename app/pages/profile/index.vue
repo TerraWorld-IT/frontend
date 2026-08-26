@@ -622,23 +622,3 @@ async function load() {
 
 onMounted(load)
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.dialog-enter-active,
-.dialog-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.dialog-enter-from,
-.dialog-leave-to {
-  opacity: 0;
-  transform: translateY(20px) translateY(-50%) scale(0.95);
-}
-</style>

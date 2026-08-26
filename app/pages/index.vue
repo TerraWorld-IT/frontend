@@ -171,10 +171,10 @@
             <!-- 유리병 — 디자이너 Lv.1/2/3 병 이미지(표시 중 병 레벨). 질감 오버레이는 아이템 위에 겹치되
                  편집 모드에선 핸들·드래그 시야를 가리지 않도록 뺀다. -->
             <TerrariumJarArt :level="viewLevel" layer="base" />
-            <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" style="z-index: 5000" />
+            <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" :style="{ zIndex: textureZ }" />
 
             <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
-            <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" />
+            <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" class="z-[6000]" />
 
             <!-- 편집모드 안내 영역 -->
             <Transition name="edit-fade">
@@ -285,7 +285,7 @@
             </div>
 
             <!-- 하트 버튼 (편집모드 숨김 — 힐링 모드에선 유지) -->
-            <div v-show="!editMode" class="absolute right-0 top-1/2 -translate-y-1/2">
+            <div v-show="!editMode" class="absolute right-0 top-1/2 -translate-y-1/2 z-[6000]">
               <button
                 type="button"
                 data-testid="home-heart"
@@ -673,6 +673,8 @@ const tier = useTier()
 const bgm = useBgm()
 
 // ─── 좌표계 (MyTerra.tsx 그대로) ───
+const STAGE_W = 400
+const STAGE_H = 552
 const JAR = { minX: 30, maxX: 370, minY: 160, maxY: 520 }
 const EDIT = { minX: JAR.minX, maxX: JAR.maxX, minY: JAR.minY + 60, maxY: JAR.maxY }
 // 아이템 기본 박스 — Figma 홈의 식물이 병 폭의 약 1/3 이라 96px(scale 1). posX/posY 는 정규화 중심 좌표라
@@ -1031,6 +1033,9 @@ function visualHalf(placed: PlacedFreeItem): number {
   return HALF * placed.scale
 }
 
+// 병 질감 오버레이 z — 배치 아이템(10 + zIndex) 전부의 바로 위. 시들기 오버레이·하트(z 6000)는 그 위.
+const textureZ = computed<number>(() => 11 + placedItems.value.reduce((m, p) => Math.max(m, p.zIndex), 0))
+
 function animClass(placed: PlacedFreeItem): string {
   if (editMode.value) return ''
   if (placed.rarity === 'rare') return 'item-shake'
@@ -1313,8 +1318,11 @@ function onItemPointerMove(e: PointerEvent) {
   const rawDx = e.clientX - dragState.startX
   const rawDy = e.clientY - dragState.startY
   if (rawDx * rawDx + rawDy * rawDy > 16) dragState.moved = true
-  target.x = clamp(dragState.baseX + dx, EDIT.minX, EDIT.maxX)
-  target.y = clamp(dragState.baseY + dy, EDIT.minY, EDIT.maxY)
+  // 편집 영역 안이면서 아이템의 시각 반지름(visualHalf)만큼 스테이지(400×552) 안쪽으로 — 바깥 컨테이너가
+  // overflow-hidden 이라 중심만 안에 있어도 가장자리가 잘린다.
+  const vh = visualHalf(target)
+  target.x = clamp(dragState.baseX + dx, Math.max(EDIT.minX, vh), Math.min(EDIT.maxX, STAGE_W - vh))
+  target.y = clamp(dragState.baseY + dy, EDIT.minY, Math.min(EDIT.maxY, STAGE_H - vh))
 }
 
 function onItemPointerUp(e: PointerEvent) {
@@ -1340,7 +1348,8 @@ function onCornerPointerDown(e: PointerEvent, placed: PlacedFreeItem, dirX: numb
   const startX = e.clientX
   const startY = e.clientY
   const startScale = placed.scale
-  const baseHalf = 26 * startScale * zoomLevel.value * stageFit.value
+  // 화면상 반지름 — 좌표계 상수 HALF(BASE_SIZE/2) 를 그대로 쓴다(과거 26 하드코딩은 52px 박스 시절 값).
+  const baseHalf = HALF * startScale * zoomLevel.value * stageFit.value
 
   function onMove(ev: PointerEvent) {
     const dx = (ev.clientX - startX) * dirX

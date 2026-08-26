@@ -101,6 +101,7 @@
                 :alt="item.name"
                 width="112"
                 height="112"
+                loading="lazy"
                 class="w-[112px] h-[112px] object-contain"
                 @error="onAssetError"
               >
