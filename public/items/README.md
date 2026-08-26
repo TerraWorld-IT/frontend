@@ -4,7 +4,7 @@
 를 drop 하면 코드 변경 없이 반영된다. 해석 규약 = `useItemAsset().itemAssetUrl(slug)`
 → `${NUXT_PUBLIC_ASSET_BASE|'/items'}/<slug>.png`.
 
-- `placeholder.png` — 에셋 부재 시 폴백(아직 미포함, 디자이너 제공 예정).
+- `placeholder.png` — 에셋 부재 시 폴백(연파랑 타일 + 잎 실루엣, 256×256). 디자이너 플레이스홀더가 오면 교체.
 - 네이밍: `stamp_{category}_{name}_{rarity}.png` 권장 (frontend/CLAUDE.md §12 디자인 에셋).
 - 투명배경 PNG (2x retina). 디자이너 원본은 비정사각(400~520px)이라 정사각 규약을 강제하지 않는다 — 상점·병은 object-contain 으로 맞춘다.
 - 프로덕션은 `NUXT_PUBLIC_ASSET_BASE` 를 R2 CDN URL 로 교체(req 8) — 코드 변경 없이 소스만 전환.

@@ -45,7 +45,7 @@
         class="apjek-cta w-full py-3"
         disabled
         data-testid="tier-unlock-cta"
-      ><Icon name="lucide:gem" class="w-4 h-4 mr-1.5" aria-hidden="true" />루비 {{ target.rubyCost }}개 사용 | 루비가 부족합니다</button>
+      ><Icon name="lucide:gem" class="w-4 h-4" aria-hidden="true" />루비 {{ target.rubyCost }}개 사용 | 루비가 부족합니다</button>
       <button
         v-else
         type="button"
@@ -53,7 +53,7 @@
         :disabled="busy"
         data-testid="tier-unlock-cta"
         @click="emit('unlock', target)"
-      ><Icon v-if="!busy" name="lucide:gem" class="w-4 h-4 mr-1.5" aria-hidden="true" />{{ busy ? '해금 중…' : `루비 ${target.rubyCost}개로 해금하기` }}</button>
+      ><Icon v-if="!busy" name="lucide:gem" class="w-4 h-4" aria-hidden="true" />{{ busy ? '해금 중…' : `루비 ${target.rubyCost}개로 해금하기` }}</button>
     </div>
   </TerrariumHomeDialog>
 
