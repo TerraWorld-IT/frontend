@@ -626,11 +626,11 @@
   >
     <div class="text-center py-2" data-testid="home-ad-body">
       <p class="text-sm font-semibold text-apjek-text mb-4">{{ $t('home.adCoinDesc') }}</p>
-      <!-- [AD] > 💎 일러스트 플레이스홀더 (에셋은 WS-F 자산 대기) -->
+      <!-- [AD] > 루비 — Figma: 검정 AD 타일, 화살표, 디자이너 루비 토큰 아이콘 -->
       <div class="flex items-center justify-center gap-3 mb-2" aria-hidden="true">
         <span class="w-14 h-14 rounded-2xl flex items-center justify-center text-sm font-extrabold text-white" style="background: var(--color-apjek-cta)">AD</span>
         <Icon name="lucide:chevron-right" class="w-5 h-5 text-apjek-text-faint" />
-        <span class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style="background: var(--color-apjek-blue-soft)">💎</span>
+        <IconsCurrencyIcon code="RUBY" :size="56" />
       </div>
     </div>
   </CommonModal>
@@ -684,8 +684,8 @@ const HALF = BASE_SIZE / 2
 const HANDLE = 10
 // 새 아이템 기본 배치 위치 (EDIT 영역 안). 자유배치 posX/posY(0~1) 로 변환해 저장.
 const DEFAULT_POSITIONS = [
-  { x: 140, y: 280 }, { x: 240, y: 260 }, { x: 105, y: 380 }, { x: 200, y: 390 },
-  { x: 285, y: 365 }, { x: 168, y: 320 }, { x: 255, y: 335 }, { x: 118, y: 340 },
+  { x: 110, y: 300 }, { x: 215, y: 290 }, { x: 315, y: 305 }, { x: 120, y: 410 },
+  { x: 230, y: 400 }, { x: 325, y: 420 }, { x: 165, y: 470 }, { x: 275, y: 480 },
 ]
 
 // 자유배치 아이템. posX/posY + scale/flipped/zIndex 모두 updateFreePosition 으로 영속(req3 #2).

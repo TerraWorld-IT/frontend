@@ -1,7 +1,7 @@
 <!--
   나의 초대코드 팝업 (아프젝 T10b — Figma "나의 초대코드 팝업" 393×481).
   헤더 "🔗 나의 초대코드" + X / "친구가 내 코드로 가입하면 보상을 받아요" / 보상 줄 / 💎 /
-  연노랑(#f4f9c9) 코드 박스 "나의 초대코드 / TERRA - ABC123" / 버튼 2개 [🔗 코드 복사][공유 하기].
+  연노랑(#f4f9c9) 코드 박스 "나의 초대코드 / TERRA - ABC123" / 버튼 2개 [🔗 코드 복사][공유 하기] — 둘 다 연파랑 필.
   보상 줄("나 : 루비 +30 , 친구 : 루비 +10")은 발급 응답 `InviteResponse.inviterRuby/inviteeRuby`(BE 설정값) 그대로.
   등록명: TerrariumInviteCodeModal.
 -->
@@ -10,7 +10,7 @@
     <p class="text-center text-sm font-semibold text-apjek-text mb-1">친구가 내 코드로 가입하면 보상을 받아요</p>
     <!-- 보상 수치 — 초대자/수락자 비대칭(서버 설정값) -->
     <p class="text-center text-xs text-apjek-text-sub mb-3" data-testid="invite-reward">나 : 루비 +{{ inviterRuby }} , 친구 : 루비 +{{ inviteeRuby }}</p>
-    <div class="text-center text-4xl mb-3" aria-hidden="true">💎</div>
+    <div class="flex justify-center mb-3" aria-hidden="true"><IconsCurrencyIcon code="RUBY" :size="48" /></div>
     <div class="rounded-2xl py-5 px-4 text-center mb-4" style="background: #f4f9c9">
       <p class="text-[11px] font-medium mb-1" style="color: #8a8f66">나의 초대코드</p>
       <p class="text-2xl font-extrabold tracking-[0.06em]" style="color: #111111" data-testid="invite-code-display">{{ displayCode }}</p>
@@ -28,11 +28,11 @@
       <button
         type="button"
         data-testid="invite-share"
-        class="py-3 rounded-full text-sm font-bold flex items-center justify-center text-white transition-all active:scale-95"
-        style="background: var(--color-apjek-cta)"
+        class="py-3 rounded-full text-sm font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+        style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
         @click="emit('share')"
       >
-        공유 하기
+        <Icon name="lucide:share-2" class="w-4 h-4" aria-hidden="true" />공유 하기
       </button>
     </div>
   </TerrariumHomeDialog>

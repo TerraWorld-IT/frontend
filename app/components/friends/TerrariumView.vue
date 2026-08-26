@@ -75,8 +75,8 @@ const HALF = BASE_SIZE / 2
 const jarLevel = computed<number>(() => levelOfTier(props.terrarium.activeTier ?? props.terrarium.tier))
 // 홈의 비자유배치 폴백 좌표 — EDIT 영역 안 8지점. 슬롯 기반 응답의 결정적 배치에 재사용.
 const DEFAULT_POSITIONS = [
-  { x: 140, y: 280 }, { x: 240, y: 260 }, { x: 105, y: 380 }, { x: 200, y: 390 },
-  { x: 285, y: 365 }, { x: 168, y: 320 }, { x: 255, y: 335 }, { x: 118, y: 340 },
+  { x: 110, y: 300 }, { x: 215, y: 290 }, { x: 315, y: 305 }, { x: 120, y: 410 },
+  { x: 230, y: 400 }, { x: 325, y: 420 }, { x: 165, y: 470 }, { x: 275, y: 480 },
 ]
 
 interface FriendRenderItem {

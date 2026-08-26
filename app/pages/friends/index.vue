@@ -362,8 +362,9 @@ async function onAcceptInvite() {
     toast.success(t('friends.acceptSuccess', { reward }))
     trackInviteAccepted({ specialCoinsRewarded: reward })
     inputCode.value = ''
-    // 사용자 재화 갱신 — 초대 보상이 걸려 있으므로 TTL 캐시를 무시한다.
-    await userStore.fetchMe(true)
+    // 사용자 재화 갱신 — 초대 보상이 걸려 있으므로 TTL 캐시를 무시한다. 수락 즉시 상대가 친구가 되므로
+    // 목록도 다시 읽는다(안 읽으면 토스트만 뜨고 "아직 친구가 없어요" 가 남는다).
+    await Promise.all([userStore.fetchMe(true), loadFriends()])
   }
   catch (e) {
     toast.error((e as Error).message)
