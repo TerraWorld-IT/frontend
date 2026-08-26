@@ -50,13 +50,16 @@
 
       <!-- ② 습관 이름 -->
       <template v-else-if="step === 2">
-        <div
-          class="w-full h-[100px] rounded-[20px] flex items-center justify-center text-[40px]"
-          style="background: radial-gradient(circle at 50% 40%, #ffe3f3 0%, var(--color-apjek-sparkle-bg) 60%, #fff 100%)"
+        <!-- Figma "시작하기 2": 1단계와 같은 캐릭터 일러스트가 상단에 유지된다 -->
+        <img
+          :src="mode === 'friend' ? '/illust/habit-friend.webp' : '/illust/habit-solo.webp'"
+          alt=""
+          width="340"
+          height="257"
+          class="w-full max-w-[340px] mx-auto h-auto object-contain select-none"
           aria-hidden="true"
+          draggable="false"
         >
-          🐱
-        </div>
         <p class="text-[14px] text-apjek-text-sub leading-[20px] text-center whitespace-pre-line">{{ nameGuideText }}</p>
 
         <div>
@@ -74,6 +77,16 @@
 
       <!-- ③ 친구 선택 (친구 모드만) -->
       <template v-else>
+        <!-- Figma "시작하기 3 - 친구 선택": 일러스트 + 안내 + 친구 칩 -->
+        <img
+          :src="mode === 'friend' ? '/illust/habit-friend.webp' : '/illust/habit-solo.webp'"
+          alt=""
+          width="340"
+          height="257"
+          class="w-full max-w-[340px] mx-auto h-auto object-contain select-none"
+          aria-hidden="true"
+          draggable="false"
+        >
         <p class="text-[14px] text-apjek-text-sub leading-[20px] text-center">
           함께할 친구를 선택해 요청해 주세요!<br>친구가 수락하면 기록이 자동으로 생성돼요.
         </p>
