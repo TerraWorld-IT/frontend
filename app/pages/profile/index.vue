@@ -57,15 +57,6 @@
             </div>
           </div>
 
-          <!-- 도감 축소(§4-10): 보유 아이템 n · 배치 m 작은 링크 → 보유 아이템 다이얼로그 -->
-          <button
-            type="button"
-            class="self-start inline-flex items-center gap-[4px] text-[12px] text-apjek-text-sub underline underline-offset-2 decoration-apjek-border-strong active:opacity-70"
-            @click="showItemsDialog = true"
-          >
-            보유 아이템 {{ ownedCount }} · 배치 {{ placedCount }}
-            <svg width="12" height="12" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" /></svg>
-          </button>
         </div>
       </div>
 
@@ -335,52 +326,6 @@
         </div>
       </div>
 
-      <!-- 보유 아이템 다이얼로그 (도감 축소 — 프로필 카드 링크에서 오픈) -->
-      <Transition name="fade">
-        <div v-if="showItemsDialog" class="fixed inset-0 bg-black/50 z-50" @click="showItemsDialog = false" />
-      </Transition>
-      <Transition name="dialog">
-        <div
-          v-if="showItemsDialog"
-          ref="itemsDialogRoot"
-          class="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-lg mx-auto max-h-[80dvh] overflow-hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="보유 아이템"
-        >
-          <div class="bg-white rounded-[16px] p-6 flex flex-col max-h-[80dvh] border border-apjek-border">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-[18px] text-apjek-text">보유 아이템</h3>
-              <button type="button" class="text-gray-400 hover:text-gray-600" :aria-label="$t('common.close')" @click="showItemsDialog = false">✕</button>
-            </div>
-            <div class="overflow-y-auto flex-1">
-              <div v-if="ownedItems.length === 0" class="text-center py-8 text-gray-400">
-                <div class="text-4xl mb-2">🛒</div>
-                <p class="text-sm">보유한 아이템이 없습니다</p>
-              </div>
-              <div v-else class="grid grid-cols-3 gap-3">
-                <div
-                  v-for="owned in ownedItemTiles"
-                  :key="owned.slug"
-                  class="rounded-[12px] flex flex-col items-center justify-center gap-1 p-3 text-center bg-apjek-bg border border-apjek-border"
-                >
-                  <img
-                    v-if="owned.assetUrl && /^(https?:)?\//.test(owned.assetUrl)"
-                    :src="owned.assetUrl"
-                    :alt="owned.name"
-                    class="w-9 h-9 object-contain"
-                    draggable="false"
-                  >
-                  <div v-else class="text-3xl" aria-hidden="true">{{ owned.assetUrl || '📦' }}</div>
-                  <span class="text-[11px] font-semibold text-gray-700 truncate w-full">{{ owned.name }}</span>
-                  <span v-if="isPlaced(owned.slug)" class="text-[9px] text-[#7edbc0] font-semibold">배치됨</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-
       <!-- M1 공지사항 팝업 -->
       <ProfileNoticesDialog :open="showNotices" @close="showNotices = false" />
 
@@ -442,7 +387,6 @@
 import type { FriendInfo, TerrariumResponse, UserMeResponse } from '@terraworld-it/openapi-frontend'
 // `useUserStore` 는 auto-import 가 걸리지 않는다 (frontend/CLAUDE.md § 함정) — 명시 import.
 import { useUserStore } from '~/stores/user'
-import { useItemsStore } from '~/stores/items'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
 
 // 더보기(M5b) — Figma(2026-08-21) 카드 5개: 나의 프로필 / 친구목록 / 보유 재화 / 문의 및 알림 / 계정.
@@ -460,48 +404,10 @@ const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 // 프로필은 스토어의 TTL 캐시(15초) 뷰를 그대로 읽는다 — 탭 왕복마다 getMe 를 다시 치지 않는다.
 const user = computed<UserMeResponse | null>(() => userStore.me as UserMeResponse | null)
-const showItemsDialog = ref<boolean>(false)
 const showNotices = ref<boolean>(false)
 const showExchange = ref<boolean>(false)
 
-// bespoke 오버레이 role="dialog" aria-modal="true" 에 실제 focus trap 부여(Codex Round 3 지적).
-const itemsDialogRoot = ref<HTMLElement | null>(null)
-useDialogFocusTrap(itemsDialogRoot, showItemsDialog, () => { showItemsDialog.value = false })
-
-// Android 하드웨어 뒤로가기 — bespoke 오버레이라 직접 back-stack 에 등록.
-const { pushBackHandler } = useBackButtonStack()
-let unregisterItemsDialogBackHandler: (() => void) | null = null
-watch(showItemsDialog, (open) => {
-  if (open) {
-    unregisterItemsDialogBackHandler = pushBackHandler(() => { showItemsDialog.value = false })
-  } else {
-    unregisterItemsDialogBackHandler?.()
-    unregisterItemsDialogBackHandler = null
-  }
-})
-onBeforeUnmount(() => {
-  unregisterItemsDialogBackHandler?.()
-  unregisterItemsDialogBackHandler = null
-})
-
 const nickname = computed<string>(() => user.value?.nickname ?? 'TERRA유저')
-const ownedItems = computed<string[]>(() => user.value?.ownedItems ?? [])
-// 보유 아이템은 slug 만 내려온다 — 아이템 카탈로그(상점·홈과 같은 스토어)로 이름·에셋을 붙인다.
-// 카탈로그에 없는 slug(비활성화된 아이템 등)는 slug 그대로 표시해 목록에서 빠지지 않게 한다.
-const itemsStore = useItemsStore()
-const ownedItemTiles = computed<Array<{ slug: string; name: string; assetUrl: string }>>(() =>
-  ownedItems.value.map((slug) => {
-    const item = itemsStore.items.find(i => i.slug === slug)
-    return { slug, name: item?.name ?? slug, assetUrl: item?.assetUrl ?? '' }
-  }),
-)
-const ownedCount = computed<number>(() => user.value?.ownedItems?.length ?? 0)
-const placedCount = computed<number>(() => user.value?.placedItems?.length ?? 0)
-
-function isPlaced(slug: string): boolean {
-  // ownedItems 는 slug(string), placedItems[].itemId 는 number → itemSlug 로 매칭.
-  return (user.value?.placedItems ?? []).some(p => p.itemSlug === slug)
-}
 
 // ── M6: 고객센터 메일 — runtimeConfig public.supportEmail, 미설정 시 기본 주소 ──
 const supportEmail = computed<string>(() => {
@@ -712,29 +618,7 @@ async function load() {
   }
   // 친구 목록은 프로필 로드와 독립 — 실패해도 페이지 전체를 막지 않는다(카드 안 빈 상태로만 표시).
   void loadFriends()
-  // 보유 아이템 이름·에셋 표시용 카탈로그 — 실패해도 slug 로 표시되므로 페이지를 막지 않는다.
-  void itemsStore.fetchAll().catch(() => {})
 }
 
 onMounted(load)
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.dialog-enter-active,
-.dialog-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.dialog-enter-from,
-.dialog-leave-to {
-  opacity: 0;
-  transform: translateY(20px) translateY(-50%) scale(0.95);
-}
-</style>

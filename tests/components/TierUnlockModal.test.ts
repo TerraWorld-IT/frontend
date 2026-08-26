@@ -59,8 +59,9 @@ describe('TierUnlockModal', () => {
     const btn = cta()
     expect(btn!.disabled).toBe(true)
     expect(btn!.textContent).toContain('이전 레벨을 먼저 해금해 주세요')
-    // 정령이 딸린 레벨은 SET 뱃지
-    expect(document.body.textContent).toContain('SET')
+    // 정령이 딸린 Lv.3 은 SET 정령 뱃지가 포함된 해금 일러스트(디자이너 "테라리움해금3")를 그린다
+    const art = document.body.querySelector<HTMLImageElement>('img[src="/illust/unlock-lv3.webp"]')
+    expect(art).not.toBeNull()
   })
 
   it('success 가 있으면 성공 팝업 — 정령 획득 카피 + 관리 모드 바로가기', async () => {

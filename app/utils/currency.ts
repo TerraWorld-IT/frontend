@@ -25,7 +25,7 @@ export const CURRENCY_META: CurrencyMeta[] = [
   { code: 'WIND', labelKo: '바람', icon: 'lucide:palette' },
 ]
 
-/** Figma 토큰 아이콘 PNG 경로 (public/icons/token, 60x60@3x). */
+/** Figma 토큰 아이콘 PNG 경로 (public/icons/token, 60x60@3x — 타일 배경 포함). */
 export const TOKEN_ICON_SRC: Record<CurrencyCode, string> = {
   COIN: '/icons/token/coin.png',
   RUBY: '/icons/token/ruby.png',
@@ -34,6 +34,22 @@ export const TOKEN_ICON_SRC: Record<CurrencyCode, string> = {
   SUN: '/icons/token/sun.png',
   BOLT: '/icons/token/bolt.png',
   WIND: '/icons/token/wind.png',
+}
+
+/** 미니 토큰 아이콘 (30x30@3x — 타일 없이 글로우 원만, 상점 가격·칩처럼 24px 이하 자리용). */
+export const TOKEN_ICON_MINI_SRC: Record<CurrencyCode, string> = {
+  COIN: '/icons/token/mini/coin.png',
+  RUBY: '/icons/token/mini/ruby.png',
+  SPARKLE: '/icons/token/mini/sparkle.png',
+  DEW: '/icons/token/mini/dew.png',
+  SUN: '/icons/token/mini/sun.png',
+  BOLT: '/icons/token/mini/bolt.png',
+  WIND: '/icons/token/mini/wind.png',
+}
+
+/** 표시 크기에 맞는 토큰 아이콘 경로 — 24px 이하는 미니(글로우 원), 그 위는 타일형. */
+export function tokenIconSrc(code: CurrencyCode, size: number): string {
+  return size <= 24 ? TOKEN_ICON_MINI_SRC[code] : TOKEN_ICON_SRC[code]
 }
 
 /** balances[] 에서 특정 화폐 잔액 조회 (없으면 0). */

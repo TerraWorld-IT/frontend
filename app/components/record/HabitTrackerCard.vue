@@ -1,5 +1,9 @@
 <template>
-  <div class="w-full rounded-[16px] border border-apjek-border bg-apjek-surface overflow-hidden">
+  <!-- 펼친 습관 카드 — Figma: 하단이 핑크 그라디언트 + 식물 실루엣(디자이너 "바탕_기록탭_습관기록") -->
+  <div
+    class="w-full rounded-[16px] border border-apjek-border bg-apjek-surface overflow-hidden"
+    style="background: url(/bg/habit-card.webp) center bottom / 100% auto no-repeat var(--color-apjek-surface)"
+  >
     <div class="p-[16px] pb-[8px]">
       <!-- 제목 + 우측 X (중단 / 요청 대기면 요청 취소 — R9, 댓글 #37) -->
       <div class="flex items-center justify-between w-full">

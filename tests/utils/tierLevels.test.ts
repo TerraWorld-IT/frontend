@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { TierCatalogResponse, TierInfo } from '@terraworld-it/openapi-frontend'
-import { toJarLevels, activeJarLevel, spiritNameKo, MAX_JAR_LEVEL } from '~/utils/tierLevels'
+import { toJarLevels, activeJarLevel, spiritNameKo, levelOfTier, MAX_JAR_LEVEL } from '~/utils/tierLevels'
 
 // 아프젝 v2 카탈로그(3레벨 루비 전용) — TierInfo.level / descriptionKo / active 를 그대로 쓴다.
 // 4번째 항목은 비활성 티어가 섞여 내려오는 경우를 가정한 방어 케이스.
@@ -76,5 +76,16 @@ describe('spiritNameKo', () => {
     expect(spiritNameKo('cat-spirit')).toBe('고양이')
     expect(spiritNameKo('unknown')).toBe('새로운')
     expect(spiritNameKo(null)).toBe('새로운')
+  })
+})
+
+describe('levelOfTier', () => {
+  it('tier_configs 코드를 병 레벨로 — 대소문자 무시, 모르는 코드·빈 값은 Lv.1', () => {
+    expect(levelOfTier('GLASS_JAR')).toBe(1)
+    expect(levelOfTier('LARGE_JAR')).toBe(2)
+    expect(levelOfTier('grand_tank')).toBe(3)
+    expect(levelOfTier('HOUSE_TANK')).toBe(1)
+    expect(levelOfTier(null)).toBe(1)
+    expect(levelOfTier(undefined)).toBe(1)
   })
 })
