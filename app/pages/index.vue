@@ -1356,6 +1356,10 @@ function onCornerPointerDown(e: PointerEvent, placed: PlacedFreeItem, dirX: numb
     const dy = (ev.clientY - startY) * dirY
     const outward = (dx + dy) / 2
     placed.scale = Math.max(0.3, Math.min(4.0, startScale + (outward / baseHalf) * startScale))
+    // 가장자리에서 키우면 커진 반지름만큼 스테이지 밖으로 나가므로 드래그와 같은 규칙으로 중심을 되민다.
+    const vh = visualHalf(placed)
+    placed.x = clamp(placed.x, Math.max(EDIT.minX, vh), Math.min(EDIT.maxX, STAGE_W - vh))
+    placed.y = clamp(placed.y, EDIT.minY, Math.min(EDIT.maxY, STAGE_H - vh))
   }
   function onUp() {
     el.removeEventListener('pointermove', onMove)
