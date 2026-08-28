@@ -59,6 +59,7 @@
                     :alt="tile.name"
                     class="w-12 h-12 object-contain"
                     draggable="false"
+                    @error="onAssetError"
                   >
                   <span v-else class="text-3xl" aria-hidden="true">{{ tile.assetUrl }}</span>
                   <span
@@ -124,6 +125,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{ tile: [tile: ManageTile], save: [], emptyCta: [] }>()
+const { onAssetError } = useItemAsset()
 
 const title = computed<string>(() => {
   if (props.tab === 'spirits') return '보유 정령 목록'

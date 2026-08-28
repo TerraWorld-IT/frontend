@@ -34,20 +34,6 @@
     <!-- 육성 개체 (GET /growth) — 정령만 노출(§4-11: 판타지 식물은 데이터 유지, UI 숨김) -->
     <template v-else>
       <section v-for="c in items" :key="c.speciesCode" class="space-y-[14px]">
-        <!-- G3 30 달성 배너 (달성일 하루 유지 — 카드형 상단 토스트 대체)
-             TODO(C4 머지 후): useToast({title, description, variant:'card'}) 로 교체 검토 -->
-        <div
-          v-if="isComplete(c) && showCompleteBanner(c)"
-          class="rounded-[16px] bg-apjek-surface border border-apjek-border px-[16px] py-[14px] flex items-center gap-[12px]"
-          role="status"
-        >
-          <span class="w-[40px] h-[40px] rounded-full bg-apjek-sparkle-bg flex items-center justify-center text-[20px] shrink-0" aria-hidden="true">🎉</span>
-          <div class="min-w-0">
-            <p class="text-[15px] font-bold text-apjek-text tracking-[-0.3px]">{{ c.goal }}개 달성! 정령을 획득했어요</p>
-            <p class="mt-[2px] text-[12px] text-apjek-text-sub tracking-[-0.2px]">획득한 정령을 나의 테라에 배치할 수 있어요</p>
-          </div>
-        </div>
-
         <!-- 30 달성: 성공 카드 -->
         <div
           v-if="isComplete(c)"
@@ -257,19 +243,27 @@ function stageOf(c: GrowthItem): SpiritStage {
   return spiritStageOf(c)
 }
 
+// G3 30개 달성은 페이지 안 상시 배너가 아니라 공용 Figma 카드형 토스트로 알린다.
+// completedToday 가 서버의 KST 당일 유지/다음날 리셋 SoT 이며, 같은 사이클은 한 마운트에서 한 번만 띄운다.
+const completedToastCycles = new Set<string>()
+function showCompletionToast(c: GrowthItem): void {
+  if (!isComplete(c) || !c.completedToday || completedToastCycles.has(c.cycleId)) return
+  completedToastCycles.add(c.cycleId)
+  toast.success(`${c.goal}개 달성! 정령을 획득했어요`, {
+    description: '획득한 정령을 나의 테라에 배치할 수 있어요',
+    icon: '🎉',
+    variant: 'card',
+  })
+}
+
 // 서버 stage 변화 감지 → 진화/성장 토스트. 표시했으면 true — 교환 완료 토스트와 중복 방지용.
 function notifyStageChange(prev: GrowthItem, next: GrowthItem): boolean {
   const before = stageOf(prev)
   const after = stageOf(next)
   if (before.tier === after.tier) return false
-  if (after.tier === 'acquired') toast.success(`${after.label}을 획득했어요!`)
+  if (after.tier === 'acquired') showCompletionToast(next)
   else toast.success(`정령이 성장했어요! 이제 '${after.label}' 이에요`)
   return true
-}
-
-// ── G3: 30 달성 배너 "달성일 하루 유지" — 서버 completedToday ──
-function showCompleteBanner(c: GrowthItem): boolean {
-  return c.completedToday
 }
 
 /** 응답 개체로 해당 종만 교체(새 배열 재할당) */
@@ -403,7 +397,9 @@ async function loadGrowth(): Promise<void> {
       }
     }
     rawItems.value = next
-    maybeOpenLostModal(next.filter((c) => c.kind === 'SPIRIT'))
+    const spirits = next.filter((c) => c.kind === 'SPIRIT')
+    spirits.forEach(showCompletionToast)
+    maybeOpenLostModal(spirits)
   }
   catch (e) {
     loadFailed.value = true

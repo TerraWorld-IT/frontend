@@ -1,6 +1,6 @@
 <template>
   <!-- 투두리스트 시트 (R1b, Figma 393×620 고정) — 세그먼트 [리스트 메뉴][루틴 설정].
-       목록은 최대 30개라 스크롤되므로 주 CTA(기록 완료 / 루틴 저장하기)는 footer 슬롯에 고정한다. -->
+       목록은 최대 30개라 스크롤되므로 주 CTA(기록 완료 / 루틴 설정 완료)는 footer 슬롯에 고정한다. -->
   <CommonBottomSheet :open="open" ariaLabel="투두리스트 기록" fixed-height @close="emit('close')">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
@@ -237,7 +237,7 @@
           {{ allChecked ? '기록 완료' : '모든 항목 체크 후 완료 가능' }}
         </button>
       </template>
-      <!-- 저장 — 추가/삭제는 즉시 API 로 반영되므로 이 버튼은 시트 닫기 역할이다 (일괄 반영 아님) -->
+      <!-- 완료 — 추가/삭제는 즉시 API 로 반영되므로 이 버튼은 시트 닫기 역할이다 (일괄 저장 아님) -->
       <button
         v-else
         type="button"
@@ -245,7 +245,7 @@
         @click="emit('close')"
       >
         <Icon name="lucide:check" class="w-4 h-4" />
-        루틴 저장하기
+        완료
       </button>
     </template>
   </CommonBottomSheet>

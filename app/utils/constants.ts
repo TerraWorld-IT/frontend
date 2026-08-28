@@ -52,9 +52,9 @@ export const DAILY_TYPE_ICONS: Record<DailyType, string> = {
 }
 
 /**
- * 기록 카드/캘린더 등 여러 화면에서 반복 구현되던 "dailyType 있으면 그 라벨/아이콘 우선,
- * 없으면 categoryName/categoryEmoji" 표시 규칙을 단일 헬퍼로 고정(Architecture/Codex
- * 감사 지적 — RecordCard.vue computed / calendar/index.vue 인라인 표현식으로 중복 구현됨).
+ * 여러 기록 화면에서 반복 구현되던 "dailyType 있으면 그 라벨/아이콘 우선,
+ * 없으면 categoryName/categoryEmoji" 표시 규칙을 단일 헬퍼로 고정한다.
+ * 최근 기록 목록 제거 뒤에도 캘린더 기록 표시는 이 규칙을 그대로 사용한다.
  */
 export function recordDisplayLabel(record: Pick<RecordResponse, 'dailyType' | 'categoryName'>): string {
   return (record.dailyType && DAILY_TYPE_LABELS[record.dailyType]) || record.categoryName

@@ -164,7 +164,7 @@
                 class="absolute inset-0 w-full h-full object-cover"
                 style="opacity: 0.85; mask-image: radial-gradient(circle, #000 0%, #000 60%, transparent 72%); -webkit-mask-image: radial-gradient(circle, #000 0%, #000 60%, transparent 72%)"
                 draggable="false"
-                @error="backgroundImageFailed = true"
+                @error="onAssetError"
               >
             </div>
 
@@ -664,6 +664,7 @@ const userStore = useUserStore()
 const itemsStore = useItemsStore()
 const homeSnapshot = useHomeSnapshotStore()
 const toast = useToast()
+const { itemAssetUrl, placeholderUrl, onAssetError } = useItemAsset()
 const { t } = useI18n()
 const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
 const { hapticImpact, share: nativeShare, shareToInstagram } = useNative()
@@ -1205,7 +1206,12 @@ function exitManageMode() {
 // 패널 타일 — 탭별 보유 목록. 배치(아이템/정령)/현재 적용(배경) 체크 표시.
 const manageTiles = computed<ManageTile[]>(() => {
   if (manageTab.value === 'backgrounds') {
-    return ownedBackgrounds.value.map(i => ({ id: i.id, name: i.name, assetUrl: i.assetUrl, checked: currentBackgroundAssetUrl.value === i.assetUrl }))
+    return ownedBackgrounds.value.map(i => ({
+      id: i.id,
+      name: i.name,
+      assetUrl: i.slug ? itemAssetUrl(i.slug) : placeholderUrl,
+      checked: currentBackgroundAssetUrl.value === i.assetUrl,
+    }))
   }
   const source = manageTab.value === 'spirits' ? ownedSpirits.value : ownedPlaceables.value
   return source.map(i => ({ id: i.id, name: i.name, assetUrl: i.assetUrl, checked: isItemPlaced(i.id) }))
@@ -1653,13 +1659,18 @@ async function onShareInviteCode() {
 const backgroundBusy = ref<boolean>(false)
 // 응답 BackgroundInfo.id 는 terrarium_backgrounds PK. PUT 은 itemId. 동일 배경은 assetUrl 로 대조.
 const currentBackgroundAssetUrl = computed<string | null>(() => terrarium.value?.background?.assetUrl ?? null)
-// 병 뒤 배경 레이어 — URL 에셋만 이미지로 그린다(이모지 에셋은 글로우 유지).
-// 에셋 로드 실패(기본 배경 `/backgrounds/default.png` 처럼 파일이 없는 시드 URL)면 깨진 이미지 대신 글로우로 폴백.
-const backgroundImageFailed = ref<boolean>(false)
-watch(currentBackgroundAssetUrl, () => { backgroundImageFailed.value = false })
-const backgroundImageUrl = computed<string | null>(() =>
-  !backgroundImageFailed.value && isUrl(currentBackgroundAssetUrl.value) ? currentBackgroundAssetUrl.value : null,
-)
+// 병 뒤 배경도 현재 배경과 같은 보유 BACKGROUND 아이템을 찾아 slug 규약으로만 렌더한다.
+// 매칭되지 않는 기본 배경은 기존 글로우를 유지하고, 로컬 파일 부재는 onAssetError 가 placeholder 로 내린다.
+const currentBackgroundItem = computed<ItemResponse | null>(() => {
+  const assetUrl = currentBackgroundAssetUrl.value
+  if (!assetUrl) return null
+  return ownedBackgrounds.value.find(item => item.assetUrl === assetUrl) ?? null
+})
+const backgroundImageUrl = computed<string | null>(() => {
+  const item = currentBackgroundItem.value
+  if (!item) return null
+  return item.slug ? itemAssetUrl(item.slug) : placeholderUrl
+})
 
 async function onSelectBackground(item: ItemResponse) {
   if (backgroundBusy.value) return

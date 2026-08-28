@@ -180,7 +180,7 @@
         </div>
       </div>
 
-      <!-- ④ 문의 및 알림 (M5b/M1/M6) — 공지사항(검정 행) / 고객센터(흰 행) -->
+      <!-- ④ 문의 및 알림 (M5b/M1/M6/M8) — 공지사항 / 홈과 같은 알림 패널 / 고객센터 -->
       <div class="apjek-card w-full">
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center gap-[8px] text-apjek-text">
@@ -207,6 +207,22 @@
                 <span class="text-[14px] font-semibold tracking-[-0.15px]">공지사항</span>
               </div>
               <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="opacity-70">
+                <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
+              </svg>
+            </button>
+
+            <!-- 알림 — 홈 벨과 같은 인앱 알림 목록 패널을 재사용한다 (M8) -->
+            <button
+              type="button"
+              data-testid="profile-notifications"
+              class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+              @click="showNotifications = true"
+            >
+              <div class="flex items-center gap-[12px] text-apjek-text">
+                <Icon name="lucide:bell" class="w-4 h-4" aria-hidden="true" />
+                <span class="text-[14px] font-semibold tracking-[-0.15px]">알림</span>
+              </div>
+              <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint">
                 <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" />
               </svg>
             </button>
@@ -254,9 +270,9 @@
           </div>
 
           <div class="flex flex-col gap-[8px]">
-            <!-- 이용 안내 → 이용약관 재사용(§4-13) -->
+            <!-- 이용 안내 — 법적 이용약관과 분리된 핵심 사용 흐름 안내 -->
             <NuxtLink
-              to="/legal/terms"
+              to="/legal/guide"
               class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
             >
               <div class="flex items-center gap-[12px] text-apjek-text">
@@ -329,6 +345,9 @@
       <!-- M1 공지사항 팝업 -->
       <ProfileNoticesDialog :open="showNotices" @close="showNotices = false" />
 
+      <!-- M8 알림 — 홈 벨과 동일한 목록 패널을 재사용한다 -->
+      <NotificationsCenter :open="showNotifications" @close="showNotifications = false" />
+
       <!-- 재화 환전 다이얼로그 (상점·홈과 동일 컴포넌트) -->
       <ShopExchangeDialog v-model="showExchange" />
 
@@ -390,7 +409,8 @@ import { useUserStore } from '~/stores/user'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
 
 // 더보기(M5b) — Figma(2026-08-21) 카드 5개: 나의 프로필 / 친구목록 / 보유 재화 / 문의 및 알림 / 계정.
-// 공지사항은 정적 notices.json(§4-6), 고객센터는 메일(M6), 이용 안내는 /legal/terms(§4-13).
+// 공지사항은 정적 notices.json(§4-6), 알림은 홈과 같은 NotificationsCenter(M8), 고객센터는 메일(M6).
+// 이용 안내는 법적 이용약관과 분리한 /legal/guide 로 연결한다(D12).
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const userStore = useUserStore()
@@ -405,6 +425,7 @@ const fetchError = ref<Error | null>(null)
 // 프로필은 스토어의 TTL 캐시(15초) 뷰를 그대로 읽는다 — 탭 왕복마다 getMe 를 다시 치지 않는다.
 const user = computed<UserMeResponse | null>(() => userStore.me as UserMeResponse | null)
 const showNotices = ref<boolean>(false)
+const showNotifications = ref<boolean>(false)
 const showExchange = ref<boolean>(false)
 
 const nickname = computed<string>(() => user.value?.nickname ?? 'TERRA유저')

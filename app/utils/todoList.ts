@@ -1,8 +1,8 @@
 /**
  * 투두리스트 항목 정렬/추가 규칙 (Figma 댓글 #59/#60/#62 — 기록 탭 투두 시트).
  *
- * - 당일 추가(수기) 항목은 맨 위에 고정된다 (#59).
- * - 루틴에서 프리필된 항목은 수기 항목 아래에 묶여 상단에 고정된다 (#60).
+ * - 루틴에서 프리필된 반복 항목은 수기 항목보다 위에 고정된다 (#59~#64).
+ * - 당일 직접 추가한 수기 항목은 루틴 묶음 다음에 표시한다.
  * - 각 묶음 안에서는 최근 추가한 항목이 위로 온다 (#62).
  *
  * 순수 함수만 둔다 — 시트(RecordTodoSheet)와 단위 테스트가 같은 규칙을 공유한다.
@@ -27,9 +27,9 @@ export function isRoutineTodo(item: TodoItem): boolean {
 /** 규칙대로 정렬한 새 배열을 돌려준다 (입력 불변). */
 export function sortTodos(items: TodoItem[]): TodoItem[] {
   return [...items].sort((a, b) => {
-    const ra = isRoutineTodo(a) ? 1 : 0
-    const rb = isRoutineTodo(b) ? 1 : 0
-    if (ra !== rb) return ra - rb // 수기(0) 먼저, 루틴(1) 다음
+    const ra = isRoutineTodo(a) ? 0 : 1
+    const rb = isRoutineTodo(b) ? 0 : 1
+    if (ra !== rb) return ra - rb // 루틴(0) 먼저, 수기(1) 다음
     return b.addedAt - a.addedAt // 최근 추가 상단
   })
 }

@@ -2,7 +2,8 @@
   <!-- 재화 환전 다이얼로그 (아프젝 리스킨 + from 재화 선택 확장 — S2)
        기존 상점 페이지의 루비→코인 고정 다이얼로그를 분리·확장한 것.
        backend directed exchange(POST /exchange {from,to,amount})가 토큰4종→COIN pair 를
-       이미 지원하므로(V28 시드) from 만 선택형으로 열고 to 는 COIN 고정. -->
+       이미 지원하므로(V28 시드) from 만 선택형으로 열고 to 는 COIN 고정.
+       GET /exchange/rates 의 서버 환율표를 실행 전에 조회해 선택 pair 조건을 표시한다. -->
   <Teleport to="body">
     <Transition name="fade">
       <div
@@ -99,11 +100,22 @@
             >전량</button>
           </div>
 
-          <!-- 안내 — 비율 정보 API 가 없어 사전 수령량은 표시하지 않는다(서버 exchange_rates SoT).
-               실제 지급량·환율은 응답 후 결과 토스트로 안내. -->
-          <p class="text-[11px] text-apjek-text-faint mb-4 leading-relaxed">
-            환율·수수료·일일 한도는 서버 기준으로 적용돼요. 실제 지급 코인은 환전 완료 후 알려드려요.
-          </p>
+          <!-- 서버 환율표 SoT 를 그대로 보여 주고, 조회 전에는 실행을 막는다. -->
+          <div
+            class="rounded-xl bg-apjek-bg px-3 py-2.5 text-[11px] text-apjek-text-sub mb-4 leading-relaxed"
+            aria-live="polite"
+            data-testid="exchange-rate-info"
+          >
+            <p v-if="selectedRate">
+              환율 {{ selectedRate.rateLabel }} · 수수료 {{ formatFeeBps(selectedRate.feeBps) }} · 일일 한도 {{ selectedRate.dailyCap }}개
+            </p>
+            <p v-else-if="ratesLoading">환전 조건을 불러오는 중이에요.</p>
+            <div v-else-if="ratesError" class="flex items-center justify-between gap-2">
+              <span>{{ ratesError }}</span>
+              <button type="button" class="font-semibold underline shrink-0" @click="loadExchangeRates()">다시 시도</button>
+            </div>
+            <p v-else>선택한 재화의 환전 조건을 찾을 수 없어요.</p>
+          </div>
 
           <!-- CTA -->
           <button
@@ -121,7 +133,12 @@
 </template>
 
 <script setup lang="ts">
-import type { CurrencyResponse, ExchangeResult } from '@terraworld-it/openapi-frontend'
+import type {
+  CurrencyResponse,
+  ExchangeRateListResponse,
+  ExchangeRateResponse,
+  ExchangeResult,
+} from '@terraworld-it/openapi-frontend'
 import { CURRENCY_META, balanceOf } from '~/utils/currency'
 import type { CurrencyCode } from '~/utils/currency'
 import { useUserStore } from '~/stores/user'
@@ -143,6 +160,10 @@ const fromMetas = FROM_CODES.map(code =>
 const fromCode = ref<CurrencyCode>('DEW')
 const amount = ref<number>(1)
 const exchanging = ref<boolean>(false)
+const exchangeRates = ref<ExchangeRateResponse[]>([])
+const ratesLoading = ref<boolean>(false)
+const ratesLoaded = ref<boolean>(false)
+const ratesError = ref<string>('')
 
 function close() {
   emit('update:modelValue', false)
@@ -164,6 +185,12 @@ watch(isOpen, (open) => {
     unregisterBackHandler = null
   }
 })
+
+function loadRatesWhenOpened(open: boolean): void {
+  if (open && !ratesLoaded.value) void loadExchangeRates()
+}
+
+watch(isOpen, loadRatesWhenOpened, { immediate: true })
 onBeforeUnmount(() => {
   unregisterBackHandler?.()
   unregisterBackHandler = null
@@ -179,10 +206,14 @@ function balance(code: CurrencyCode): number {
 const fromBalance = computed<number>(() => balance(fromCode.value))
 const coinBalance = computed<number>(() => balance('COIN'))
 const fromLabel = computed<string>(() => fromMetas.find(m => m.code === fromCode.value)?.labelKo ?? fromCode.value)
+const selectedRate = computed<ExchangeRateResponse | null>(() =>
+  exchangeRates.value.find(rate => rate.from === fromCode.value && rate.to === 'COIN') ?? null,
+)
 
 // v-model.number 는 빈 입력 시 문자열('')을 남길 수 있어 정수 검증까지 통과해야 활성화
 const canSubmit = computed<boolean>(() =>
   !exchanging.value
+  && selectedRate.value !== null
   && Number.isInteger(amount.value)
   && amount.value >= 1
   && amount.value <= fromBalance.value,
@@ -198,6 +229,36 @@ function selectFrom(code: CurrencyCode) {
 function step(delta: number) {
   const base = Number.isInteger(amount.value) ? amount.value : 1
   amount.value = Math.min(Math.max(1, base + delta), Math.max(1, fromBalance.value))
+}
+
+/** basis points 를 사용자가 읽는 퍼센트로 변환한다. 예: 1000 → 10%, 15 → 0.15%. */
+function formatFeeBps(feeBps: number): string {
+  const percent = feeBps / 100
+  if (Number.isInteger(percent)) return `${percent}%`
+  return `${percent.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`
+}
+
+/** generated SDK 로 허용 환전 조건을 읽는다. 성공 전에는 CTA 가 비활성화된다. */
+async function loadExchangeRates(): Promise<void> {
+  if (ratesLoading.value) return
+  ratesLoading.value = true
+  ratesError.value = ''
+  try {
+    const { data, error } = await sdk.getExchangeRates({ client })
+    if (error) throw error
+    const response = castData<ExchangeRateListResponse>(data)
+    if (!response) throw new Error('환전 조건 응답이 비어 있습니다.')
+    exchangeRates.value = response.rates
+    ratesLoaded.value = true
+  }
+  catch (e) {
+    exchangeRates.value = []
+    ratesLoaded.value = false
+    ratesError.value = errMsg(e, '환전 조건을 불러오지 못했어요.')
+  }
+  finally {
+    ratesLoading.value = false
+  }
 }
 
 // --- 환전 (from 선택 → COIN, directed exchange) ---

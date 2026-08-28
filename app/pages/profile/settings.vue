@@ -63,9 +63,9 @@
         </div>
 
         <div class="flex flex-col gap-[8px]">
-          <!-- 이용 안내 → 이용약관 재사용(§4-13, 더보기 계정 카드와 동일 동작) -->
+          <!-- 이용 안내 — 더보기 계정 카드와 같은 도움말 페이지 -->
           <NuxtLink
-            to="/legal/terms"
+            to="/legal/guide"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
           >
             <div class="flex items-center gap-[12px] text-apjek-text">

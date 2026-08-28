@@ -170,7 +170,7 @@ const { sdk, client } = useOpenApi()
 const userStore = useUserStore()
 const itemsStore = useItemsStore()
 const toast = useToast()
-const { itemAssetUrl, onAssetError } = useItemAsset()
+const { itemAssetUrl, placeholderUrl, onAssetError } = useItemAsset()
 const { trackItemPurchased } = useGtagEvents()
 
 const shopCat = ref<ShopCat>('plant')
@@ -245,9 +245,10 @@ function isOwned(item: ItemResponse): boolean {
   return ownedSlugs.value.has(item.slug ?? '')
 }
 
-// 상품 이미지 — assetUrl(required 계약)이 URL 이면 우선 사용, 아니면 slug 규약 경로로 fallback.
-// (홈 item picker isUrl 패턴 참조. slug:null 상품 깨짐 방지 + req4 png 교체 취지 유지.)
+// 상품 이미지 — BACKGROUND 는 DB 의 죽은 외부 assetUrl 을 요청하지 않고 로컬 slug 규약을 우선한다(D5).
+// 그 외 상품은 기존 assetUrl 우선 규칙을 유지하며, slug 없는 배경은 즉시 placeholder 로 내린다.
 function itemImageUrl(item: ItemResponse): string {
+  if (item.layout === 'BACKGROUND') return item.slug ? itemAssetUrl(item.slug) : placeholderUrl
   const url = item.assetUrl
   if (url && (url.startsWith('http') || url.startsWith('/'))) return url
   return itemAssetUrl(item.slug ?? '', item.isAnimated ? 'gif' : 'png')
