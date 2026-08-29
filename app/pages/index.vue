@@ -174,7 +174,15 @@
             <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" :style="{ zIndex: textureZ }" />
 
             <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
-            <TerrariumWiltingOverlay v-if="terrarium?.wilting && terrarium.wilting.stage > 0" :state="terrarium.wilting" class="z-[6000]" />
+            <TerrariumWiltingOverlay
+              v-if="terrarium?.wilting && terrarium.wilting.stage > 0"
+              :state="terrarium.wilting"
+              class="z-[6000]"
+              :style="{
+                transform: `scale(${inverseStageScale})`,
+                transformOrigin: 'bottom center',
+              }"
+            />
 
             <!-- 편집모드 안내 영역 -->
             <Transition name="edit-fade">
@@ -251,36 +259,50 @@
                   :key="btn.label"
                   type="button"
                   :title="btn.label"
-                  class="absolute flex items-center justify-center rounded-full shadow-lg text-white z-30 transition-transform active:scale-90"
-                  :style="{
-                    left: `${HALF + visualHalf(placed) + 6}px`,
-                    top: `${btn.offsetY}px`,
-                    width: '24px',
-                    height: '24px',
-                    background: btn.bg,
-                  }"
+                  :aria-label="btn.label"
+                  :data-testid="`home-item-action-${btn.key}`"
+                  class="absolute flex items-center justify-center z-30 transition-transform active:scale-90"
+                  :style="itemActionControlStyle(placed, btn.offsetY)"
                   @pointerdown.stop
                   @click.stop="btn.onClick()"
                 >
-                  <Icon :name="btn.icon" class="w-3 h-3" />
+                  <span
+                    class="flex size-6 items-center justify-center rounded-full shadow-lg text-white"
+                    :style="{ background: btn.bg }"
+                  >
+                    <Icon :name="btn.icon" class="w-3 h-3" />
+                  </span>
                 </button>
 
                 <!-- 4모서리 리사이즈 핸들 -->
-                <div
+                <button
                   v-for="c in corners(placed)"
                   :key="c.key"
-                  class="absolute z-30 rounded-full bg-white shadow-md border-2"
+                  type="button"
+                  :aria-label="c.label"
+                  :data-testid="`home-resize-${c.key}`"
+                  class="absolute z-30 flex items-center justify-center"
                   :style="{
-                    left: `${HALF + c.ox - HANDLE / 2}px`,
-                    top: `${HALF + c.oy - HANDLE / 2}px`,
-                    width: `${HANDLE}px`,
-                    height: `${HANDLE}px`,
+                    left: `${HALF + c.ox - MIN_TOUCH_TARGET / 2}px`,
+                    top: `${HALF + c.oy - MIN_TOUCH_TARGET / 2}px`,
+                    width: `${MIN_TOUCH_TARGET}px`,
+                    height: `${MIN_TOUCH_TARGET}px`,
+                    transform: `scale(${inverseStageScale})`,
+                    transformOrigin: 'center',
                     cursor: c.cursor,
-                    borderColor: '#518cdb',
                     touchAction: 'none',
                   }"
                   @pointerdown="(e) => onCornerPointerDown(e, placed, c.dirX, c.dirY)"
-                />
+                >
+                  <span
+                    class="rounded-full bg-white shadow-md border-2 pointer-events-none"
+                    :style="{
+                      width: `${HANDLE}px`,
+                      height: `${HANDLE}px`,
+                      borderColor: '#518cdb',
+                    }"
+                  />
+                </button>
               </template>
             </div>
 
@@ -289,7 +311,13 @@
               <button
                 type="button"
                 data-testid="home-heart"
-                class="relative transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
+                class="relative flex items-center justify-center transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
+                :style="{
+                  width: `${MIN_TOUCH_TARGET}px`,
+                  height: `${MIN_TOUCH_TARGET}px`,
+                  transform: `scale(${inverseStageScale})`,
+                  transformOrigin: 'right center',
+                }"
                 :disabled="heartBusy"
                 :aria-label="$t('home.ariaHeart')"
                 @click="onHeartClick"
@@ -683,6 +711,8 @@ const EDIT = { minX: JAR.minX, maxX: JAR.maxX, minY: JAR.minY + 60, maxY: JAR.ma
 const BASE_SIZE = 96
 const HALF = BASE_SIZE / 2
 const HANDLE = 10
+const ITEM_ACTION_SIZE = 24
+const MIN_TOUCH_TARGET = 44
 // 새 아이템 기본 배치 위치 (EDIT 영역 안). 자유배치 posX/posY(0~1) 로 변환해 저장.
 const DEFAULT_POSITIONS = [
   { x: 110, y: 300 }, { x: 215, y: 290 }, { x: 315, y: 305 }, { x: 120, y: 410 },
@@ -776,6 +806,10 @@ const healingMode = ref<boolean>(false)
 // 환산은 편집 모드에서만 일어나므로 viewScale 은 1 이고 기존 식(zoomLevel*stageFit)이 유지된다.
 const VIEW_SCALE = 0.44
 const viewScale = computed<number>(() => (editMode.value || healingMode.value ? 1 : VIEW_SCALE))
+// 병 스테이지는 디자인 배율을 유지하되 조작부만 화면 픽셀 기준으로 되돌린다. 역배율은
+// 크기에만 적용하고 중심 좌표는 스테이지 좌표에 남겨 드래그·리사이즈 환산식을 보존한다.
+const stageScale = computed<number>(() => Math.max(0.01, zoomLevel.value * stageFit.value * viewScale.value))
+const inverseStageScale = computed<number>(() => 1 / stageScale.value)
 // 보기 모드에서 휠로 바꾼 zoomLevel(0.5~2)이 관리/힐링 모드로 넘어가면 설계 기준 스테이지가 잘리거나
 // 반으로 줄고, 편집 중에는 휠이 막혀 되돌릴 수도 없다 — 모드 진입 시 줌을 1 로 되돌린다.
 watch([editMode, healingMode], ([edit, heal]) => {
@@ -1061,20 +1095,33 @@ function itemStyle(placed: PlacedFreeItem): Record<string, string> {
 function corners(placed: PlacedFreeItem) {
   const vh = visualHalf(placed)
   return [
-    { key: 'tl', ox: -vh, oy: -vh, dirX: -1, dirY: -1, cursor: 'nw-resize' },
-    { key: 'tr', ox: vh, oy: -vh, dirX: 1, dirY: -1, cursor: 'ne-resize' },
-    { key: 'bl', ox: -vh, oy: vh, dirX: -1, dirY: 1, cursor: 'sw-resize' },
-    { key: 'br', ox: vh, oy: vh, dirX: 1, dirY: 1, cursor: 'se-resize' },
+    { key: 'tl', label: '왼쪽 위 크기 조절', ox: -vh, oy: -vh, dirX: -1, dirY: -1, cursor: 'nw-resize' },
+    { key: 'tr', label: '오른쪽 위 크기 조절', ox: vh, oy: -vh, dirX: 1, dirY: -1, cursor: 'ne-resize' },
+    { key: 'bl', label: '왼쪽 아래 크기 조절', ox: -vh, oy: vh, dirX: -1, dirY: 1, cursor: 'sw-resize' },
+    { key: 'br', label: '오른쪽 아래 크기 조절', ox: vh, oy: vh, dirX: 1, dirY: 1, cursor: 'se-resize' },
   ]
 }
 
 function itemButtons(placed: PlacedFreeItem) {
   return [
-    { label: '앞으로', icon: 'lucide:chevron-up', bg: '#7edbc0', offsetY: HALF - 52, onClick: () => changeDepth(placed, 1) },
-    { label: '뒤로', icon: 'lucide:chevron-down', bg: '#97a8f1', offsetY: HALF - 26, onClick: () => changeDepth(placed, -1) },
-    { label: '반전', icon: 'lucide:arrow-left-right', bg: '#f5c518', offsetY: HALF, onClick: () => flipItem(placed) },
-    { label: '삭제', icon: 'lucide:trash-2', bg: '#f06060', offsetY: HALF + 26, onClick: () => removeItem(placed) },
+    { key: 'forward', label: '앞으로', icon: 'lucide:chevron-up', bg: '#7edbc0', offsetY: HALF - 52, onClick: () => changeDepth(placed, 1) },
+    { key: 'backward', label: '뒤로', icon: 'lucide:chevron-down', bg: '#97a8f1', offsetY: HALF - 26, onClick: () => changeDepth(placed, -1) },
+    { key: 'flip', label: '반전', icon: 'lucide:arrow-left-right', bg: '#f5c518', offsetY: HALF, onClick: () => flipItem(placed) },
+    { key: 'remove', label: '삭제', icon: 'lucide:trash-2', bg: '#f06060', offsetY: HALF + 26, onClick: () => removeItem(placed) },
   ]
+}
+
+function itemActionControlStyle(placed: PlacedFreeItem, visualTop: number): Record<string, string> {
+  const scale = stageScale.value
+  const visualCenterOffsetY = visualTop + ITEM_ACTION_SIZE / 2 - HALF
+  return {
+    left: `${HALF + visualHalf(placed) + (6 + ITEM_ACTION_SIZE / 2) / scale - MIN_TOUCH_TARGET / 2}px`,
+    top: `${HALF + visualCenterOffsetY / scale - MIN_TOUCH_TARGET / 2}px`,
+    width: `${MIN_TOUCH_TARGET}px`,
+    height: `${MIN_TOUCH_TARGET}px`,
+    transform: `scale(${inverseStageScale.value})`,
+    transformOrigin: 'center',
+  }
 }
 
 // 오늘 체크인할 칸(점선 강조) — 체크인 전의 cycleDay 칸만. 체크인 후에는 모두 체크/대기 표시.
