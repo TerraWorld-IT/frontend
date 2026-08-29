@@ -23,8 +23,7 @@
 
     <!-- ── 카테고리 탭 (sticky) — S3b: [아이템][배경] 2개 (루비샵 탭·등급 세그먼트 제거, §4-1 기본값) ── -->
     <div
-      class="bg-apjek-surface px-5 pt-1 pb-3 flex flex-col gap-2 sticky z-10 border-b border-apjek-border"
-      style="top: env(safe-area-inset-top, 0px)"
+      class="bg-apjek-surface px-5 pt-1 pb-3 flex flex-col gap-2 sticky top-0 z-10 border-b border-apjek-border"
     >
       <!-- 활성 = 솔리드 블루 필 -->
       <div class="flex gap-2">
