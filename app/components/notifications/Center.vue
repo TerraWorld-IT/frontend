@@ -178,7 +178,9 @@ function relativeTime(iso: string): string {
 .notif-panel-enter-from .notif-backdrop,
 .notif-panel-leave-to .notif-backdrop { opacity: 0; }
 .notif-panel-enter-from .notif-panel,
-.notif-panel-leave-to .notif-panel { transform: translateX(100%); }
+.notif-panel-leave-to .notif-panel {
+  transform: translateX(min(100%, max(0px, calc((100vw - 28rem) / 2))));
+}
 
 /* 앱 컬럼과 뷰포트 폭이 같은 화면에서는 패널 박스를 이동시키지 않고 페이드한다. */
 @media (max-width: 448px) {
