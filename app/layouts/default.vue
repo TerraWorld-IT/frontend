@@ -38,7 +38,7 @@
                 ? 'flex flex-col gap-[2px] items-center justify-center overflow-hidden shrink-0'
                 : 'flex flex-1 flex-col gap-[2px] items-center justify-center min-w-0 overflow-hidden',
               isActive(tab.to) ? 'text-apjek-text' : 'text-apjek-text-faint',
-              'transition-colors',
+              'h-11 transition-colors',
             ]"
             :style="tab.center ? { width: '74.6px' } : {}"
             @click="onTabTap"
