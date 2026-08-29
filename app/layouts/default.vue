@@ -13,6 +13,7 @@
         :style="{
           paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
           paddingBottom: 'calc(98px + env(safe-area-inset-bottom, 0px))',
+          overflowY: route.path === '/shop' ? 'visible' : undefined,
         }"
       >
         <slot />
