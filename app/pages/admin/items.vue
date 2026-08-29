@@ -60,7 +60,7 @@
         <button
           :class="[
             'text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-transform active:scale-95 disabled:opacity-40 shrink-0',
-            row.active ? 'bg-riso-sage/15 text-riso-sage' : 'bg-gray-100 text-gray-400',
+            row.active ? 'bg-riso-sage/15 text-riso-sage dark:text-riso-grass' : 'bg-gray-100 text-gray-400',
           ]"
           :disabled="toggling === row.item.id"
           @click="toggleActive(row.item.id)"

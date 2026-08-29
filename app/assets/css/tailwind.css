@@ -18,7 +18,7 @@
   --color-riso-pink: #E8A0BF;
   --color-riso-cream: #FFF8EB;
   --color-riso-dark: #2D2D2D;
-  --color-riso-sage: #7B9E6B;
+  --color-riso-sage: #506945;             /* 기존 잉크의 색상·채도를 유지한 AA 명도 보정 */
   --color-riso-terracotta: #C67B5C;
   --color-riso-navy: #2D3A6E;
   --color-riso-walnut: #8B6F4E;
@@ -63,12 +63,12 @@
   --color-apjek-bg: #f7f7f8;             /* 앱 배경 — 아주 연한 회색 (Figma 근사값: 세그먼트 바탕 #F5F5F5) */
   --color-apjek-text: #111111;           /* 텍스트 기본 (Figma 근사값 — 실측 #000~#121212) */
   --color-apjek-text-sub: #686868;       /* 텍스트 보조 (섹션 설명 실측 #686868) */
-  --color-apjek-text-faint: #a1a1a1;     /* 텍스트 3차 — 비활성 탭/캡션 (실측 #A1A1A1~#AEAEAE) */
+  --color-apjek-text-faint: #606060;     /* 텍스트 3차 — 실제 사용 배경 전체에서 AA 명도 보정 */
   --color-apjek-border: #ececec;         /* 카드 보더 — 연회색 (실측 #EFEFEF, 근사) */
   --color-apjek-border-strong: #dfdfdf;  /* 칩/입력 보더 (실측 #DFDFDF) */
   --color-apjek-blue: #518cdb;           /* 블루 액센트 (활성 칩 실측 #518CDB) */
   --color-apjek-blue-soft: #e5eefa;      /* 연한 블루 칩 배경 (보유중 칩 실측 #E5EEFA) */
-  --color-apjek-blue-deep: #3b78cc;      /* 연블루 배경 위 텍스트용 진블루 (Figma 근사값) */
+  --color-apjek-blue-deep: #295a9e;      /* 연블루·흰 배경 위 AA를 맞춘 진블루 */
   --color-apjek-cta: #121212;            /* 블랙 CTA (실측 #000000 — 텍스트 기본과 톤 통일 위해 근사) */
 
   /* 재화(토큰) 컬러 5종 — 글리프색 + 파스텔 타일 배경 (전부 Figma 근사값) */
