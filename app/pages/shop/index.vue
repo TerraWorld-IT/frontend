@@ -9,7 +9,7 @@
         <button
           type="button"
           data-testid="shop-exchange-trigger"
-          class="apjek-cta h-10 px-4 text-[13px] active:scale-[0.97] transition-transform"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] apjek-cta h-10 px-4 text-[13px] active:scale-[0.97] transition-transform"
           @click="showExchange = true"
         >
           <Icon name="lucide:arrow-left-right" class="w-4 h-4" />
@@ -31,7 +31,7 @@
           v-for="[cat, label] in shopCats"
           :key="cat"
           type="button"
-          class="flex-1 h-9 rounded-full text-[14px] font-semibold transition-all"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-9 rounded-full text-[14px] font-semibold transition-all"
           :class="shopCat === cat
             ? 'bg-apjek-blue text-white'
             : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
@@ -52,7 +52,7 @@
         <p class="text-xs text-apjek-text-faint">잠시 후 다시 시도해 주세요</p>
         <button
           type="button"
-          class="apjek-cta mt-2 h-10 px-5 text-sm"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] apjek-cta mt-2 h-10 px-5 text-sm"
           @click="reload()"
         >
           다시 시도
@@ -124,7 +124,7 @@
           <button
             type="button"
             :disabled="isOwned(item) || !canAfford(item) || purchasing === item.id"
-            class="w-full h-8 rounded-full text-[12px] font-semibold text-center transition-all disabled:active:scale-100"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] w-full h-8 rounded-full text-[12px] font-semibold text-center transition-all disabled:active:scale-100"
             :class="isOwned(item)
               ? 'bg-apjek-blue-soft text-apjek-blue-deep cursor-default'
               : canAfford(item)

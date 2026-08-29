@@ -47,7 +47,7 @@
       <footer class="pt-2">
         <button
           type="button"
-          class="text-xs text-riso-sage underline"
+          class="px-3 py-[14.5px] -mx-3 -my-[14.5px] text-xs text-riso-sage underline"
           @click="goBack"
         >
           닫기

@@ -146,7 +146,7 @@
             <!-- 놀러가기 — 다크 미니 필 (fig 친구목록 행 버튼) -->
             <button
               type="button"
-              class="apjek-cta px-3 py-1.5 text-[11px] active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-cta px-3 py-1.5 text-[11px] active:scale-95"
               :disabled="visitingId === friend.userId"
               @click="onVisit(friend)"
             >
@@ -155,7 +155,7 @@
             <!-- 좋아요 — 칩 토글 (활성=연블루) -->
             <button
               type="button"
-              class="apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               :class="friend.liked ? 'apjek-chip-active' : ''"
               :disabled="likingId === friend.userId"
               :aria-pressed="friend.liked ? 'true' : 'false'"

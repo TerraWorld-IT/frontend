@@ -27,11 +27,13 @@
         </div>
         <button
           type="button"
-          class="size-[34px] rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center shrink-0 transition-all active:scale-95"
+          class="group size-11 -m-[5px] flex items-center justify-center shrink-0"
           aria-label="기록하기로 돌아가기"
           @click="navigateTo('/record')"
         >
-          <Icon name="lucide:x" class="w-4 h-4 text-apjek-text" />
+          <span class="size-[34px] rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center transition-all group-active:scale-95">
+            <Icon name="lucide:x" class="w-4 h-4 text-apjek-text" />
+          </span>
         </button>
       </div>
 
@@ -44,7 +46,7 @@
           </h3>
           <button
             type="button"
-            class="text-xs font-medium text-apjek-blue hover:text-apjek-text transition-colors"
+            class="py-[14.5px] -my-[14.5px] text-xs font-medium text-apjek-blue hover:text-apjek-text transition-colors"
             @click="showDetailedStats = !showDetailedStats"
           >
             {{ showDetailedStats ? $t('calendar.collapse') : $t('calendar.viewDetail') }}
@@ -94,18 +96,22 @@
         <div class="flex items-center justify-between mb-5">
           <button
             type="button"
-            class="w-9 h-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center hover:bg-apjek-bg transition-colors active:scale-[0.97]"
+            class="group size-11 -m-1 flex items-center justify-center"
             @click="prevMonth"
           >
-            <Icon name="lucide:chevron-left" class="w-4 h-4" />
+            <span class="size-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center group-hover:bg-apjek-bg transition-colors group-active:scale-[0.97]">
+              <Icon name="lucide:chevron-left" class="w-4 h-4" />
+            </span>
           </button>
           <h3 class="text-lg font-bold text-apjek-text">{{ $t('calendar.yearMonth', { year: currentYear, month: currentMonth + 1 }) }}</h3>
           <button
             type="button"
-            class="w-9 h-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center hover:bg-apjek-bg transition-colors active:scale-[0.97]"
+            class="group size-11 -m-1 flex items-center justify-center"
             @click="nextMonth"
           >
-            <Icon name="lucide:chevron-right" class="w-4 h-4" />
+            <span class="size-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center group-hover:bg-apjek-bg transition-colors group-active:scale-[0.97]">
+              <Icon name="lucide:chevron-right" class="w-4 h-4" />
+            </span>
           </button>
         </div>
 

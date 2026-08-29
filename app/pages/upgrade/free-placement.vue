@@ -19,7 +19,7 @@
       <p class="text-sm font-medium text-riso-dark">{{ $t('upgrade.paymentOptions') }}</p>
       <button
         type="button"
-        class="w-full px-4 py-2 bg-riso-sage text-white rounded-md text-sm disabled:opacity-60"
+        class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] w-full px-4 py-2 bg-riso-sage text-white rounded-md text-sm disabled:opacity-60"
         :disabled="loading"
         @click="onPurchase"
       >
@@ -30,7 +30,7 @@
       </p>
     </div>
 
-    <NuxtLink to="/profile" class="block text-sm text-riso-dark/60 hover:underline">
+    <NuxtLink to="/profile" class="block py-3 -my-3 text-sm text-riso-dark/60 hover:underline">
       {{ $t('upgrade.backToProfile') }}
     </NuxtLink>
   </div>

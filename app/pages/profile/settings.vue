@@ -4,7 +4,7 @@
     <div class="py-[10px] flex items-center gap-[8px]">
       <button
         type="button"
-        class="p-[4px] -ml-[4px] transition-all active:scale-95"
+        class="p-[10px] -ml-[10px] -mr-[6px] -my-[6px] transition-all active:scale-95"
         aria-label="뒤로가기"
         @click="goBack"
       >
