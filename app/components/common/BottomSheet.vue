@@ -56,11 +56,13 @@
           <button
             v-if="showClose"
             type="button"
-            class="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center active:opacity-70"
+            class="group absolute top-[10px] right-[10px] z-10 size-11 flex items-center justify-center"
             aria-label="닫기"
             @click="emit('close')"
           >
-            <Icon name="lucide:x" class="w-4 h-4" />
+            <span class="size-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center group-active:opacity-70">
+              <Icon name="lucide:x" class="w-4 h-4" />
+            </span>
           </button>
 
           <!-- 고정 헤더 (옵션) — 스크롤 영역 밖에 남아 콘텐츠 스크롤 시에도 고정된다 -->

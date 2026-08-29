@@ -56,7 +56,10 @@ describe('Modal (common)', () => {
     const wrapper = await mountSuspended(Modal, { props: { modelValue: true, title: 'T' } })
     const closeBtn = document.body.querySelector('[data-testid="modal-close"]') as HTMLButtonElement | null
     expect(closeBtn).not.toBeNull()
-    expect(closeBtn!.className).toContain('bg-apjek-blue-soft')
+    expect(closeBtn!.className).toContain('size-11')
+    const visualCircle = closeBtn!.querySelector('span')
+    expect(visualCircle?.className).toContain('size-8')
+    expect(visualCircle?.className).toContain('bg-apjek-blue-soft')
     closeBtn!.click()
     await wrapper.vm.$nextTick()
     expect(wrapper.emitted('cancel')).toBeTruthy()

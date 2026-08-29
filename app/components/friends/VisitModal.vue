@@ -31,11 +31,13 @@
             </h3>
             <button
               type="button"
-              class="shrink-0 w-8 h-8 rounded-full bg-apjek-bg flex items-center justify-center active:scale-95"
+              class="group shrink-0 size-11 -m-[6px] flex items-center justify-center"
               :aria-label="$t('common.close')"
               @click="emit('close')"
             >
-              <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+              <span class="size-8 rounded-full bg-apjek-bg flex items-center justify-center group-active:scale-95">
+                <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+              </span>
             </button>
           </div>
 

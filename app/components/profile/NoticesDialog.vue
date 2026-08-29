@@ -27,13 +27,15 @@
             </h3>
             <button
               type="button"
-              class="w-8 h-8 rounded-full bg-apjek-blue-soft flex items-center justify-center active:scale-90 transition-transform"
+              class="group size-11 -m-[6px] flex items-center justify-center"
               aria-label="닫기"
               @click="emit('close')"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-apjek-blue-deep">
-                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
-              </svg>
+              <span class="size-8 rounded-full bg-apjek-blue-soft flex items-center justify-center transition-transform group-active:scale-90">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-apjek-blue-deep">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                </svg>
+              </span>
             </button>
           </div>
 

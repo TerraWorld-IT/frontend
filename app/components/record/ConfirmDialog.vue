@@ -18,11 +18,13 @@
             <!-- X = 창 닫기 (댓글 #37) — 확인 동작이 아니다 -->
             <button
               type="button"
-              class="w-7 h-7 rounded-full bg-apjek-bg flex items-center justify-center transition active:scale-95"
+              class="group size-11 -m-2 flex items-center justify-center"
               aria-label="닫기"
               @click="emit('close')"
             >
-              <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+              <span class="size-7 rounded-full bg-apjek-bg flex items-center justify-center transition group-active:scale-95">
+                <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+              </span>
             </button>
           </div>
 

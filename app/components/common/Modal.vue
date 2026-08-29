@@ -34,11 +34,13 @@
             v-if="showClose"
             type="button"
             data-testid="modal-close"
-            class="absolute top-4 right-4 w-8 h-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center active:opacity-70"
+            class="group absolute top-[10px] right-[10px] size-11 flex items-center justify-center"
             :aria-label="resolvedCancelText"
             @click="cancel"
           >
-            <Icon name="lucide:x" class="w-4 h-4" />
+            <span class="size-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center group-active:opacity-70">
+              <Icon name="lucide:x" class="w-4 h-4" />
+            </span>
           </button>
 
           <!-- 헤더: 선택 아이콘 슬롯 + 제목 (X 와 겹치지 않게 우측 여백) -->

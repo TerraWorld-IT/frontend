@@ -27,11 +27,13 @@
             </h3>
             <button
               type="button"
-              class="w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+              class="group size-11 -m-[6px] flex items-center justify-center"
               aria-label="닫기"
               @click="close()"
             >
-              <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-faint" />
+              <span class="size-8 rounded-full flex items-center justify-center transition-transform group-active:scale-90">
+                <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-faint" />
+              </span>
             </button>
           </div>
           <p class="text-[12px] text-apjek-text-sub mb-4">보유한 재화를 기본 코인으로 바꿔요</p>
@@ -44,7 +46,7 @@
               type="button"
               role="radio"
               :aria-checked="fromCode === meta.code"
-              class="apjek-chip text-[12px]"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-chip text-[12px]"
               :class="fromCode === meta.code ? 'apjek-chip-active' : ''"
               @click="selectFrom(meta.code)"
             >
@@ -76,28 +78,31 @@
           <div class="flex items-center gap-2 mb-2">
             <button
               type="button"
-              class="w-9 h-9 rounded-full bg-apjek-bg text-apjek-text font-bold text-lg flex items-center justify-center active:scale-90 transition-transform shrink-0"
+              class="relative after:absolute after:-inset-1 after:content-[''] w-9 h-9 rounded-full bg-apjek-bg text-apjek-text font-bold text-lg flex items-center justify-center active:scale-90 transition-transform shrink-0"
               aria-label="수량 줄이기"
               @click="step(-1)"
             >−</button>
-            <input
-              v-model.number="amount"
-              type="number"
-              min="1"
-              :max="fromBalance"
-              inputmode="numeric"
-              aria-label="환전 수량"
-              class="flex-1 min-w-0 h-10 rounded-[12px] border border-apjek-border-strong bg-apjek-surface text-center text-[16px] font-bold text-apjek-text [appearance:textfield]"
-            >
+            <label class="relative flex-1 min-w-0 h-11 -my-0.5">
+              <span class="absolute inset-x-0 inset-y-0.5 rounded-[12px] border border-apjek-border-strong bg-apjek-surface" aria-hidden="true" />
+              <input
+                v-model.number="amount"
+                type="number"
+                min="1"
+                :max="fromBalance"
+                inputmode="numeric"
+                aria-label="환전 수량"
+                class="relative z-[1] w-full h-11 bg-transparent text-center text-[16px] font-bold text-apjek-text [appearance:textfield]"
+              >
+            </label>
             <button
               type="button"
-              class="w-9 h-9 rounded-full bg-apjek-bg text-apjek-text font-bold text-lg flex items-center justify-center active:scale-90 transition-transform shrink-0"
+              class="relative after:absolute after:-inset-1 after:content-[''] w-9 h-9 rounded-full bg-apjek-bg text-apjek-text font-bold text-lg flex items-center justify-center active:scale-90 transition-transform shrink-0"
               aria-label="수량 늘리기"
               @click="step(1)"
             >+</button>
             <button
               type="button"
-              class="apjek-chip text-[12px] h-9 shrink-0 disabled:opacity-40"
+              class="relative after:absolute after:-inset-1 after:content-[''] apjek-chip text-[12px] h-9 shrink-0 disabled:opacity-40"
               :disabled="fromBalance === 0"
               @click="amount = fromBalance"
             >전량</button>
@@ -115,7 +120,7 @@
             <p v-else-if="ratesLoading">환전 조건을 불러오는 중이에요.</p>
             <div v-else-if="ratesError" class="flex items-center justify-between gap-2">
               <span>{{ ratesError }}</span>
-              <button type="button" class="font-semibold underline shrink-0" @click="loadExchangeRates()">다시 시도</button>
+              <button type="button" class="relative after:absolute after:inset-x-0 after:-inset-y-[14px] after:content-[''] font-semibold underline shrink-0" @click="loadExchangeRates()">다시 시도</button>
             </div>
             <p v-else>선택한 재화의 환전 조건을 찾을 수 없어요.</p>
           </div>
