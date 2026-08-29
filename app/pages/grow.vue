@@ -6,7 +6,9 @@
     class="-mx-5 px-5 pb-[24px] space-y-[16px]"
     :style="{
       marginTop: 'calc(-1rem - env(safe-area-inset-top, 0px))',
+      marginBottom: 'calc(-98px - env(safe-area-inset-bottom, 0px))',
       paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+      paddingBottom: 'calc(24px + 98px + env(safe-area-inset-bottom, 0px))',
       minHeight: 'calc(100dvh - 98px - env(safe-area-inset-bottom, 0px))',
       background: 'url(/bg/grow.webp) center top / 100% auto no-repeat, linear-gradient(180deg, var(--color-apjek-grow-from) 0%, var(--color-apjek-grow-to) 58%, var(--color-apjek-bg) 100%)',
     }"
