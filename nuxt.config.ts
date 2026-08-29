@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
  * Multiple URLs joined with whitespace per CSP grammar.
  */
 function buildConnectSrc(): string {
-  const sources = new Set<string>(["'self'"])
+  const sources = new Set<string>(["'self'", 'https://cloudflareinsights.com'])
   const apiBase = process.env.NUXT_PUBLIC_API_BASE_URL
   const authBase = process.env.NUXT_PUBLIC_AUTH_BASE_URL
   if (apiBase) sources.add(new URL(apiBase).origin)
@@ -34,7 +34,7 @@ function buildSecurityHeaders(): Record<string, string> {
     'Content-Security-Policy': [
       "default-src 'self'",
       // Google AdSense (PC 웹 배너) 스크립트 도메인 허용
-      "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://*.googlesyndication.com",
+      "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://static.cloudflareinsights.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
