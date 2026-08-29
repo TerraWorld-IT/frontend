@@ -205,7 +205,7 @@
             <div
               v-for="placed in placedItems"
               :key="placed.placementId"
-              class="absolute flex items-center justify-center select-none touch-none"
+              class="absolute flex items-center justify-center select-none"
               :class="animClass(placed)"
               :style="itemStyle(placed)"
               @pointerdown="(e) => onItemPointerDown(e, placed)"
@@ -1051,7 +1051,7 @@ function itemStyle(placed: PlacedFreeItem): Record<string, string> {
     width: `${BASE_SIZE}px`,
     height: `${BASE_SIZE}px`,
     cursor: editMode.value ? 'grab' : 'default',
-    touchAction: 'none',
+    touchAction: editMode.value ? 'none' : 'auto',
     overflow: 'visible',
     zIndex: String(10 + placed.zIndex),
     ...(placed.rarity === 'rare' && !editMode.value ? { transformOrigin: 'bottom center' } : {}),
