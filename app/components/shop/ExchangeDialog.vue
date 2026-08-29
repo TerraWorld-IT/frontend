@@ -9,13 +9,16 @@
       <div
         v-if="modelValue"
         ref="rootEl"
-        class="fixed inset-0 flex items-center justify-center z-50 bg-black/40 backdrop-blur-sm"
+        class="fixed inset-0 z-[9997] flex items-start justify-center p-4 overflow-y-auto bg-black/40 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         aria-label="재화 환전"
         @click.self="close()"
       >
-        <div class="bg-apjek-surface rounded-2xl shadow-2xl p-5 w-[92%] max-w-md mx-4 max-h-[88dvh] flex flex-col overflow-y-auto">
+        <div
+          class="bg-apjek-surface rounded-2xl shadow-2xl p-5 w-full max-w-md my-auto flex flex-col overflow-y-auto"
+          style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)"
+        >
           <!-- 헤더 -->
           <div class="flex items-center justify-between mb-1">
             <h3 class="apjek-section-title flex items-center gap-2">
