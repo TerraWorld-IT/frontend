@@ -8,7 +8,8 @@
       <!-- Main content -->
       <main
         ref="mainScrollEl"
-        class="flex-1 px-5 py-4 overflow-y-auto bg-white"
+        class="flex-1 px-5 py-4 overflow-y-auto"
+        :class="route.path === '/grow' ? 'bg-apjek-bg' : 'bg-white'"
         :style="{
           paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
           paddingBottom: 'calc(98px + env(safe-area-inset-bottom, 0px))',
