@@ -225,17 +225,6 @@
             <TerrariumJarArt :level="viewLevel" layer="base" />
             <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" :style="{ zIndex: textureZ }" />
 
-            <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
-            <TerrariumWiltingOverlay
-              v-if="terrarium?.wilting && terrarium.wilting.stage > 0"
-              :state="terrarium.wilting"
-              class="z-[6000]"
-              :style="{
-                transform: `scale(${inverseStageScale})`,
-                transformOrigin: 'bottom center',
-              }"
-            />
-
             <!-- 편집모드 안내 영역 -->
             <Transition name="edit-fade">
               <div
@@ -851,7 +840,7 @@ const showExchange = ref<boolean>(false)
 // ─── T3b/T13 모드 진입 인트로 — 1.2초 스플래시 후 실제 모드 전환 ───
 const introMode = ref<'healing' | 'manage' | null>(null)
 
-// ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) (배치/시들기/하트 로직 무변경) ───
+// ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) (배치/하트 로직 무변경) ───
 const healingMode = ref<boolean>(false)
 // 보기 모드 축소 배율 — Figma "나의테라 - 기본" 은 병이 화면 폭의 약 35%, 흰 글로우 원이 약 62% 다.
 // 관리 모드(배치 편집)·힐링 모드(풀블리드)는 설계 기준 큰 병을 그대로 쓴다. 드래그/리사이즈 좌표
@@ -1120,7 +1109,7 @@ function visualHalf(placed: PlacedFreeItem): number {
   return HALF * placed.scale
 }
 
-// 병 질감 오버레이 z — 배치 아이템(10 + zIndex) 전부의 바로 위. 시들기 오버레이·하트(z 6000)는 그 위.
+// 병 질감 오버레이 z — 배치 아이템(10 + zIndex) 전부의 바로 위. 하트(z 6000)는 그 위.
 const textureZ = computed<number>(() => 11 + placedItems.value.reduce((m, p) => Math.max(m, p.zIndex), 0))
 
 function animClass(placed: PlacedFreeItem): string {

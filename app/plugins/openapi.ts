@@ -100,7 +100,7 @@ export default defineNuxtPlugin(() => {
     if (result.status === 'unauthenticated') {
       // 세션이 **진짜로** 무효할 때만 로그인으로 보낸다 (`/api/auth/token` 이 401/403).
       // 왜 로그인 화면으로 튕겼는지 설명이 없으면 사용자 입장에선 "갑자기 로그아웃됨"으로
-      // 보이므로 안내 토스트를 함께 띄운다. 이 코드베이스의 확립된 관례(usePayment/useWilting)는
+      // 보이므로 안내 토스트를 함께 띄운다. 이 코드베이스의 확립된 관례(usePayment)는
       // setup 컨텍스트 밖(인터셉터 콜백 등)에서도 안전하도록 useI18n() 대신 nuxtApp.$i18n 을 쓴다.
       // (clearJwt 는 refreshJwt 가 이미 수행 — 토큰·타이머·플래그 정리)
       const { $i18n } = useNuxtApp()

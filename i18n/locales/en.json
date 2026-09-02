@@ -590,7 +590,6 @@
     "freePlacementSave": "Save placement",
     "freePlacementSaved": "Placement saved ({n} items)",
     "freePlacementTitle": "Free Placement",
-    "goRecordNow": "Go record now →",
     "goShop": "Buy in the shop →",
     "heartFail": "Heart click failed",
     "inventory": "Inventory",
@@ -612,10 +611,6 @@
     "title": "My Terrarium",
     "unlockAt": "Unlocks at Lv.{n}",
     "viewMode": "View",
-    "wiltAriaLabel": "Wilt stage {stage}: {message}",
-    "wiltMessage1": "No records today",
-    "wiltMessage2": "I need some water…",
-    "wiltMessage3": "Crisis: a record is needed",
     "evolution": {
       "POT": { "label": "Clay pot", "desc": "A small pot — the starting stage" },
       "BOTTLE": { "label": "Glass bottle", "desc": "Basic terrarium" },

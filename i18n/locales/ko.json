@@ -590,7 +590,6 @@
     "freePlacementSave": "배치 저장",
     "freePlacementSaved": "배치 저장 완료 ({n}개)",
     "freePlacementTitle": "자유배치",
-    "goRecordNow": "지금 기록하러 가기 →",
     "goShop": "상점에서 구매하기 →",
     "heartFail": "하트 클릭 실패",
     "inventory": "인벤토리",
@@ -612,10 +611,6 @@
     "title": "My Terrarium",
     "unlockAt": "Lv.{n}에 해제",
     "viewMode": "감상",
-    "wiltAriaLabel": "시들기 단계 {stage}: {message}",
-    "wiltMessage1": "오늘 기록이 비어 있어요",
-    "wiltMessage2": "물 좀 줘…",
-    "wiltMessage3": "위기: 기록이 필요해요",
     "evolution": {
       "POT": { "label": "토분", "desc": "작은 화분 — 시작 단계" },
       "BOTTLE": { "label": "유리병", "desc": "기본 테라리움" },

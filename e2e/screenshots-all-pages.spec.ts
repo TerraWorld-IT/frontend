@@ -13,7 +13,7 @@
 //   3) 인증 후 서브 페이지 (친구 / 랭킹 / 자유배치 / upgrade)
 //   4) admin 페이지 5종 (admin role 필요 — DB 직접 UPDATE)
 //   5) 모달 7종 — 트리거 후 캡처
-//   6) Phase 4 진화 / 시들기 / 보상 토스트 등 시각 effect
+//   6) Phase 4 진화 / 보상 토스트 등 시각 effect
 
 import { test, expect, Page } from '@playwright/test'
 import path from 'node:path'
@@ -1352,56 +1352,6 @@ test.describe('cycle 11 자잘한 미캡처', () => {
       console.warn('[admin] JWT refresh fail:', (e as Error).message)
     }
   }
-
-  /**
-   * cycle 12 — wilt_recovered_at 직접 set + 새 user records 미 seed → WiltingOverlay stage 트리거.
-   */
-  async function seedWiltStage(daysAgo: number) {
-    try {
-      const userId = execSync(
-        `docker exec tw-dev-postgres psql -U terraworld -d terraworld -t -A -c "SELECT id FROM users ORDER BY created_at DESC LIMIT 1"`,
-        { encoding: 'utf-8' },
-      ).trim()
-      if (!userId) return null
-      // 모든 records 삭제 + wilt_recovered_at = N일 전 (stage trigger)
-      const sql = `DELETE FROM activity_records WHERE user_id='${userId}'; `
-        + `UPDATE terrariums SET wilt_recovered_at=NOW() - INTERVAL '${daysAgo} days' WHERE user_id='${userId}';`
-      const out = execSync(`docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "${sql.replace(/"/g, '\\"')}"`, { encoding: 'utf-8' })
-      console.log(`[wilt] stage seed ${daysAgo}d:`, out.split('\n').slice(0, 3).join(' | '))
-      return userId
-    }
-    catch (e) {
-      console.warn('[wilt] fail:', (e as Error).message)
-      return null
-    }
-  }
-
-  test('flow-59-wilt-stage-1', async ({ page }) => {
-    await signUpAndLogin(page)
-    await seedWiltStage(4) // 3일+ → stage 1
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(1000)
-    await shot(page, 'flow-59-wilt-stage-1')
-  })
-
-  test('flow-60-wilt-stage-2', async ({ page }) => {
-    await signUpAndLogin(page)
-    await seedWiltStage(8) // 7일+ → stage 2
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(1000)
-    await shot(page, 'flow-60-wilt-stage-2')
-  })
-
-  test('flow-61-wilt-stage-3', async ({ page }) => {
-    await signUpAndLogin(page)
-    await seedWiltStage(15) // 14일+ → stage 3
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(1000)
-    await shot(page, 'flow-61-wilt-stage-3')
-  })
 
   test('flow-62-attendance-streak-7', async ({ page }) => {
     // attendance_logs seed: 6일 연속 → 출석위젯 streak 6일 표시

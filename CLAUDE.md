@@ -94,7 +94,7 @@ frontend/
 │   │   ├── icons/                  # CurrencyIcon, JamjarSvg, Jar1, PpJamjar (SVG 컴포넌트)
 │   │   │   └── jar1/               #   Jar1.vue 가 쓰는 path 데이터 (jar1Paths.ts, feedSvg.ts)
 │   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
-│   │   └── terrarium/              # WiltingOverlay (홈에서 사용)
+│   │   └── terrarium/              # 홈 테라리움 구성 컴포넌트
 │   │                               #   (TerrariumCanvas/Bottle/Slot/ItemSelectDialog + PixiJS 파티클 4종은
 │   │                               #    orphan /terrarium 페이지 제거와 함께 삭제됨 — 2026-07-15, git 히스토리에서 복원 가능)
 │   ├── composables/
@@ -108,7 +108,6 @@ frontend/
 │   │   ├── usePayment.ts           # startPurchase() IAP — Play(Android) + App Store(iOS) 플랫폼 분기 + 백엔드 verify (2026-06-23 iOS 추가, 키 대기)
 │   │   ├── useTimeAwareColorMode.ts # 06:00~18:00 light, 그 외 dark 자동 전환
 │   │   ├── useToast.ts             # 토스트 알림 (SSR-safe, useState 기반)
-│   │   ├── useWilting.ts           # 시들기 stage 0~3 → CSS filter + 메시지 매핑
 │   │   ├── useDialogFocusTrap.ts   # bespoke 오버레이 focus trap + 배경 스크롤 잠금(useOverlayScrollLock 합성). 14 오버레이 일괄
 │   │   └── useOverlayScrollLock.ts # 모달/시트 열림 시 배경 스크롤 잠금 (<html>.scroll-locked + 참조카운트). 실 스크롤러=main 이라 body 잠금은 무효
 │   ├── error.vue                   # 전역 에러 페이지 (404 / 500-class 분기 + 재시도 버튼)
@@ -696,7 +695,7 @@ bun run typecheck   # TypeScript 체크
 - [x] composable SDK 전환 (useRecord → OpenAPI SDK)
 - [x] ~~보상 애니메이션 (RewardToast)~~ — 소비자 0건으로 제거됨 (2026-07-15)
 - [x] ~~기록 저장 confetti (canvas-confetti)~~ — 소비자 0건으로 제거됨 (2026-07-15)
-- [x] 시들기 CTA (WiltingOverlay stage ≥ 2 시 "지금 기록하러 가기")
+- [x] ~~시들기 CTA~~ — Figma 원본에 없어 제거됨 (2026-09-02)
 - [x] JWT 4분 preemptive refresh (useAuth)
 - [x] 스크린샷 캡처 + 시스템 공유 (html2canvas + Capacitor filesystem)
 - [x] AdMob 보상형 광고 wiring (useAdMob)

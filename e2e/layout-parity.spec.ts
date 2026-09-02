@@ -75,7 +75,6 @@ const terrarium = {
   tier: 'GLASS_JAR',
   activeTier: 'GLASS_JAR',
   highestUnlockedTier: 'GLASS_JAR',
-  wilting: { stage: 0, daysSinceRecord: 0 },
   freePlacements: [],
 }
 
