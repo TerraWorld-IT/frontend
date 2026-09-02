@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col min-h-full -mx-5 -mt-4 bg-apjek-surface">
+  <div class="flex flex-col min-h-full -mx-5 -mt-4 bg-apjek-surface" data-testid="shop-page">
     <!-- ── 헤더 (아프젝 화이트) ── -->
     <div class="px-5 pt-8 pb-4">
       <div class="flex items-start justify-between mb-1">
@@ -59,8 +59,27 @@
         </button>
       </div>
 
-      <!-- 최초 로드 (top-level await 를 걷어낸 뒤의 로딩 표면) -->
-      <CommonLoading v-else-if="pending" variant="skeleton" />
+      <!-- 최초 로드: 대표 상품 6개(3행)의 실제 카드 래퍼와 290px 행 높이를 예약한다. -->
+      <div
+        v-else-if="pending"
+        class="grid grid-cols-2 gap-3"
+        data-testid="shop-layout-skeleton"
+        data-layout-anchor="shop-grid"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="로딩 중"
+      >
+        <div v-for="n in 6" :key="n" class="apjek-card flex h-[290px] flex-col items-center p-3" data-testid="shop-skeleton-card">
+          <div class="mb-2 h-5 w-3/4 rounded-lg bg-apjek-border animate-pulse" />
+          <div class="h-[130px] w-full flex items-center justify-center">
+            <div class="size-[112px] rounded-[36px] bg-apjek-border animate-pulse" />
+          </div>
+          <div class="mt-2 mb-3 h-[54px] w-14 rounded-lg bg-apjek-border animate-pulse" />
+          <div class="h-8 w-full rounded-full bg-apjek-border animate-pulse" />
+        </div>
+        <span class="sr-only">로딩 중</span>
+      </div>
 
       <!-- 빈 상태 (배경은 백엔드 시드 후 자동 노출 — 카피 유지 / 루비샵은 플래그로 숨김) -->
       <div
@@ -77,12 +96,13 @@
       </div>
 
       <!-- 그리드 (Figma 상점 2열 카드: 이름 / 일러스트 / 토큰아이콘+가격 / CTA) -->
-      <div v-else class="grid grid-cols-2 gap-3">
+      <div v-else class="grid grid-cols-2 gap-3" data-layout-anchor="shop-grid">
         <div
           v-for="item in filteredItems"
           :key="item.id"
           class="apjek-card flex flex-col items-center p-3 active:scale-[0.97] transition-transform"
           :class="isOwned(item) ? 'opacity-90' : ''"
+          data-testid="shop-item-card"
         >
           <!-- 이름 (상단) -->
           <p class="text-[13px] font-semibold text-apjek-text text-center mb-2 truncate w-full">

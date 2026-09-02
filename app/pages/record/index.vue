@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen space-y-[28px] pb-4">
+  <div class="min-h-screen space-y-[28px] pb-4" data-testid="record-page">
     <!-- 헤더 — 아프젝: 타이틀 + 우상단 검정 필 [📅 캘린더] (R6b) -->
     <div class="flex items-center justify-between py-[10px]">
       <h1 class="font-bold text-[28px] text-apjek-text tracking-[-0.9px] leading-[32px]">
@@ -29,7 +29,11 @@
       <!-- 습관 카드 — 파랑 1px 테두리, 좌측 🌸 타일 + "1주일 연속 기록 / +반짝이".
            카드 본체는 클릭 불가(댓글 #5/#6) — 우측 버튼만 동작: 습관 없음=[✏️ 시작하기](생성 시트),
            있음=^ 접기/펼침 토글 (R6b). -->
-      <div class="rounded-[16px] border border-apjek-blue bg-apjek-surface p-[16px]">
+      <div
+        class="rounded-[16px] border border-apjek-blue bg-apjek-surface p-[16px]"
+        data-layout-anchor="record-habit-card"
+        :aria-busy="!habitsLoaded"
+      >
         <div class="flex items-center gap-[14px]">
           <img
             src="/icons/token/sparkle.png"
@@ -42,8 +46,19 @@
             <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px]">1주일 연속 기록</p>
             <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-sparkle">+반짝이</p>
           </div>
+          <!-- 데이터 전에는 카드 셸을 그대로 두고 우측 액션 자리만 예약한다. -->
+          <div
+            v-if="!habitsLoaded"
+            class="size-[34px] shrink-0 rounded-full bg-apjek-border animate-pulse"
+            data-testid="record-habit-skeleton"
+            role="status"
+            aria-live="polite"
+            aria-label="습관 불러오는 중"
+          >
+            <span class="sr-only">습관 불러오는 중</span>
+          </div>
           <button
-            v-if="!hasAnyHabit"
+            v-else-if="!hasAnyHabit"
             type="button"
             class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             @click="openHabitCreate()"
@@ -147,7 +162,7 @@
     </div>
 
     <!-- ─── 일상 기록 ─── -->
-    <div class="space-y-[14px]">
+    <div class="space-y-[14px]" data-layout-anchor="record-daily-section">
       <div>
         <h2 class="apjek-section-title text-[18px] leading-[28px]">
           일상 기록
