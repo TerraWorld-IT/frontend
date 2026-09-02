@@ -74,12 +74,6 @@ export function useGtagEvents() {
     })
   }
 
-  function trackWiltingRecovered(params: { previousStage: number }) {
-    gtag('event', 'wilting_recovered', {
-      previous_stage: params.previousStage,
-    })
-  }
-
   function trackInviteCreated() {
     gtag('event', 'invite_created')
   }
@@ -126,7 +120,6 @@ export function useGtagEvents() {
     trackLogin,
     trackScreenshotSaved,
     trackAdRewardClaimed,
-    trackWiltingRecovered,
     trackInviteCreated,
     trackInviteAccepted,
     trackRankingViewed,
