@@ -39,7 +39,7 @@
               type="checkbox"
               :checked="item.value"
               :disabled="consentSaving"
-              class="w-5 h-5 accent-riso-sage disabled:opacity-50"
+              class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
               @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
             >
           </label>

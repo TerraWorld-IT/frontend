@@ -43,7 +43,7 @@
           v-model="newText"
           :placeholder="`새 항목 추가 (최대 ${TODO_LIMIT}개)`"
           maxlength="50"
-          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none placeholder:text-apjek-blue-deep/70"
+          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none placeholder:text-apjek-blue-deep"
           @keydown.enter.prevent="onAdd"
         >
         <button

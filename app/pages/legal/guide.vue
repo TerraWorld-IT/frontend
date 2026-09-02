@@ -32,7 +32,7 @@
       <footer class="pt-2">
         <button
           type="button"
-          class="text-xs text-riso-sage underline"
+          class="text-xs text-riso-sage dark:text-riso-grass underline"
           @click="goBack"
         >
           닫기

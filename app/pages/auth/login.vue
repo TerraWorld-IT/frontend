@@ -57,7 +57,7 @@
         <h1 class="text-3xl font-bold tracking-tight" style="color: #5b6fa6">
           TERRAWORLD
         </h1>
-        <p class="text-sm mt-1" style="color: #8a9bc4">
+        <p class="text-sm mt-1" style="color: #4f659c">
           {{ $t('auth.tagline') }}
         </p>
       </div>
@@ -74,7 +74,7 @@
         <form class="flex flex-col gap-3" @submit.prevent="onSubmit">
           <!-- 닉네임 (가입 전용) -->
           <div v-if="mode === 'signup'">
-            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.nicknamePlaceholder') }}
             </label>
             <input
@@ -97,7 +97,7 @@
             backend better-auth before hook 의 최종 검증 (3중 방어).
           -->
           <div v-if="mode === 'signup'">
-            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.birthDateLabel') }}
             </label>
             <input
@@ -116,7 +116,7 @@
 
           <!-- 이메일 -->
           <div>
-            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.email') }}
             </label>
             <input
@@ -136,7 +136,7 @@
 
           <!-- 비밀번호 -->
           <div>
-            <label class="text-xs font-medium mb-1 block" style="color: #8a9bc4">
+            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.password') }}
             </label>
             <input
@@ -187,7 +187,7 @@
                 <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
                 {{ t('auth.consent.terms') }}
               </span>
-              <NuxtLink to="/legal/terms" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
+              <NuxtLink to="/legal/terms" class="ml-auto shrink-0 text-[11px] underline" style="color: #4e62bc">
                 {{ t('auth.consent.view') }}
               </NuxtLink>
             </label>
@@ -197,7 +197,7 @@
                 <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
                 {{ t('auth.consent.privacy') }}
               </span>
-              <NuxtLink to="/legal/privacy" class="ml-auto shrink-0 text-[11px] underline" style="color: #97a8f1">
+              <NuxtLink to="/legal/privacy" class="ml-auto shrink-0 text-[11px] underline" style="color: #4e62bc">
                 {{ t('auth.consent.view') }}
               </NuxtLink>
             </label>
@@ -210,7 +210,7 @@
             >
               <input v-model="opt.value" type="checkbox" class="w-4 h-4 rounded" style="accent-color: #97a8f1">
               <span class="text-xs" style="color: #7683a8">
-                <span class="font-medium" style="color: #a0afd8">[{{ t('auth.consent.optional') }}]</span>
+                <span class="font-medium" style="color: #4a67b5">[{{ t('auth.consent.optional') }}]</span>
                 {{ t(`auth.consent.${opt.key}`) }}
               </span>
             </label>
@@ -231,16 +231,16 @@
           <button
             type="button"
             class="px-0 py-[14.5px] -my-[14.5px] text-xs transition-all hover:opacity-70"
-            style="color: #a0afd8"
+            style="color: #4a67b5"
             @click="toggleMode"
           >
             <template v-if="mode === 'login'">
               {{ $t('auth.noAccount') }}
-              <span class="font-semibold underline underline-offset-2" style="color: #97a8f1">{{ $t('auth.signupAction') }}</span>
+              <span class="font-semibold underline underline-offset-2" style="color: #4e62bc">{{ $t('auth.signupAction') }}</span>
             </template>
             <template v-else>
               {{ $t('auth.hasAccount') }}
-              <span class="font-semibold underline underline-offset-2" style="color: #97a8f1">{{ $t('auth.login') }}</span>
+              <span class="font-semibold underline underline-offset-2" style="color: #4e62bc">{{ $t('auth.login') }}</span>
             </template>
           </button>
         </div>
@@ -501,6 +501,6 @@ async function onSubmit() {
   color: #4a5580;
 }
 .tw-field::placeholder {
-  color: #a0afd8;
+  color: #4a67b5;
 }
 </style>
