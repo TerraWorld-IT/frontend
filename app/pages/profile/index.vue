@@ -6,7 +6,7 @@
       <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
       <!-- raw error.message 는 사용자에게 노출하지 않는다 (audit C4-3) — curated 문구로 대체 -->
       <p class="text-xs text-apjek-text-sub">{{ $t('common.loadFailDesc') }}</p>
-      <button class="mt-2 px-4 py-2 rounded-full bg-apjek-cta text-white text-sm" @click="load">
+      <button class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] mt-2 px-4 py-2 rounded-full bg-apjek-cta text-white text-sm" @click="load">
         {{ $t('common.retry') }}
       </button>
     </div>
@@ -35,7 +35,7 @@
             <!-- M2: 닉네임 수정 바텀시트 오픈 -->
             <button
               type="button"
-              class="rounded-full bg-apjek-bg flex items-center gap-[4px] px-[12px] py-[6px] transition-all active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] rounded-full bg-apjek-bg flex items-center gap-[4px] px-[12px] py-[6px] transition-all active:scale-95"
               @click="openNicknameSheet"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
@@ -76,7 +76,7 @@
               <span class="apjek-section-title text-[18px] leading-[27px]">친구목록</span>
             </div>
             <!-- 우측 "> 나의 초대코드" → 친구 관리(초대코드 발급·입력) -->
-            <NuxtLink to="/friends" class="flex items-center gap-[2px] text-apjek-text active:opacity-70">
+            <NuxtLink to="/friends" class="relative after:absolute after:inset-x-0 after:-inset-y-[13px] after:content-[''] flex items-center gap-[2px] text-apjek-text active:opacity-70">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
               <span class="text-[12px] font-semibold">나의 초대코드</span>
             </NuxtLink>
@@ -106,7 +106,7 @@
               </div>
               <button
                 type="button"
-                class="shrink-0 rounded-full bg-apjek-cta text-white text-[12px] font-semibold px-[12px] py-[6px] whitespace-nowrap transition-all active:scale-95 disabled:opacity-60"
+                class="relative after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] shrink-0 rounded-full bg-apjek-cta text-white text-[12px] font-semibold px-[12px] py-[6px] whitespace-nowrap transition-all active:scale-95 disabled:opacity-60"
                 :disabled="visitingId === friend.userId"
                 @click="onVisit(friend)"
               >
@@ -116,7 +116,7 @@
             <NuxtLink
               v-if="friends.length > friendRows.length"
               to="/friends"
-              class="self-center text-[12px] text-apjek-text-sub underline underline-offset-2"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[14px] after:content-[''] self-center text-[12px] text-apjek-text-sub underline underline-offset-2"
             >
               친구 {{ friends.length }}명 모두 보기
             </NuxtLink>
@@ -125,8 +125,8 @@
           <!-- 친구 0명 / 로드 실패 -->
           <div v-else class="rounded-[12px] bg-apjek-bg px-[12px] py-[16px] flex flex-col items-center gap-[10px]">
             <p class="text-[13px] text-apjek-text-sub">{{ friendsError ? '친구 목록을 불러오지 못했어요' : '아직 친구가 없어요' }}</p>
-            <NuxtLink v-if="!friendsError" to="/friends" class="apjek-cta h-[36px] px-[16px] text-[12px]">친구 초대하기</NuxtLink>
-            <button v-else type="button" class="apjek-cta h-[36px] px-[16px] text-[12px]" @click="loadFriends">다시 시도</button>
+            <NuxtLink v-if="!friendsError" to="/friends" class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] apjek-cta h-[36px] px-[16px] text-[12px]">친구 초대하기</NuxtLink>
+            <button v-else type="button" class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] apjek-cta h-[36px] px-[16px] text-[12px]" @click="loadFriends">다시 시도</button>
           </div>
         </div>
       </div>

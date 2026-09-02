@@ -74,13 +74,14 @@
             </div>
 
             <!-- Skip -->
-            <button
-              v-if="step < steps.length - 1"
-              class="w-full text-center text-xs text-apjek-text-faint hover:text-apjek-text-sub"
-              @click="onComplete"
-            >
-              {{ $t('onboarding.skip') }}
-            </button>
+            <div v-if="step < steps.length - 1" class="h-[16px]">
+              <button
+                class="w-full py-[14.5px] -my-[14.5px] text-center text-xs text-apjek-text-faint hover:text-apjek-text-sub"
+                @click="onComplete"
+              >
+                {{ $t('onboarding.skip') }}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -28,12 +28,13 @@
               </div>
               <button
                 type="button"
-                class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                style="background: var(--color-apjek-blue-soft)"
+                class="size-11 -m-[6px] flex items-center justify-center shrink-0"
                 aria-label="닫기"
                 @click="emit('close')"
               >
-                <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
+                <span class="size-8 rounded-full flex items-center justify-center" style="background: var(--color-apjek-blue-soft)">
+                  <Icon name="lucide:x" class="w-4 h-4" style="color: var(--color-apjek-blue)" />
+                </span>
               </button>
             </div>
             <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">

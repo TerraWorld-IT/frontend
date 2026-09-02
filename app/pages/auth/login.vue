@@ -230,7 +230,7 @@
         <div class="text-center mt-5">
           <button
             type="button"
-            class="text-xs transition-all hover:opacity-70"
+            class="px-0 py-[14.5px] -my-[14.5px] text-xs transition-all hover:opacity-70"
             style="color: #a0afd8"
             @click="toggleMode"
           >

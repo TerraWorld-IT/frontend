@@ -86,12 +86,17 @@
         :key="slide.level"
         type="button"
         role="tab"
-        class="h-2 rounded-full transition-all"
-        :style="{ width: index === i ? '16px' : '8px', background: index === i ? 'var(--color-apjek-blue)' : 'rgba(81,140,219,0.3)' }"
+        class="w-11 h-11 -my-[18px] flex items-center justify-center"
+        :style="{ marginInline: index === i ? '-14px' : '-18px' }"
         :aria-selected="index === i"
         :aria-label="`Lv.${slide.level} 슬라이드`"
         @click="scrollTo(i)"
-      />
+      >
+        <span
+          class="h-2 rounded-full transition-all"
+          :style="{ width: index === i ? '16px' : '8px', background: index === i ? 'var(--color-apjek-blue)' : 'rgba(81,140,219,0.3)' }"
+        />
+      </button>
     </div>
   </div>
 </template>

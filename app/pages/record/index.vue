@@ -7,7 +7,7 @@
       </h1>
       <button
         type="button"
-        class="apjek-cta h-[40px] px-[16px] text-[13px] transition-all active:scale-95"
+        class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] apjek-cta h-[40px] px-[16px] text-[13px] transition-all active:scale-95"
         @click="goToCalendar()"
       >
         <Icon name="lucide:calendar" class="w-4 h-4" />
@@ -45,7 +45,7 @@
           <button
             v-if="!hasAnyHabit"
             type="button"
-            class="h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             @click="openHabitCreate()"
           >
             <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
@@ -54,7 +54,7 @@
           <button
             v-else
             type="button"
-            class="size-[34px] rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:-inset-[5px] after:content-[''] size-[34px] rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center shrink-0 transition-all active:scale-95"
             :aria-expanded="habitOpen"
             :aria-label="habitOpen ? '습관 카드 접기' : '습관 카드 펼치기'"
             @click="habitOpen = !habitOpen"
@@ -68,7 +68,7 @@
           <div class="flex gap-[8px] mt-[16px]">
             <button
               type="button"
-              class="flex-1 h-[40px] rounded-full text-[13px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] flex-1 h-[40px] rounded-full text-[13px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
               :class="mode === 'solo' ? 'bg-apjek-cta text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
               :aria-pressed="mode === 'solo'"
               @click="setMode('solo')"
@@ -78,7 +78,7 @@
             </button>
             <button
               type="button"
-              class="flex-1 h-[40px] rounded-full text-[13px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] flex-1 h-[40px] rounded-full text-[13px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
               :class="mode === 'friend' ? 'bg-apjek-cta text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
               :aria-pressed="mode === 'friend'"
               @click="setMode('friend')"
@@ -94,7 +94,7 @@
               습관을 불러오지 못했어요. 잠시 후 다시 시도해 주세요
               <button
                 type="button"
-                class="mt-[8px] block mx-auto text-[12px] font-semibold text-apjek-blue underline"
+                class="relative after:absolute after:inset-x-0 after:-inset-y-[14px] after:content-[''] mt-[8px] block mx-auto text-[12px] font-semibold text-apjek-blue underline"
                 @click="loadHabits"
               >
                 다시 시도
@@ -130,7 +130,7 @@
               </p>
               <button
                 type="button"
-                class="h-[40px] px-[18px] rounded-full bg-apjek-cta text-white text-[13px] font-semibold inline-flex items-center gap-[6px] transition-all active:scale-95 disabled:opacity-40"
+                class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-[40px] px-[18px] rounded-full bg-apjek-cta text-white text-[13px] font-semibold inline-flex items-center gap-[6px] transition-all active:scale-95 disabled:opacity-40"
                 :disabled="hasAnyHabit"
                 @click="openHabitCreate()"
               >
@@ -185,7 +185,7 @@
 
           <button
             type="button"
-            class="h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             :aria-label="`${card.title} 기록하기`"
             @click="openModal = card.modal"
           >
@@ -201,7 +201,7 @@
         <p class="text-[13px] text-apjek-text-sub mb-3">기록 정보를 불러오지 못했어요</p>
         <button
           type="button"
-          class="px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
           @click="retryInitial()"
         >다시 시도</button>
       </div>

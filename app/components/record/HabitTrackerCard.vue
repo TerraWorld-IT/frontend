@@ -13,11 +13,13 @@
         <button
           v-if="view !== 'cycleDone' && view !== 'pendingReceived'"
           type="button"
-          class="w-7 h-7 rounded-full bg-apjek-bg flex items-center justify-center shrink-0 transition active:scale-95"
+          class="group size-11 -m-2 flex items-center justify-center shrink-0"
           :aria-label="view === 'pending' ? '요청 취소' : '기록 중단'"
           @click="view === 'pending' ? (cancelOpen = true) : (stopOpen = true)"
         >
-          <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+          <span class="size-7 rounded-full bg-apjek-bg flex items-center justify-center transition group-active:scale-95">
+            <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+          </span>
         </button>
       </div>
 
@@ -37,7 +39,7 @@
             v-for="day in DAYS"
             :key="day"
             type="button"
-            class="size-[38px] rounded-full flex items-center justify-center text-[13px] font-bold transition-all active:scale-95 disabled:cursor-default"
+            class="relative after:absolute after:-inset-x-[4.5px] after:-inset-y-[3px] after:content-[''] size-[38px] rounded-full flex items-center justify-center text-[13px] font-bold transition-all active:scale-95 disabled:cursor-default"
             :class="circleClass(day)"
             :disabled="!canCheckIn"
             :aria-label="dayAria(day)"

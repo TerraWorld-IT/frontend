@@ -21,12 +21,16 @@
       <p class="text-6xl">🫧</p>
       <p class="text-riso-dark font-bold text-lg">{{ $t('share.notFound') }}</p>
       <p class="text-sm text-riso-dark/40">{{ $t('share.notFoundDesc') }}</p>
-      <NuxtLink
-        to="/"
-        class="inline-block bg-riso-sage text-white px-6 py-2.5 rounded-full text-sm font-medium riso-shadow-sm"
-      >
-        {{ $t('share.startTerraWorld') }}
-      </NuxtLink>
+      <div class="h-[40px]">
+        <NuxtLink
+          to="/"
+          class="inline-flex p-[2.5px] -m-[2.5px]"
+        >
+          <span class="inline-block bg-riso-sage text-white px-6 py-2.5 rounded-full text-sm font-medium riso-shadow-sm">
+            {{ $t('share.startTerraWorld') }}
+          </span>
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Terrarium Preview -->

@@ -12,7 +12,7 @@
         <div class="flex gap-[8px] rounded-full bg-apjek-bg p-[4px]">
           <button
             type="button"
-            class="flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all"
             :class="segment === 'list' ? 'bg-apjek-cta text-white' : 'text-apjek-text-sub'"
             :aria-pressed="segment === 'list'"
             @click="switchSegment('list')"
@@ -21,7 +21,7 @@
           </button>
           <button
             type="button"
-            class="flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all"
             :class="segment === 'routine' ? 'bg-apjek-cta text-white' : 'text-apjek-text-sub'"
             :aria-pressed="segment === 'routine'"
             @click="switchSegment('routine')"
@@ -43,12 +43,12 @@
           v-model="newText"
           :placeholder="`새 항목 추가 (최대 ${TODO_LIMIT}개)`"
           maxlength="50"
-          class="flex-1 min-w-0 bg-transparent text-[14px] text-apjek-text outline-none placeholder:text-apjek-blue-deep/70"
+          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none placeholder:text-apjek-blue-deep/70"
           @keydown.enter.prevent="onAdd"
         >
         <button
           type="button"
-          class="size-[28px] rounded-full flex items-center justify-center text-white shrink-0 transition-all active:scale-95 bg-apjek-blue disabled:opacity-40"
+          class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center text-white shrink-0 transition-all active:scale-95 bg-apjek-blue disabled:opacity-40"
           aria-label="항목 추가"
           :disabled="newText.trim().length === 0"
           @click="onAdd"
@@ -71,7 +71,7 @@
       >
         <button
           type="button"
-          class="size-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
+          class="relative after:absolute after:-inset-[11px] after:content-[''] size-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
           :class="todo.checked ? 'border-apjek-blue bg-apjek-blue' : 'border-apjek-border-strong bg-transparent'"
           :aria-pressed="todo.checked"
           :aria-label="`${todo.text} 체크`"
@@ -88,7 +88,7 @@
         <span v-if="todo.routineId !== undefined" class="text-[10px] text-apjek-text-faint shrink-0">루틴</span>
         <button
           type="button"
-          class="size-[28px] rounded-full flex items-center justify-center shrink-0 transition active:scale-95"
+          class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center shrink-0 transition active:scale-95"
           aria-label="항목 삭제"
           @click="removeTodo(todo.id)"
         >
@@ -124,7 +124,7 @@
           <span class="text-[14px] text-apjek-blue-deep font-semibold">루틴 추가하기 (최대 {{ ROUTINE_LIMIT_FE }}개)</span>
           <button
             type="button"
-            class="size-[24px] rounded-full bg-apjek-surface flex items-center justify-center transition active:scale-95"
+            class="relative after:absolute after:-inset-[10px] after:content-[''] size-[24px] rounded-full bg-apjek-surface flex items-center justify-center transition active:scale-95"
             aria-label="루틴 추가 닫기"
             @click="closeRoutineForm"
           >
@@ -136,7 +136,7 @@
         <div class="flex gap-[8px]">
           <button
             type="button"
-            class="flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all active:scale-[0.97]"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all active:scale-[0.97]"
             :class="repeatType === 'DAILY' ? 'bg-apjek-blue text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
             @click="setRepeat('DAILY')"
           >
@@ -144,7 +144,7 @@
           </button>
           <button
             type="button"
-            class="flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all active:scale-[0.97]"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all active:scale-[0.97]"
             :class="repeatType === 'WEEKLY' ? 'bg-apjek-blue text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
             @click="setRepeat('WEEKLY')"
           >
@@ -158,7 +158,7 @@
             v-for="d in WEEKDAYS"
             :key="d.value"
             type="button"
-            class="size-[34px] rounded-full text-[12px] font-semibold transition-all active:scale-95 disabled:cursor-default"
+            class="relative after:absolute after:-inset-[5px] after:content-[''] size-[34px] rounded-full text-[12px] font-semibold transition-all active:scale-95 disabled:cursor-default"
             :class="selectedDays.includes(d.value)
               ? 'bg-apjek-blue text-white'
               : 'bg-apjek-surface text-apjek-text-sub border border-apjek-border-strong'"
@@ -176,12 +176,12 @@
             v-model="routineLabel"
             placeholder="새 루틴 이름 작성"
             maxlength="50"
-            class="flex-1 min-w-0 bg-transparent text-[14px] text-apjek-text outline-none"
+            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none"
             @keydown.enter.prevent="createRoutine"
           >
           <button
             type="button"
-            class="size-[28px] rounded-full flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center text-white shrink-0 transition-all active:scale-95"
             :class="canCreateRoutine ? 'bg-apjek-blue' : 'bg-apjek-blue-soft text-apjek-blue-deep/50'"
             :disabled="!canCreateRoutine || routineBusy"
             aria-label="루틴 추가"
@@ -207,7 +207,7 @@
         </span>
         <button
           type="button"
-          class="size-[28px] rounded-full flex items-center justify-center shrink-0 transition active:scale-95 disabled:opacity-40"
+          class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center shrink-0 transition active:scale-95 disabled:opacity-40"
           aria-label="루틴 삭제"
           :disabled="routineBusy"
           @click="removeRoutine(r)"
