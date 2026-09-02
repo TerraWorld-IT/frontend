@@ -92,7 +92,7 @@
             <div
               v-for="friend in friendRows"
               :key="friend.userId"
-              class="w-full rounded-[12px] flex items-center gap-[12px] p-[12px] bg-apjek-bg"
+              class="w-full rounded-[12px] flex items-center gap-[8px] min-[360px]:gap-[12px] p-[12px] bg-apjek-bg"
             >
               <div
                 class="size-[36px] rounded-full flex items-center justify-center text-[14px] font-bold text-apjek-text shrink-0"
@@ -102,7 +102,7 @@
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-[14px] font-semibold text-apjek-text leading-[20px] tracking-[-0.15px] truncate">{{ friend.nickname }}</p>
-                <p class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px]">TERRAWORLD 유저</p>
+                <p class="text-[10px] text-apjek-text-faint leading-[15px] tracking-[0.117px] whitespace-nowrap">TERRAWORLD 유저</p>
               </div>
               <button
                 type="button"
@@ -150,17 +150,17 @@
             재화 환전
           </button>
 
-          <!-- 코인 · 반짝이 · 루비 (상단 3열) — 아이콘 좌측, 라벨 위 / 값 아래 -->
+          <!-- 코인 · 반짝이 · 루비 (상단 3열) — 좁은 화면은 아이콘 위, 그 외에는 아이콘 좌측 -->
           <div class="grid grid-cols-3 gap-[8px]">
             <div
               v-for="c in coinCells"
               :key="c.code"
-              class="flex items-center gap-[8px] min-w-0"
+              class="flex flex-col items-center gap-[4px] min-w-0 min-[360px]:flex-row min-[360px]:gap-[8px]"
             >
               <IconsCurrencyIcon :code="c.code" :size="40" />
-              <div class="min-w-0">
-                <p class="text-[12px] text-apjek-text-sub leading-[16px] truncate">{{ c.label }}</p>
-                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
+              <div class="min-w-0 w-full text-center min-[360px]:w-auto min-[360px]:text-left">
+                <p class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap min-[360px]:truncate">{{ c.label }}</p>
+                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums whitespace-nowrap min-[360px]:truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
               </div>
             </div>
           </div>

@@ -13,9 +13,9 @@
     <Transition name="notif-panel">
       <div v-if="open" ref="root" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="알림">
         <div class="notif-backdrop fixed inset-0 bg-black/40" @click="emit('close')" />
-        <!-- 패널 — 우측 정렬 풀높이. X 는 translate 유틸 미사용이라 transform 단독 트랜지션 안전 -->
+        <!-- 패널 — 앱 컬럼 안의 풀높이 우측 슬라이드. X 는 translate 유틸 미사용이라 transform 단독 트랜지션 안전 -->
         <section
-          class="notif-panel fixed inset-y-0 right-0 w-full max-w-md flex flex-col shadow-2xl"
+          class="notif-panel fixed inset-y-0 inset-x-0 w-full max-w-md mx-auto flex flex-col shadow-2xl"
           style="background: var(--color-apjek-surface)"
           data-testid="notifications-panel"
         >

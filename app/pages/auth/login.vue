@@ -23,7 +23,7 @@
     <!-- 배경 장식 -->
     <div class="absolute inset-0 pointer-events-none">
       <div class="absolute top-16 left-12 text-5xl opacity-20 rotate-12">🌵</div>
-      <div class="absolute top-32 right-16 text-4xl opacity-20 -rotate-6">🌸</div>
+      <div class="absolute top-32 right-16 max-[359px]:right-20 text-4xl opacity-20 -rotate-6">🌸</div>
       <div class="absolute bottom-24 left-20 text-4xl opacity-20 rotate-6">🐱</div>
       <div class="absolute bottom-16 right-12 text-5xl opacity-20 -rotate-12">🌈</div>
       <div class="absolute top-1/2 left-6 text-3xl opacity-15">🍄</div>

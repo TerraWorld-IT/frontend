@@ -566,10 +566,10 @@
               </button>
             </div>
             <!-- 7일 보드 — board[] 순서대로 1~7 원형 + "+코인N" 라벨, 수령한 칸은 체크 -->
-            <div class="flex justify-center gap-3 mb-6" data-testid="attendance-board">
-              <div v-for="cell in attendanceBoard" :key="`att-day-${cell.day}`" class="flex flex-col items-center gap-1">
+            <div class="grid grid-cols-7 gap-2 mb-6 max-[359px]:-mx-4 max-[359px]:gap-1" data-testid="attendance-board">
+              <div v-for="cell in attendanceBoard" :key="`att-day-${cell.day}`" class="flex flex-col items-center gap-1 min-w-0">
                 <div
-                  class="w-9 h-9 rounded-full flex items-center justify-center"
+                  class="size-8 min-[360px]:size-9 rounded-full flex items-center justify-center"
                   :style="{
                     background: cell.claimed
                       ? 'var(--color-apjek-blue)'
@@ -582,7 +582,7 @@
                   <Icon v-if="cell.claimed" name="lucide:check-circle-2" class="w-5 h-5 text-white" />
                   <span v-else class="text-xs font-bold" :style="{ color: attDotCurrent(cell.day) ? '#518cdb' : '#c0c8e0' }">{{ cell.day }}</span>
                 </div>
-                <span class="text-[9px] whitespace-nowrap" :style="{ color: cell.claimed ? '#518cdb' : '#c0c8e0' }">+코인{{ cell.rewardBasicCoins }}</span>
+                <span class="text-[9px] whitespace-nowrap max-[359px]:tracking-[-0.15px]" :style="{ color: cell.claimed ? '#518cdb' : '#c0c8e0' }">+코인{{ cell.rewardBasicCoins }}</span>
               </div>
             </div>
             <div class="mb-5">
