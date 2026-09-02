@@ -2,6 +2,8 @@
   <!-- 아프젝 리스킨: 페이지 전체가 블루 씬 — 디자이너 "바탕_키우기탭"(식물 실루엣, 하단이 앱 배경색으로
        페이드)을 폭 맞춤으로 깔고, 그 아래로 이어지는 영역은 그라디언트로 같은 색을 잇는다. 레이아웃 main 의
        px-5 / 상단(세이프에어리어 포함) 패딩을 음수 마진으로 상쇄해 풀블리드로 칠한다. -->
+  <!-- 배경 이미지는 채우기(cover)로 둔다 — Figma 프레임의 이미지 Fill 과 같다.
+       폭 기준(100% auto)이면 세로가 긴 뷰포트에서 이미지 아래로 그라데이션이 드러나 가로 이음새가 보인다. -->
   <div
     class="-mx-5 px-5 pb-[24px] space-y-[16px]"
     :style="{
@@ -10,7 +12,7 @@
       paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
       paddingBottom: 'calc(24px + 98px + env(safe-area-inset-bottom, 0px))',
       minHeight: 'calc(100dvh - 98px - env(safe-area-inset-bottom, 0px))',
-      background: 'url(/bg/grow.webp) center top / 100% auto no-repeat, linear-gradient(180deg, var(--color-apjek-grow-from) 0%, var(--color-apjek-grow-to) 58%, var(--color-apjek-bg) 100%)',
+      background: 'url(/bg/grow.webp) center top / cover no-repeat, linear-gradient(180deg, var(--color-apjek-grow-from) 0%, var(--color-apjek-grow-to) 58%, var(--color-apjek-bg) 100%)',
     }"
   >
     <!-- 헤더 (G7 확정 카피) -->
