@@ -42,7 +42,18 @@
           <!-- 목록 -->
           <div class="flex-1 overflow-y-auto px-[20px] pb-[20px]">
             <div v-if="loading" class="flex flex-col gap-[8px]" aria-busy="true">
-              <div v-for="n in 3" :key="n" class="h-[56px] rounded-[12px] bg-apjek-bg animate-pulse" />
+              <div
+                v-for="n in 3"
+                :key="n"
+                class="flex items-start justify-between gap-[12px] py-[14px]"
+                data-testid="notice-skeleton-row"
+              >
+                <div class="min-w-0 flex-1 animate-pulse">
+                  <div class="h-[20px] w-2/3 rounded bg-apjek-bg" />
+                  <div class="mt-[2px] h-[17px] w-5/6 rounded bg-apjek-bg" />
+                </div>
+                <div class="mt-[2px] h-[17px] w-[52px] shrink-0 rounded bg-apjek-bg animate-pulse" />
+              </div>
             </div>
             <div v-else-if="notices.length === 0" class="h-full flex flex-col items-center justify-center gap-2 text-apjek-text-faint py-10">
               <span class="text-[32px]" aria-hidden="true">📭</span>
@@ -53,6 +64,7 @@
                 v-for="n in notices"
                 :key="n.id"
                 class="flex items-start justify-between gap-[12px] py-[14px]"
+                data-testid="notice-row"
               >
                 <div class="min-w-0">
                   <p class="text-[14px] font-bold text-apjek-text tracking-[-0.2px] leading-[20px]">{{ n.title }}</p>

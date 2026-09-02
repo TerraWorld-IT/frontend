@@ -1,7 +1,59 @@
 <template>
-  <div class="min-h-screen space-y-[28px] pb-4">
-    <!-- Initial loading -->
-    <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
+  <div class="min-h-screen space-y-[28px] pb-4" data-testid="calendar-page">
+    <!-- Initial loading: 현재 월의 실제 주 수와 같은 래퍼·패딩·간격을 그대로 예약한다. -->
+    <div
+      v-if="pending"
+      class="flex flex-col gap-[28px]"
+      data-testid="calendar-layout-skeleton"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="로딩 중"
+    >
+      <div class="h-[52px] flex items-start justify-between gap-3" data-layout-anchor="calendar-header">
+        <div class="space-y-1">
+          <div class="h-[28px] w-24 rounded-lg bg-apjek-border animate-pulse" />
+          <div class="h-[20px] w-48 rounded-lg bg-apjek-border animate-pulse" />
+        </div>
+        <div class="size-[34px] rounded-full bg-apjek-border animate-pulse" />
+      </div>
+
+      <div class="apjek-card p-5" data-layout-anchor="calendar-stats">
+        <div class="mb-4 flex h-6 items-center justify-between">
+          <div class="h-5 w-28 rounded-lg bg-apjek-border animate-pulse" />
+          <div class="h-4 w-14 rounded-lg bg-apjek-border animate-pulse" />
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div v-for="n in 3" :key="n" class="h-20 rounded-[12px] bg-apjek-border animate-pulse" />
+        </div>
+      </div>
+
+      <div class="apjek-card p-5" data-layout-anchor="calendar-grid">
+        <div class="mb-5 flex items-center justify-between">
+          <div class="size-11 -m-1 flex items-center justify-center">
+            <div class="size-9 rounded-full bg-apjek-border animate-pulse" />
+          </div>
+          <div class="h-6 w-28 rounded-lg bg-apjek-border animate-pulse" />
+          <div class="size-11 -m-1 flex items-center justify-center">
+            <div class="size-9 rounded-full bg-apjek-border animate-pulse" />
+          </div>
+        </div>
+        <div class="grid grid-cols-7 gap-2 mb-2">
+          <div v-for="n in 7" :key="n" class="py-2">
+            <div class="h-4 rounded-lg bg-apjek-border animate-pulse" />
+          </div>
+        </div>
+        <div class="grid grid-cols-7 gap-2">
+          <div
+            v-for="n in calendarSkeletonCellCount"
+            :key="n"
+            class="aspect-square rounded-[12px] bg-apjek-border animate-pulse"
+            data-testid="calendar-skeleton-cell"
+          />
+        </div>
+      </div>
+      <span class="sr-only">로딩 중</span>
+    </div>
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
@@ -18,7 +70,7 @@
 
     <template v-else>
       <!-- 헤더 — 아프젝: "캘린더 / 나의 기록을 한눈에 확인해요" + 우상단 X(모달형 → /record 복귀) (R5b) -->
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start justify-between gap-3" data-layout-anchor="calendar-header">
         <div class="space-y-1 min-w-0">
           <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">{{ $t('calendar.title') }}</h2>
           <p class="text-[14px] leading-[20px] text-apjek-text-sub tracking-[-0.15px]">
@@ -38,7 +90,7 @@
       </div>
 
       <!-- 활동 통계 (FE 실 통계 — 아프젝 디자인엔 없으나 실기능 보존, 팔레트만 정합) -->
-      <div class="apjek-card p-5">
+      <div class="apjek-card p-5" data-layout-anchor="calendar-stats">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold flex items-center gap-2 text-apjek-text">
             <Icon name="lucide:trending-up" class="w-5 h-5" />
@@ -91,7 +143,7 @@
       </div>
 
       <!-- 달력 — 아프젝: 라운드 원형 네비 + 라운드 사각 날짜 셀 (fig-calendar) -->
-      <div class="apjek-card p-5">
+      <div class="apjek-card p-5" data-layout-anchor="calendar-grid">
         <!-- 달력 헤더 -->
         <div class="flex items-center justify-between mb-5">
           <button
@@ -124,7 +176,7 @@
 
         <!-- 날짜 그리드 (R5b) — 오늘=검정 원, 기록 있는 날=도장 아이콘 + 강조색(#A1CCDB 계열, 댓글 #19),
              선택=강조 외곽선, 미래일=흐림 -->
-        <div class="grid grid-cols-7 gap-2">
+        <div class="grid grid-cols-7 gap-2" data-testid="calendar-days-grid">
           <div v-for="i in startingDayOfWeek" :key="`empty-${i}`" class="aspect-square" />
 
           <button
@@ -336,6 +388,7 @@ const currentMonth = computed<number>(() => viewMonth.value)
 const firstDayOfMonth = computed<Date>(() => new Date(viewYear.value, viewMonth.value, 1))
 const daysInMonth = computed<number>(() => new Date(viewYear.value, viewMonth.value + 1, 0).getDate())
 const startingDayOfWeek = computed<number>(() => firstDayOfMonth.value.getDay())
+const calendarSkeletonCellCount = computed<number>(() => Math.ceil((startingDayOfWeek.value + daysInMonth.value) / 7) * 7)
 
 const selectedDayRecords = computed<RecordResponse[]>(() => {
   if (!selectedDate.value) return []

@@ -1,6 +1,58 @@
 <template>
-  <div class="flex flex-col gap-[20px] pb-4">
-    <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
+  <div class="flex flex-col gap-[20px] pb-4" data-testid="profile-page">
+    <!-- 페이지 전체 대표 상태(친구 3명)를 실제 카드 간격과 같은 높이로 예약한다. -->
+    <div
+      v-if="pending"
+      class="flex flex-col gap-[20px]"
+      data-testid="profile-layout-skeleton"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="로딩 중"
+    >
+      <div class="h-[48px] py-[10px]" data-layout-anchor="profile-header">
+        <div class="h-[28px] w-24 rounded-lg bg-apjek-border animate-pulse" />
+      </div>
+      <div class="apjek-card h-[158px] p-[21px] animate-pulse" data-layout-anchor="profile-user-card">
+        <div class="h-[27px] w-32 rounded-lg bg-apjek-border" />
+        <div class="mt-[20px] flex items-center gap-[16px]">
+          <div class="size-[64px] rounded-full bg-apjek-border" />
+          <div class="space-y-2 flex-1">
+            <div class="h-5 w-32 rounded-lg bg-apjek-border" />
+            <div class="h-4 w-24 rounded-lg bg-apjek-border" />
+          </div>
+        </div>
+      </div>
+      <div class="apjek-card h-[283px] p-[21px] animate-pulse" data-layout-anchor="profile-friends-card">
+        <div class="h-[27px] w-28 rounded-lg bg-apjek-border" />
+        <div class="mt-[16px] flex flex-col gap-[8px]">
+          <div v-for="n in 3" :key="n" class="h-[60px] rounded-[12px] bg-apjek-border" />
+        </div>
+      </div>
+      <div class="apjek-card h-[301px] p-[21px] animate-pulse" data-layout-anchor="profile-currency-card">
+        <div class="h-[27px] w-28 rounded-lg bg-apjek-border" />
+        <div class="mt-[20px] h-[44px] rounded-full bg-apjek-border" />
+        <div class="mt-[20px] h-[40px] rounded-[12px] bg-apjek-border" />
+        <div class="mt-[20px] h-[86px] rounded-[12px] bg-apjek-border" />
+      </div>
+      <div class="apjek-card h-[263px] p-[21px] animate-pulse" data-layout-anchor="profile-inquiry-card">
+        <div class="h-[27px] w-32 rounded-lg bg-apjek-border" />
+        <div class="mt-[16px] flex flex-col gap-[8px]">
+          <div class="h-[46px] rounded-[12px] bg-apjek-border" />
+          <div class="h-[46px] rounded-[12px] bg-apjek-border" />
+          <div class="h-[61px] rounded-[12px] bg-apjek-border" />
+        </div>
+      </div>
+      <div class="apjek-card h-[265px] p-[21px] animate-pulse" data-layout-anchor="profile-account-card">
+        <div class="h-[27px] w-20 rounded-lg bg-apjek-border" />
+        <div class="mt-[16px] flex flex-col gap-[8px]">
+          <div class="h-[46px] rounded-[12px] bg-apjek-border" />
+          <div class="h-[61px] rounded-[12px] bg-apjek-border" />
+          <div class="h-[46px] rounded-[12px] bg-apjek-border" />
+        </div>
+      </div>
+      <span class="sr-only">로딩 중</span>
+    </div>
 
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
       <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
@@ -13,12 +65,12 @@
 
     <template v-else>
       <!-- 헤더 -->
-      <div class="py-[10px]">
+      <div class="py-[10px]" data-layout-anchor="profile-header">
         <h1 class="font-bold text-[29px] text-apjek-text tracking-[-0.9px] leading-[28px]">더보기</h1>
       </div>
 
       <!-- ① 나의 프로필 (M5b) -->
-      <div class="apjek-card w-full">
+      <div class="apjek-card w-full" data-layout-anchor="profile-user-card">
         <div class="p-[21px] flex flex-col gap-[20px]">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-[8px] text-apjek-text">
@@ -61,7 +113,7 @@
       </div>
 
       <!-- ② 친구목록 (M5b) — 실제 친구 최대 3행 + [놀러가기] → 방문 모달 -->
-      <div class="apjek-card w-full">
+      <div class="apjek-card w-full" data-layout-anchor="profile-friends-card">
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-[8px] text-apjek-text">
@@ -84,7 +136,7 @@
 
           <!-- 친구 목록 로딩 -->
           <div v-if="friendsLoading" class="flex flex-col gap-[8px]" aria-busy="true">
-            <div v-for="n in 2" :key="n" class="h-[60px] rounded-[12px] bg-apjek-bg animate-pulse" />
+            <div v-for="n in 3" :key="n" class="h-[60px] rounded-[12px] bg-apjek-bg animate-pulse" data-testid="profile-friend-skeleton-row" />
           </div>
 
           <!-- 친구 행 (최대 3) -->
@@ -93,6 +145,7 @@
               v-for="friend in friendRows"
               :key="friend.userId"
               class="w-full rounded-[12px] flex items-center gap-[8px] min-[360px]:gap-[12px] p-[12px] bg-apjek-bg"
+              data-testid="profile-friend-row"
             >
               <div
                 class="size-[36px] rounded-full flex items-center justify-center text-[14px] font-bold text-apjek-text shrink-0"
@@ -133,7 +186,7 @@
 
       <!-- ③ 보유 재화 (M5b) — Figma "더보기": 헤더 아래 전폭 [⇄ 재화 환전] 검정 버튼 → 환전 다이얼로그,
            코인·반짝이·루비 3열(아이콘 좌측 + 라벨/값) / 토큰 4열(아이콘 위 + 라벨 + 값). 타일 배경 없음. -->
-      <div class="apjek-card w-full">
+      <div class="apjek-card w-full" data-layout-anchor="profile-currency-card">
         <div class="p-[21px] flex flex-col gap-[20px]">
           <div class="flex items-center gap-[8px] text-apjek-text">
             <Icon name="lucide:coins" class="w-5 h-5" aria-hidden="true" />
@@ -181,7 +234,7 @@
       </div>
 
       <!-- ④ 문의 및 알림 (M5b/M1/M6/M8) — 공지사항 / 홈과 같은 알림 패널 / 고객센터 -->
-      <div class="apjek-card w-full">
+      <div class="apjek-card w-full" data-layout-anchor="profile-inquiry-card">
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center gap-[8px] text-apjek-text">
             <Icon name="lucide:bell" class="w-5 h-5" aria-hidden="true" />
@@ -255,7 +308,7 @@
       </div>
 
       <!-- ⑤ 계정 (M7) — 이용 안내 / 로그인(비로그인 시) / 설정 / 로그아웃 -->
-      <div class="apjek-card w-full">
+      <div class="apjek-card w-full" data-layout-anchor="profile-account-card">
         <div class="p-[21px] flex flex-col gap-[16px]">
           <div class="flex items-center gap-[8px] text-apjek-text">
             <svg width="20" height="20" fill="none" viewBox="0 0 20 20">

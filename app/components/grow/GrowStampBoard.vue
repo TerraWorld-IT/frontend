@@ -4,15 +4,25 @@
        flash(G5b 교환 직후 0.8초) 동안은 카드 배경이 핑크(#FFA0D6 계열)로 바뀌었다가 흰색으로 돌아온다. -->
   <div
     class="rounded-[20px] border border-white/50 px-[18px] py-[16px] transition-colors duration-300"
-    :class="complete || flash ? '' : 'bg-white/60'"
-    :style="boardStyle"
+    :class="skeleton ? 'bg-white/35 animate-pulse' : complete || flash ? '' : 'bg-white/60'"
+    :style="skeleton ? undefined : boardStyle"
+    :aria-hidden="skeleton ? 'true' : undefined"
   >
     <!-- 헤더: 좌 진행 카운트 / 우 달성 안내 -->
     <div class="flex items-center justify-between gap-2">
-      <span class="text-[11px] tracking-[-0.2px] text-apjek-text whitespace-nowrap">
+      <span
+        v-if="skeleton"
+        class="rounded bg-white/60 text-[11px] tracking-[-0.2px] text-transparent whitespace-nowrap"
+      >연속 기록 도장 0/30일</span>
+      <span v-else class="text-[11px] tracking-[-0.2px] text-apjek-text whitespace-nowrap">
         연속 기록 도장 {{ progress }}/{{ goal }}일<template v-if="dormant"> · 기록이 끊겼어요</template>
       </span>
       <span
+        v-if="skeleton"
+        class="rounded bg-white/60 text-[11px] tracking-[-0.2px] text-transparent whitespace-nowrap"
+      >30일 달성 시 정령 획득</span>
+      <span
+        v-else
         class="text-[11px] tracking-[-0.2px] whitespace-nowrap"
         :class="complete ? 'font-semibold text-apjek-text' : 'text-apjek-text-sub'"
       >
@@ -21,8 +31,9 @@
     </div>
 
     <!-- 진행 바 -->
-    <div class="mt-[10px] h-[4px] rounded-full bg-black/10 overflow-hidden">
+    <div class="mt-[10px] h-[4px] rounded-full overflow-hidden" :class="skeleton ? 'bg-white/60' : 'bg-black/10'">
       <div
+        v-if="!skeleton"
         class="h-full rounded-full bg-apjek-sparkle transition-all duration-[600ms] ease-out"
         :style="{ width: pct }"
       />
@@ -31,9 +42,10 @@
     <!-- 30칸 스탬프 그리드 (10열 × ceil(goal/10)행 — goal 은 서버 값) -->
     <div class="mt-[16px] grid grid-cols-10 gap-x-[4px] gap-y-[12px] justify-items-center">
       <template v-for="n in goal" :key="n">
+        <span v-if="skeleton" class="w-6 h-6 rounded-full bg-white/60" />
         <!-- 채워진 칸: 핑크 도장 (radial 하이라이트로 구슬 느낌) -->
         <span
-          v-if="n <= progress"
+          v-else-if="n <= progress"
           class="w-6 h-6 rounded-full"
           :style="{ background: 'radial-gradient(circle at 35% 30%, var(--color-apjek-sparkle-bg) 0%, var(--color-apjek-sparkle) 78%)' }"
         />
@@ -58,6 +70,8 @@ const props = defineProps<{
   complete?: boolean
   /** G5b — 교환 직후 핑크 플래시 */
   flash?: boolean
+  /** 실제 도장판 구조와 같은 높이를 예약하는 로딩 표현 */
+  skeleton?: boolean
   /** '정령' | '판타지 식물' — 우측 헤더 문구용 */
   kindLabel: string
 }>()

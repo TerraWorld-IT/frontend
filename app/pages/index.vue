@@ -16,9 +16,59 @@
     class="flex flex-col gap-5 min-h-screen -mx-5 -mt-4 px-5 pt-4"
     :class="editMode ? 'pb-[300px]' : 'pb-6'"
     style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 55%)"
+    data-testid="home-page"
   >
-    <!-- Loading -->
-    <CommonLoading v-if="pending" variant="skeleton" container-class="py-8" />
+    <!-- 최초 로드: 실제 상단 메뉴·타이틀·400×552 스테이지·모드 필의 래퍼와 높이를 그대로 예약한다. -->
+    <div
+      v-if="pending"
+      class="flex flex-col gap-5"
+      data-testid="home-layout-skeleton"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="로딩 중"
+    >
+      <div
+        class="mx-auto h-[73px] w-full max-w-[400px] rounded-full bg-apjek-blue/10 px-2 py-2 flex items-center justify-evenly"
+        data-layout-anchor="home-menu"
+      >
+        <div v-for="n in 5" :key="n" class="flex min-w-[52px] flex-col items-center gap-[2px]">
+          <div class="size-10 rounded-full bg-apjek-border animate-pulse" />
+          <div class="h-[12px] w-8 rounded bg-apjek-border animate-pulse" />
+        </div>
+      </div>
+      <div class="mx-auto h-[36px] w-28 rounded-lg bg-apjek-border animate-pulse" data-layout-anchor="home-title" />
+      <div class="w-full" data-layout-anchor="home-stage">
+        <!-- JarCarousel 과 같은 flex track/slide/preview 구조를 사용한다. 라이브 슬롯은 380px,
+             비활성 preview 는 py-5 + min(300px, 88%·track width)×380/300 이므로 좁은 폭에서도
+             트랙의 max-height 계산이 로드 상태와 동일하다. -->
+        <div class="flex w-full overflow-hidden" data-testid="home-stage-track-skeleton">
+          <div class="w-full shrink-0 snap-center">
+            <div class="flex h-[380px] w-full items-center justify-center" data-testid="home-stage-container-skeleton">
+              <div class="h-[243px] w-[176px] rounded-[45%] bg-apjek-border/75 animate-pulse" />
+            </div>
+          </div>
+          <div
+            v-for="level in 2"
+            :key="level"
+            class="flex w-full shrink-0 snap-center items-center justify-center py-5"
+            aria-hidden="true"
+          >
+            <div class="relative aspect-[300/380] w-[300px] max-w-[88%] rounded-full bg-apjek-border/75 animate-pulse" />
+          </div>
+        </div>
+        <div class="mt-1 h-2 flex justify-center gap-1.5">
+          <span v-for="n in 3" :key="n" class="h-2 w-2 rounded-full bg-apjek-border animate-pulse" />
+        </div>
+      </div>
+      <div class="flex h-[42px] justify-center gap-3" data-layout-anchor="home-mode">
+        <div class="h-[42px] w-[128px] rounded-full bg-apjek-border animate-pulse" />
+        <div class="h-[42px] w-[128px] rounded-full bg-apjek-border animate-pulse" />
+      </div>
+      <div class="apjek-card h-[266px] animate-pulse" data-layout-anchor="home-friends" />
+      <div class="apjek-card h-[242px] animate-pulse" data-layout-anchor="home-wallet" />
+      <span class="sr-only">로딩 중</span>
+    </div>
 
     <!-- Error -->
     <div v-else-if="fetchError" class="flex flex-col items-center py-24 gap-3">
@@ -40,6 +90,7 @@
         v-if="!editMode"
         class="mx-auto w-full max-w-[400px] rounded-full px-2 py-2 flex items-center justify-evenly"
         style="background: color-mix(in srgb, var(--color-apjek-blue) 10%, transparent)"
+        data-layout-anchor="home-menu"
       >
         <!-- 랭킹 → 랭킹 팝업 (T5, 보유 아이템 수 기준 전체/친구) -->
         <button type="button" data-testid="home-ranking" class="menu-item" aria-label="랭킹" @click="showRanking = true">
@@ -94,7 +145,7 @@
       </div>
 
       <!-- ─── T11 타이틀 "나의 테라" (댓글 #1 크기 조정 24px/800) ─── -->
-      <h1 v-if="!editMode" class="text-center text-[24px] font-extrabold text-apjek-text tracking-[-0.5px]">나의 테라</h1>
+      <h1 v-if="!editMode" class="text-center text-[24px] font-extrabold text-apjek-text tracking-[-0.5px]" data-layout-anchor="home-title">나의 테라</h1>
 
       <!-- ─── T13 관리 모드 상단 칩 3종 [🌱 아이템 배치][정령][✏️ 배경 설정] (선택 칩 파랑 채움) ─── -->
       <div v-else class="flex justify-center gap-2 flex-wrap" role="tablist" aria-label="관리 모드 탭">
@@ -120,6 +171,7 @@
         :levels="jarLevels"
         :selected-level="viewLevel"
         :locked="editMode || healingMode"
+        data-layout-anchor="home-stage"
         @unlock="onUnlockRequest"
         @select="onSelectLevel"
       >
@@ -373,7 +425,7 @@
       </TerrariumJarCarousel>
 
       <!-- ─── T3 모드 필: 힐링/관리 (일반) — 관리 모드 중엔 하단 패널의 [저장하기]가 종료 동작 ─── -->
-      <div v-if="!editMode" class="flex justify-center gap-3">
+      <div v-if="!editMode" class="flex justify-center gap-3" data-layout-anchor="home-mode">
         <button
           type="button"
           data-testid="home-healing"
@@ -396,7 +448,7 @@
 
       <!-- ─── T4b 아코디언: 친구 목록 → 보유 재화 (기본 열림, 접으면 기억 — 관리 모드에선 숨김) ─── -->
       <template v-if="!editMode">
-        <TerrariumHomeAccordion v-model:open="friendsOpen" title="친구 목록" icon="lucide:users">
+        <TerrariumHomeAccordion v-model:open="friendsOpen" title="친구 목록" icon="lucide:users" data-layout-anchor="home-friends">
           <div class="px-4 pb-4 flex flex-col gap-2">
             <div v-if="homeFriendsLoading" class="rounded-xl bg-gray-50 p-3 text-center">
               <p class="text-xs text-apjek-text-faint">친구 목록 불러오는 중…</p>
@@ -435,7 +487,7 @@
           </div>
         </TerrariumHomeAccordion>
 
-        <TerrariumHomeAccordion v-model:open="walletOpen" title="보유 재화" icon="lucide:circle-dollar-sign">
+        <TerrariumHomeAccordion v-model:open="walletOpen" title="보유 재화" icon="lucide:circle-dollar-sign" data-layout-anchor="home-wallet">
           <div class="px-4 pb-4 flex flex-col gap-2">
             <!-- T12 재화 환전 — 상점/더보기와 동일 다이얼로그 재사용 (댓글 #18/#47) -->
             <button

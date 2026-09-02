@@ -1,178 +1,265 @@
 <template>
-  <!-- 아프젝 리스킨: 페이지 전체가 블루 씬 — 디자이너 "바탕_키우기탭"(식물 실루엣, 하단이 앱 배경색으로
-       페이드)을 폭 맞춤으로 깔고, 그 아래로 이어지는 영역은 그라디언트로 같은 색을 잇는다. 레이아웃 main 의
-       px-5 / 상단(세이프에어리어 포함) 패딩을 음수 마진으로 상쇄해 풀블리드로 칠한다. -->
-  <!-- 배경 이미지는 채우기(cover)로 둔다 — Figma 프레임의 이미지 Fill 과 같다.
-       폭 기준(100% auto)이면 세로가 긴 뷰포트에서 이미지 아래로 그라데이션이 드러나 가로 이음새가 보인다. -->
+  <!-- 배경과 콘텐츠가 같은 폭 기준을 공유한다. 배경은 컨테이너 높이와 무관하게 항상
+       100% auto 로 스케일되고, 이미지 하단색(#f5f9fc)이 카드 흐름까지 그대로 이어진다. -->
   <div
-    class="-mx-5 px-5 pb-[24px] space-y-[16px]"
+    class="-mx-5 pb-[24px]"
+    data-testid="grow-page"
     :style="{
-      marginTop: 'calc(-1rem - env(safe-area-inset-top, 0px))',
+      marginTop: 'calc(-1rem - var(--sat, env(safe-area-inset-top, 0px)))',
       marginBottom: 'calc(-98px - env(safe-area-inset-bottom, 0px))',
-      paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+      paddingTop: 'var(--sat, env(safe-area-inset-top, 0px))',
       paddingBottom: 'calc(24px + 98px + env(safe-area-inset-bottom, 0px))',
       minHeight: 'calc(100dvh - 98px - env(safe-area-inset-bottom, 0px))',
-      background: 'url(/bg/grow.webp) center top / cover no-repeat, linear-gradient(180deg, var(--color-apjek-grow-from) 0%, var(--color-apjek-grow-to) 58%, var(--color-apjek-bg) 100%)',
+      background: 'url(/bg/grow.webp) center var(--sat, env(safe-area-inset-top, 0px)) / 100% auto no-repeat #f5f9fc',
     }"
   >
-    <!-- 헤더 (G7 확정 카피) -->
-    <div>
-      <h1 class="text-[26px] font-bold text-apjek-text tracking-[-0.8px] leading-[30px]">키우기</h1>
-      <div class="mt-[8px] text-[13px] text-apjek-text/75 tracking-[-0.3px]">
-        <p class="leading-[19px]">30일 동안 꾸준히 기록해서 정령과 판타지 식물을 키워요</p>
-        <p class="leading-[19px]">반짝이로 빠르게 키울 수 있어요</p>
-      </div>
-    </div>
-
-    <!-- 보유 반짝이 필 칩 (탭 시 습관 기록으로 이동 — 반짝이 획득 경로 안내) -->
-    <button
-      class="h-[38px] rounded-full bg-white border border-white/60 inline-flex items-center gap-[8px] pl-[8px] pr-[14px] transition-all active:scale-95"
-      @click="onSparkleInfo"
+    <!-- safe-area 는 페이지 padding 과 배경 position 에 같은 값으로 적용한다. 히어로 자체에는
+         inset padding 을 두지 않아 비트맵과 내부 448×500 캔버스가 같은 원점에서 시작한다. -->
+    <div
+      ref="heroFrame"
+      class="relative w-full overflow-hidden"
+      data-testid="grow-hero"
     >
-      <img src="/icons/token/sparkle.png" alt="" class="w-6 h-6 shrink-0 select-none" aria-hidden="true" draggable="false">
-      <span class="text-[12px] font-semibold text-apjek-text whitespace-nowrap">보유 반짝이 : {{ sparkle }}</span>
-    </button>
-
-    <!-- 최초 로드 중 스켈레톤 — 데이터가 오기 전까지 화면 아래가 비지 않게 -->
-    <CommonLoading v-if="pending" variant="skeleton" />
-
-    <!-- 육성 개체 (GET /growth) — 정령만 노출(§4-11: 판타지 식물은 데이터 유지, UI 숨김) -->
-    <template v-else>
-      <section v-for="c in items" :key="c.speciesCode" class="space-y-[14px]">
-        <!-- 30 달성: 성공 카드 -->
+      <div class="relative w-full" style="aspect-ratio: 448 / 500">
         <div
-          v-if="isComplete(c)"
-          class="apjek-card rounded-[20px] px-[24px] py-[26px] flex flex-col items-center text-center"
+          class="absolute left-0 top-0 h-[500px] w-[448px] origin-top-left"
+          :style="{ transform: `scale(${heroScale})` }"
+          data-testid="grow-hero-canvas"
         >
-          <p class="text-[18px] font-bold text-apjek-text tracking-[-0.4px]">{{ stageOf(c).label }} 키우기 성공!</p>
-          <p class="mt-[6px] text-[12px] text-apjek-text-sub tracking-[-0.2px]">
-            획득한 정령을 나의 테라에 배치할 수 있어요
-          </p>
-          <div class="relative mt-[14px] mb-[4px] flex items-center justify-center">
-            <!-- 핑크 글로우 — 성공 연출 -->
-            <span
-              class="absolute -inset-[28px] rounded-full pointer-events-none"
-              :style="{ background: 'radial-gradient(circle, rgba(251,147,207,0.35) 0%, rgba(251,147,207,0) 70%)' }"
-            />
-            <div class="relative">
-              <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
-            </div>
+      <div
+        class="absolute inset-x-[20px] top-[24px] z-10"
+        data-testid="grow-hero-header-stack"
+      >
+        <!-- 헤더 (G7 확정 카피) -->
+        <div data-testid="grow-hero-header">
+          <h1 class="text-[26px] font-bold text-apjek-text tracking-[-0.8px] leading-[30px]">키우기</h1>
+          <div class="mt-[8px] text-[13px] text-apjek-text/75 tracking-[-0.3px]">
+            <p class="leading-[19px]">30일 동안 꾸준히 기록해서 정령과 판타지 식물을 키워요</p>
+            <p class="leading-[19px]">반짝이로 빠르게 키울 수 있어요</p>
           </div>
-          <!-- 관리 모드 바로가기 (댓글 #53: 관리모드 > 정령 탭 바로 이동) — 홈 딥링크 `/?mode=manage&tab=spirit` -->
-          <button
-            class="mt-[16px] h-[38px] px-[18px] rounded-full bg-[#a9c9d3] inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#1f3d4d] transition-all active:scale-95"
-            @click="onManage"
-          >
-            <Icon name="lucide:pencil" class="w-4 h-4" />
-            관리 모드 바로가기
-          </button>
         </div>
 
-        <!-- G4 기록 끊김(LOST): 정령 자리 비움 + 안내 -->
-        <div v-else-if="isLost(c)" class="flex flex-col items-center justify-center pt-[30px] pb-[16px] min-h-[230px]">
-          <div class="w-[120px] h-[120px] rounded-full border-2 border-dashed border-white/50 flex items-center justify-center" aria-hidden="true">
-            <span class="text-[34px] opacity-60">✨</span>
+        <!-- 보유 반짝이 필 칩 (탭 시 습관 기록으로 이동 — 반짝이 획득 경로 안내) -->
+        <button
+          class="mt-[16px] h-[38px] rounded-full bg-white border border-white/60 inline-flex items-center gap-[8px] pl-[8px] pr-[14px] transition-all active:scale-95"
+          data-testid="grow-hero-sparkle-chip"
+          @click="onSparkleInfo"
+        >
+          <img src="/icons/token/sparkle.png" alt="" class="w-6 h-6 shrink-0 select-none" aria-hidden="true" draggable="false">
+          <span class="text-[12px] font-semibold text-apjek-text whitespace-nowrap">보유 반짝이 : {{ sparkle }}</span>
+        </button>
+      </div>
+
+      <!-- 로드 전에도 실제 대표 정령(stage2)과 같은 자리를 예약해 히어로 높이·앵커를 유지한다. -->
+      <div
+        v-if="pending"
+        class="absolute left-1/2 top-[310px] w-[156px] h-[173px] -translate-x-1/2 -translate-y-1/2 rounded-[48%] bg-white/35 animate-pulse"
+        data-testid="grow-spirit-anchor"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="로딩 중"
+      >
+        <span class="sr-only">로딩 중</span>
+      </div>
+
+      <template v-else-if="items[0]">
+        <!-- G4 기록 끊김(LOST): 같은 폭 기준 앵커에 정령 자리를 비운다. -->
+        <div
+          v-if="isLost(items[0])"
+          class="absolute left-1/2 top-[310px] w-[120px] h-[120px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center"
+          data-testid="grow-spirit-anchor"
+          aria-hidden="true"
+        >
+          <span class="text-[34px] opacity-60">✨</span>
+        </div>
+        <!-- 진행/완료 상태의 실제 정령. stage1 의 기존 0.85 비율도 안쪽에서 유지한다. -->
+        <div
+          v-else
+          class="absolute left-1/2 top-[310px] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+          data-testid="grow-spirit-anchor"
+        >
+          <GrowMysterySpirit v-if="stageOf(items[0]).tier === 'mystery'" />
+          <div
+            v-else
+            :class="stageOf(items[0]).tier === 'stage1' ? 'scale-[0.85]' : ''"
+          >
+            <GrowSpiritVisual :species-code="items[0].speciesCode" :name-ko="items[0].nameKo" :tier="stageOf(items[0]).tier" />
           </div>
-          <p class="mt-[22px] text-[18px] font-bold text-white tracking-[-0.4px]">내일 새로운 정령이 찾아와요</p>
-          <p class="mt-[4px] text-[12px] text-white/75 tracking-[-0.2px]">기록이 끊겨서 정령이 떠났어요</p>
+        </div>
+
+        <template v-if="isLost(items[0])">
+          <div class="absolute inset-x-[20px] top-[395px] text-center" data-testid="grow-stage-label">
+            <p class="text-[18px] font-bold text-white tracking-[-0.4px]">내일 새로운 정령이 찾아와요</p>
+            <p class="mt-[4px] text-[12px] text-white/75 tracking-[-0.2px]">기록이 끊겨서 정령이 떠났어요</p>
+          </div>
           <!-- 되살리기 보류(revive-dismiss) 중에는 당일 재시도 없음 — 버튼 숨김 (댓글 #32) -->
           <button
-            v-if="!isSnoozed(c)"
+            v-if="!isSnoozed(items[0])"
             type="button"
-            class="mt-[14px] h-[34px] px-[16px] rounded-full bg-white/90 text-[12px] font-semibold text-apjek-text transition-all active:scale-95"
-            @click="openLostModal(c)"
+            class="absolute left-1/2 top-[455px] -translate-x-1/2 h-[34px] px-[16px] rounded-full bg-white/90 text-[12px] font-semibold text-apjek-text transition-all active:scale-95"
+            @click="openLostModal(items[0])"
           >
             정령 다시 불러오기
           </button>
+        </template>
+        <p v-else class="absolute inset-x-[20px] top-[410px] text-center text-[22px] font-bold text-white tracking-[-0.5px]" data-testid="grow-stage-label">
+          {{ stageOf(items[0]).label }}
+        </p>
+      </template>
         </div>
-
-        <!-- 진행 중: 씬 중앙 정령 일러스트 + 단계 라벨 (G2 — 도장 수 기준) -->
-        <div v-else class="flex flex-col items-center pt-[30px] pb-[16px]">
-          <GrowMysterySpirit v-if="stageOf(c).tier === 'mystery'" />
-          <div
-            v-else
-            :class="stageOf(c).tier === 'stage1' ? 'scale-[0.85] origin-bottom' : ''"
-          >
-            <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
-          </div>
-          <p class="mt-[30px] text-[22px] font-bold text-white tracking-[-0.5px]">{{ stageOf(c).label }}</p>
-        </div>
-
-        <!-- 기록 끊김 시 도장판 + 하단 카드 일괄 흐림 + 터치 잠김(pointer-events none + grayscale) -->
-        <div
-          class="space-y-[14px] transition-[filter,opacity] duration-300"
-          :class="isLost(c) ? 'grayscale opacity-60 blur-[1.5px] pointer-events-none select-none' : ''"
-          :aria-disabled="isLost(c) ? 'true' : undefined"
-        >
-          <GrowStampBoard
-            :progress="c.stampCount"
-            :goal="c.goal"
-            :dormant="isLost(c)"
-            :complete="isComplete(c)"
-            :flash="flashSpecies === c.speciesCode"
-            kind-label="정령"
-          />
-
-          <!-- 30 달성: 다음 정령 안내 카드 (알림받기 — POST /growth/{speciesCode}/notify-next 토글) -->
-          <div v-if="isComplete(c)" class="rounded-[20px] bg-[#47515c] px-[18px] py-[16px] flex items-center gap-[12px]">
-            <div class="flex-1 min-w-0">
-              <p class="text-[15px] font-bold text-white tracking-[-0.3px]">새로운 정령이 내일 찾아와요</p>
-              <p class="mt-[3px] text-[11px] text-white/70 tracking-[-0.2px]">
-                새로운 수수께끼 정령이 도착하면 알려드려요
-              </p>
-            </div>
-            <button
-              class="shrink-0 h-[34px] px-[16px] rounded-full text-[13px] font-semibold transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100"
-              :class="c.notifyNext ? 'bg-white/25 text-white/80' : 'bg-[#ffffff] text-[#121212]'"
-              :aria-pressed="c.notifyNext"
-              :aria-label="c.notifyNext ? '다음 정령 도착 알림 신청 취소' : '다음 정령 도착 알림받기'"
-              :disabled="notifyBusy === c.speciesCode"
-              @click="onToggleNotify(c)"
-            >
-              {{ c.notifyNext ? '알림 신청됨' : '알림받기' }}
-            </button>
-          </div>
-
-          <!-- G5 반짝이 교환 카드 (다크 카드 + 화이트 버튼) — API 계약은 기존 부스터 그대로 -->
-          <div v-else class="rounded-[20px] bg-[#47515c] px-[16px] py-[14px] flex items-center gap-[12px]">
-            <div class="w-[44px] h-[44px] rounded-[14px] bg-apjek-sparkle-bg flex items-center justify-center shrink-0">
-              <IconSparkle color="#fb93cf" class="w-[26px] h-[26px]" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-[15px] font-bold text-white tracking-[-0.3px]">반짝이 사용하기</p>
-              <p class="mt-[2px] text-[11px] text-white/70 tracking-[-0.2px]">
-                반짝이 {{ BOOSTER_COST }}개를 도장 {{ BOOSTER_STAMPS }}개로 교환해요
-              </p>
-            </div>
-            <!-- 반짝이 부족 시엔 비활성 대신 탭 → 부족 안내 토스트 (onUse 의 사전 체크) -->
-            <button
-              class="shrink-0 h-[34px] px-[16px] rounded-full bg-[#ffffff] text-[13px] font-semibold text-[#121212] transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-              :disabled="boosting === c.speciesCode || isLost(c)"
-              @click="onUse(c)"
-            >
-              교환하기
-            </button>
-          </div>
-        </div>
-      </section>
-    </template>
-
-    <!-- 실패 — "정령이 없다" 와 반드시 구분한다. 통신 오류를 빈 상태로 보여주면
-         사용자는 키우던 개체가 사라진 줄 안다. -->
-    <div v-if="!pending && loadFailed" class="flex flex-col items-center gap-3 py-10 text-white/85">
-      <p class="text-[14px]">정보를 불러오지 못했어요</p>
-      <button
-        type="button"
-        class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
-        @click="loadGrowth()"
-      >
-        다시 시도
-      </button>
+      </div>
     </div>
 
-    <!-- 빈 상태 — 로드가 성공했고 정말 0개일 때만 -->
-    <div v-else-if="!pending && !items.length" class="text-center text-[14px] text-white/85 py-10">
-      아직 키우는 정령이 없어요
+    <div class="px-5 space-y-[16px]">
+      <!-- 페이지 모양 스켈레톤: 대표 도장판(30칸)과 교환 카드 높이를 그대로 예약한다. -->
+      <div
+        v-if="pending"
+        class="space-y-[14px]"
+        data-testid="grow-content-skeleton"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="로딩 중"
+      >
+        <div data-layout-anchor="grow-stamp-board">
+          <GrowStampBoard :progress="0" :goal="30" kind-label="정령" skeleton />
+        </div>
+        <div class="h-[72px] rounded-[20px] bg-[#47515c]/45 animate-pulse" data-layout-anchor="grow-action-card" />
+        <span class="sr-only">로딩 중</span>
+      </div>
+
+      <!-- 육성 개체 (GET /growth) — 정령만 노출(§4-11: 판타지 식물은 데이터 유지, UI 숨김) -->
+      <template v-else>
+        <section v-for="c in items" :key="c.speciesCode" class="space-y-[14px]">
+          <!-- 첫 개체의 상태 비주얼은 완료 상태도 히어로가 한 번만 담당한다. -->
+          <div
+            v-if="isComplete(c)"
+            class="apjek-card rounded-[20px] px-[24px] py-[26px] flex flex-col items-center text-center"
+          >
+            <p class="text-[18px] font-bold text-apjek-text tracking-[-0.4px]">{{ stageOf(c).label }} 키우기 성공!</p>
+            <p class="mt-[6px] text-[12px] text-apjek-text-sub tracking-[-0.2px]">
+              획득한 정령을 나의 테라에 배치할 수 있어요
+            </p>
+            <!-- 첫 개체의 정령은 히어로가 그린다. 첫 개체가 아닌 완료 개체는 이 카드가 유일한 자리라 비주얼을 유지한다. -->
+            <div
+              v-if="items[0]?.speciesCode !== c.speciesCode"
+              class="relative mt-[14px] mb-[4px] flex items-center justify-center"
+            >
+              <span
+                class="absolute -inset-[28px] rounded-full pointer-events-none"
+                :style="{ background: 'radial-gradient(circle, rgba(251,147,207,0.35) 0%, rgba(251,147,207,0) 70%)' }"
+              />
+              <div class="relative">
+                <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
+              </div>
+            </div>
+            <button
+              class="mt-[16px] h-[38px] px-[18px] rounded-full bg-[#a9c9d3] inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#1f3d4d] transition-all active:scale-95"
+              @click="onManage"
+            >
+              <Icon name="lucide:pencil" class="w-4 h-4" />
+              관리 모드 바로가기
+            </button>
+          </div>
+
+          <!-- 방어적으로 두 번째 정령이 오면 기존 상태 비주얼을 일반 흐름에 보존한다. -->
+          <div
+            v-else-if="items[0]?.speciesCode !== c.speciesCode"
+            class="flex flex-col items-center pt-[30px] pb-[16px]"
+          >
+            <template v-if="isLost(c)">
+              <div class="w-[120px] h-[120px] rounded-full border-2 border-dashed border-white/50 flex items-center justify-center" aria-hidden="true">
+                <span class="text-[34px] opacity-60">✨</span>
+              </div>
+              <p class="mt-[22px] text-[18px] font-bold text-white tracking-[-0.4px]">내일 새로운 정령이 찾아와요</p>
+              <p class="mt-[4px] text-[12px] text-white/75 tracking-[-0.2px]">기록이 끊겨서 정령이 떠났어요</p>
+            </template>
+            <template v-else>
+              <GrowMysterySpirit v-if="stageOf(c).tier === 'mystery'" />
+              <div v-else :class="stageOf(c).tier === 'stage1' ? 'scale-[0.85] origin-bottom' : ''">
+                <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
+              </div>
+              <p class="mt-[30px] text-[22px] font-bold text-white tracking-[-0.5px]">{{ stageOf(c).label }}</p>
+            </template>
+          </div>
+
+          <!-- 기록 끊김 시 도장판 + 하단 카드 일괄 흐림 + 터치 잠김(pointer-events none + grayscale) -->
+          <div
+            class="space-y-[14px] transition-[filter,opacity] duration-300"
+            :class="isLost(c) ? 'grayscale opacity-60 blur-[1.5px] pointer-events-none select-none' : ''"
+            :aria-disabled="isLost(c) ? 'true' : undefined"
+          >
+            <div data-layout-anchor="grow-stamp-board">
+              <GrowStampBoard
+                :progress="c.stampCount"
+                :goal="c.goal"
+                :dormant="isLost(c)"
+                :complete="isComplete(c)"
+                :flash="flashSpecies === c.speciesCode"
+                kind-label="정령"
+              />
+            </div>
+
+            <!-- 30 달성: 다음 정령 안내 카드 (알림받기 — POST /growth/{speciesCode}/notify-next 토글) -->
+            <div v-if="isComplete(c)" class="rounded-[20px] bg-[#47515c] px-[18px] py-[16px] flex items-center gap-[12px]" data-layout-anchor="grow-action-card">
+              <div class="flex-1 min-w-0">
+                <p class="text-[15px] font-bold text-white tracking-[-0.3px]">새로운 정령이 내일 찾아와요</p>
+                <p class="mt-[3px] text-[11px] text-white/70 tracking-[-0.2px]">
+                  새로운 수수께끼 정령이 도착하면 알려드려요
+                </p>
+              </div>
+              <button
+                class="shrink-0 h-[34px] px-[16px] rounded-full text-[13px] font-semibold transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100"
+                :class="c.notifyNext ? 'bg-white/25 text-white/80' : 'bg-[#ffffff] text-[#121212]'"
+                :aria-pressed="c.notifyNext"
+                :aria-label="c.notifyNext ? '다음 정령 도착 알림 신청 취소' : '다음 정령 도착 알림받기'"
+                :disabled="notifyBusy === c.speciesCode"
+                @click="onToggleNotify(c)"
+              >
+                {{ c.notifyNext ? '알림 신청됨' : '알림받기' }}
+              </button>
+            </div>
+
+            <!-- G5 반짝이 교환 카드 (다크 카드 + 화이트 버튼) — API 계약은 기존 부스터 그대로 -->
+            <div v-else class="rounded-[20px] bg-[#47515c] px-[16px] py-[14px] flex items-center gap-[12px]" data-layout-anchor="grow-action-card">
+              <div class="w-[44px] h-[44px] rounded-[14px] bg-apjek-sparkle-bg flex items-center justify-center shrink-0">
+                <IconSparkle color="#fb93cf" class="w-[26px] h-[26px]" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-[15px] font-bold text-white tracking-[-0.3px]">반짝이 사용하기</p>
+                <p class="mt-[2px] text-[11px] text-white/70 tracking-[-0.2px]">
+                  반짝이 {{ BOOSTER_COST }}개를 도장 {{ BOOSTER_STAMPS }}개로 교환해요
+                </p>
+              </div>
+              <button
+                class="shrink-0 h-[34px] px-[16px] rounded-full bg-[#ffffff] text-[13px] font-semibold text-[#121212] transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                :disabled="boosting === c.speciesCode || isLost(c)"
+                @click="onUse(c)"
+              >
+                교환하기
+              </button>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <!-- 실패 — "정령이 없다" 와 반드시 구분한다. -->
+      <div v-if="!pending && loadFailed" class="flex flex-col items-center gap-3 py-10 text-apjek-text-sub">
+        <p class="text-[14px]">정보를 불러오지 못했어요</p>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+          @click="loadGrowth()"
+        >
+          다시 시도
+        </button>
+      </div>
+
+      <!-- 빈 상태 — 로드가 성공했고 정말 0개일 때만 -->
+      <div v-else-if="!pending && !items.length" class="text-center text-[14px] text-apjek-text-sub py-10">
+        아직 키우는 정령이 없어요
+      </div>
     </div>
 
     <!-- G4 기록 끊김 모달 -->
@@ -210,6 +297,13 @@ definePageMeta({ middleware: 'auth' })
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 const userStore = useUserStore()
+
+const heroFrame = ref<HTMLElement | null>(null)
+const heroScale = ref<number>(1)
+useResizeObserver(heroFrame, (entries) => {
+  const width = entries[0]?.contentRect.width ?? heroFrame.value?.clientWidth ?? 448
+  heroScale.value = Math.min(1, Math.max(0, width / 448))
+})
 
 const sparkle = computed<number>(() => Math.floor(balanceOf(userStore.currency, 'SPARKLE')))
 const ruby = computed<number>(() => Math.floor(balanceOf(userStore.currency, 'RUBY')))
