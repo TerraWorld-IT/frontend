@@ -173,6 +173,37 @@
   overscroll-behavior: none;
 }
 
+/* default layout 이 실제 화면 surface 를 html 속성으로 올려 guard 와 페이지가 같은 변수를 쓴다.
+   grow 의 #f5f9fc 는 기존 페이지 배경 literal 을 이 변수로 옮긴 값이며 새 색을 추가한 것이 아니다. */
+html[data-safe-area-surface='surface'] {
+  --native-top-safe-area-color: var(--color-apjek-surface);
+}
+
+html[data-safe-area-surface='grow'] {
+  --native-top-safe-area-color: #f5f9fc;
+}
+
+/* 상태바/노치 영역은 스크롤 콘텐츠가 아니라 각 화면의 surface 색으로 계속 칠한다.
+   일반 콘텐츠의 최고 레이어(z-6000)보다 위에 두되, inset 을 직접 칠하는 힐링/모드 인트로
+   surface(z-9990/9995)보다 아래에 둔다. root pseudo 여야 body 로 teleport 된 인트로와 같은
+   stacking context 에서 z-index 순서가 보장된다. */
+.is-native-app[data-safe-area-surface]::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background-color: var(--native-top-safe-area-color);
+  pointer-events: none;
+  z-index: 9989;
+}
+
+/* 웹에서는 기존 top-0 을 유지하고, guard 가 존재하는 네이티브 범위에서만 inset 아래에 붙인다. */
+.is-native-app .native-safe-area-sticky {
+  top: env(safe-area-inset-top, 0px);
+}
+
 /* overscroll-behavior 는 상속되지 않는다 — <html> 에만 걸어두면 login.vue 등 개별
    overflow-y-auto 컨테이너는 각자 독립적으로 iOS 바운스를 일으킨다(실기기 QA 발견,
    콘텐츠가 뷰포트에 정확히 맞아도 WebKit 이 살짝 튕기는 것처럼 보임). 스크롤 가능 여부와
