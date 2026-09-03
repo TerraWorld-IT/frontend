@@ -10,7 +10,7 @@
       paddingTop: 'var(--sat, env(safe-area-inset-top, 0px))',
       paddingBottom: 'calc(24px + 98px + env(safe-area-inset-bottom, 0px))',
       minHeight: 'calc(100dvh - 98px - env(safe-area-inset-bottom, 0px))',
-      background: 'url(/bg/grow.webp) center var(--sat, env(safe-area-inset-top, 0px)) / 100% auto no-repeat #f5f9fc',
+      background: 'url(/bg/grow.webp) center var(--sat, env(safe-area-inset-top, 0px)) / 100% auto no-repeat var(--native-top-safe-area-color, #f5f9fc)',
     }"
   >
     <!-- safe-area 는 페이지 padding 과 배경 position 에 같은 값으로 적용한다. 히어로 자체에는

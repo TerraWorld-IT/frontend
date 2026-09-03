@@ -61,7 +61,13 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'TERRAWORLD' })
+const route = useRoute()
+useHead(() => ({
+  title: 'TERRAWORLD',
+  htmlAttrs: {
+    'data-safe-area-surface': route.path === '/grow' ? 'grow' : 'surface',
+  },
+}))
 
 interface Tab {
   to: string
@@ -83,7 +89,6 @@ const tabs = computed<Tab[]>(() => [
   { to: '/profile', iconName: 'lucide:ellipsis', label: t('nav.profile') },
 ])
 
-const route = useRoute()
 const { hapticImpact } = useNative()
 const mainScrollEl = ref<HTMLElement | null>(null)
 
