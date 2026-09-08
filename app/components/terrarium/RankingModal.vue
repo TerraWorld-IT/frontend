@@ -30,8 +30,12 @@
         type="button"
         role="tab"
         :aria-selected="scope === seg.scope"
+        :id="`ranking-tab-${seg.scope}`"
+        :tabindex="scope === seg.scope ? 0 : -1"
+        aria-controls="ranking-panel"
+        @keydown="onTabKeydown"
         :data-testid="`ranking-scope-${seg.scope}`"
-        class="h-10 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] h-10 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95"
         :style="scope === seg.scope
           ? { background: 'var(--color-apjek-blue-soft)', color: 'var(--color-apjek-blue-deep)', border: '1px solid var(--color-apjek-blue)' }
           : { background: 'var(--color-apjek-surface)', color: 'var(--color-apjek-text-sub)', border: '1px solid var(--color-apjek-border-strong)' }"
@@ -42,13 +46,13 @@
     </div>
 
     <!-- 리스트 — 내부 스크롤(드래그로 하위 랭킹) -->
-    <div class="max-h-[42dvh] overflow-y-auto -mx-1 px-1" data-testid="ranking-list">
+    <div class="max-h-[42dvh] overflow-y-auto -mx-1 px-1" data-testid="ranking-list" id="ranking-panel" role="tabpanel" :aria-labelledby="`ranking-tab-${scope}`">
       <div v-if="loading" class="py-10 flex justify-center">
         <CommonLoading variant="spinner" />
       </div>
       <div v-else-if="errorMessage" class="py-8 text-center space-y-3" data-testid="ranking-error">
         <p class="text-xs text-apjek-text-sub">{{ errorMessage }}</p>
-        <button type="button" class="apjek-chip apjek-chip-active text-xs px-4 py-2" @click="load">다시 시도</button>
+        <button type="button" class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] apjek-chip apjek-chip-active text-xs px-4 py-2" @click="load">다시 시도</button>
       </div>
       <p v-else-if="entries.length === 0" class="py-10 text-center text-xs text-apjek-text-faint" data-testid="ranking-empty">
         {{ scope === 'friends' ? '아직 친구가 없어요 · 초대코드로 친구를 초대해 보세요' : '아직 랭킹이 없어요' }}
@@ -107,6 +111,14 @@ const myRankLabel = computed<string>(() => {
   const rank = data.value?.myRank
   return rank === null || rank === undefined ? `순위 없음 ${myNickname.value}` : `#${rank} ${myNickname.value}`
 })
+
+function onTabKeydown(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  scope.value = event.key === 'Home' ? 'all' : event.key === 'End' ? 'friends' : scope.value === 'all' ? 'friends' : 'all'
+  const list = (event.currentTarget as HTMLElement).parentElement
+  void nextTick(() => list?.querySelector<HTMLElement>(`#ranking-tab-${scope.value}`)?.focus())
+}
 
 async function load(): Promise<void> {
   const seq = ++requestSeq

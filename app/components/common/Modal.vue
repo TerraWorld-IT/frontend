@@ -4,13 +4,12 @@
       <div
         v-if="modelValue"
         ref="modalRoot"
-        class="fixed inset-0 z-[9997] flex items-start justify-center p-4 overflow-y-auto"
+        class="fixed inset-0 z-[9997] apjek-safe-dialog p-4"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="title ? 'modal-title' : undefined"
         :aria-describedby="message ? 'modal-message' : undefined"
         tabindex="-1"
-        @keydown.esc="cancel"
       >
         <!-- Backdrop — 탭/클릭 시 cancel (X·ESC 와 같은 경로). 루트의 .self 는 백드롭이 루트를 전부 덮어
              실제로는 발화하지 않던 것이라 백드롭 자체에 핸들러를 건다 -->
@@ -27,7 +26,7 @@
         <div
           data-testid="modal-card"
           class="relative bg-apjek-surface text-apjek-text rounded-2xl p-6 w-full max-w-[393px] my-auto overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-          style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)"
+          style="max-height: calc(100dvh - var(--sat) - var(--sab) - 32px)"
         >
           <!-- 우상단 닫기 X — 연파랑 원형. cancel 과 동일 경로 -->
           <button
@@ -54,7 +53,6 @@
           <div class="flex gap-3 mt-5">
             <button
               v-if="showCancel"
-              ref="cancelBtn"
               type="button"
               class="flex-1 py-3 rounded-full text-sm font-semibold bg-apjek-surface border border-apjek-border-strong text-apjek-text-sub active:bg-apjek-bg"
               @click="cancel"
@@ -62,7 +60,7 @@
               {{ resolvedCancelText }}
             </button>
             <button
-              ref="confirmBtn"
+              autofocus
               type="button"
               class="apjek-cta flex-1 py-3 text-sm font-bold transition-opacity"
               :class="confirmClass"
@@ -120,9 +118,6 @@ const emit = defineEmits<{
 }>()
 
 const modalRoot = ref<HTMLElement | null>(null)
-const confirmBtn = ref<HTMLButtonElement | null>(null)
-const cancelBtn = ref<HTMLButtonElement | null>(null)
-let previousActiveElement: Element | null = null
 const { pushBackHandler } = useBackButtonStack()
 let unregisterBackHandler: (() => void) | null = null
 
@@ -142,82 +137,20 @@ function cancel() {
   emit('update:modelValue', false)
 }
 
-// 배경 스크롤 잠금은 공용 프리미티브(useOverlayScrollLock)에 위임한다.
-// 과거 이 컴포넌트는 `document.body.style.overflow='hidden'` 으로 잠갔는데, 이 앱의 실제
-// 스크롤러는 body 가 아니라 layouts/default.vue 의 <main class="overflow-y-auto"> 라서
-// **아무 효과가 없었다**(배경이 그대로 스크롤됨). 프리미티브가 <html>.scroll-locked 로
-// main 과 body 를 함께 잠그고, 중첩 모달 참조 카운트도 그쪽이 관리한다.
-useOverlayScrollLock(toRef(props, 'modelValue'))
-
-watch(() => props.modelValue, async (open) => {
+// 공용 포커스 소유권으로 중첩 Modal과 독립 다이얼로그를 같은 순서로 처리한다.
+useDialogFocusTrap(modalRoot, toRef(props, 'modelValue'), cancel)
+watch(() => props.modelValue, (open, previous) => {
   if (!import.meta.client) return
-  if (open) {
-    previousActiveElement = document.activeElement
-    // Android 하드웨어 뒤로가기 — 열려있는 동안은 cancel() 로 이 모달부터 닫는다
-    // (capacitor.client.ts backButton 리스너가 라우트 back/앱종료보다 먼저 이 스택을 소비).
-    unregisterBackHandler = pushBackHandler(cancel)
-    await nextTick()
-    confirmBtn.value?.focus()
-  } else {
-    // 여기서도 명시적으로 처리 — confirm()/cancel() 을 안 거치고 부모가 modelValue 를
-    // 직접 false 로 바꾸는 경로(예: admin/items.vue 의 폼 submit 성공 후 showCreateDialog
-    // 직접 토글)에서도 slot 안 input 의 키보드가 안 닫히는 문제를 막는다.
-    void dismissKeyboard()
+  if (open) unregisterBackHandler = pushBackHandler(cancel)
+  else {
+    if (previous) void dismissKeyboard()
     unregisterBackHandler?.()
     unregisterBackHandler = null
-    if (previousActiveElement instanceof HTMLElement) {
-      previousActiveElement.focus()
-    }
-    previousActiveElement = null
   }
-})
-
-const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-
-// Focus trap — Tab / Shift+Tab 키가 모달 전체(slot 내부 input/select/link 포함)를 순환.
-// 이전엔 confirm/cancel 버튼 2개 사이만 trap 해서, slot 에 폼 필드가 있는 복잡한 모달
-// (ExchangeModal 등)에서 Tab 이 슬롯 필드를 건너뛰고 두 버튼 사이만 왔다갔다 했다(Codex 감사 지적).
-function handleTabTrap(e: KeyboardEvent) {
-  // TYPE-201 — modelValue=false 시 ref 가 null 이라 length 0 으로 early return 되지만,
-  // 의도 명시 + cost 절약 위해 modalValue open guard 를 맨 앞에.
-  if (!props.modelValue) return
-  if (e.key !== 'Tab') return
-  if (!modalRoot.value) return
-  const focusables = Array.from(modalRoot.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-  if (focusables.length === 0) return
-  const first = focusables[0]!
-  const last = focusables[focusables.length - 1]!
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault()
-    last.focus()
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault()
-    first.focus()
-  }
-}
-
-onMounted(async () => {
-  if (!import.meta.client) return
-  document.addEventListener('keydown', handleTabTrap)
-  // watch 는 modelValue 변경 시에만 발화 — 이미 열린 채 mount 되면 back-handler 를 직접 획득.
-  // (스크롤 잠금은 useOverlayScrollLock 이 immediate watch 로 알아서 처리한다.)
-  if (props.modelValue) {
-    previousActiveElement = document.activeElement
-    unregisterBackHandler = pushBackHandler(cancel)
-    await nextTick()
-    confirmBtn.value?.focus()
-  }
-})
+}, { immediate: true })
 onBeforeUnmount(() => {
-  if (import.meta.client) {
-    document.removeEventListener('keydown', handleTabTrap)
-    // unmount 시 본 instance 가 back-handler 보유 중이었다면 해제
-    // (스크롤 잠금은 useOverlayScrollLock 의 onScopeDispose 가 되돌린다.)
-    if (props.modelValue) {
-      unregisterBackHandler?.()
-      unregisterBackHandler = null
-    }
-  }
+  unregisterBackHandler?.()
+  unregisterBackHandler = null
 })
 </script>
 

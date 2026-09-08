@@ -5,12 +5,12 @@
     class="-mx-5 pb-[24px]"
     data-testid="grow-page"
     :style="{
-      marginTop: 'calc(-1rem - var(--sat, env(safe-area-inset-top, 0px)))',
-      marginBottom: 'calc(-98px - env(safe-area-inset-bottom, 0px))',
-      paddingTop: 'var(--sat, env(safe-area-inset-top, 0px))',
-      paddingBottom: 'calc(24px + 98px + env(safe-area-inset-bottom, 0px))',
-      minHeight: 'calc(100dvh - 98px - env(safe-area-inset-bottom, 0px))',
-      background: 'url(/bg/grow.webp) center var(--sat, env(safe-area-inset-top, 0px)) / 100% auto no-repeat #f5f9fc',
+      marginTop: 'calc(-1rem - var(--sat))',
+      marginBottom: 'calc(-98px - var(--sab))',
+      paddingTop: 'var(--sat)',
+      paddingBottom: 'calc(24px + 98px + var(--sab))',
+      minHeight: 'calc(100dvh - 98px - var(--sab))',
+      background: 'url(/bg/grow.webp) center var(--sat) / 100% auto no-repeat #f5f9fc',
     }"
   >
     <!-- safe-area 는 페이지 padding 과 배경 position 에 같은 값으로 적용한다. 히어로 자체에는
@@ -293,6 +293,10 @@ import svgPaths from './grow-svg-paths'
 // 디자인 SoT: 아프젝 v2 Figma(2026-08-21) 키우기 탭 — G2 단계 라벨 / G3 30 달성 / G4 기록 끊김 / G5b 교환 플래시 / G7 카피.
 // 서버 계약(N-B6 rev2 R3): cycleState/stampCount/stages/completedToday/notifyNext/reviveRubyCost/reviveSnoozedUntil 가 SoT.
 definePageMeta({ middleware: 'auth' })
+
+// 상단 세이프에어리어는 이 화면의 배경 바탕색(#f5f9fc)이 채우고, 하단은 하단 네비(서피스)가 덮는다.
+// 스크림도 그 두 색을 각각 따라가야 노치 색 띠가 생기지 않는다.
+useHead({ htmlAttrs: { style: '--apjek-scrim: #f5f9fc; --apjek-scrim-bottom: var(--color-apjek-surface)' } })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()

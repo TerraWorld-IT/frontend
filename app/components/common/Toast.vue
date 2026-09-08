@@ -12,18 +12,22 @@
       - pill: 351×51 흰 필 + 핑크 외곽선(#FFA0D6) 텍스트 1줄
       수평 중앙은 `inset-x-0 mx-auto` — Tailwind v4 의 -translate-x-1/2 는 개별 translate 라
       스와이프 transform 과 합성돼 이중 적용되므로 쓰지 않는다(frontend/CLAUDE.md 함정).
+      높이 상한과 내부 스크롤은 컨테이너가 아니라 토스트 카드가 가진다 — 컨테이너에 overflow-y 를
+      주면 x 축까지 clip 되어 스와이프 이동과 그림자가 잘린다.
     -->
     <div
       class="fixed inset-x-0 mx-auto z-[9999] flex flex-col items-center gap-2 w-full max-w-[393px] px-4"
-      style="top: calc(16px + env(safe-area-inset-top, 0px))"
+      :style="{ top: `calc(var(--sat) + ${slots.offline + (slots.record ? 64 + slots.record + 8 : 16)}px)` }"
+      style="padding-left: max(16px, calc(var(--sal) - (100vw - min(100vw, 393px)) / 2)); padding-right: max(16px, calc(var(--sar) - (100vw - min(100vw, 393px)) / 2))"
       role="status"
       aria-live="polite"
       aria-atomic="true"
     >
       <TransitionGroup name="toast">
         <div
-          v-for="toast in toasts"
+          v-for="toast in toasts.slice(0, 1)"
           :key="toast.id"
+          :data-toast-id="toast.id"
           :data-variant="toast.variant"
           :data-type="toast.type"
           :class="[
@@ -32,7 +36,7 @@
               ? 'apjek-toast-card w-full min-h-[88px] rounded-[8px] border px-4 py-3 flex items-center gap-3'
               : 'apjek-toast-pill w-full max-w-[351px] min-h-[51px] rounded-full border px-5 py-3 flex items-center justify-center gap-2',
           ]"
-          :style="toastStyle(toast)"
+         :style="[toastStyle(toast), { maxHeight: `calc(100dvh - var(--sat) - var(--sab) - ${slots.offline + (slots.record ? 64 + slots.record + 8 : 16) + 16}px)`, overflowY: 'auto' }]"
           @pointerdown="onPointerDown(toast.id, $event)"
           @pointermove="onPointerMove(toast.id, $event)"
           @pointerup="onPointerUp(toast.id, $event)"
@@ -70,7 +74,7 @@
           <button
             v-if="toast.actionLabel"
             type="button"
-            class="shrink-0 text-sm font-semibold text-apjek-blue-deep px-2 py-1 rounded-full"
+            class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:min-w-11 after:h-full after:content-[''] shrink-0 text-sm font-semibold text-apjek-blue-deep px-2 py-1 rounded-full"
             @pointerdown.stop
             @click.stop="onAction(toast)"
           >
@@ -85,7 +89,7 @@
 <script setup lang="ts">
 import type { Toast } from '~/composables/useToast'
 
-const { toasts, dismiss } = useToast()
+const { toasts, dismiss, slots } = useToast()
 
 /** 핑크 외곽선(Figma #FFA0D6). error 타입만 붉은 계열로 구분한다. */
 const PILL_BORDER_PINK = '#FFA0D6'

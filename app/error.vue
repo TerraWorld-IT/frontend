@@ -8,8 +8,8 @@
     layout:false 경로라 세이프에어리어를 직접 처리한다 (login.vue 와 동일한 max() 이유).
   -->
   <div
-    class="h-dvh w-full flex items-start justify-center overflow-y-auto px-6 text-apjek-text"
-    style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 62%); padding-top: max(1.5rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px))"
+    class="apjek-page-scroll h-dvh w-full flex items-start justify-center overflow-y-auto px-6 text-apjek-text"
+    style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 62%); padding-left: max(1.5rem, var(--sal)); padding-right: max(1.5rem, var(--sar)); padding-top: max(1.5rem, var(--sat)); padding-bottom: max(1.5rem, var(--sab))"
     :data-error-kind="kind"
   >
     <div class="text-center w-full max-w-[393px] my-auto flex flex-col items-center">
@@ -41,10 +41,15 @@
         <button
           type="button"
           class="apjek-cta w-full max-w-[320px] py-3.5"
+          :disabled="isOffline"
           @click="handlePrimary"
         >
           {{ primaryLabel }}
         </button>
+        <!-- 오프라인 안내는 CTA 라벨(nowrap 필)이 아니라 버튼 아래 보조 텍스트로 둔다 -->
+        <p v-if="isOffline" class="text-sm text-apjek-text-sub text-center">
+          {{ $t('common.offline') }}
+        </p>
         <!-- 점검 중엔 홈 이동이 무의미하고, 404 는 주 버튼이 이미 홈 이동이라 보조 링크를 숨긴다 -->
         <button
           v-if="kind !== 'maintenance' && kind !== 'notFound'"
@@ -69,6 +74,9 @@ type ErrorKind = 'maintenance' | 'network' | 'notFound' | 'generic'
 
 const props = defineProps<{ error: NuxtError }>()
 const { t } = useI18n()
+
+// 배경 그라디언트가 화면 전체를 덮으므로 스크림은 그 시작색(상단)·끝색(하단)을 각각 따른다.
+useHead({ htmlAttrs: { style: '--apjek-scrim: var(--color-apjek-blue-soft); --apjek-scrim-bottom: var(--color-apjek-surface)' } })
 
 // statusCode 가 명시된 경우만 분기. client 렌더 에러는 statusCode 가 없어 화면엔 500 으로 표시.
 const rawStatus = computed<number | undefined>(() => props.error?.statusCode)
@@ -142,6 +150,7 @@ const description = computed<string>(() => {
 })
 
 const primaryLabel = computed<string>(() => {
+  // 오프라인이어도 라벨은 재시도 문구를 유지한다(버튼은 disabled, 안내는 아래 보조 텍스트).
   switch (kind.value) {
     case 'maintenance': return t('error.maintenance.cta')
     case 'network': return t('error.network.cta')

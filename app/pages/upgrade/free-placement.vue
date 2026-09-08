@@ -4,7 +4,8 @@
   (실 결제 검증은 Play/App Store 상품 등록 + 키 주입 시 동작 — 코드 배선 완료.)
 -->
 <template>
-  <div class="min-h-screen px-4 py-6 max-w-md mx-auto space-y-4">
+  <!-- 페이지별 픽셀 상수(114px) 대신 형제 페이지와 같이 min-h-full 로 스크롤러 높이를 따른다. -->
+  <div class="min-h-full px-4 py-6 max-w-md mx-auto space-y-4">
     <h1 class="text-xl font-bold text-riso-dark">{{ $t('upgrade.freePlacementTitle') }}</h1>
     <p class="text-sm text-riso-dark/70">
       {{ $t('upgrade.freePlacementDesc') }}

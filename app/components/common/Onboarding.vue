@@ -10,13 +10,13 @@
         v-if="show"
         ref="rootEl"
         data-testid="onboarding-root"
-        class="fixed inset-0 z-[9998] bg-black/40 flex items-center justify-center p-6"
+        class="fixed inset-0 z-[9998] bg-black/40 apjek-safe-dialog p-6"
         role="dialog"
         aria-modal="true"
         aria-label="시작하기 안내"
         @click.self="$emit('close')"
       >
-        <div class="w-full max-w-[393px] bg-apjek-surface text-apjek-text rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+        <div style="max-height: calc(100dvh - var(--sat) - var(--sab) - 48px)" class="w-full max-w-[393px] bg-apjek-surface text-apjek-text rounded-2xl overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <!-- Step content — 좌우 스와이프로도 이전/다음 이동(Codex 감사 지적 — 이전엔 버튼 전용) -->
           <div
             class="relative aspect-[4/3] flex items-center justify-center p-8"
@@ -177,7 +177,7 @@ watch(() => props.show, (open) => {
     unregisterBackHandler?.()
     unregisterBackHandler = null
   }
-})
+}, { immediate: true })
 onBeforeUnmount(() => {
   unregisterBackHandler?.()
   unregisterBackHandler = null

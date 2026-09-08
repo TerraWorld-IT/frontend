@@ -9,7 +9,7 @@
       <div
         v-if="modelValue"
         ref="rootEl"
-        class="fixed inset-0 z-[9997] flex items-start justify-center p-4 overflow-y-auto bg-black/40 backdrop-blur-sm"
+        class="fixed inset-0 z-[9997] apjek-safe-dialog p-4 bg-black/40 backdrop-blur-sm"
         role="dialog"
         aria-modal="true"
         aria-label="재화 환전"
@@ -17,7 +17,7 @@
       >
         <div
           class="bg-apjek-surface rounded-2xl shadow-2xl p-5 w-full max-w-md my-auto flex flex-col overflow-y-auto"
-          style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)"
+          style="max-height: calc(100dvh - var(--sat) - var(--sab) - 32px)"
         >
           <!-- 헤더 -->
           <div class="flex items-center justify-between mb-1">

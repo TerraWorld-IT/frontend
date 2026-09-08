@@ -2,11 +2,9 @@
  * 모달/바텀시트가 열려 있는 동안 배경 스크롤을 잠근다.
  *
  * **왜 `document.body.style.overflow = 'hidden'` 으로는 안 되는가**
- * 이 앱의 실제 스크롤 컨테이너는 `body` 가 아니라 `layouts/default.vue` 의
- * `<main class="flex-1 overflow-y-auto">` 다. body 를 잠가도 그 안쪽은 그대로 스크롤된다.
- * 그래서 `<html>` 에 클래스를 붙이고, CSS 가 body 와 `main` 을 함께 잠근다
- * (`assets/css/tailwind.css` 의 `html.scroll-locked` 규칙 — `layout: false` 페이지는
- * body 가 스크롤러이므로 두 경우를 모두 덮는다).
+ * 문서 외에 `main` 및 로그인/에러/공유의 자체 overflow 컨테이너도 스크롤된다.
+ * 그래서 `<html>` 에 클래스를 붙이고 CSS가 html/body, main, apjek-page-scroll을 함께 잠근다.
+ * 내부 모달의 스크롤러에는 페이지 식별 클래스를 붙이지 않아 조작을 계속할 수 있다.
  *
  * **참조 카운트가 필요한 이유**
  * 오버레이는 겹쳐 뜬다(예: 홈의 시트 위에 TierUnlockModal). 각자 열고 닫을 때 클래스를 무조건

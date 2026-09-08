@@ -13,14 +13,14 @@
       <div
         v-if="open"
         ref="root"
-        class="fixed inset-0 z-[9997]"
+        class="fixed inset-0 z-[9997] apjek-safe-dialog"
         role="dialog"
         aria-modal="true"
         :aria-label="ariaLabel ?? title"
       >
         <div class="fixed inset-0 bg-black/40" @click="emit('close')" />
-        <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 mx-auto" :style="{ maxWidth: maxWidth }">
-          <div class="rounded-3xl px-5 pt-5 pb-6 shadow-2xl flex flex-col max-h-[88dvh]" style="background: var(--color-apjek-surface)">
+        <div class="relative w-full mx-auto" :style="{ maxWidth: maxWidth }">
+          <div class="rounded-3xl px-5 pt-5 pb-6 shadow-2xl flex flex-col " style="background: var(--color-apjek-surface); max-height: min(88dvh, calc(100dvh - var(--sat) - var(--sab) - 32px))">
             <div class="flex items-center justify-between mb-4 shrink-0">
               <div class="flex items-center gap-2 min-w-0">
                 <span v-if="icon" class="text-lg leading-none shrink-0" aria-hidden="true">{{ icon }}</span>

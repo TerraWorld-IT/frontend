@@ -1,6 +1,6 @@
 <template>
   <!-- M1 공지사항 팝업 (Figma 393×454): 헤더 "ⓘ 공지사항" + X, 행 = 제목(굵게) / 부제(회색) / 우측 날짜.
-       데이터는 정적 public/notices.json(§4-6 기본값) — 배포로 갱신. 실패·0건이면 "공지사항이 없어요".
+       데이터는 정적 public/notices.json(§4-6 기본값) — 배포로 갱신. 실패는 재시도 안내, 0건은 "공지사항이 없어요".
        bespoke 오버레이 규약: role="dialog" aria-modal + useDialogFocusTrap + Android 뒤로가기 등록.
        TODO(C4 머지 후): 공용 Modal 리스킨(393, r24, 연파랑 원형 X) 로 교체 검토. -->
   <Teleport to="body">
@@ -8,13 +8,13 @@
       <div
         v-if="open"
         ref="rootEl"
-        class="fixed inset-0 z-[9997] flex items-center justify-center px-5 bg-black/45 backdrop-blur-[2px]"
+        class="fixed inset-0 z-[9997] apjek-safe-dialog p-5 bg-black/45 backdrop-blur-[2px]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="notices-title"
         @click.self="emit('close')"
       >
-        <div class="w-full max-w-[393px] h-[454px] max-h-[85dvh] rounded-[24px] bg-apjek-surface flex flex-col overflow-hidden">
+        <div class="w-full max-w-[393px] h-[454px] max-h-[min(85dvh,calc(100dvh-var(--sat)-var(--sab)-40px))] rounded-[24px] bg-apjek-surface flex flex-col overflow-hidden">
           <!-- 헤더 -->
           <div class="flex items-center justify-between px-[20px] pt-[20px] pb-[12px]">
             <h3 id="notices-title" class="flex items-center gap-[8px] text-[18px] font-bold text-apjek-text tracking-[-0.4px]">
@@ -40,7 +40,7 @@
           </div>
 
           <!-- 목록 -->
-          <div class="flex-1 overflow-y-auto px-[20px] pb-[20px]">
+          <div class="flex-1 min-h-0 overflow-y-auto px-[20px] pb-[20px]">
             <div v-if="loading" class="flex flex-col gap-[8px]" aria-busy="true">
               <div
                 v-for="n in 3"
@@ -54,6 +54,10 @@
                 </div>
                 <div class="mt-[2px] h-[17px] w-[52px] shrink-0 rounded bg-apjek-bg animate-pulse" />
               </div>
+            </div>
+            <div v-else-if="loadError" class="py-10 text-center text-xs text-apjek-text-faint">
+              <p>공지사항을 불러오지 못했어요</p>
+              <button type="button" class="h-11 px-4" @click="loadNotices">다시 시도</button>
             </div>
             <div v-else-if="notices.length === 0" class="h-full flex flex-col items-center justify-center gap-2 text-apjek-text-faint py-10">
               <span class="text-[32px]" aria-hidden="true">📭</span>
@@ -98,10 +102,12 @@ const emit = defineEmits<{ close: [] }>()
 
 const notices = ref<NoticeItem[]>([])
 const loading = ref<boolean>(false)
+const loadError = ref<boolean>(false)
 let loadedOnce: boolean = false
 
 async function loadNotices(): Promise<void> {
-  if (loadedOnce) return
+  if (loadedOnce || loading.value) return
+  loadError.value = false
   loading.value = true
   try {
     // TODO(공지 API 결정 시): admin API 로 교체. 지금은 정적 JSON(배포로 갱신).
@@ -113,8 +119,8 @@ async function loadNotices(): Promise<void> {
     loadedOnce = true
   }
   catch {
-    // 정적 파일 부재·네트워크 실패 → 빈 상태("공지사항이 없어요"). 다음 오픈 때 다시 시도한다.
-    notices.value = []
+    // 실패를 빈 목록과 구분하고 재시도할 수 있게 한다.
+    loadError.value = true
   }
   finally {
     loading.value = false
@@ -147,7 +153,7 @@ watch(() => props.open, (open) => {
     unregisterBack?.()
     unregisterBack = null
   }
-})
+}, { immediate: true })
 onBeforeUnmount(() => {
   unregisterBack?.()
   unregisterBack = null

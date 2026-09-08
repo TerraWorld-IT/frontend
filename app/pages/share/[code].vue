@@ -7,8 +7,8 @@
   <!-- layout:false 경로라 세이프에어리어를 직접 처리한다 (login.vue 와 동일한 max() 이유).
        딥링크로 바로 진입할 수 있어 네이티브 셸에서 첫 화면이 될 수 있다. -->
   <div
-    class="h-dvh w-full bg-riso-cream overflow-y-auto flex flex-col items-center justify-start px-6"
-    style="padding-top: max(1.5rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px))"
+    class="apjek-page-scroll h-dvh w-full bg-riso-cream overflow-y-auto flex flex-col items-center justify-start px-6"
+    style="padding-left: max(1.5rem, var(--sal)); padding-right: max(1.5rem, var(--sar)); padding-top: max(1.5rem, var(--sat)); padding-bottom: max(1.5rem, var(--sab))"
   >
     <!-- Loading -->
     <div v-if="pending" class="text-center space-y-3 my-auto">
@@ -137,7 +137,9 @@ const { data: sharedData, pending, error } = await useAsyncData(
 )
 
 // OG meta tags (SSR)
+// htmlAttrs.style: 페이지 배경이 서피스가 아니므로 상·하단 스크림도 같은 색을 따르게 한다(노치 색 띠 제거).
 useHead({
+  htmlAttrs: { style: '--apjek-scrim: var(--color-riso-cream)' },
   title: computed<string>(() => `${sharedData.value ? t('share.ogTitle') : 'TerraWorld'} | TerraWorld`),
   meta: [
     { property: 'og:title', content: computed<string>(() => t('share.ogSocialTitle')) },

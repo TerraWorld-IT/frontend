@@ -1,5 +1,8 @@
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// 중첩 오버레이는 마지막으로 열린 한 곳만 키보드와 초기 포커스를 소유한다.
+const focusStack: Array<{ root: Ref<HTMLElement | null>, previous: Element | null }> = []
+
 /**
  * `role="dialog" aria-modal="true"` 를 선언한 bespoke 오버레이에 실제 focus containment 를
  * 부여하는 공용 composable. Modal.vue 의 focus-trap 로직(Codex Round 2/3 감사 지적 — aria-modal
@@ -20,48 +23,68 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disab
  */
 export function useDialogFocusTrap(rootRef: Ref<HTMLElement | null>, isOpen: Ref<boolean>, onEscape?: () => void) {
   useOverlayScrollLock(isOpen)
+  const owner = { root: rootRef, previous: null as Element | null }
 
-  let previousActiveElement: Element | null = null
+  function focusables(): HTMLElement[] {
+    return Array.from(rootRef.value?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []).filter((el) => {
+      if (el.matches(':disabled') || el.tabIndex < 0) return false
+      for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+        const style = getComputedStyle(node)
+        if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' || style.display === 'none' || style.visibility === 'hidden') return false
+      }
+      return true
+    })
+  }
+
+  function release() {
+    const index = focusStack.indexOf(owner)
+    if (index < 0) return
+    const wasTop = index === focusStack.length - 1
+    // 아래 모달이 먼저 사라지면 위 모달의 복귀점도 살아 있는 이전 조작으로 연결한다.
+    const next = focusStack[index + 1]
+    if (next && owner.root.value?.contains(next.previous)) next.previous = owner.previous
+    focusStack.splice(index, 1)
+    if (wasTop && owner.previous instanceof HTMLElement && owner.previous.isConnected) owner.previous.focus()
+    owner.previous = null
+  }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (!isOpen.value || !rootRef.value) return
-    if (e.key === 'Escape' && onEscape) {
+    if (e.defaultPrevented || !isOpen.value || !rootRef.value || focusStack.at(-1) !== owner) return
+    if (e.key === 'Escape') {
+      // 닫기 콜백이 없는 오버레이(차단 게이트 등)는 ESC 를 소비하지 않는다 — 상위 처리를 막지 않도록.
+      if (!onEscape) return
       e.preventDefault()
       onEscape()
       return
     }
     if (e.key !== 'Tab') return
-    const focusables = Array.from(rootRef.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    if (focusables.length === 0) return
-    const first = focusables[0]!
-    const last = focusables[focusables.length - 1]!
-    if (e.shiftKey && document.activeElement === first) {
+    const elements = focusables()
+    const first = elements[0] ?? rootRef.value
+    const last = elements.at(-1) ?? rootRef.value
+    if (!elements.length || !elements.includes(document.activeElement as HTMLElement)
+      || (e.shiftKey ? document.activeElement === first : document.activeElement === last)) {
       e.preventDefault()
-      last.focus()
-    }
-    else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
+      ;(e.shiftKey ? last : first).focus()
     }
   }
 
   watch(isOpen, async (open) => {
     if (!import.meta.client) return
-    if (open) {
-      previousActiveElement = document.activeElement
-      await nextTick()
-      rootRef.value?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus()
-    }
-    else if (previousActiveElement instanceof HTMLElement) {
-      previousActiveElement.focus()
-      previousActiveElement = null
-    }
-  })
+    if (!open) { release(); return }
+    owner.previous = document.activeElement
+    focusStack.push(owner)
+    await nextTick()
+    if (!isOpen.value || focusStack.at(-1) !== owner || !rootRef.value) return
+    if (!rootRef.value.hasAttribute('tabindex')) rootRef.value.setAttribute('tabindex', '-1')
+    ;(focusables().find(el => el.hasAttribute('autofocus')) ?? focusables()[0] ?? rootRef.value).focus()
+  }, { immediate: true })
 
   onMounted(() => {
     if (import.meta.client) document.addEventListener('keydown', handleKeydown)
   })
   onBeforeUnmount(() => {
-    if (import.meta.client) document.removeEventListener('keydown', handleKeydown)
+    if (!import.meta.client) return
+    document.removeEventListener('keydown', handleKeydown)
+    release()
   })
 }

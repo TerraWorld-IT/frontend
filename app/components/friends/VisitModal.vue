@@ -11,7 +11,7 @@
       <div
         v-if="open"
         ref="rootEl"
-        class="fixed inset-0 z-[9997] flex items-start justify-center p-4 overflow-y-auto"
+        class="fixed inset-0 z-[9997] apjek-safe-dialog p-4"
         role="dialog"
         aria-modal="true"
         aria-labelledby="friend-visit-title"
@@ -22,7 +22,7 @@
         <!-- 카드 — CommonModal 과 동일한 safe centering(짧으면 중앙, 길면 상단부터 스크롤) -->
         <div
           class="relative apjek-card w-full max-w-sm rounded-[20px] p-5 my-auto overflow-y-auto"
-          style="max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px)"
+          style="max-height: calc(100dvh - var(--sat) - var(--sab) - 32px)"
         >
           <!-- 헤더 -->
           <div class="flex items-start justify-between gap-3 mb-4">

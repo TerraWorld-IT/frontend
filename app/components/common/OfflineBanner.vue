@@ -8,8 +8,9 @@
   <Transition name="offline-banner">
     <div
       v-if="isOffline"
-      class="fixed left-0 right-0 z-[9999] flex items-center justify-center gap-2 bg-apjek-cta text-white text-xs font-medium py-2 px-4"
-      style="top: env(safe-area-inset-top, 0px)"
+      ref="root"
+      class="fixed left-0 right-0 mx-auto w-full max-w-md z-[9999] flex items-center justify-center gap-2 bg-apjek-cta text-white text-xs font-medium py-2 px-4"
+      style="top: var(--sat); padding-left: max(16px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(16px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
       role="status"
       aria-live="polite"
     >
@@ -21,6 +22,10 @@
 
 <script setup lang="ts">
 const isOffline = ref<boolean>(false)
+const root = ref<HTMLElement | null>(null)
+const { slots } = useToast()
+const { height } = useElementBounding(root)
+watch([height, isOffline], () => { slots.value.offline = isOffline.value ? height.value : 0 }, { flush: 'post' })
 
 function onOnline() { isOffline.value = false }
 function onOffline() { isOffline.value = true }
@@ -33,6 +38,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (!import.meta.client) return
+  slots.value.offline = 0
   window.removeEventListener('online', onOnline)
   window.removeEventListener('offline', onOffline)
 })

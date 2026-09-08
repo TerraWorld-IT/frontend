@@ -16,12 +16,12 @@
         <!-- 패널 — 앱 컬럼 안의 풀높이 우측 슬라이드. X 는 translate 유틸 미사용이라 transform 단독 트랜지션 안전 -->
         <section
           class="notif-panel fixed inset-y-0 inset-x-0 w-full max-w-md mx-auto flex flex-col shadow-2xl"
-          style="background: var(--color-apjek-surface)"
+          style="background: var(--color-apjek-surface); padding-left: max(0px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(0px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
           data-testid="notifications-panel"
         >
           <header
             class="flex items-center justify-between px-5 pb-3 border-b border-black/5 shrink-0"
-            style="padding-top: calc(1rem + env(safe-area-inset-top, 0px))"
+            style="padding-top: calc(1rem + var(--sat))"
           >
             <h3 class="font-bold text-[17px] text-apjek-text flex items-center gap-2">
               <span aria-hidden="true">🔔</span>알림
@@ -39,10 +39,13 @@
             </button>
           </header>
 
-          <div class="flex-1 min-h-0 overflow-y-auto px-5" style="padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px))">
+          <div class="flex-1 min-h-0 overflow-y-auto px-5" style="padding-bottom: calc(1rem + var(--sab))">
             <p v-if="loading" class="py-10 text-center text-xs text-apjek-text-faint">불러오는 중…</p>
             <!-- 실패를 빈 상태("알림이 없어요")로 위장하지 않는다 — 조용하되 구분 표시 -->
-            <p v-else-if="failed" class="py-10 text-center text-xs text-apjek-text-faint">알림을 불러오지 못했어요</p>
+            <div v-else-if="failed && items.length === 0" class="py-10 text-center text-xs text-apjek-text-faint">
+              <p>알림을 불러오지 못했어요</p>
+              <button type="button" class="h-11 px-4" @click="loadAndMarkRead()">다시 시도</button>
+            </div>
             <p v-else-if="items.length === 0" class="py-10 text-center text-xs text-apjek-text-faint">알림이 없어요</p>
             <ul v-else class="flex flex-col">
               <li v-for="n in items" :key="n.id" class="border-b border-black/5 last:border-b-0">
@@ -67,6 +70,13 @@
                 </component>
               </li>
             </ul>
+            <div v-if="!loading && items.length" class="py-3 text-center text-xs text-apjek-text-faint">
+              <p v-if="failed">알림을 더 불러오지 못했어요</p>
+              <button v-if="hasMore" type="button" class="h-11 px-4" :disabled="loadingMore" @click="loadAndMarkRead(true)">
+                {{ loadingMore ? '불러오는 중…' : failed ? '다시 시도' : '더 보기' }}
+              </button>
+              <p v-else>모든 알림을 확인했어요</p>
+            </div>
           </div>
         </section>
       </div>
@@ -89,6 +99,9 @@ const { sdk, client } = useOpenApi()
 const items = shallowRef<NotificationResponse[]>([])
 const loading = ref<boolean>(false)
 const failed = ref<boolean>(false)
+const page = ref<number>(0)
+const hasMore = ref<boolean>(true)
+const loadingMore = ref<boolean>(false)
 
 // focus trap + 배경 스크롤 잠금 + ESC — 공용 프리미티브 합성 (bespoke 오버레이 규약)
 const root = ref<HTMLElement | null>(null)
@@ -113,14 +126,18 @@ onBeforeUnmount(() => {
   unregisterBack = null
 })
 
-async function loadAndMarkRead() {
-  if (loading.value) return
-  loading.value = true
+async function loadAndMarkRead(more = false) {
+  if (loading.value || loadingMore.value) return
+  if (more) loadingMore.value = true
+  else loading.value = true
   failed.value = false
   try {
-    const { data, error } = await sdk.listNotifications({ client, query: { page: 0, size: 20 } })
+    const { data, error } = await sdk.listNotifications({ client, query: { page: more ? page.value + 1 : 0, size: 20 } })
     if (error) throw error
-    items.value = castData<PagedNotificationResponse>(data)?.content ?? []
+    const content = castData<PagedNotificationResponse>(data)?.content ?? []
+    items.value = more ? [...items.value, ...content.filter(n => !items.value.some(old => old.id === n.id))] : content
+    page.value = more ? page.value + 1 : 0
+    hasMore.value = content.length === 20
     // 목록 로드 성공 시에만 전체 읽음 처리(ids 빈 배열 = 전체, 멱등) — 실패는 조용히
     // 무시한다(다음 오픈 때 자연 재시도). 성공 시 read emit → 부모 뱃지 클리어.
     try {
@@ -137,6 +154,7 @@ async function loadAndMarkRead() {
   }
   finally {
     loading.value = false
+    loadingMore.value = false
   }
 }
 

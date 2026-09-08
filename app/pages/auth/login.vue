@@ -47,8 +47,8 @@
          아직 contentInset:'always' 라, calc 면 네이티브 인셋 위에 패딩이 더해져 이중이 된다.
          max() 는 두 경우 모두 안전하다(env 가 0 이면 기존 24px 유지). -->
     <div
-      class="h-full w-full flex items-start justify-center overflow-y-auto"
-      style="padding-top: max(1.5rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px))"
+      class="apjek-page-scroll h-full w-full flex items-start justify-center overflow-y-auto"
+      style="padding-left: var(--sal); padding-right: var(--sar); padding-top: max(1.5rem, var(--sat)); padding-bottom: max(1.5rem, var(--sab))"
     >
     <div class="w-full max-w-sm mx-4 relative z-10 my-auto">
       <!-- 로고 영역 -->
@@ -254,6 +254,9 @@
 import { authClient } from '~/lib/auth-client'
 
 definePageMeta({ layout: false })
+
+// 배경 그라디언트가 화면 전체를 덮으므로 스크림은 그 시작색(상단)·끝색(하단)을 각각 따른다.
+useHead({ htmlAttrs: { style: '--apjek-scrim: #e8f4fd; --apjek-scrim-bottom: #ffe8f4' } })
 
 const { t, te } = useI18n()
 const { loadJwt } = useAuth()
