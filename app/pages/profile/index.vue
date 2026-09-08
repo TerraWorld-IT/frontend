@@ -433,7 +433,7 @@
               maxlength="20"
               placeholder="닉네임을 입력해주세요"
               class="w-full h-[48px] px-[16px] rounded-[12px] border border-apjek-border-strong bg-apjek-surface text-[15px] text-apjek-text focus:outline-none focus:border-apjek-blue"
-              @keyup.enter="saveNickname"
+              @keydown.enter="!$event.isComposing && saveNickname()"
             >
             <div class="flex items-center justify-between min-h-[16px]">
               <p v-if="!nicknameValid" class="text-[12px] text-riso-poppy">닉네임은 1~20자로 입력해주세요</p>

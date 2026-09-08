@@ -11,32 +11,35 @@
     <Transition name="manage-panel">
       <section
         v-if="open"
+        v-bind="$attrs"
         class="fixed inset-x-0 bottom-0 z-[60] mx-auto w-full max-w-md rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col"
-        style="background: var(--color-apjek-surface); padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px))"
+        style="background: var(--color-apjek-surface); padding-bottom: calc(0.75rem + var(--sab)); max-height: calc(100dvh - var(--sat)); padding-left: max(0px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(0px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
         aria-label="관리 패널"
         data-testid="manage-panel"
       >
-        <div class="px-5 pt-4 pb-2 flex items-center justify-between">
+        <div class="shrink-0 px-5 pt-4 pb-2 flex items-center justify-between">
           <h3 class="text-[15px] font-bold text-apjek-text tracking-[-0.2px]">{{ title }}</h3>
           <span v-if="tab !== 'backgrounds'" class="text-[11px] text-apjek-text-faint">배치 {{ placedCount }}/{{ maxSlots }}</span>
         </div>
 
-        <div class="min-h-[112px] flex items-center">
-          <div v-if="busy" class="w-full flex justify-center py-6">
+        <!-- 자식 m-auto = safe centering. `align-items: safe center` 는 미지원 브라우저에서 선언이
+             통째로 무시돼 정렬이 사라진다(자동 여백은 남는 공간이 없으면 0 이라 잘림도 없다). -->
+        <div class="min-h-0 overflow-y-auto flex">
+          <div v-if="busy" class="min-h-[112px] w-full m-auto flex justify-center py-6">
             <CommonLoading variant="spinner" />
           </div>
-          <div v-else-if="tiles.length === 0" class="w-full px-5 py-4 flex items-center justify-between gap-3">
+          <div v-else-if="tiles.length === 0" class="min-h-[112px] w-full m-auto px-5 py-4 flex items-center justify-between gap-3">
             <p class="text-xs text-apjek-text-faint leading-relaxed">{{ emptyMessage }}</p>
             <button
               v-if="emptyCtaLabel"
               type="button"
-              class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
+              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
               style="background: var(--color-apjek-cta)"
               @click="emit('emptyCta')"
             >{{ emptyCtaLabel }}</button>
           </div>
           <!-- 가로 스크롤 타일 (댓글 #54 좌우 스크롤) -->
-          <div v-else class="w-full overflow-x-auto scrollbar-hide px-5 py-2">
+          <div v-else class="min-h-[112px] w-full m-auto overflow-x-auto scrollbar-hide px-5 py-2">
             <div class="flex gap-3 w-max">
               <button
                 v-for="tile in tiles"
@@ -76,7 +79,7 @@
           </div>
         </div>
 
-        <div class="px-5 pt-2">
+        <div class="shrink-0 px-5 pt-2">
           <button
             type="button"
             data-testid="manage-save"
@@ -93,6 +96,8 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 /** 패널 탭 — 상단 칩 3종과 1:1 */
 export type ManageTab = 'items' | 'spirits' | 'backgrounds'
 

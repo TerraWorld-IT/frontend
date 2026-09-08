@@ -6,7 +6,7 @@
         <h1 class="text-xl font-bold text-riso-dark mt-1">{{ $t('admin.items.title') }}</h1>
       </div>
       <button
-        class="bg-riso-sage text-white px-4 py-2 rounded-full text-xs font-medium riso-shadow-sm active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] bg-riso-sage text-white px-4 py-2 rounded-full text-xs font-medium riso-shadow-sm active:scale-95 transition-transform"
         @click="showCreateDialog = true"
       >
         {{ $t('admin.items.newItem') }}
@@ -23,7 +23,7 @@
       <p class="text-sm text-riso-poppy">{{ $t('admin.items.loadError') }}</p>
       <button
         type="button"
-        class="shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
         @click="loadAll"
       >
         {{ $t('common.retry') }}
@@ -58,11 +58,9 @@
           </div>
         </div>
         <button
-          :class="[
-            'text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-transform active:scale-95 disabled:opacity-40 shrink-0',
-            row.active ? 'bg-riso-sage/15 text-riso-sage dark:text-riso-grass' : 'bg-gray-100 text-gray-400',
-          ]"
-          :disabled="toggling === row.item.id"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-transform active:scale-95 disabled:opacity-40 shrink-0"
+          :class="row.active ? 'bg-riso-sage/15 text-riso-sage dark:text-riso-grass' : 'bg-gray-100 text-gray-400'"
+          :disabled="toggling !== null || creating"
           @click="toggleActive(row.item.id)"
         >
           {{ toggling === row.item.id
@@ -77,14 +75,14 @@
     </div>
 
     <!-- Create dialog -->
-    <CommonModal :model-value="showCreateDialog" @update:model-value="closeCreate">
+    <CommonModal :model-value="showCreateDialog" :confirm-disabled="creating || toggling !== null" @cancel="closeCreate" @confirm="submitCreate">
       <form class="space-y-3" @submit.prevent="submitCreate">
         <h3 class="font-bold text-lg text-riso-dark">{{ $t('admin.items.createTitle') }}</h3>
 
         <label class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldName') }}</span>
           <input
-            v-model="form.name"
+            :disabled="creating" v-model="form.name"
             type="text"
             required
             maxlength="100"
@@ -95,7 +93,7 @@
         <label class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldAsset') }}</span>
           <input
-            v-model="form.assetUrl"
+            :disabled="creating" v-model="form.assetUrl"
             type="text"
             required
             maxlength="500"
@@ -107,14 +105,14 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldPriceType') }}</span>
-            <select v-model="form.priceType" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <select :disabled="creating" v-model="form.priceType" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
               <option v-for="opt in priceTypeOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </label>
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldPriceAmount') }}</span>
             <input
-              v-model.number="form.priceAmount"
+              :disabled="creating" v-model.number="form.priceAmount"
               type="number"
               min="0"
               required
@@ -126,7 +124,7 @@
         <label v-if="form.priceType === 'MIXED'" class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldTokenPrice') }}</span>
           <input
-            v-model.number="form.tokenPrice"
+            :disabled="creating" v-model.number="form.tokenPrice"
             type="number"
             min="0"
             class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
@@ -136,13 +134,13 @@
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldRarity') }}</span>
-            <select v-model="form.rarity" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <select :disabled="creating" v-model="form.rarity" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
               <option v-for="opt in rarityOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </label>
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldLayout') }}</span>
-            <select v-model="form.layout" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <select :disabled="creating" v-model="form.layout" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
               <option v-for="opt in layoutOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </label>
@@ -150,7 +148,7 @@
 
         <label class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldCategory') }}</span>
-          <select v-model="form.categoryId" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+          <select :disabled="creating" v-model="form.categoryId" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
             <option :value="null">{{ $t('admin.items.categoryNone') }}</option>
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
@@ -159,19 +157,15 @@
         <label class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldDescription') }}</span>
           <input
-            v-model="form.description"
+            :disabled="creating" v-model="form.description"
             type="text"
             class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
           >
         </label>
 
-        <button
-          type="submit"
-          :disabled="creating"
-          class="w-full h-11 rounded-full bg-riso-navy text-white font-medium text-sm disabled:opacity-40"
-        >
-          {{ creating ? $t('admin.items.submitting') : $t('admin.items.submit') }}
-        </button>
+        <!-- 저장 CTA 는 모달 confirm 하나뿐이다(중복 버튼 제거). 입력이 여러 개인 폼은 submit 버튼이
+             없으면 브라우저가 Enter 암묵 제출을 하지 않으므로, 보이지 않는 submit 버튼만 남긴다. -->
+        <button type="submit" class="hidden" tabindex="-1" aria-hidden="true" :disabled="creating" />
       </form>
     </CommonModal>
   </div>
@@ -228,6 +222,7 @@ function emptyForm(): AdminItemCreateRequest {
 const form = ref<AdminItemCreateRequest>(emptyForm())
 
 async function toggleActive(itemId: number) {
+  if (toggling.value !== null || creating.value) return
   const row = rows.value.find((r) => r.item.id === itemId)
   if (!row) return
   const next = !row.active
@@ -257,11 +252,13 @@ async function toggleActive(itemId: number) {
 }
 
 function closeCreate() {
+  if (creating.value) return
   showCreateDialog.value = false
   form.value = emptyForm()
 }
 
 async function submitCreate() {
+  if (creating.value || toggling.value !== null) return
   const name = form.value.name.trim()
   const assetUrl = form.value.assetUrl.trim()
   if (!name || !assetUrl || form.value.priceAmount < 0) {
@@ -287,6 +284,7 @@ async function submitCreate() {
     // 새 아이템이 상점(itemsStore, 5분 TTL)에 즉시 보이도록 캐시를 무효화한다.
     useItemsStore().invalidate()
     toast.success(t('admin.items.created'))
+    creating.value = false
     closeCreate()
   }
   catch {

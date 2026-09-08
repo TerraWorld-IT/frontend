@@ -80,14 +80,13 @@
     </div>
 
     <!-- 페이지 도트 (Figma 도트 3) -->
-    <div v-if="!locked && slides.length > 1" class="flex justify-center gap-1.5 mt-1" role="tablist" aria-label="테라리움 슬라이드">
+    <div v-if="!locked && slides.length > 1" class="flex justify-center gap-1.5 mt-1" role="group" aria-label="테라리움 슬라이드">
       <button
         v-for="(slide, i) in slides"
         :key="slide.level"
         type="button"
-        role="tab"
         class="w-6 h-11 -my-[18px] flex items-center justify-center"
-        :aria-selected="index === i"
+        :aria-pressed="index === i"
         :aria-label="`Lv.${slide.level} 슬라이드`"
         @click="scrollTo(i)"
       >

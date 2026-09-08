@@ -35,7 +35,7 @@
         <div class="sheet-backdrop fixed inset-0 bg-black/40" @click="onBackdropClick" />
         <div
           class="sheet-panel fixed bottom-0 inset-x-0 w-full max-w-md mx-auto rounded-t-2xl bg-apjek-surface text-apjek-text shadow-2xl flex flex-col"
-          :style="panelStyle"
+          :style="[panelStyle, { paddingBottom: $slots.footer ? undefined : 'var(--sab)', paddingLeft: 'max(0px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2))', paddingRight: 'max(0px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))' }]"
         >
           <!-- 핸들 바 — expandable 이면 드래그(위 40px 확대 / 아래 40px 축소·닫기) + 탭 토글.
                비확대 시트는 핸들 없이 상단 여백만 둔다(Figma: 헤더 + X 만 노출). -->
@@ -57,6 +57,7 @@
             v-if="showClose"
             type="button"
             class="group absolute top-[10px] right-[10px] z-10 size-11 flex items-center justify-center"
+            style="right: max(10px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
             aria-label="닫기"
             @click="emit('close')"
           >
@@ -72,7 +73,7 @@
                footer 가 있으면 여백은 footer 가 맡고 여기는 짧은 간격만 둔다 -->
           <div
             class="flex-1 min-h-0 overflow-y-auto"
-            :style="{ paddingBottom: $slots.footer ? '12px' : 'calc(20px + env(safe-area-inset-bottom, 0px))' }"
+            :style="{ paddingBottom: $slots.footer ? '12px' : '20px' }"
           >
             <slot />
           </div>
@@ -81,7 +82,7 @@
           <div
             v-if="$slots.footer"
             class="shrink-0 px-5 pt-2"
-            style="padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px))"
+            style="padding-bottom: calc(16px + var(--sab))"
             data-testid="sheet-footer"
           >
             <slot name="footer" />
@@ -125,6 +126,7 @@ const panelStyle = computed<Record<string, string>>(() => {
     style.height = current
     style.maxHeight = props.expandedHeight
   }
+  style.maxHeight = `min(${style.maxHeight}, calc(100dvh - var(--sat)))`
   return style
 })
 
@@ -149,11 +151,12 @@ useDialogFocusTrap(root, computed<boolean>(() => props.open), () => emit('close'
 // Android 하드웨어 뒤로가기 — 열려있는 동안 라우트 back/앱종료보다 먼저 close 를 요청한다.
 const { pushBackHandler } = useBackButtonStack()
 let unregisterBackHandler: (() => void) | null = null
-watch(() => props.open, (open) => {
+watch(() => props.open, (open, previous) => {
   if (open) {
     unregisterBackHandler = pushBackHandler(() => emit('close'))
   }
   else {
+    if (previous) void dismissKeyboard()
     unregisterBackHandler?.()
     unregisterBackHandler = null
     // 닫히면 다음 오픈은 항상 기본 높이에서 시작.
@@ -163,6 +166,7 @@ watch(() => props.open, (open) => {
 // 열린 채 라우트 이탈로 unmount 되면 watch 의 close 분기가 안 돌아 stale handler 가
 // 스택에 영구히 남는다 — 명시 정리.
 onBeforeUnmount(() => {
+  if (props.open) void dismissKeyboard()
   unregisterBackHandler?.()
   unregisterBackHandler = null
 })

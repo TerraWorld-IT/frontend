@@ -53,7 +53,7 @@ describe('JarCarousel 슬라이드 구성', () => {
     expect(wrapper.find('[data-testid="jar-card-unlock-3"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('루비 20개를 사용하여')
     // 도트 3개 — Lv 별 라벨
-    expect(wrapper.findAll('[role="tab"]')).toHaveLength(3)
+    expect(wrapper.findAll('button[aria-pressed]')).toHaveLength(3)
   })
 
   it('active=2 (Lv.2 해금) — Lv.1 은 해금 카드(되돌아가기), Lv.2 라이브, Lv.3 잠금 카드', async () => {
@@ -89,7 +89,7 @@ describe('JarCarousel 슬라이드 구성', () => {
   it('카탈로그 미로드(levels 빈 배열) — 라이브 슬라이드 한 장, 도트 없음', async () => {
     const wrapper = await mount([], 1)
     expect(slideLevels(wrapper)).toEqual(['live:1'])
-    expect(wrapper.findAll('[role="tab"]')).toHaveLength(0)
+    expect(wrapper.findAll('button[aria-pressed]')).toHaveLength(0)
   })
 
   it('locked(관리/힐링) — 카드 슬라이드 숨김 + 도트 숨김, 라이브는 유지', async () => {
@@ -97,6 +97,6 @@ describe('JarCarousel 슬라이드 구성', () => {
     expect(wrapper.find('[data-testid="jar-slide-current"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="jar-slide-1"]').attributes('style')).toContain('display: none')
     expect(wrapper.find('[data-testid="jar-slide-3"]').attributes('style')).toContain('display: none')
-    expect(wrapper.findAll('[role="tab"]')).toHaveLength(0)
+    expect(wrapper.findAll('button[aria-pressed]')).toHaveLength(0)
   })
 })

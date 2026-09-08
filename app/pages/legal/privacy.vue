@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-screen bg-riso-cream px-5" style="padding-top: calc(32px + env(safe-area-inset-top, 0px)); padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px))">
+  <main class="min-h-dvh bg-riso-cream px-5" style="padding-left: calc(1.25rem + var(--sal)); padding-right: calc(1.25rem + var(--sar)); padding-top: calc(32px + var(--sat)); padding-bottom: calc(32px + var(--sab))">
     <div class="mx-auto max-w-xl space-y-4 text-riso-dark">
       <header class="space-y-1">
         <h1 class="text-lg font-bold">개인정보 처리방침</h1>
@@ -69,6 +69,9 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
+
+// 페이지 배경이 서피스가 아니므로 상·하단 스크림도 같은 색을 따르게 한다(노치 색 띠 제거).
+useHead({ htmlAttrs: { style: '--apjek-scrim: var(--color-riso-cream)' } })
 
 function goBack() {
   if (import.meta.client && window.history.length > 1) window.history.back()

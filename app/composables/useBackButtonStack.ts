@@ -14,6 +14,8 @@ const stack: Array<() => void> = []
 export function useBackButtonStack() {
   /** 오버레이가 열릴 때 호출 — 반환된 함수를 오버레이가 닫힐 때(또는 unmount 시) 호출해 해제한다. */
   function pushBackHandler(onBack: () => void): () => void {
+    // 서버 렌더의 등록을 다른 요청이나 클라이언트 back 수명과 공유하지 않는다.
+    if (import.meta.server) return () => {}
     stack.push(onBack)
     return () => {
       const idx = stack.lastIndexOf(onBack)
@@ -22,11 +24,13 @@ export function useBackButtonStack() {
   }
 
   /**
-   * 스택 최상단 핸들러를 소비한다. 처리했으면 true(호출부는 추가 동작 — 라우트 back/앱종료 — 을
+   * 스택 최상단 핸들러를 호출한다. 등록 해제는 실제 닫힘에서 소유자가 수행한다.
+   * 처리했으면 true(호출부는 추가 동작 — 라우트 back/앱종료 — 을
    * 하지 말아야 함), 스택이 비어있으면 false.
    */
   function popTopBackHandler(): boolean {
-    const top = stack.pop()
+    // 닫기 거부나 온보딩 단계 이동 시에도 실제 닫힘까지 등록을 유지한다.
+    const top = stack[stack.length - 1]
     if (!top) return false
     top()
     return true

@@ -11,14 +11,16 @@
     <div
       v-if="updateRequired"
       ref="root"
-      class="fixed inset-0 z-[10000] flex flex-col items-center justify-center gap-5 px-8 text-center bg-riso-cream"
-      style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px)"
+      class="fixed inset-0 z-[10000] apjek-safe-dialog flex-col overflow-y-auto gap-5 px-8 text-center bg-riso-cream"
+      style="padding-left: calc(2rem + var(--sal)); padding-right: calc(2rem + var(--sar))"
       role="alertdialog"
       aria-modal="true"
       aria-label="앱 업데이트 필요"
     >
-      <div class="text-5xl">🌱</div>
-      <div class="space-y-2">
+      <!-- 첫 자식 mt-auto + 마지막 자식 mb-auto = safe centering(짧으면 중앙, 넘치면 위부터 스크롤).
+           `justify-content: safe center` 는 미지원 브라우저에서 선언 자체가 무시돼 정렬이 사라진다. -->
+      <div class="text-5xl shrink-0 mt-auto">🌱</div>
+      <div class="space-y-2 shrink-0">
         <h2 class="text-lg font-bold text-riso-dark">새 버전이 나왔어요</h2>
         <p class="text-sm text-riso-dark/70 leading-relaxed">
           원활한 이용을 위해 최신 버전으로 업데이트해 주세요.<br>
@@ -27,7 +29,7 @@
       </div>
       <button
         type="button"
-        class="w-full max-w-xs h-12 rounded-2xl font-semibold text-white active:scale-95 transition-transform"
+        class="shrink-0 mb-auto w-full max-w-xs h-12 rounded-2xl font-semibold text-white active:scale-95 transition-transform"
         style="background: linear-gradient(135deg, #7b9e6b, #5f8a54)"
         @click="openStore"
       >
@@ -45,6 +47,13 @@ const { updateRequired, check, openStore, isNative } = useAppUpdate()
 // 주의: onEscape 콜백은 넘기지 않는다 — 차단 게이트라 ESC 로 닫히면 안 된다.
 const root = ref<HTMLElement | null>(null)
 useDialogFocusTrap(root, computed<boolean>(() => updateRequired.value))
+
+// 게이트가 안전영역까지 덮으므로 열린 동안만 상·하단 스크림을 게이트 배경색으로 맞춘다(색 띠 제거).
+useHead({
+  htmlAttrs: {
+    style: computed<string | undefined>(() => updateRequired.value ? '--apjek-scrim: var(--color-riso-cream)' : undefined),
+  },
+})
 
 let removeResumeListener: (() => void) | null = null
 

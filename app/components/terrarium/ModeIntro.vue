@@ -10,19 +10,21 @@
     <Transition name="mode-intro">
       <div
         v-if="open"
-        class="fixed inset-0 z-[9995] flex flex-col items-center justify-center gap-6 px-8"
-        style="background: linear-gradient(180deg, color-mix(in srgb, var(--color-apjek-blue) 28%, var(--color-apjek-surface)) 0%, color-mix(in srgb, var(--color-apjek-blue) 10%, var(--color-apjek-bg)) 55%, var(--color-apjek-surface) 100%)"
+        class="fixed inset-0 z-[9995] apjek-safe-dialog flex-col overflow-y-auto gap-6 px-8"
+        style="padding-left: calc(2rem + var(--sal)); padding-right: calc(2rem + var(--sar)); background: linear-gradient(180deg, color-mix(in srgb, var(--color-apjek-blue) 28%, var(--color-apjek-surface)) 0%, color-mix(in srgb, var(--color-apjek-blue) 10%, var(--color-apjek-bg)) 55%, var(--color-apjek-surface) 100%)"
         role="status"
         aria-live="polite"
       >
-        <div class="flex flex-col items-center gap-2 text-center">
+        <!-- 첫 자식 mt-auto + 마지막 자식 mb-auto = safe centering. `justify-content: safe center` 는
+             미지원 브라우저에서 선언이 통째로 무시돼 중앙 정렬이 사라진다. -->
+        <div class="shrink-0 mt-auto flex flex-col items-center gap-2 text-center">
           <p class="text-[26px] font-extrabold text-apjek-text tracking-[-0.5px]">
             <span aria-hidden="true">{{ icon }}</span> {{ title }}
           </p>
           <p class="text-sm text-apjek-text-sub leading-relaxed">{{ description }}</p>
         </div>
         <!-- 병 일러스트 — 홈에 표시 중인 병(레벨)을 축소 렌더 -->
-        <div class="relative w-[220px] h-[304px] mode-intro-jar" aria-hidden="true">
+        <div class="relative shrink-0 mb-auto mode-intro-jar" style="height: min(304px, max(0px, calc(100dvh - var(--sat) - var(--sab) - 160px))); aspect-ratio: 220 / 304; max-width: 100%" aria-hidden="true">
           <TerrariumJarArt :level="level" />
         </div>
       </div>
@@ -47,6 +49,15 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{ done: [] }>()
+
+// 인트로가 안전영역까지 덮으므로 열린 동안만 스크림을 배경 그라디언트 시작색으로 맞춘다(색 띠 제거).
+useHead({
+  htmlAttrs: {
+    style: computed<string | undefined>(() => props.open
+      ? '--apjek-scrim: color-mix(in srgb, var(--color-apjek-blue) 28%, var(--color-apjek-surface)); --apjek-scrim-bottom: var(--color-apjek-surface)'
+      : undefined),
+  },
+})
 
 let timer: ReturnType<typeof setTimeout> | null = null
 

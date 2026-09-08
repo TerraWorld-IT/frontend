@@ -514,8 +514,10 @@ test.describe('layout parity with API-only fixtures', () => {
     for (const viewport of viewports) {
       const { context, page, seenPaths, pageErrors, releaseResponses } = await openFixturePage(browser, '/grow', viewport)
       if (viewport.safeTopPx > 0) {
+        // 지연 로드되는 전역 :root 기본값보다 주입값을 우선한다.
+        await page.evaluate(value => document.documentElement.style.setProperty('--sat', `${value}px`), viewport.safeTopPx)
         await page.addStyleTag({
-          content: `:root { --sat: ${viewport.safeTopPx}px; } main { padding-top: calc(1rem + var(--sat)) !important; }`,
+          content: `main { padding-top: calc(1rem + var(--sat)) !important; }`,
         })
       }
       const pendingHero = await box(page, '[data-testid="grow-hero"]')

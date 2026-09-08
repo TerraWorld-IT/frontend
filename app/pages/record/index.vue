@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen space-y-[28px] pb-4" data-testid="record-page">
+  <div class="min-h-full space-y-[28px] pb-4" data-testid="record-page">
     <!-- 헤더 — 아프젝: 타이틀 + 우상단 검정 필 [📅 캘린더] (R6b) -->
     <div class="flex items-center justify-between py-[10px]">
       <h1 class="font-bold text-[28px] text-apjek-text tracking-[-0.9px] leading-[32px]">
@@ -247,11 +247,13 @@
         <div class="text-[12px] text-apjek-text-sub font-medium">{{ todayLongLabel }}</div>
         <input
           v-model="diaryTitle"
+          :disabled="submitting"
           placeholder="제목 (선택)"
           class="w-full text-[16px] font-bold border-b border-apjek-border pb-2 outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-transparent text-apjek-text placeholder:text-apjek-text-faint"
         >
         <textarea
           v-model="diaryText"
+          :disabled="submitting"
           placeholder="오늘 하루를 기록해보세요."
           rows="9"
           class="w-full flex-1 text-[14px] text-apjek-text leading-relaxed outline-none focus:ring-2 focus:ring-apjek-blue/30 resize-none bg-transparent placeholder:text-apjek-text-faint"
@@ -263,6 +265,7 @@
             v-if="photoUrl"
             type="button"
             class="text-[12px] text-riso-poppy underline"
+            :disabled="submitting"
             @click="onClearPhoto"
           >
             삭제
@@ -272,7 +275,7 @@
           v-if="!photoUrl"
           type="button"
           class="w-full h-11 rounded-[12px] border border-dashed border-apjek-border-strong text-[13px] font-medium text-apjek-text-sub flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-          :disabled="uploadingPhoto"
+          :disabled="uploadingPhoto || submitting"
           @click="diaryFileInput?.click()"
         >
           <Icon name="lucide:camera" class="w-4 h-4" />
@@ -298,7 +301,7 @@
         <button
           type="button"
           class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-apjek-cta"
-          :disabled="submitting"
+          :disabled="submitting || uploadingPhoto"
           @click="saveDiary"
         >
           <Icon name="lucide:save" class="w-4 h-4" />저장하기
@@ -389,11 +392,19 @@
             :disabled="submitting"
             @click="stopFocus"
           >
-            <Icon name="lucide:zap" class="w-4 h-4" />기록 저장
+            <Icon name="lucide:zap" class="w-4 h-4" />{{ focusPhase === 'stopped' ? '저장 재시도' : '기록 저장' }}
           </button>
         </div>
       </div>
     </CommonBottomSheet>
+
+    <RecordConfirmDialog
+      :open="focusDiscardOpen" title="집중 기록을 종료할까요?"
+      message="저장하지 않은 집중 시간은 사라져요. 계속 기록하려면 닫아주세요."
+      confirm-text="저장하지 않고 종료" :busy="submitting"
+      @close="focusDiscardOpen = false"
+      @confirm="resetFocus(); closeModal()"
+    />
 
     <!-- 거리 시트 (R8) — 추적 진행 중 실수 닫기 방지 가드(onSheetClose) 유지 -->
     <CommonBottomSheet :open="openModal === 'distance'" ariaLabel="거리 기록" @close="onSheetClose()">
@@ -864,12 +875,19 @@ function fmtTime(s: number): string {
 // 집중/거리 시트의 닫기 요청(백드롭/X/ESC/뒤로가기/핸들 드래그) 가드 — 진행 중인
 // 타이머/추적이 있으면 실수 닫기로 기록이 유실되지 않게 무시한다 (TW2 동작 확장).
 function onSheetClose() {
-  if (openModal.value === 'focus' && focusPhase.value !== 'setup') return
+  if (submitting.value) return
+  if (openModal.value === 'focus' && focusPhase.value !== 'setup') {
+    focusDiscardOpen.value = true
+    return
+  }
   if (openModal.value === 'distance' && distPhase.value !== 'idle') return
   closeModal()
 }
 
 function closeModal() {
+  if (submitting.value) return
+  photoRequestVersion.value += 1
+  uploadingPhoto.value = false
   // todo/diary 시트의 input/textarea 가 포커스를 유지한 채 즉시 unmount 되면 키보드가 안
   // 닫힐 수 있음 (utils/keyboard.ts 참조).
   void dismissKeyboard()
@@ -913,7 +931,8 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
           categoryTokens: reward.categoryTokens,
         })
       }
-      await userStore.fetchMe(true) // 기록 보상 지급 반영 — TTL 캐시 무시
+      // 생성은 이미 확정됐으므로 잔액 갱신 실패로 재전송을 유도하지 않는다.
+      void userStore.fetchMe(true).catch(() => { toast.info('기록은 저장됐어요. 잔액은 잠시 후 갱신돼요') })
     }
     return { ok: true, reward }
   }
@@ -956,16 +975,19 @@ const diaryText = ref<string>('')
 // WebView 의 <input type=file> 는 네이티브 파일 피커(카메라/갤러리)를 띄우고 File 을 바로 준다.
 const photoUrl = ref<string>('')
 const uploadingPhoto = ref<boolean>(false)
+const photoRequestVersion = ref<number>(0)
 const diaryFileInput = ref<HTMLInputElement | null>(null)
 
 async function onFileSelected(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
+  if (!file || submitting.value || uploadingPhoto.value || openModal.value !== 'diary') return
+  const version = ++photoRequestVersion.value
   uploadingPhoto.value = true
   try {
     // 인증 헤더는 plugins/openapi.ts 인터셉터가 자동 주입. multipart 직렬화는 SDK 담당.
     const { data, error } = await sdk.uploadPhoto({ client, body: { file } })
+    if (version !== photoRequestVersion.value || openModal.value !== 'diary') return
     if (error) throw new Error(errMsg(error, '업로드 실패'))
     const typed = castData<PhotoUploadResponse>(data)
     if (!typed?.photoUrl) throw new Error('photoUrl 누락')
@@ -980,19 +1002,23 @@ async function onFileSelected(e: Event) {
     toast.success('사진을 첨부했어요')
   }
   catch (e) {
-    toast.error(`사진 업로드에 실패했어요: ${(e as Error).message}`)
+    if (version === photoRequestVersion.value) toast.error(`사진 업로드에 실패했어요: ${(e as Error).message}`)
   }
   finally {
-    uploadingPhoto.value = false
-    if (diaryFileInput.value) diaryFileInput.value.value = ''
+    if (version === photoRequestVersion.value) {
+      uploadingPhoto.value = false
+      if (diaryFileInput.value) diaryFileInput.value.value = ''
+    }
   }
 }
 
 function onClearPhoto() {
+  if (submitting.value) return
   photoUrl.value = ''
 }
 
 async function saveDiary() {
+  if (submitting.value || uploadingPhoto.value) return
   const text = diaryText.value.trim()
   if (!text) {
     toast.error('일기 내용을 입력해주세요')
@@ -1010,12 +1036,14 @@ async function saveDiary() {
 }
 
 // ── 집중 시트 (타이머) ──
-type FocusPhase = 'setup' | 'running' | 'done'
+type FocusPhase = 'setup' | 'running' | 'done' | 'stopped'
 const focusPhase = ref<FocusPhase>('setup')
 const focusName = ref<string>('')
 const focusMinutes = ref<string>('25')
 const focusRemaining = ref<number>(0)
 const focusElapsed = ref<number>(0)
+const focusDeadline = ref<number>(0)
+const focusDiscardOpen = ref<boolean>(false)
 let focusTimer: ReturnType<typeof setInterval> | null = null
 
 const focusTotalSecs = computed<number>(() => (Number.parseInt(focusMinutes.value) || 0) * 60)
@@ -1037,11 +1065,15 @@ function resetFocus() {
   focusMinutes.value = '25'
   focusRemaining.value = 0
   focusElapsed.value = 0
+  focusDeadline.value = 0
+  focusDiscardOpen.value = false
 }
 
 function startFocus() {
-  const secs = (Number.parseInt(focusMinutes.value) || 0) * 60
-  if (secs <= 0) {
+  if (focusPhase.value !== 'setup' || submitting.value) return
+  const minutes = Number(focusMinutes.value)
+  const secs = minutes * 60
+  if (!Number.isFinite(minutes) || !Number.isInteger(minutes) || minutes < 1 || minutes > 180) {
     toast.error('시간을 올바르게 입력해주세요')
     return
   }
@@ -1055,22 +1087,27 @@ function startFocus() {
   focusRemaining.value = secs
   focusElapsed.value = 0
   focusPhase.value = 'running'
+  focusDeadline.value = Date.now() + secs * 1000
   focusTimer = setInterval(() => {
-    if (focusRemaining.value <= 1) {
-      focusRemaining.value = 0
+    if (focusPhase.value !== 'running') return
+    focusRemaining.value = Math.max(0, Math.ceil((focusDeadline.value - Date.now()) / 1000))
+    focusElapsed.value = focusTotalSecs.value - focusRemaining.value
+    if (focusRemaining.value === 0) {
       clearFocusTimer()
       focusPhase.value = 'done'
-      return
     }
-    focusRemaining.value -= 1
-    focusElapsed.value += 1
   }, 1000)
 }
 
 async function stopFocus() {
+  if (submitting.value) return
+  if (focusPhase.value === 'running') {
+    focusRemaining.value = Math.max(0, Math.ceil((focusDeadline.value - Date.now()) / 1000))
+    focusElapsed.value = focusTotalSecs.value - focusRemaining.value
+  }
   clearFocusTimer()
-  const done = focusElapsed.value || (focusTotalSecs.value - focusRemaining.value)
-  await saveFocus(done)
+  focusPhase.value = 'stopped'
+  await saveFocus(focusElapsed.value)
 }
 
 async function saveFocus(durationSecs: number) {
@@ -1290,6 +1327,11 @@ function pauseDistanceWatchForBackground() {
   }
 }
 function resumeDistanceWatchFromBackground() {
+  if (focusPhase.value === 'running') {
+    focusRemaining.value = Math.max(0, Math.ceil((focusDeadline.value - Date.now()) / 1000))
+    focusElapsed.value = focusTotalSecs.value - focusRemaining.value
+    if (focusRemaining.value === 0) { clearFocusTimer(); focusPhase.value = 'done' }
+  }
   if (distPhase.value !== 'tracking') return
   // 네이티브 경로: 백그라운드 fix 를 drain 으로 회수 — 직선거리 보정 불요(실경로 반영).
   if (nativeTracking) {
@@ -1412,6 +1454,7 @@ let disposed = false
 
 onBeforeUnmount(() => {
   clearFocusTimer()
+  photoRequestVersion.value += 1
   distSessionGen += 1 // pending 네이티브 start 무효화 — 이탈 후 서비스 기동 방지 (Codex R1 F3)
   bgEpoch += 1 // pending 복귀 보정(getCurrentPosition) 무효화 — 이탈 후 watch 재생성 방지 (Codex R3 #3)
   abortNativeTracking()

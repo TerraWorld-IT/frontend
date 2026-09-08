@@ -8,13 +8,13 @@
       <div
         v-if="open"
         ref="rootEl"
-        class="fixed inset-0 z-[9997] flex items-center justify-center px-5 bg-[#1d3e63]/55 backdrop-blur-[2px]"
+        class="fixed inset-0 z-[9997] apjek-safe-dialog p-5 bg-[#1d3e63]/55 backdrop-blur-[2px]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="grow-lost-title"
         @click.self="emit('close')"
       >
-        <div class="relative w-full max-w-[393px] rounded-[24px] bg-apjek-surface px-[22px] pt-[26px] pb-[22px]">
+        <div style="max-height: calc(100dvh - var(--sat) - var(--sab) - 40px)" class="relative overflow-y-auto w-full max-w-[393px] rounded-[24px] bg-apjek-surface px-[22px] pt-[26px] pb-[22px]">
           <!-- X — 창 닫기(닫으면 "내일 찾아와요" 상태) -->
           <button
             type="button"
@@ -106,7 +106,7 @@ watch(() => props.open, (open) => {
     unregisterBack?.()
     unregisterBack = null
   }
-})
+}, { immediate: true })
 onBeforeUnmount(() => {
   unregisterBack?.()
   unregisterBack = null

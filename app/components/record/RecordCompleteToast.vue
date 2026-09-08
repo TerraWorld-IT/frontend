@@ -8,8 +8,10 @@
            본 컴포넌트를 그 API 호출로 대체한다. -->
       <div
         v-if="open"
+        ref="root"
         class="fixed left-1/2 -translate-x-1/2 z-[9999] w-full max-w-sm px-4"
-        style="top: calc(64px + env(safe-area-inset-top, 0px))"
+        :style="{ top: `calc(64px + var(--sat) + ${slots.offline}px)` }"
+        style="padding-left: max(16px, calc(var(--sal) - (100vw - min(100vw, 24rem)) / 2)); padding-right: max(16px, calc(var(--sar) - (100vw - min(100vw, 24rem)) / 2))"
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -77,6 +79,12 @@ const headline = computed<string>(() => {
     ? `${tokenStyle.value.name}토큰 ${n}개 획득!`
     : `${tokenStyle.value.name}토큰 획득!`
 })
+
+const root = ref<HTMLElement | null>(null)
+const { slots } = useToast()
+const { height } = useElementBounding(root)
+watch([height, () => props.open], () => { slots.value.record = props.open ? height.value : 0 }, { flush: 'post' })
+onBeforeUnmount(() => { slots.value.record = 0 })
 
 const burstVisible = ref<boolean>(false)
 let hideTimer: ReturnType<typeof setTimeout> | null = null

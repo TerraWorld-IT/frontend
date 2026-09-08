@@ -21,7 +21,7 @@
     <button
       v-if="visual.stage >= 2"
       type="button"
-      class="pointer-events-auto px-3 py-1.5 rounded-full bg-riso-pink text-white text-[11px] font-semibold riso-shadow-sm active:scale-95 transition-transform"
+      class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] pointer-events-auto px-3 py-1.5 rounded-full bg-riso-pink text-white text-[11px] font-semibold riso-shadow-sm active:scale-95 transition-transform"
       @click="goRecord"
     >
       {{ $t('terrarium.goRecordNow') }}

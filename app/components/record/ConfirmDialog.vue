@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="rc-fade">
-      <div v-if="open" class="fixed inset-0 z-[9998] flex items-center justify-center p-5">
+      <div v-if="open" class="fixed inset-0 z-[9998] apjek-safe-dialog p-5">
         <!-- 백드롭 -->
         <div class="absolute inset-0 bg-black/40" @click="emit('close')" />
 
@@ -11,7 +11,8 @@
           role="dialog"
           aria-modal="true"
           :aria-label="title"
-          class="relative w-full max-w-[353px] rounded-[20px] bg-apjek-surface px-[20px] pt-[20px] pb-[20px]"
+          style="max-height: calc(100dvh - var(--sat) - var(--sab) - 40px)"
+          class="relative overflow-y-auto w-full max-w-[353px] rounded-[20px] bg-apjek-surface px-[20px] pt-[20px] pb-[20px]"
         >
           <div class="flex items-center justify-between mb-[10px]">
             <p class="text-[18px] font-bold text-apjek-text tracking-[-0.3px]">{{ title }}</p>
@@ -66,6 +67,13 @@ const rootEl = ref<HTMLElement | null>(null)
 
 // focus trap + 배경 스크롤 잠금 + ESC 닫기 (bespoke 오버레이 공통 규약 — CLAUDE.md §12)
 useDialogFocusTrap(rootEl, computed<boolean>(() => props.open), () => emit('close'))
+const { pushBackHandler } = useBackButtonStack()
+let unregisterBack: (() => void) | null = null
+watch(() => props.open, (open) => {
+  if (open) unregisterBack = pushBackHandler(() => emit('close'))
+  else { unregisterBack?.(); unregisterBack = null }
+}, { immediate: true })
+onBeforeUnmount(() => { unregisterBack?.(); unregisterBack = null })
 </script>
 
 <style scoped>

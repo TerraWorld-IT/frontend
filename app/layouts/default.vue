@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-neutral-100 flex items-center justify-center">
+  <div class="min-h-dvh bg-neutral-100 flex items-center justify-center">
     <!-- Mobile app frame, centered on desktop (TERRAWORLD2 Root.tsx 정확 이관) -->
     <div
-      class="w-full max-w-md min-h-screen shadow-2xl relative flex flex-col transition-colors duration-300"
+      class="w-full max-w-md min-h-dvh shadow-2xl relative flex flex-col transition-colors duration-300"
       :style="{ backgroundColor: currentBgColor }"
     >
       <!-- Main content -->
@@ -11,8 +11,8 @@
         class="flex-1 px-5 py-4 overflow-y-auto"
         :class="route.path === '/grow' ? 'bg-apjek-bg' : 'bg-white'"
         :style="{
-          paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))',
-          paddingBottom: 'calc(98px + env(safe-area-inset-bottom, 0px))',
+          paddingTop: 'calc(1rem + var(--sat))',
+          paddingBottom: 'calc(98px + var(--sab))',
           overflowY: route.path === '/shop' ? 'visible' : undefined,
         }"
       >
@@ -25,11 +25,11 @@
       <nav
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-apjek-surface border-t border-apjek-border z-40"
         :style="{
-          height: 'calc(98px + env(safe-area-inset-bottom, 0px))',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          height: 'calc(98px + var(--sab))',
+          paddingBottom: 'var(--sab)',
         }"
       >
-        <div class="absolute left-[10px] right-[10px] top-[20px] h-[38px] flex items-center">
+        <div class="absolute top-[20px] h-[38px] flex items-center" style="left: max(10px, calc(var(--sal) - (100vw - 100%) / 2)); right: max(10px, calc(var(--sar) - (100vw - 100%) / 2))">
           <NuxtLink
             v-for="tab in tabs"
             :key="tab.to"
@@ -87,12 +87,12 @@ const route = useRoute()
 const { hapticImpact } = useNative()
 const mainScrollEl = ref<HTMLElement | null>(null)
 
-// 모든 페이지가 이 <main> 하나를 공유하는 단일 스크롤 컨테이너라, 탭 전환 시 이전 페이지의
-// 스크롤 위치가 그대로 남아 새 탭이 중간부터 보이는 것처럼 보일 수 있었다(Codex 감사 지적).
+// main 또는 문서에 남은 스크롤 위치가 새 탭으로 이어지지 않도록 둘 다 초기화한다.
 // 탭별 위치 기억 대신 "탭 전환 시 항상 맨 위로" 정책으로 명시(대부분의 앱의 기본 기대 동작).
 function onTabTap(): void {
   void hapticImpact('Light')
   mainScrollEl.value?.scrollTo({ top: 0 })
+  document.scrollingElement?.scrollTo({ top: 0 })
 }
 
 // TW2: '/' 는 정확 일치, 그 외는 startsWith.

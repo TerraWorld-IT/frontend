@@ -4,6 +4,60 @@
    `dark:` 유틸리티가 .dark 안에서 적용되도록 변형 등록. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* 스크롤러와 독립된 안전영역 계약. 배경은 현재 서피스 토큰을 따른다. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  /* 스크림 색 — 기본은 서피스 토큰. 배경이 다른 화면은 자기 setup 에서
+     useHead({ htmlAttrs: { style: '--apjek-scrim: <토큰>' } }) 로만 재정의한다.
+     상·하단 색이 다른 화면(세로 그라디언트)만 --apjek-scrim-bottom 을 따로 준다. */
+  --apjek-scrim: var(--color-apjek-surface);
+  --apjek-scrim-bottom: var(--apjek-scrim);
+  color-scheme: light;
+}
+
+html { overscroll-behavior-y: contain; }
+html::before,
+html::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 10010;
+  pointer-events: none;
+  background: var(--apjek-scrim);
+}
+html::before { top: 0; height: var(--sat); }
+html::after { bottom: 0; height: var(--sab); background: var(--apjek-scrim-bottom); }
+
+/* 기존 p-4/p-5 간격을 유지하고 정렬 영역만 안전 사각형으로 옮긴다. */
+.apjek-safe-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-padding-top: var(--sat);
+  scroll-padding-bottom: var(--sab);
+  padding-top: calc(var(--sat) + 1rem);
+  padding-bottom: calc(var(--sab) + 1rem);
+  padding-left: calc(var(--sal) + 1rem);
+  padding-right: calc(var(--sar) + 1rem);
+}
+.apjek-safe-dialog.p-5 {
+  padding-top: calc(var(--sat) + 1.25rem);
+  padding-bottom: calc(var(--sab) + 1.25rem);
+  padding-left: calc(var(--sal) + 1.25rem);
+  padding-right: calc(var(--sar) + 1.25rem);
+}
+.apjek-safe-dialog.p-6 {
+  padding: calc(var(--sat) + 1.5rem) calc(var(--sar) + 1.5rem) calc(var(--sab) + 1.5rem) calc(var(--sal) + 1.5rem);
+}
+:focus-visible {
+  outline: 2px solid var(--color-apjek-blue-deep);
+  outline-offset: 2px;
+}
+
 /* ============================================
    TerraWorld — Riso-paint Design System (Tailwind v4)
    ============================================ */
@@ -142,11 +196,11 @@
   }
 
   /* 네이티브 WebView 의 러버밴드(오버스크롤) 영역과 세이프에어리어는 문서 배경색으로 칠해진다.
-     html/body 에 배경이 없으면 그 자리에 시스템 기본색(검정)이 드러난다. --color-riso-cream 은
-     .dark 에서 warm dark 로 재정의되므로 다크 모드에서도 자동으로 맞는 색이 된다. */
+     html/body 에 배경이 없으면 그 자리에 시스템 기본색(검정)이 드러난다. 서피스 토큰은
+     .dark 에서 재정의되므로 스크림과 문서 배경이 같은 색을 따른다. */
   html,
   body {
-    background-color: var(--color-riso-cream);
+    background-color: var(--color-apjek-surface);
   }
 
   /* iOS 는 포커스된 input 의 font-size 가 16px 미만이면 자동으로 화면을 확대한다
@@ -334,6 +388,7 @@
    unlayered 규칙이라 @layer utilities 보다 우선 적용. 실 시각 QA 는 인간 게이트.
    ============================================ */
 .dark {
+  color-scheme: dark;
   --color-riso-cream: #1b1814; /* 페이지/표면 기본 (bg-riso-cream → warm dark) */
 
   /* 아프젝 토큰 다크 보정 — 완전한 다크 팔레트 설계는 범위 밖.
@@ -354,20 +409,28 @@
 
 /* 표면 (흰색 계열) */
 .dark .bg-white,
-.dark .focus\:bg-white:focus,
-.dark .hover\:bg-white:hover { background-color: #262019; }
+.dark .focus\:bg-white:focus { background-color: #262019; }
+@media (hover: hover) {
+  .dark .hover\:bg-white:hover { background-color: #262019; }
+}
 .dark .bg-white\/85 { background-color: rgba(38, 32, 25, 0.92); }
 .dark .bg-white\/60 { background-color: rgba(38, 32, 25, 0.6); }
 .dark .bg-white\/40 { background-color: rgba(38, 32, 25, 0.45); }
-.dark .bg-white\/30,
-.dark .hover\:bg-white\/30:hover { background-color: rgba(38, 32, 25, 0.35); }
-.dark .bg-\[\#f5f5f5\],
-.dark .hover\:bg-\[\#f5f5f5\]:hover { background-color: #2f2920; }
+.dark .bg-white\/30 { background-color: rgba(38, 32, 25, 0.35); }
+@media (hover: hover) {
+  .dark .hover\:bg-white\/30:hover { background-color: rgba(38, 32, 25, 0.35); }
+}
+.dark .bg-\[\#f5f5f5\] { background-color: #2f2920; }
+@media (hover: hover) {
+  .dark .hover\:bg-\[\#f5f5f5\]:hover { background-color: #2f2920; }
+}
 .dark .bg-\[\#e5e5e5\] { background-color: #352e24; }
 
 /* 텍스트 (검정/riso-dark → warm light) */
-.dark .text-black,
-.dark .hover\:text-black:hover { color: #ece3d2; }
+.dark .text-black { color: #ece3d2; }
+@media (hover: hover) {
+  .dark .hover\:text-black:hover { color: #ece3d2; }
+}
 .dark .text-black\/60 { color: rgba(236, 227, 210, 0.6); }
 .dark .text-black\/30 { color: rgba(236, 227, 210, 0.35); }
 .dark .text-riso-dark { color: #ece3d2; }
@@ -408,7 +471,7 @@
 /* ============================================
    모달/바텀시트 배경 스크롤 잠금 (useOverlayScrollLock 이 <html>.scroll-locked 부여).
 
-   이 앱의 실제 스크롤러는 body 가 아니라 layouts/default.vue 의 `<main class="overflow-y-auto">`.
+   main, 문서 스크롤과 layout:false 페이지의 독립 스크롤러를 모두 잠근다.
    과거 Modal.vue 는 `document.body.style.overflow='hidden'` 으로 잠갔는데, body 는 스크롤러가
    아니라 무효였다.
 
@@ -419,12 +482,17 @@
    !important 로 확실히 못박는다. (같은 unlayered-wins 패턴을 위의 .dark override 가 이미 사용.)
 
    `position: fixed` 트릭과 달리 `overflow: hidden` 은 스크롤 위치를 보존해, 닫을 때 화면이
-   맨 위로 튀지 않는다. `layout: false` 페이지(로그인/에러/공유)는 body 가 스크롤러라 첫 규칙이
-   그 경우를 덮는다. main 자식인 모달 패널의 내부 스크롤은 막지 않는다(그래서 touch-action 미사용).
+   맨 위로 튀지 않는다. 로그인/에러/공유의 자체 스크롤러는 apjek-page-scroll 규칙이 덮는다.
+   main 자식인 모달 패널의 내부 스크롤은 막지 않는다(그래서 touch-action 미사용).
    ============================================ */
 html.scroll-locked,
 html.scroll-locked body {
   overflow: hidden !important;
+}
+
+html.scroll-locked .apjek-page-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
 }
 
 html.scroll-locked main {

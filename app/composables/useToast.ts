@@ -45,6 +45,8 @@ const DEFAULT_DURATION_MS = 3000
 export function useToast() {
   const toasts = useState<Toast[]>('toasts', () => [])
   const nextId = useState<number>('toastNextId', () => 0)
+  // 상단 알림 슬롯은 실제 렌더 높이를 공유해 큰 글씨에서도 서로 겹치지 않는다.
+  const slots = useState<{ offline: number, record: number }>('toastSlots', () => ({ offline: 0, record: 0 }))
 
   function show(options: ToastOptions) {
     const type: ToastType = options.type ?? 'info'
@@ -69,9 +71,18 @@ export function useToast() {
       onAction: options.onAction,
     })
     if (import.meta.client) {
-      setTimeout(() => {
-        toasts.value = toasts.value.filter(t => t.id !== id)
-      }, options.duration ?? DEFAULT_DURATION_MS)
+      // 첫 알림만 표시하고 대기 중인 알림의 읽기 시간은 차감하지 않는다.
+      let remaining = options.duration ?? DEFAULT_DURATION_MS
+      let previous = Date.now()
+      const timer = setInterval(() => {
+        const now = Date.now()
+        const present = toasts.value.some(t => t.id === id)
+        if (!present) { clearInterval(timer); return }
+        const focused = document.activeElement?.closest(`[data-toast-id="${id}"]`)
+        if (toasts.value[0]?.id === id && !focused) remaining -= now - previous
+        previous = now
+        if (remaining <= 0) { dismiss(id); clearInterval(timer) }
+      }, 100)
     }
   }
 
@@ -85,5 +96,5 @@ export function useToast() {
   function error(message: string, extra?: ToastExtra) { show({ ...extra, title: message, type: 'error' }) }
   function info(message: string, extra?: ToastExtra) { show({ ...extra, title: message, type: 'info' }) }
 
-  return { toasts: readonly(toasts), show, success, error, info, dismiss }
+  return { slots, toasts: readonly(toasts), show, success, error, info, dismiss }
 }

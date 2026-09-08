@@ -13,7 +13,7 @@
       <p class="text-sm text-riso-poppy">{{ $t('admin.index.loadError') }}</p>
       <button
         type="button"
-        class="shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
         @click="loadDashboard"
       >
         {{ $t('common.retry') }}

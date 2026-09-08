@@ -15,7 +15,7 @@
       <p class="text-sm text-riso-poppy">{{ $t('admin.categories.loadError') }}</p>
       <button
         type="button"
-        class="shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
         @click="reload"
       >
         {{ $t('common.retry') }}
@@ -39,27 +39,30 @@
         </div>
 
         <div class="grid grid-cols-3 gap-2">
-          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block">
+          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block focus-within:ring-2 focus-within:ring-riso-sage">
             <span class="text-[10px] text-riso-dark/40">{{ $t('admin.categories.coinReward') }}</span>
             <input
+              :disabled="saving !== null"
               v-model.number="row.form.baseCoinReward"
               type="number"
               min="0"
               class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
             >
           </label>
-          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block">
+          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block focus-within:ring-2 focus-within:ring-riso-sage">
             <span class="text-[10px] text-riso-dark/40">{{ $t('admin.categories.tokenReward') }}</span>
             <input
+              :disabled="saving !== null"
               v-model.number="row.form.baseTokenReward"
               type="number"
               min="0"
               class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
             >
           </label>
-          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block">
+          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block focus-within:ring-2 focus-within:ring-riso-sage">
             <span class="text-[10px] text-riso-dark/40">{{ $t('admin.categories.dailyLimit') }}</span>
             <input
+              :disabled="saving !== null"
               v-model.number="row.form.dailyLimit"
               type="number"
               min="0"
@@ -69,8 +72,8 @@
         </div>
 
         <button
-          class="w-full h-9 rounded-full bg-riso-sage text-white text-xs font-medium riso-shadow-sm active:scale-95 transition-transform disabled:opacity-40"
-          :disabled="saving === row.cat.id"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] w-full h-9 rounded-full bg-riso-sage text-white text-xs font-medium riso-shadow-sm active:scale-95 transition-transform disabled:opacity-40"
+          :disabled="saving !== null"
           @click="saveRewards(row.cat.id)"
         >
           {{ saving === row.cat.id ? $t('admin.common.saving') : $t('admin.common.save') }}
@@ -138,6 +141,7 @@ async function reload() {
 }
 
 async function saveRewards(categoryId: number) {
+  if (saving.value !== null) return
   const form = rows.value.find((r) => r.cat.id === categoryId)?.form
   if (!form) return
   // code-review CDX-004: server (AdminService) 는 dailyLimit >= 1 요구 — frontend 도 일치

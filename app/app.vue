@@ -5,7 +5,7 @@
     두므로**, 피드백이 없으면 탭을 눌러도 앱이 멈춘 것처럼 보인다. NuxtLoadingIndicator 는
     그 구간을 눈에 보이는 진행으로 바꾼다(웹 방문자와 네이티브 셸 모두에 적용).
   -->
-  <NuxtLoadingIndicator color="#7edbc0" :height="3" :throttle="120" />
+  <NuxtLoadingIndicator color="#7edbc0" :height="3" :throttle="120" style="top: var(--sat); left: max(var(--sal), calc((100vw - 28rem) / 2)); right: max(var(--sar), calc((100vw - 28rem) / 2))" />
   <CommonOfflineBanner />
   <NuxtLayout>
     <NuxtPage />

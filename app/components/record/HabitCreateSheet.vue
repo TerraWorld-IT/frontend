@@ -70,7 +70,7 @@
             placeholder="예: 독서, 공부, 운동..."
             maxlength="30"
             class="w-full h-[48px] rounded-[12px] px-[16px] text-[14px] outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
-            @keydown.enter.exact.prevent="onPrimary"
+            @keydown.enter.exact="!$event.isComposing && ($event.preventDefault(), onPrimary())"
           >
         </div>
       </template>
@@ -116,7 +116,7 @@
             <p class="text-[13px] font-semibold text-apjek-text truncate w-full text-center">{{ f.nickname }}</p>
             <button
               type="button"
-              class="w-full h-[32px] rounded-full text-[12px] font-semibold transition-all active:scale-95 disabled:cursor-default"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] w-full h-[32px] rounded-full text-[12px] font-semibold transition-all active:scale-95 disabled:cursor-default"
               :class="selectedFriendId === f.userId
                 ? 'bg-apjek-cta text-white'
                 : selectedFriendId === null
