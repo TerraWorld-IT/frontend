@@ -15,6 +15,7 @@
             class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all"
             :class="segment === 'list' ? 'bg-apjek-cta text-white' : 'text-apjek-text-sub'"
             :aria-pressed="segment === 'list'"
+            :disabled="submitting"
             @click="switchSegment('list')"
           >
             리스트 메뉴
@@ -24,6 +25,7 @@
             class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-[36px] rounded-full text-[13px] font-semibold transition-all"
             :class="segment === 'routine' ? 'bg-apjek-cta text-white' : 'text-apjek-text-sub'"
             :aria-pressed="segment === 'routine'"
+            :disabled="submitting"
             @click="switchSegment('routine')"
           >
             루틴 설정
@@ -41,16 +43,17 @@
       >
         <input
           v-model="newText"
+          :disabled="submitting"
           :placeholder="`새 항목 추가 (최대 ${TODO_LIMIT}개)`"
           maxlength="50"
-          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none placeholder:text-apjek-blue-deep"
-          @keydown.enter.prevent="onAdd"
+          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none focus-visible:ring-2 focus-visible:ring-apjek-blue/30 placeholder:text-apjek-blue-deep"
+          @keydown.enter="!$event.isComposing && ($event.preventDefault(), onAdd())"
         >
         <button
           type="button"
           class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center text-white shrink-0 transition-all active:scale-95 bg-apjek-blue disabled:opacity-40"
           aria-label="항목 추가"
-          :disabled="newText.trim().length === 0"
+          :disabled="submitting || newText.trim().length === 0"
           @click="onAdd"
         >
           <Icon name="lucide:plus" class="w-4 h-4" />
@@ -75,6 +78,7 @@
           :class="todo.checked ? 'border-apjek-blue bg-apjek-blue' : 'border-apjek-border-strong bg-transparent'"
           :aria-pressed="todo.checked"
           :aria-label="`${todo.text} 체크`"
+          :disabled="submitting"
           @click="toggleTodo(todo.id)"
         >
           <Icon v-if="todo.checked" name="lucide:check" class="w-3.5 h-3.5 text-white" />
@@ -90,6 +94,7 @@
           type="button"
           class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center shrink-0 transition active:scale-95"
           aria-label="항목 삭제"
+          :disabled="submitting"
           @click="removeTodo(todo.id)"
         >
           <Icon name="lucide:trash-2" class="w-4 h-4 text-riso-poppy" />
@@ -176,8 +181,8 @@
             v-model="routineLabel"
             placeholder="새 루틴 이름 작성"
             maxlength="50"
-            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none"
-            @keydown.enter.prevent="createRoutine"
+            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none focus-visible:ring-2 focus-visible:ring-apjek-blue/30"
+            @keydown.enter="!$event.isComposing && ($event.preventDefault(), createRoutine())"
           >
           <button
             type="button"
@@ -210,7 +215,7 @@
           class="relative after:absolute after:-inset-2 after:content-[''] size-[28px] rounded-full flex items-center justify-center shrink-0 transition active:scale-95 disabled:opacity-40"
           aria-label="루틴 삭제"
           :disabled="routineBusy"
-          @click="removeRoutine(r)"
+          @click="routineDeleteTarget = r"
         >
           <Icon name="lucide:trash-2" class="w-4 h-4 text-riso-poppy" />
         </button>
@@ -249,6 +254,13 @@
       </button>
     </template>
   </CommonBottomSheet>
+  <RecordConfirmDialog
+    :open="routineDeleteTarget !== null" title="루틴을 삭제할까요?"
+    :message="`'${routineDeleteTarget?.label ?? ''}' 루틴을 삭제해요. 오늘 할 일은 유지돼요.`"
+    confirm-text="삭제하기" :busy="routineBusy"
+    @close="!routineBusy && (routineDeleteTarget = null)"
+    @confirm="routineDeleteTarget && removeRoutine(routineDeleteTarget)"
+  />
 </template>
 
 <script setup lang="ts">
@@ -324,12 +336,14 @@ const checkedCount = computed<number>(() => todos.value.filter(t => t.checked).l
 const allChecked = computed<boolean>(() => todos.value.length > 0 && todos.value.every(t => t.checked))
 
 function switchSegment(next: Segment) {
+  if (props.submitting) return
   if (segment.value === next) return
   void dismissKeyboard()
   segment.value = next
 }
 
 function onAdd() {
+  if (props.submitting) return
   const next = addManualTodo(todos.value, newText.value)
   if (!next) {
     if (todos.value.length >= TODO_LIMIT) toast.error(`최대 ${TODO_LIMIT}개까지 추가할 수 있어요`)
@@ -340,10 +354,12 @@ function onAdd() {
 }
 
 function toggleTodo(id: string) {
+  if (props.submitting) return
   todos.value = todos.value.map(t => (t.id === id ? { ...t, checked: !t.checked } : t))
 }
 
 function removeTodo(id: string) {
+  if (props.submitting) return
   todos.value = todos.value.filter(t => t.id !== id)
 }
 
@@ -366,6 +382,7 @@ const routineLabel = ref<string>('')
 const repeatType = ref<TodoRoutineRequest['repeatType']>('DAILY')
 const selectedDays = ref<number[]>([])
 const routineBusy = ref<boolean>(false)
+const routineDeleteTarget = ref<TodoRoutineResponse | null>(null)
 
 // 표시 순서는 디자인(월~일), value 는 스키마 0=일~6=토 — JS getDay() 와 동일 규약.
 const WEEKDAYS: { label: string; value: number }[] = [
@@ -416,11 +433,24 @@ function repeatSummary(r: TodoRoutineResponse): string {
 }
 
 // 오늘 요일 해당 루틴(DAILY 전부 + WEEKLY 중 오늘 포함)을 미체크 항목으로 프리필 — routineId 로 dedupe.
+// 저장 중에 도착한 루틴은 버리지 않고 보관했다가 저장이 끝나면 반영한다(요구는 잠금이지 폐기가 아니다).
+const pendingRoutinePrefill = ref<TodoRoutineResponse[]>([])
 function prefillFromRoutines(list: TodoRoutineResponse[]): void {
+  if (props.submitting) {
+    pendingRoutinePrefill.value = [...pendingRoutinePrefill.value, ...list]
+    return
+  }
   const todayDow = new Date().getDay()
   const due = list.filter(r => r.repeatType === 'DAILY' || (r.daysOfWeek ?? []).includes(todayDow))
   todos.value = mergeRoutineTodos(todos.value, due)
 }
+
+watch(() => props.submitting, (submitting) => {
+  if (submitting || pendingRoutinePrefill.value.length === 0) return
+  const pending = pendingRoutinePrefill.value
+  pendingRoutinePrefill.value = []
+  prefillFromRoutines(pending)
+})
 
 // 시트 열림 시 루틴 로드 — 실패는 비차단(루틴 없이 기존 투두 동작 유지, 백엔드 미구현 404 포함).
 async function loadRoutines(): Promise<void> {
@@ -486,6 +516,7 @@ async function removeRoutine(r: TodoRoutineResponse) {
     routines.value = routines.value.filter(x => x.id !== r.id)
     // 프리필된 미체크 항목은 유지한다 — 루틴은 항목의 "출처"일 뿐, 오늘 목록의 소유자가 아님.
     toast.success('루틴을 삭제했어요')
+    routineDeleteTarget.value = null
   }
   catch {
     toast.error('잠시 후 다시 시도해주세요')

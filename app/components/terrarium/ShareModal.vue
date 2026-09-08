@@ -12,7 +12,7 @@
         type="button"
         data-testid="share-sns"
         class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98]"
-        @click="emit('sns')"
+        :disabled="busy" @click="emit('sns')"
       >
         <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true">🔗</div>
         <div class="text-left flex-1 min-w-0">

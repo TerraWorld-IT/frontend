@@ -103,7 +103,7 @@
           <div class="flex gap-[8px]">
             <button
               type="button"
-              class="flex-1 h-[32px] rounded-full bg-white text-apjek-text text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] flex-1 h-[32px] rounded-full bg-white text-apjek-text text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
               :disabled="busy"
               aria-label="기록 연장 요청 수락하기"
               @click="emit('accept', tracker)"
@@ -112,7 +112,7 @@
             </button>
             <button
               type="button"
-              class="flex-1 h-[32px] rounded-full border border-white/70 text-white text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] flex-1 h-[32px] rounded-full border border-white/70 text-white text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
               :disabled="busy"
               aria-label="기록 연장 요청 거절하기"
               @click="emit('decline', tracker)"
@@ -129,7 +129,7 @@
           </div>
           <button
             type="button"
-            class="h-[32px] px-[14px] rounded-full bg-white text-apjek-text text-[12px] font-semibold shrink-0 transition-all active:scale-95 disabled:opacity-50"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] h-[32px] px-[14px] rounded-full bg-white text-apjek-text text-[12px] font-semibold shrink-0 transition-all active:scale-95 disabled:opacity-50"
             :disabled="busy"
             @click="emit('extend', tracker)"
           >
@@ -146,7 +146,7 @@
         </div>
         <button
           type="button"
-          class="h-[32px] px-[14px] rounded-full bg-white text-apjek-text text-[12px] font-semibold shrink-0 transition-all active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] h-[32px] px-[14px] rounded-full bg-white text-apjek-text text-[12px] font-semibold shrink-0 transition-all active:scale-95"
           @click="emit('cheer', tracker)"
         >
           응원하기
@@ -167,7 +167,7 @@
         <div class="flex gap-[8px]">
           <button
             type="button"
-            class="flex-1 h-[32px] rounded-full bg-white text-apjek-text text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] flex-1 h-[32px] rounded-full bg-white text-apjek-text text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
             :disabled="busy"
             aria-label="함께 기록 요청 수락하기"
             @click="emit('accept', tracker)"
@@ -176,7 +176,7 @@
           </button>
           <button
             type="button"
-            class="flex-1 h-[32px] rounded-full border border-white/70 text-white text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] flex-1 h-[32px] rounded-full border border-white/70 text-white text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50"
             :disabled="busy"
             aria-label="함께 기록 요청 거절하기"
             @click="emit('decline', tracker)"
@@ -196,7 +196,7 @@
         </div>
         <button
           type="button"
-          class="h-[32px] px-[14px] rounded-full bg-white text-apjek-text text-[12px] font-semibold shrink-0 transition-all active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] h-[32px] px-[14px] rounded-full bg-white text-apjek-text text-[12px] font-semibold shrink-0 transition-all active:scale-95"
           @click="cancelOpen = true"
         >
           취소하기

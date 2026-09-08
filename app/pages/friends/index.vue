@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen space-y-5">
+  <div class="min-h-full space-y-5">
     <!-- 헤더 -->
     <div class="space-y-1">
       <h2 class="font-bold text-[20px] leading-[28px] text-apjek-text tracking-[-0.45px]">
@@ -27,14 +27,14 @@
           <div class="flex gap-1.5 shrink-0">
             <button
               type="button"
-              class="apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               @click="copyMyCode"
             >
               {{ $t('friends.copy') }}
             </button>
             <button
               type="button"
-              class="apjek-chip apjek-chip-active px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] apjek-chip apjek-chip-active px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               @click="shareMyCode"
             >
               {{ $t('common.share') }}
@@ -105,7 +105,7 @@
         <p class="text-[13px] text-apjek-text-sub">{{ $t('friends.listLoadError') }}</p>
         <button
           type="button"
-          class="apjek-cta px-4 py-2 text-[12px] active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] apjek-cta px-4 py-2 text-[12px] active:scale-95"
           @click="loadFriends"
         >
           {{ $t('common.retry') }}
@@ -359,6 +359,7 @@ async function onAcceptInvite() {
     const result = castData<InviteAcceptResponse>(data)
     // 수락자(나) 지급분 = reward.inviteeRuby (specialCoins 는 하위호환 동일값).
     const reward = result?.reward.inviteeRuby ?? 0
+    void dismissKeyboard()
     toast.success(t('friends.acceptSuccess', { reward }))
     trackInviteAccepted({ specialCoinsRewarded: reward })
     inputCode.value = ''

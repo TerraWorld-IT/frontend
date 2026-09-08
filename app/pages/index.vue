@@ -13,7 +13,7 @@
        (main 의 pt 는 calc(1rem + safe-area) — -mt-4 는 1rem 몫만 상쇄해 세이프에어리어는 유지)
        관리 모드에선 하단 고정 패널 높이만큼 여백을 더해 병이 패널 뒤로 숨지 않게 한다. -->
   <div
-    class="flex flex-col gap-5 min-h-screen -mx-5 -mt-4 px-5 pt-4"
+    class="flex flex-col gap-5 min-h-full -mx-5 -mt-4 px-5 pt-4"
     :class="editMode ? 'pb-[300px]' : 'pb-6'"
     style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 55%)"
     data-testid="home-page"
@@ -160,6 +160,18 @@
             ? { background: 'var(--color-apjek-blue)', color: '#ffffff' }
             : { background: 'var(--color-apjek-surface)', color: 'var(--color-apjek-text-sub)', border: '1px solid var(--color-apjek-border-strong)' }"
           :aria-selected="manageTab === chip.tab"
+          :id="`home-manage-tab-${chip.tab}`" aria-controls="home-manage-panel"
+          :tabindex="manageTab === chip.tab ? 0 : -1"
+          @keydown="(event) => {
+            const index = manageChips.findIndex(c => c.tab === manageTab)
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? manageChips.length - 1
+              : event.key === 'ArrowRight' ? (index + 1) % manageChips.length
+              : event.key === 'ArrowLeft' ? (index + manageChips.length - 1) % manageChips.length : -1
+            if (next < 0) return
+            event.preventDefault()
+            manageTab = manageChips[next]!.tab
+            ;(event.currentTarget as HTMLElement).parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]')[next]?.focus()
+          }"
           @click="manageTab = chip.tab"
         >
           <span v-if="chip.icon" aria-hidden="true">{{ chip.icon }}</span>{{ chip.label }}
@@ -182,11 +194,13 @@
         <div
           id="my-terra-container"
           ref="stageEl"
+          :role="healingMode ? 'dialog' : undefined" :aria-modal="healingMode ? true : undefined"
+          :aria-label="healingMode ? '힐링 모드' : undefined"
           :class="healingMode
             ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
             : 'relative flex justify-center items-center w-full overflow-hidden'"
           :style="healingMode
-            ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)' }
+            ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
             : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
         >
@@ -311,7 +325,7 @@
                   :key="btn.label"
                   type="button"
                   :title="btn.label"
-                  :aria-label="btn.label"
+                  :disabled="placementBusy || saving || backgroundBusy" :aria-label="btn.label"
                   :data-testid="`home-item-action-${btn.key}`"
                   class="absolute flex items-center justify-center z-30 transition-transform active:scale-90"
                   :style="itemActionControlStyle(placed, btn.offsetY)"
@@ -331,6 +345,7 @@
                   v-for="c in corners(placed)"
                   :key="c.key"
                   type="button"
+                  :disabled="placementBusy || saving || backgroundBusy"
                   :aria-label="c.label"
                   :data-testid="`home-resize-${c.key}`"
                   class="absolute z-30 flex items-center justify-center"
@@ -397,7 +412,7 @@
           >
             <button
               type="button"
-              class="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+              class="relative after:absolute after:-inset-[6px] after:content-[''] w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
               :style="bgm.enabled.value
                 ? { background: 'var(--color-apjek-blue)', color: '#ffffff' }
                 : { background: 'var(--color-apjek-bg)', color: 'var(--color-apjek-text-faint)' }"
@@ -412,7 +427,7 @@
             <span class="text-xs font-semibold text-apjek-text-sub">{{ bgm.enabled.value ? '음악 ON' : '음악 OFF' }}</span>
             <button
               type="button"
-              class="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+              class="relative after:absolute after:-inset-[6px] after:content-[''] w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
               style="background: var(--color-apjek-blue-soft)"
               aria-label="힐링 모드 닫기"
               data-testid="home-healing-close"
@@ -467,7 +482,7 @@
                 <!-- T15 놀러가기 — 방문 모달 직접 오픈 (friends 페이지와 동일 API) -->
                 <button
                   type="button"
-                  class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0 disabled:opacity-50"
+                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0 disabled:opacity-50"
                   style="background: var(--color-apjek-cta)"
                   :disabled="visitingId !== null"
                   :data-testid="`home-visit-${friend.userId}`"
@@ -479,7 +494,7 @@
               <p class="text-xs text-apjek-text-faint">{{ homeFriendsError ? '친구 목록을 불러오지 못했어요' : '아직 함께하는 친구가 없어요' }}</p>
               <button
                 type="button"
-                class="rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
+                class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
                 style="background: var(--color-apjek-cta)"
                 @click="navigateTo('/friends')"
               >{{ homeFriendsError ? '친구 페이지로' : '친구 초대하기' }}</button>
@@ -532,10 +547,11 @@
 
   <!-- ═══════════════ T13 관리 모드 하단 고정 패널 (보유 아이템/정령/배경 목록 + 저장하기) ═══════════════ -->
   <TerrariumManagePanel
+    id="home-manage-panel" role="tabpanel" :aria-labelledby="`home-manage-tab-${manageTab}`"
     :open="editMode"
     :tab="manageTab"
     :tiles="manageTiles"
-    :busy="placementBusy || backgroundBusy"
+    :busy="placementBusy || backgroundBusy || saving"
     :saving="saving"
     :max-slots="maxSlots"
     :placed-count="placedItems.length"
@@ -543,6 +559,11 @@
     @tile="onManageTile"
     @save="onSaveManage"
     @empty-cta="onManageEmptyCta"
+  />
+
+  <RecordConfirmDialog :open="manageExitTarget !== null" title="관리를 종료할까요?"
+    message="저장하지 못한 배치는 되돌려요. 저장된 변경은 유지돼요." confirm-text="저장하지 않고 종료"
+    :busy="placementBusy || saving || backgroundBusy" @close="manageExitTarget?.(false)" @confirm="manageExitTarget?.(true)"
   />
 
   <!-- ═══════════════ T3b/T13 모드 진입 인트로 스플래시 1.2초 ═══════════════ -->
@@ -623,8 +644,8 @@
     <Transition name="dialog">
       <div v-if="showAttendance" ref="attendanceRoot" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="출석체크">
         <div class="fixed inset-0 bg-black/40" @click="showAttendance = false" />
-        <div class="fixed inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto">
-          <div class="rounded-3xl p-6 shadow-2xl" style="background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)" data-testid="attendance-popup">
+        <div class="fixed inset-0 apjek-safe-dialog" @click.self="showAttendance = false">
+          <div class="relative w-full max-w-sm rounded-3xl p-6 shadow-2xl overflow-y-auto" style="max-height: calc(100dvh - var(--sat) - var(--sab) - 2rem); background: rgba(255,255,255,0.96); backdrop-filter: blur(20px)" data-testid="attendance-popup">
             <div class="flex items-center justify-between mb-5">
               <div class="flex items-center gap-2.5">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background: var(--color-apjek-blue-soft)">
@@ -637,7 +658,7 @@
               </div>
               <button
                 type="button"
-                class="w-7 h-7 rounded-full flex items-center justify-center"
+                class="relative after:absolute after:-inset-2 after:content-[''] w-7 h-7 rounded-full flex items-center justify-center"
                 style="background: var(--color-apjek-blue-soft)"
                 aria-label="닫기"
                 @click="showAttendance = false"
@@ -721,6 +742,7 @@
 
 <script setup lang="ts">
 import { Capacitor } from '@capacitor/core'
+import { onBeforeRouteLeave } from 'vue-router'
 import type {
   AdRewardResponse,
   AttendanceBoardDay,
@@ -800,6 +822,10 @@ const user = computed<UserMeResponse | null>(() => userStore.me as UserMeRespons
 const allItems = computed<ItemResponse[]>(() => itemsStore.items as ItemResponse[])
 const terrarium = ref<TerrariumResponse | null>(null)
 const placedItems = ref<PlacedFreeItem[]>([])
+const dirtyPlacementIds = ref<Set<number>>(new Set())
+// 배치별 저장 요청 세대 — 같은 placementId 에 두 PUT 이 겹칠 때, 늦게 도착한 이전 응답이
+// 최신 좌표를 덮어쓰지 않도록 응답 처리를 최신 세대에서만 한다(렌더 의존 없음 → 반응성 불필요).
+const persistSeq = new Map<number, number>()
 
 const editMode = ref<boolean>(false)
 const selectedItemId = ref<number | null>(null)
@@ -818,7 +844,10 @@ watch(stageEl, (el) => {
   stageFitObserver = null
   if (!el || typeof ResizeObserver === 'undefined') return
   stageFitObserver = new ResizeObserver(() => {
-    stageFit.value = Math.min(1, el.clientWidth / 400)
+    const style = getComputedStyle(el)
+    const width = el.clientWidth - (Number.parseFloat(style.paddingLeft) || 0) - (Number.parseFloat(style.paddingRight) || 0)
+    const height = el.clientHeight - (Number.parseFloat(style.paddingTop) || 0) - (Number.parseFloat(style.paddingBottom) || 0)
+    stageFit.value = healingMode.value ? Math.max(0.01, Math.min(1, width / 400, height / 552)) : Math.min(1, el.clientWidth / 400)
   })
   stageFitObserver.observe(el)
 })
@@ -853,6 +882,15 @@ const introMode = ref<'healing' | 'manage' | null>(null)
 
 // ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) (배치/시들기/하트 로직 무변경) ───
 const healingMode = ref<boolean>(false)
+// 상단 세이프에어리어는 이 화면 배경 그라디언트의 시작색이, 하단은 하단 네비(서피스)가 채운다.
+// 힐링 모드는 풀블리드 오버레이라 열린 동안 그 그라디언트의 시작·끝색을 따른다.
+useHead({
+  htmlAttrs: {
+    style: computed<string>(() => healingMode.value
+      ? '--apjek-scrim: #cfe0f6; --apjek-scrim-bottom: #ffffff'
+      : '--apjek-scrim: var(--color-apjek-blue-soft); --apjek-scrim-bottom: var(--color-apjek-surface)'),
+  },
+})
 // 보기 모드 축소 배율 — Figma "나의테라 - 기본" 은 병이 화면 폭의 약 35%, 흰 글로우 원이 약 62% 다.
 // 관리 모드(배치 편집)·힐링 모드(풀블리드)는 설계 기준 큰 병을 그대로 쓴다. 드래그/리사이즈 좌표
 // 환산은 편집 모드에서만 일어나므로 viewScale 은 1 이고 기존 식(zoomLevel*stageFit)이 유지된다.
@@ -1030,7 +1068,10 @@ function registerOverlayBackClose(overlayOpen: Ref<boolean>) {
   let unregister: (() => void) | null = null
   watch(overlayOpen, (open) => {
     if (open) {
-      unregister = pushBackHandler(() => { overlayOpen.value = false })
+      unregister = pushBackHandler(() => {
+        if (overlayOpen === editMode) exitManageMode()
+        else overlayOpen.value = false
+      })
     } else {
       unregister?.()
       unregister = null
@@ -1208,6 +1249,7 @@ function applySnapshot(snap: NonNullable<typeof homeSnapshot.snapshot>) {
   const prev = new Map(placedItems.value.map(p => [p.placementId, p]))
   placedItems.value = (snap.freePlacements?.items ?? []).map((it, i): PlacedFreeItem => {
     const carry = prev.get(it.placementId)
+    const keepDraft = carry && dirtyPlacementIds.value.has(it.placementId)
     const fallback = fallbackPos(i)
     const cat = allItems.value.find(c => c.id === it.itemId)
     return {
@@ -1218,12 +1260,12 @@ function applySnapshot(snap: NonNullable<typeof homeSnapshot.snapshot>) {
       isAnimated: Boolean(cat?.isAnimated),
       // 로드 clamp 도메인 = 컨테이너 전체(0~400/0~552) — 서버 저장값(0~1) 을 손상 없이 표시.
       // 드래그 이동 중 clamp 만 EDIT 영역으로 제한(저장은 x/400·y/552 그대로). 좌표계 일관 (AW-5/VL-06).
-      x: it.isFreePlacement ? clamp(it.posX * 400, 0, 400) : (carry?.x ?? fallback.x),
-      y: it.isFreePlacement ? clamp(it.posY * 552, 0, 552) : (carry?.y ?? fallback.y),
+      x: keepDraft ? carry.x : it.isFreePlacement ? clamp(it.posX * 400, 0, 400) : (carry?.x ?? fallback.x),
+      y: keepDraft ? carry.y : it.isFreePlacement ? clamp(it.posY * 552, 0, 552) : (carry?.y ?? fallback.y),
       // 서버 영속값 우선(req3 #2), 세션 carry fallback, 기본값 순.
-      scale: it.scale ?? carry?.scale ?? 1,
-      flipped: it.flipped ?? carry?.flipped ?? false,
-      zIndex: it.zIndex ?? carry?.zIndex ?? i,
+      scale: keepDraft ? carry.scale : it.scale ?? carry?.scale ?? 1,
+      flipped: keepDraft ? carry.flipped : it.flipped ?? carry?.flipped ?? false,
+      zIndex: keepDraft ? carry.zIndex : it.zIndex ?? carry?.zIndex ?? i,
       rarity: (cat?.rarity === 'RARE' || cat?.rarity === 'EPIC') ? 'rare' : 'common',
     }
   })
@@ -1267,7 +1309,7 @@ const manageChips: { tab: ManageTab, label: string, icon: string }[] = [
 const saving = ref<boolean>(false)
 // 편집 후 서버 저장이 아직 확정되지 않은 배치(드래그 종료 즉시 저장이 실패했거나 진행 중) —
 // [저장하기]가 최종 확정 시점이라 여기 남은 것만 재전송한다.
-const dirtyPlacementIds = ref<Set<number>>(new Set())
+const manageExitTarget = ref<((allow: boolean) => void) | null>(null)
 
 // 인트로가 끝난 뒤 열 탭 — 딥링크(`/?mode=manage&tab=spirit`)로 정령 탭 직행할 때만 items 가 아니다.
 let pendingManageTab: ManageTab = 'items'
@@ -1297,10 +1339,57 @@ function consumeHomeEntryQuery() {
     enterManageMode(entry.tab ?? 'items')
   }
 }
-function exitManageMode() {
+function exitManageMode(confirmed = false, finish?: (allow: boolean) => void) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) {
+    toast.info('저장이 끝난 뒤 종료해주세요')
+    finish?.(false)
+    return
+  }
+  if (!confirmed && manageExitTarget.value) { finish?.(false); return }
+  if (!confirmed && dirtyPlacementIds.value.size > 0) {
+    manageExitTarget.value = (allow) => {
+      // 저장 진행 중에는 확인창을 유지하되 대기 중인 라우팅은 즉시 취소한다(가드가 매달리지 않게).
+      if (allow && (placementBusy.value || saving.value || backgroundBusy.value)) {
+        finish?.(false)
+        return
+      }
+      manageExitTarget.value = null
+      if (allow) exitManageMode(true)
+      finish?.(allow)
+    }
+    return
+  }
+  if (confirmed && dirtyPlacementIds.value.size > 0) {
+    const snapshot = homeSnapshot.snapshot
+    if (snapshot) {
+      placedItems.value = placedItems.value.filter(p => !dirtyPlacementIds.value.has(p.placementId))
+      dirtyPlacementIds.value.clear()
+      applySnapshot(snapshot)
+    }
+    else {
+      // 스냅샷이 없으면 되돌릴 기준이 없다 — dirty 만 지우면 미저장 편집이 저장된 것처럼 남으므로
+      // 기존 로더로 서버 상태를 다시 받아 재동기화한다.
+      // 재동기화 실패는 종료·dirty 소거 흐름을 막지 않되, 형제 호출부와 같은 형태로 사용자에게 알린다.
+      dirtyPlacementIds.value.clear()
+      void (async () => {
+        try {
+          await reloadAfterPlacement()
+        }
+        catch (e) {
+          toast.error((e as Error).message)
+        }
+      })()
+    }
+  }
   editMode.value = false
   selectedItemId.value = null
+  finish?.(true)
 }
+
+onBeforeRouteLeave(() => {
+  if (!editMode.value) return true
+  return new Promise<boolean>((resolve) => exitManageMode(false, resolve))
+})
 
 // 패널 타일 — 탭별 보유 목록. 배치(아이템/정령)/현재 적용(배경) 체크 표시.
 const manageTiles = computed<ManageTile[]>(() => {
@@ -1333,6 +1422,7 @@ function toastSlotExceeded() {
 }
 
 async function onManageTile(tile: ManageTile) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) return
   if (manageTab.value === 'backgrounds') {
     const item = ownedBackgrounds.value.find(i => i.id === tile.id)
     if (item) await onSelectBackground(item)
@@ -1354,23 +1444,28 @@ async function onManageTile(tile: ManageTile) {
 
 // [저장하기] — 미확정 배치를 재전송해 최종 확정하고 토스트 "저장됨" 후 메인으로(관리 모드 종료, 댓글 #41).
 async function onSaveManage() {
-  if (saving.value) return
+  if (saving.value || placementBusy.value || backgroundBusy.value) return
   saving.value = true
+  placementBusy.value = true
   try {
     const pendingIds = [...dirtyPlacementIds.value]
     const targets = placedItems.value.filter(p => pendingIds.includes(p.placementId))
     if (targets.length > 0) {
-      const results = await Promise.all(targets.map(p => persistPosition(p)))
+      const results: boolean[] = []
+      for (const target of targets) results.push(await persistPosition(target, true))
       if (results.some(ok => !ok)) {
         toast.error('일부 배치를 저장하지 못했어요. 다시 시도해 주세요')
         return
       }
     }
     toast.success('저장됨', { variant: 'pill' })
+    saving.value = false
+    placementBusy.value = false
     exitManageMode()
   }
   finally {
     saving.value = false
+    placementBusy.value = false
   }
 }
 
@@ -1385,7 +1480,7 @@ function onWheel(e: WheelEvent) {
 // justDragged: 드래그로 종료된 pointerup 직후 발생하는 native click 1회 무시(핸들 사라짐 방지, VL-01).
 const justDragged = ref<boolean>(false)
 function onItemClick(placed: PlacedFreeItem) {
-  if (!editMode.value) return
+  if (!editMode.value || placementBusy.value || saving.value || backgroundBusy.value) return
   if (justDragged.value) {
     justDragged.value = false
     return
@@ -1398,7 +1493,7 @@ function onItemClick(placed: PlacedFreeItem) {
 let dragState: { placementId: number, startX: number, startY: number, baseX: number, baseY: number, moved: boolean } | null = null
 
 function onItemPointerDown(e: PointerEvent, placed: PlacedFreeItem) {
-  if (!editMode.value) return
+  if (!editMode.value || placementBusy.value || saving.value || backgroundBusy.value) return
   // 버튼/핸들에서 시작한 pointerdown 은 각자 stop 처리 — 여기는 본체 드래그.
   e.stopPropagation()
   // free.vue 패턴과 동일 — 네이티브 앱에서 드래그 중 브라우저 스크롤/선택 제스처가
@@ -1413,7 +1508,7 @@ function onItemPointerDown(e: PointerEvent, placed: PlacedFreeItem) {
 }
 
 function onItemPointerMove(e: PointerEvent) {
-  if (!dragState) return
+  if (!dragState || placementBusy.value || saving.value) return
   const target = placedItems.value.find(p => p.placementId === dragState!.placementId)
   if (!target) return
   // zoomLevel·stageFit 반영해 스크린 이동량 → 스테이지(400×552) 좌표 변환.
@@ -1425,6 +1520,8 @@ function onItemPointerMove(e: PointerEvent) {
   if (rawDx * rawDx + rawDy * rawDy > 16) dragState.moved = true
   // 편집 영역 안이면서 아이템의 시각 반지름(visualHalf)만큼 스테이지(400×552) 안쪽으로 — 바깥 컨테이너가
   // overflow-hidden 이라 중심만 안에 있어도 가장자리가 잘린다.
+  // 자유배치 미보유는 서버 저장 대상이 아니므로 dirty 로 표시하지 않는다(preview 만).
+  if (user.value?.entitlements?.freePlacement) dirtyPlacementIds.value.add(target.placementId)
   const vh = visualHalf(target)
   target.x = clamp(dragState.baseX + dx, Math.max(EDIT.minX, vh), Math.min(EDIT.maxX, STAGE_W - vh))
   target.y = clamp(dragState.baseY + dy, EDIT.minY, Math.min(EDIT.maxY, STAGE_H - vh))
@@ -1446,6 +1543,7 @@ function onItemPointerUp(e: PointerEvent) {
 
 // ─── 리사이즈 (모서리 핸들) — 종료 시 persistPosition 으로 scale 영속(req3 #2) ───
 function onCornerPointerDown(e: PointerEvent, placed: PlacedFreeItem, dirX: number, dirY: number) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) return
   e.stopPropagation()
   e.preventDefault()
   const el = e.currentTarget as HTMLElement
@@ -1457,6 +1555,9 @@ function onCornerPointerDown(e: PointerEvent, placed: PlacedFreeItem, dirX: numb
   const baseHalf = HALF * startScale * zoomLevel.value * stageFit.value
 
   function onMove(ev: PointerEvent) {
+    if (placementBusy.value || saving.value) return
+    // 미보유는 저장 대상이 아니므로 dirty 로 표시하지 않는다(preview 만).
+    if (user.value?.entitlements?.freePlacement) dirtyPlacementIds.value.add(placed.placementId)
     const dx = (ev.clientX - startX) * dirX
     const dy = (ev.clientY - startY) * dirY
     const outward = (dx + dy) / 2
@@ -1479,10 +1580,12 @@ function onCornerPointerDown(e: PointerEvent, placed: PlacedFreeItem, dirX: numb
 
 // ─── 반전/깊이 — 편집 후 영속(req3 #2) ───
 function flipItem(placed: PlacedFreeItem) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) return
   placed.flipped = !placed.flipped
   void persistPosition(placed)
 }
 function changeDepth(placed: PlacedFreeItem, delta: number) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) return
   const maxZ = Math.max(0, placedItems.value.length - 1)
   placed.zIndex = clamp(placed.zIndex + delta, 0, maxZ)
   void persistPosition(placed)
@@ -1492,9 +1595,12 @@ function changeDepth(placed: PlacedFreeItem, delta: number) {
 // 미보유 안내 toast 는 세션 내 1회만 (매 드래그마다 반복 방지, FP-03).
 // 반환값: 서버 확정 여부 — [저장하기]가 미확정 건을 모아 재전송할 때 쓴다.
 const freePlacementNoticeShown = ref<boolean>(false)
-async function persistPosition(placed: PlacedFreeItem): Promise<boolean> {
+async function persistPosition(placed: PlacedFreeItem, manageSave = false): Promise<boolean> {
+  // 드래그 저장은 관리 UI 를 잠그지 않는다 — 스냅샷 + dirty 세대 비교가 이미 race 를 막는다.
+  if (!manageSave && (saving.value || backgroundBusy.value)) return false
   if (!user.value?.entitlements?.freePlacement) {
     // 미보유 시 preview — 저장 시도 안 함(403 회피). 저장 불가 안내 1회.
+    // 저장 대상이 아니므로 dirty 로도 표시하지 않는다(관리 모드 종료 확인창이 뜨지 않아야 한다).
     if (!freePlacementNoticeShown.value) {
       freePlacementNoticeShown.value = true
       toast.info('자유배치 저장은 잠금해제 후 가능해요')
@@ -1502,9 +1608,13 @@ async function persistPosition(placed: PlacedFreeItem): Promise<boolean> {
     return true
   }
   dirtyPlacementIds.value.add(placed.placementId)
+  const snapshot = { ...placed }
+  // 이 요청의 세대 번호 — 응답이 최신 세대일 때만 스냅샷 반영·dirty 해제를 한다.
+  const seq = (persistSeq.get(placed.placementId) ?? 0) + 1
+  persistSeq.set(placed.placementId, seq)
   try {
-    const posX = clamp(placed.x / 400, 0, 1)
-    const posY = clamp(placed.y / 552, 0, 1)
+    const posX = clamp(snapshot.x / 400, 0, 1)
+    const posY = clamp(snapshot.y / 552, 0, 1)
     // 저장 전 진행 중 snapshot fetch 를 세대 무효화 — 저장 완료 전에 도착하는 stale GET 이
     // 스토어에 커밋되어 이 편집을 되돌리는 race 차단.
     homeSnapshot.invalidate()
@@ -1512,23 +1622,30 @@ async function persistPosition(placed: PlacedFreeItem): Promise<boolean> {
     const { error } = await sdk.updateFreePosition({
       client,
       path: { placementId: placed.placementId },
-      body: { posX, posY, scale: placed.scale, flipped: placed.flipped, zIndex: placed.zIndex },
+      body: { posX, posY, scale: snapshot.scale, flipped: snapshot.flipped, zIndex: snapshot.zIndex },
     })
     if (error) throw new Error(errMsg(error, '위치 저장 실패'))
     trackFreePlacementSaved({ itemCount: placedItems.value.length })
+    // 뒤늦게 도착한 이전 세대 응답은 확정하지 않는다 — 최신 요청이 이미 확정했거나 곧 확정할 값이다.
+    if (persistSeq.get(placed.placementId) !== seq) return true
     // 저장 확정값을 스냅샷에 원자 반영 — invalidate 만으로는 탭 복귀 시 저장 전 좌표가
     // 먼저 렌더되고 후속 편집이 그 stale 값을 재전송할 수 있다.
     homeSnapshot.patchFreePlacement(placed.placementId, {
       posX,
       posY,
-      scale: placed.scale,
-      flipped: placed.flipped,
-      zIndex: placed.zIndex,
+      scale: snapshot.scale,
+      flipped: snapshot.flipped,
+      zIndex: snapshot.zIndex,
     })
-    dirtyPlacementIds.value.delete(placed.placementId)
+    if (placed.x === snapshot.x && placed.y === snapshot.y && placed.scale === snapshot.scale
+      && placed.flipped === snapshot.flipped && placed.zIndex === snapshot.zIndex) {
+      dirtyPlacementIds.value.delete(placed.placementId)
+    }
     return true
   }
   catch (e) {
+    // 이전 세대의 실패는 최신 요청 결과를 가리므로 알리지 않는다(오래된 응답 무시).
+    if (persistSeq.get(placed.placementId) !== seq) return true
     toast.error((e as Error).message)
     return false
   }
@@ -1536,6 +1653,7 @@ async function persistPosition(placed: PlacedFreeItem): Promise<boolean> {
 
 // ─── 아이템 추가 (관리 패널 타일 → 슬롯 배치 후 free-placement 재로드) ───
 async function onAddItem(item: ItemResponse) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) return
   if (isItemPlaced(item.id)) {
     toast.error('이미 배치된 아이템입니다.')
     return
@@ -1580,6 +1698,7 @@ async function onAddItem(item: ItemResponse) {
 
 // ─── 아이템 제거 (슬롯에서 제거 → 재로드) ───
 async function removeItem(placed: PlacedFreeItem) {
+  if (placementBusy.value || saving.value || backgroundBusy.value) return
   placementBusy.value = true
   try {
     const existing = (terrarium.value?.placedItems ?? [])
@@ -1695,8 +1814,7 @@ async function claimWithNonce(nonce: string, isRetry: boolean): Promise<{ data?:
 
 // ─── 공유 ───
 function onSnsShare() {
-  showShareDialog.value = false
-  void nativeShare({ title: 'TERRAWORLD', text: t('home.shareText'), url: import.meta.client ? window.location.href : '' })
+  void onImageSave()
 }
 
 // ─── T10b 초대코드 — 실제 발급(createInvite) + "나의 초대코드" 팝업 + 클립보드 복사/시스템 공유 ───
@@ -1772,7 +1890,7 @@ const backgroundImageUrl = computed<string | null>(() => {
 })
 
 async function onSelectBackground(item: ItemResponse) {
-  if (backgroundBusy.value) return
+  if (backgroundBusy.value || placementBusy.value || saving.value) return
   // 이미 현재 배경이면 호출 생략 — 서버 동일 배경 재설정 회피.
   if (currentBackgroundAssetUrl.value && item.assetUrl && currentBackgroundAssetUrl.value === item.assetUrl) return
   backgroundBusy.value = true
@@ -1845,10 +1963,10 @@ async function onImageSave() {
     // false 를 돌려준다 — 여기서 성공 토스트/추적이 실패 뒤에도 나가지 않도록 분기.
     const ok = await shareToInstagram(blob, filename, { title: 'TerraWorld', text: t('home.shareText') })
     if (!ok) return
-    // Figma 393×88 카드형 토스트 "🖼️ 이미지 저장 완료 / 나의 테라 이미지가 사진첩에 저장되었어요"
-    toast.success('이미지 저장 완료', {
+    // 시스템 공유 성공에 맞춰 안내한다. 갤러리 직접 저장은 별도 기능이다.
+    toast.success('이미지 공유·저장 요청 완료', {
       icon: '🖼️',
-      description: '나의 테라 이미지가 사진첩에 저장되었어요',
+      description: '시스템 공유 또는 다운로드로 이미지를 전달했어요',
       variant: 'card',
     })
     trackScreenshotSaved({ context: 'home' })

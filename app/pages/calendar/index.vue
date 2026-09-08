@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen space-y-[28px] pb-4" data-testid="calendar-page">
+  <div class="min-h-full space-y-[28px] pb-4" data-testid="calendar-page">
     <!-- Initial loading: 현재 월의 실제 주 수와 같은 래퍼·패딩·간격을 그대로 예약한다. -->
     <div
       v-if="pending"
@@ -28,7 +28,7 @@
         </div>
       </div>
 
-      <div class="apjek-card p-5" data-layout-anchor="calendar-grid">
+      <div class="apjek-card p-5 relative" :aria-busy="monthLoading" data-layout-anchor="calendar-grid">
         <div class="mb-5 flex items-center justify-between">
           <div class="size-11 -m-1 flex items-center justify-center">
             <div class="size-9 rounded-full bg-apjek-border animate-pulse" />
@@ -143,7 +143,7 @@
       </div>
 
       <!-- 달력 — 아프젝: 라운드 원형 네비 + 라운드 사각 날짜 셀 (fig-calendar) -->
-      <div class="apjek-card p-5" data-layout-anchor="calendar-grid">
+      <div class="apjek-card p-5 relative" :aria-busy="monthLoading" data-layout-anchor="calendar-grid">
         <!-- 달력 헤더 -->
         <div class="flex items-center justify-between mb-5">
           <button
@@ -174,32 +174,40 @@
           </div>
         </div>
 
-        <!-- 날짜 그리드 (R5b) — 오늘=검정 원, 기록 있는 날=도장 아이콘 + 강조색(#A1CCDB 계열, 댓글 #19),
-             선택=강조 외곽선, 미래일=흐림 -->
-        <div class="grid grid-cols-7 gap-2" data-testid="calendar-days-grid">
-          <div v-for="i in startingDayOfWeek" :key="`empty-${i}`" class="aspect-square" />
+        <!-- 안내 배너는 날짜 그리드 위에만 겹치게 둔다(요일 헤더를 덮지 않도록 그리드 래퍼 기준 절대배치).
+             배너 자체는 클릭을 통과시키고 재시도 버튼만 받는다. -->
+        <div class="relative">
+          <div v-if="monthLoading || monthError" class="absolute inset-x-0 top-0 z-10 pointer-events-none bg-apjek-surface text-center text-sm text-apjek-text-sub" role="status">
+            <span v-if="monthLoading">기록을 불러오는 중...</span>
+            <button v-else type="button" class="h-11 pointer-events-auto" @click="loadMonth">불러오지 못했어요. 다시 시도</button>
+          </div>
+          <!-- 날짜 그리드 (R5b) — 오늘=검정 원, 기록 있는 날=도장 아이콘 + 강조색(#A1CCDB 계열, 댓글 #19),
+               선택=강조 외곽선, 미래일=흐림 -->
+          <div class="grid grid-cols-7 gap-2" data-testid="calendar-days-grid">
+            <div v-for="i in startingDayOfWeek" :key="`empty-${i}`" class="aspect-square" />
 
-          <button
-            v-for="day in daysInMonth"
-            :key="day"
-            type="button"
-            class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold flex flex-col items-center justify-center gap-[2px] active:scale-95"
-            :class="[
-              hasRecords(day) ? 'bg-[#A1CCDB]/35 text-apjek-text' : 'bg-apjek-surface text-apjek-text',
-              isSelectedDay(day) ? 'ring-2 ring-[#A1CCDB]' : 'border border-apjek-border',
-              isFuture(day) ? 'opacity-40' : '',
-            ]"
-            :aria-label="`${day}일${hasRecords(day) ? ' 기록 있음' : ''}${isToday(day) ? ' 오늘' : ''}`"
-            @click="selectDay(day)"
-          >
-            <span
-              class="text-xs leading-none size-[22px] rounded-full flex items-center justify-center"
-              :class="isToday(day) ? 'bg-apjek-cta text-white' : ''"
-            >{{ day }}</span>
-            <!-- 도장 — TODO(자산): 디자이너 도장 이미지(댓글 #23)로 교체. 현재 🌸 플레이스홀더 -->
-            <span v-if="hasRecords(day)" class="text-[11px] leading-none" aria-hidden="true">🌸</span>
-            <span v-if="noteMap[dateKey(day)]" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-apjek-blue" />
-          </button>
+            <button
+              v-for="day in daysInMonth"
+              :key="day"
+              type="button"
+              class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold flex flex-col items-center justify-center gap-[2px] active:scale-95"
+              :class="[
+                hasRecords(day) ? 'bg-[#A1CCDB]/35 text-apjek-text' : 'bg-apjek-surface text-apjek-text',
+                isSelectedDay(day) ? 'ring-2 ring-[#A1CCDB]' : 'border border-apjek-border',
+                isFuture(day) ? 'opacity-40' : '',
+              ]"
+              :aria-label="`${day}일${hasRecords(day) ? ' 기록 있음' : ''}${isToday(day) ? ' 오늘' : ''}`"
+              @click="selectDay(day)"
+            >
+              <span
+                class="text-xs leading-none size-[22px] rounded-full flex items-center justify-center"
+                :class="isToday(day) ? 'bg-apjek-cta text-white' : ''"
+              >{{ day }}</span>
+              <!-- 도장 — TODO(자산): 디자이너 도장 이미지(댓글 #23)로 교체. 현재 🌸 플레이스홀더 -->
+              <span v-if="hasRecords(day)" class="text-[11px] leading-none" aria-hidden="true">🌸</span>
+              <span v-if="noteMap[dateKey(day)]" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-apjek-blue" />
+            </button>
+          </div>
         </div>
       </div>
     </template>
@@ -242,7 +250,7 @@
                     <div class="relative">
                       <button
                         type="button"
-                        class="w-8 h-8 rounded-full hover:bg-apjek-blue-soft flex items-center justify-center text-apjek-text-sub transition-colors"
+                        class="relative after:absolute after:-inset-[6px] after:content-[''] w-8 h-8 rounded-full hover:bg-apjek-blue-soft flex items-center justify-center text-apjek-text-sub transition-colors"
                         @click="openMenuId = openMenuId === record.id ? null : record.id"
                       >
                         ⋯
@@ -256,8 +264,8 @@
                           <button
                             type="button"
                             class="w-full px-4 py-2.5 text-left text-sm hover:bg-apjek-blue-soft flex items-center gap-2 text-apjek-blue font-semibold transition-colors"
-                            :disabled="deletingId === record.id"
-                            @click="removeRecord(record)"
+                            :disabled="deletingId !== null"
+                            @click="deleteTarget = record; openMenuId = null"
                           >
                             <Icon name="lucide:trash-2" class="w-4 h-4" />
                             {{ $t('common.delete') }}
@@ -295,6 +303,7 @@
             <div v-if="isEditingNote" class="space-y-2">
               <textarea
                 v-model="editingNoteText"
+                :disabled="noteSaving"
                 rows="3"
                 :placeholder="$t('calendar.memoPlaceholder')"
                 class="w-full rounded-[12px] border border-apjek-border bg-apjek-bg px-4 py-3 text-apjek-text placeholder:text-apjek-text-faint focus:outline-none focus:ring-2 focus:ring-apjek-blue/40 resize-none text-sm"
@@ -302,7 +311,7 @@
               <div class="flex gap-2">
                 <button
                   type="button"
-                  class="flex-1 h-10 rounded-full bg-apjek-cta text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] flex-1 h-10 rounded-full bg-apjek-cta text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
                   :disabled="noteSaving"
                   @click="saveNote"
                 >
@@ -311,8 +320,8 @@
                 </button>
                 <button
                   type="button"
-                  class="w-10 h-10 rounded-full border border-apjek-border-strong flex items-center justify-center hover:bg-apjek-bg transition-colors"
-                  @click="cancelEdit"
+                  class="relative after:absolute after:-inset-[2px] after:content-[''] w-10 h-10 rounded-full border border-apjek-border-strong flex items-center justify-center hover:bg-apjek-bg transition-colors"
+                  :disabled="noteSaving" @click="cancelEdit"
                 >
                   <Icon name="lucide:x" class="w-4 h-4" />
                 </button>
@@ -326,6 +335,12 @@
         </div>
       </div>
     </CommonBottomSheet>
+    <RecordConfirmDialog :open="deleteTarget !== null" title="기록을 삭제할까요?"
+      :message="`${deleteTarget ? recordDisplayLabel(deleteTarget) : ''} 기록을 삭제하면 되돌릴 수 없어요.`"
+      confirm-text="삭제하기" :busy="deletingId !== null"
+      @close="deletingId === null && (deleteTarget = null)"
+      @confirm="deleteTarget && removeRecord(deleteTarget)"
+    />
   </div>
 </template>
 
@@ -368,6 +383,7 @@ const stats = ref<StatisticsResponse | null>(null)
 // Selected date state
 const selectedDate = ref<Date | null>(null)
 const selectedNote = ref<string | null>(null)
+const noteRequestVersion = ref<number>(0)
 const isEditingNote = ref<boolean>(false)
 const editingNoteText = ref<string>('')
 const noteSaving = ref<boolean>(false)
@@ -378,6 +394,7 @@ const noteSaving = ref<boolean>(false)
 // Record row menu / delete
 const openMenuId = ref<number | null>(null)
 const deletingId = ref<number | null>(null)
+const deleteTarget = ref<RecordResponse | null>(null)
 
 const showDetailedStats = ref<boolean>(false)
 
@@ -409,6 +426,8 @@ function toDateKey(d: Date): string {
 }
 
 function hasRecords(day: number): boolean {
+  // 로딩 중에만 비운다 — 실패 시에는 마지막 성공 데이터를 그대로 보여준다(오류 1회로 월 전체가 잠기지 않게).
+  if (monthLoading.value) return false
   const key = dateKey(day)
   return monthRecords.value.some(r => r.recordedDate.slice(0, 10) === key)
 }
@@ -468,6 +487,8 @@ async function fetchMonthRecords(year: number, month: number): Promise<RecordRes
 // 월 전환 세대 가드 — 연속 이전/다음 클릭 시 느린 이전 월 응답(다중 페이지)이 나중 요청
 // 뒤에 도착해 현재 월 화면을 덮어쓰는 race 차단 (Codex 리뷰).
 let monthLoadGen = 0
+const monthLoading = ref<boolean>(false)
+const monthError = ref<boolean>(false)
 
 async function load() {
   const gen = ++monthLoadGen
@@ -493,12 +514,19 @@ async function load() {
 
 async function loadMonth() {
   const gen = ++monthLoadGen
+  monthLoading.value = true
+  monthError.value = false
   try {
     const records = await fetchMonthRecords(viewYear.value, viewMonth.value + 1)
     if (gen === monthLoadGen) monthRecords.value = records
   }
   catch (e) {
+    if (gen !== monthLoadGen) return
+    monthError.value = true
     toast.error(errMsg(e, 'listRecords failed'))
+  }
+  finally {
+    if (gen === monthLoadGen) monthLoading.value = false
   }
 }
 
@@ -531,6 +559,9 @@ function nextMonth() {
 }
 
 async function selectDay(day: number) {
+  // 월 로딩 중에만 차단한다 — 실패 상태에서도 날짜 상세(메모)는 열 수 있어야 한다.
+  if (monthLoading.value) return
+  const version = ++noteRequestVersion.value
   // 다른 날짜의 메모를 편집 중(textarea 포커스)이었다면 전환 전에 키보드 해제
   // (utils/keyboard.ts 참조 — 포커스 유지한 채 즉시 unmount 되면 키보드가 안 닫힐 수 있음).
   if (isEditingNote.value) void dismissKeyboard()
@@ -549,6 +580,7 @@ async function selectDay(day: number) {
   }
   try {
     const { data, error, response } = await sdk.getNote({ client, path: { date: key } })
+    if (version !== noteRequestVersion.value || !selectedDate.value || toDateKey(selectedDate.value) !== key) return
     // SDK 는 HTTP 에러를 throw 하지 않고 { error } 로 반환한다. 이전엔 error 를 미검사해
     // 인증/서버 오류(401/500)도 "메모 없음"(빈 문자열)으로 캐시돼 세션 내내 메모가 사라진
     // 것처럼 보였다. 404(메모 미작성)만 정상 빈 상태로 캐시하고, 그 외 오류는 캐시하지
@@ -564,16 +596,19 @@ async function selectDay(day: number) {
   }
   catch {
     // 네트워크 예외 — 오류를 "메모 없음"으로 캐시하지 않는다(재시도 가능하게 유지).
-    toast.error(t('common.loadFailDesc'))
+    if (version === noteRequestVersion.value) toast.error(t('common.loadFailDesc'))
   }
 }
 
 function startEdit() {
+  if (noteSaving.value) return
+  noteRequestVersion.value += 1
   editingNoteText.value = selectedNote.value ?? ''
   isEditingNote.value = true
 }
 
 function cancelEdit() {
+  if (noteSaving.value) return
   void dismissKeyboard()
   isEditingNote.value = false
   editingNoteText.value = selectedNote.value ?? ''
@@ -582,6 +617,7 @@ function cancelEdit() {
 // 날짜 시트를 닫는 모든 경로(백드롭/X/월 전환)가 공유 — 메모 편집 중이었다면 키보드 해제
 // 후 닫는다 (utils/keyboard.ts 참조).
 function closeSheet() {
+  noteRequestVersion.value += 1
   if (isEditingNote.value) void dismissKeyboard()
   selectedDate.value = null
 }
@@ -589,6 +625,7 @@ function closeSheet() {
 async function saveNote() {
   if (!selectedDate.value || noteSaving.value) return
   const key = toDateKey(selectedDate.value)
+  const version = ++noteRequestVersion.value
   noteSaving.value = true
   try {
     const text = editingNoteText.value.trim()
@@ -597,7 +634,7 @@ async function saveNote() {
       if (error) throw new Error(errMsg(error, '메모 저장 실패'))
       const saved = (data as NoteResponse | undefined)?.note ?? text
       noteMap.value[key] = saved
-      selectedNote.value = saved
+      if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) selectedNote.value = saved
       toast.success(t('calendar.memoSaved'))
     }
     else {
@@ -605,11 +642,13 @@ async function saveNote() {
       const { error } = await sdk.deleteNote({ client, path: { date: key } })
       if (error) throw new Error(errMsg(error, '메모 삭제 실패'))
       noteMap.value[key] = ''
-      selectedNote.value = null
+      if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) selectedNote.value = null
       toast.success(t('calendar.memoDeleted'))
     }
-    void dismissKeyboard()
-    isEditingNote.value = false
+    if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) {
+      void dismissKeyboard()
+      isEditingNote.value = false
+    }
   }
   catch (e) {
     toast.error(errMsg(e, '메모 저장 실패'))
@@ -629,6 +668,7 @@ async function removeRecord(record: RecordResponse) {
     monthRecords.value = monthRecords.value.filter(r => r.id !== record.id)
     // i18n: calendar.recordDeleted 키 미존재 (shared) → TW2 카피 직접 사용
     toast.success('기록이 삭제되었습니다')
+    deleteTarget.value = null
   }
   catch (e) {
     toast.error(errMsg(e, '기록 삭제 실패'))
