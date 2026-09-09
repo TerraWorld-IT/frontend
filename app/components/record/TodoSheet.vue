@@ -476,13 +476,14 @@ onBeforeUnmount(() => {
 
 // 시트 열림 시 루틴 로드 — 실패해도 기존 투두 입력은 유지하고 명시 재시도를 제공한다.
 async function loadRoutines(): Promise<void> {
-  if (routinesInFlight) return
+  if (!props.open || routinesDisposed || routinesInFlight) return
   routinesInFlight = true
   const generation = ++routinesGeneration
   let reloadDiscarded: boolean = false
   pending.value = !routinesLoaded
   loadFailed.value = false
   await sdk.listTodoRoutines({ client }).then(({ data, error }) => {
+    if (!props.open) return
     // 조회보다 나중에 완료된 생성·삭제 결과와 해제된 시트는 덮어쓰지 않는다.
     if (generation !== routinesGeneration) {
       reloadDiscarded = true
@@ -498,13 +499,15 @@ async function loadRoutines(): Promise<void> {
     routinesLoaded = true
     prefillFromRoutines(list)
   }).catch(() => {
-    if (generation === routinesGeneration) loadFailed.value = true
+    if (!props.open) return
+    if (generation !== routinesGeneration) reloadDiscarded = true
+    else loadFailed.value = true
   }).finally(() => {
     routinesInFlight = false
     pending.value = false
   })
-  // 폐기된 조회마다 정리 후 한 번만 재조회하고, 해제된 시트에서는 요청하지 않는다.
-  if (reloadDiscarded && !routinesDisposed && !routinesInFlight) void loadRoutines()
+  // 폐기된 조회마다 한 번만 재조회하고, 닫힌 시트는 다음 열림의 조회에 맡긴다.
+  if (reloadDiscarded && props.open && !routinesDisposed && !routinesInFlight) void loadRoutines()
 }
 
 async function createRoutine() {

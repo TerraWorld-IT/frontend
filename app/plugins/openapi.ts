@@ -55,7 +55,8 @@ export default defineNuxtPlugin((nuxtApp) => {
         if (request.signal.aborted) abort()
         else request.signal.addEventListener('abort', abort, { once: true })
         return withTimeout(
-          fetch(request, { signal: controller.signal }).then(async (response) => {
+          // 동기 예외도 Promise 실패로 받아 데드라인과 호출자 취소 리스너를 정리한다.
+          Promise.resolve().then(() => fetch(request, { signal: controller.signal })).then(async (response) => {
             // 헤더만 온 뒤 본문이 멈춘 경우도 제한한다. 원본 응답은 SDK 파싱용으로 보존한다.
             await response.clone().arrayBuffer()
             return response

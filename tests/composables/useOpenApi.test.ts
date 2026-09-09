@@ -4,6 +4,9 @@ import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { useRuntimeConfig } from '#imports'
 import openapiPlugin from '~/plugins/openapi'
 
+// Nuxt의 1시간 빌드 갱신 폴링을 격리해 요청 데드라인 타이머만 검증한다.
+vi.mock('../../node_modules/nuxt/dist/app/plugins/check-outdated-build.client.js', () => ({ default: () => {} }))
+
 mockNuxtImport('useAuth', () => () => ({
   isLoggedIn: { value: true },
   getJwt: () => 'cached', loadJwt: async () => 'cached',
@@ -63,12 +66,14 @@ describe('useOpenApi', () => {
     await vi.advanceTimersByTimeAsync(15_000)
     await assertion
     expect(signals[0]?.aborted).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
     fetch.mockImplementationOnce((_request, opts) => {
       signals.push(opts.signal)
       return Promise.resolve(Response.json({ ok: true }))
     })
     expect((await client.get({ url: '/records' })).data).toEqual({ ok: true })
     expect(signals[1]?.aborted).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('사진 업로드 경로는 15초를 넘겨도 취소하지 않는다', async () => {
@@ -137,6 +142,20 @@ describe('useOpenApi', () => {
     controller.abort()
     await assertion
     expect(signal.aborted).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it.each(['throw', 'reject'] as const)('fetch %s 실패에도 데드라인과 호출자 취소 리스너를 정리한다', async (settlement) => {
+    const client = await createApiClient()
+    const request = new Request('https://api.example.test/api/v1/records')
+    const remove = vi.spyOn(request.signal, 'removeEventListener')
+    vi.stubGlobal('fetch', vi.fn(() => {
+      if (settlement === 'throw') throw new Error('fetch failed')
+      return Promise.reject(new Error('fetch failed'))
+    }))
+    vi.useFakeTimers()
+    await expect(client.getConfig().fetch!(request)).rejects.toThrow('fetch failed')
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function))
     expect(vi.getTimerCount()).toBe(0)
   })
 })
