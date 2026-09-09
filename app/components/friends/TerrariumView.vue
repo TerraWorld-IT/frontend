@@ -9,7 +9,7 @@
     2) 없으면(백엔드 미탑재/자유배치 미사용) slot 기반 placedItems 를 홈의 결정적 폴백 좌표
        (DEFAULT_POSITIONS)에 배치.
     읽기 전용 — 드래그/편집 없음.
-  - 아이템 이미지 분기(isUrl → img w-24 h-24 / 이모지 text-4xl), 내부 wrapper 의
+  - 아이템 이미지 분기(isAssetUrl → img w-24 h-24 / 이모지 text-4xl), 내부 wrapper 의
     scale/scaleX(flip) transform, zIndex(10+depth), isAnimated 부유 애니메이션도 홈 수식과 동일.
 -->
 <template>
@@ -42,11 +42,12 @@
           :style="{ transform: `scale(${item.scale}) scaleX(${item.flipped ? -1 : 1})`, transformOrigin: 'center' }"
         >
           <img
-            v-if="isUrl(item.image)"
+            v-if="isAssetUrl(item.image)"
             :src="item.image"
             :alt="item.name"
             class="w-24 h-24 object-contain"
             draggable="false"
+            @error="onAssetError"
           >
           <div v-else class="text-4xl">{{ item.image }}</div>
           <Icon
@@ -63,6 +64,8 @@
 <script setup lang="ts">
 import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
 import { levelOfTier } from '~/utils/tierLevels'
+
+const { onAssetError } = useItemAsset()
 
 const props = defineProps<{
   terrarium: TerrariumResponse
@@ -144,10 +147,6 @@ function itemStyle(item: FriendRenderItem): Record<string, string> {
     height: `${BASE_SIZE}px`,
     zIndex: String(10 + item.zIndex),
   }
-}
-
-function isUrl(s: string | undefined | null): boolean {
-  return !!s && (s.startsWith('http') || s.startsWith('/'))
 }
 
 // ─── stageFit (홈과 동일 패턴) ───

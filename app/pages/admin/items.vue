@@ -91,6 +91,22 @@
         </label>
 
         <label class="block">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldSlug') }}</span>
+          <input
+            :disabled="creating" v-model="form.slug"
+            type="text"
+            maxlength="50"
+            :placeholder="$t('admin.items.fieldSlug')"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+          >
+        </label>
+
+        <label class="flex items-center gap-2">
+          <input :disabled="creating" v-model="form.isAnimated" type="checkbox">
+          <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldIsAnimated') }}</span>
+        </label>
+
+        <label class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldAsset') }}</span>
           <input
             :disabled="creating" v-model="form.assetUrl"
@@ -208,6 +224,8 @@ const layoutOptions: NonNullable<AdminItemCreateRequest['layout']>[] = ['FOREGRO
 function emptyForm(): AdminItemCreateRequest {
   return {
     name: '',
+    slug: null,
+    isAnimated: false,
     assetUrl: '',
     priceType: 'BASIC',
     priceAmount: 0,
@@ -273,6 +291,7 @@ async function submitCreate() {
         ...form.value,
         name,
         assetUrl,
+        slug: form.value.slug?.trim() || null,
         // MIXED 가 아니면 보조 토큰 가격 무의미 — null 정리
         tokenPrice: form.value.priceType === 'MIXED' ? form.value.tokenPrice : null,
         description: form.value.description?.trim() || null,

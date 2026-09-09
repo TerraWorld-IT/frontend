@@ -302,11 +302,12 @@
                 :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
               >
                 <img
-                  v-if="isUrl(placed.image)"
+                  v-if="isAssetUrl(placed.image)"
                   :src="placed.image"
                   :alt="placed.name"
                   class="w-24 h-24 object-contain pointer-events-none"
                   draggable="false"
+                  @error="onAssetError"
                 >
                 <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
                 <Icon
@@ -424,18 +425,19 @@
             <button
               type="button"
               class="relative after:absolute after:-inset-[6px] after:content-[''] w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
-              :style="bgm.enabled.value
+              :style="bgmStatus === 'on'
                 ? { background: 'var(--color-apjek-blue)', color: '#ffffff' }
                 : { background: 'var(--color-apjek-bg)', color: 'var(--color-apjek-text-faint)' }"
-              :aria-label="bgm.enabled.value ? '음악 끄기' : '음악 켜기'"
-              :aria-pressed="bgm.enabled.value"
+              :aria-label="bgmStatus === 'nosource' ? $t('home.bgmNoSource') : bgmStatus === 'on' ? '음악 끄기' : '음악 켜기'"
+              :aria-pressed="bgmStatus === 'on'"
+              :aria-disabled="bgmStatus === 'nosource'"
               data-testid="home-bgm-toggle"
               @click="onToggleBgm"
             >
-              <Icon v-if="bgm.enabled.value" name="lucide:music" class="w-4 h-4" />
+              <Icon v-if="bgmStatus === 'on'" name="lucide:music" class="w-4 h-4" />
               <Icon v-else name="lucide:volume-x" class="w-4 h-4" />
             </button>
-            <span class="text-xs font-semibold text-apjek-text-sub">{{ bgm.enabled.value ? '음악 ON' : '음악 OFF' }}</span>
+            <span class="text-xs font-semibold text-apjek-text-sub">{{ bgmStatus === 'nosource' ? $t('home.bgmNoSource') : bgmStatus === 'on' ? '음악 ON' : '음악 OFF' }}</span>
             <button
               type="button"
               class="relative after:absolute after:-inset-[6px] after:content-[''] w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
@@ -779,7 +781,7 @@ const userStore = useUserStore()
 const itemsStore = useItemsStore()
 const homeSnapshot = useHomeSnapshotStore()
 const toast = useToast()
-const { itemAssetUrl, placeholderUrl, onAssetError } = useItemAsset()
+const { itemAssetUrl, placeholderUrl, resolveItemImage, onAssetError } = useItemAsset()
 const { t } = useI18n()
 const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
 const { hapticImpact, share: nativeShare, shareToInstagram } = useNative()
@@ -787,6 +789,17 @@ const config = useRuntimeConfig()
 const attendance = useAttendance()
 const tier = useTier()
 const bgm = useBgm()
+const bgmStatus = computed<'nosource' | 'off' | 'on' | 'blocked'>(() => {
+  if (!bgm.hasSource) return 'nosource'
+  if (!bgm.enabled.value) return 'off'
+  return bgm.playing.value ? 'on' : 'blocked'
+})
+let bgmBlockedNotified = false
+const bgmNoticeActive = ref<boolean>(true)
+let bgmNoticeGeneration = 0
+onBeforeUnmount(() => {
+  bgmNoticeActive.value = false
+})
 
 // ─── 좌표계 (MyTerra.tsx 그대로) ───
 const STAGE_W = 400
@@ -938,18 +951,36 @@ const backdropSize = computed<number>(() => (viewScale.value < 1 ? 620 : 430))
 function enterHealingMode() {
   introMode.value = 'healing'
 }
-function onHealingIntroDone() {
+async function onHealingIntroDone() {
   if (introMode.value !== 'healing') return
   introMode.value = null
   healingMode.value = true
-  void bgm.play()
+  const generation = ++bgmNoticeGeneration
+  await bgm.play()
+  if (bgmNoticeActive.value && generation === bgmNoticeGeneration && healingMode.value && bgmStatus.value === 'blocked' && !bgmBlockedNotified) {
+    bgmBlockedNotified = true
+    toast.info(t('home.bgmBlocked'))
+  }
 }
-function onToggleBgm() {
-  void bgm.toggle()
+async function onToggleBgm() {
+  if (bgmStatus.value === 'nosource') {
+    toast.info(t('home.bgmNoSource'))
+    return
+  }
+  const generation = ++bgmNoticeGeneration
+  if (bgmStatus.value === 'blocked') await bgm.play()
+  else await bgm.toggle()
+  if (bgmNoticeActive.value && generation === bgmNoticeGeneration && healingMode.value && bgmStatus.value === 'blocked' && !bgmBlockedNotified) {
+    bgmBlockedNotified = true
+    toast.info(t('home.bgmBlocked'))
+  }
 }
 // 힐링 모드 종료(X/ESC/뒤로가기) 시 BGM 정지 — 페이지 이탈 시 정지는 useBgm 이 unmount 에서 보장.
 watch(healingMode, (on) => {
-  if (!on) bgm.stop()
+  if (!on) {
+    bgmNoticeGeneration++
+    bgm.stop()
+  }
 })
 
 // ─── T4b 아코디언 (친구 목록 / 보유 재화) — 기본 열림, 사용자가 접으면 localStorage 기억 ───
@@ -1179,10 +1210,6 @@ const ownedBackgrounds = computed<ItemResponse[]>(() => ownedItems.value.filter(
 const maxSlots = computed<number>(() => terrarium.value?.maxSlots ?? 6)
 
 // ─── Helpers ───
-function isUrl(s: string | undefined | null): boolean {
-  return !!s && (s.startsWith('http') || s.startsWith('/'))
-}
-
 function isItemPlaced(itemId: number): boolean {
   return placedItems.value.some(p => p.itemId === itemId)
 }
@@ -2007,7 +2034,7 @@ const currentBackgroundItem = computed<ItemResponse | null>(() => {
 const backgroundImageUrl = computed<string | null>(() => {
   const item = currentBackgroundItem.value
   if (!item) return null
-  return item.slug ? itemAssetUrl(item.slug) : placeholderUrl
+  return resolveItemImage(item)
 })
 
 async function onSelectBackground(item: ItemResponse) {

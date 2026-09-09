@@ -1,3 +1,10 @@
+import type { ItemResponse } from '@terraworld-it/openapi-frontend'
+
+// 기존 화면의 URL/이모지 분기를 그대로 공유한다.
+export function isAssetUrl(s: string | undefined | null): boolean {
+  return !!s && (s.startsWith('http') || s.startsWith('/'))
+}
+
 /**
  * 아이템 에셋(PNG/GIF) 해석 composable — 낙서장 리팩토링 req 4(PNG 교체형) + req 8(env).
  *
@@ -21,6 +28,13 @@ export function useItemAsset() {
 
   const placeholderUrl: string = `${root}/placeholder.png`
 
+  // 배경은 외부 URL보다 slug PNG 규약을 우선하고, 다른 아이템은 원본 URL을 보존한다.
+  function resolveItemImage(item: Pick<ItemResponse, 'slug' | 'assetUrl' | 'layout' | 'isAnimated'>): string {
+    if (item.layout === 'BACKGROUND') return item.slug ? itemAssetUrl(item.slug) : placeholderUrl
+    if (isAssetUrl(item.assetUrl)) return item.assetUrl
+    return item.slug ? itemAssetUrl(item.slug, item.isAnimated ? 'gif' : 'png') : placeholderUrl
+  }
+
   /** <img @error> 핸들러 — 에셋 부재 시 placeholder 로 1회 폴백(무한루프 가드). */
   function onAssetError(e: Event): void {
     const img = e.target as HTMLImageElement | null
@@ -29,5 +43,5 @@ export function useItemAsset() {
     }
   }
 
-  return { itemAssetUrl, placeholderUrl, onAssetError }
+  return { itemAssetUrl, placeholderUrl, resolveItemImage, onAssetError }
 }
