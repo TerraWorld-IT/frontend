@@ -57,7 +57,7 @@
                   }"
                 >
                   <img
-                    v-if="isUrl(tile.assetUrl)"
+                    v-if="isAssetUrl(tile.assetUrl)"
                     :src="tile.assetUrl"
                     :alt="tile.name"
                     class="w-12 h-12 object-contain"
@@ -144,9 +144,6 @@ const emptyMessage = computed<string>(() => {
   return '보유한 아이템이 없어요 · 상점에서 구매해보세요'
 })
 
-function isUrl(s: string | undefined | null): boolean {
-  return !!s && (s.startsWith('http') || s.startsWith('/'))
-}
 </script>
 
 <style scoped>

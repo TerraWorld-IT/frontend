@@ -48,7 +48,7 @@ mockNuxtImport('useAuth', () => () => ({ isLoggedIn: ref(true) }))
 mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true), loadError: ref(false), load: vi.fn() }))
 mockNuxtImport('useAttendance', () => () => ({ state: ref(null), loading: ref(false), error: ref<string | null>(null), refresh: vi.fn(), checkIn: vi.fn() }))
 mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
-mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
+mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), playing: ref(false), hasSource: false, play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
 mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: mocks.adAndroid, isIos: false, issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd }))
 
 const wrappers: VueWrapper[] = []

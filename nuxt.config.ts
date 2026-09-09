@@ -19,6 +19,14 @@ function buildConnectSrc(): string {
   return Array.from(sources).join(' ')
 }
 
+// 음원 origin은 CSP가 만들어지는 빌드 시점에도 설정되어야 한다.
+function buildMediaSrc(): string {
+  const sources = new Set<string>(["'self'"])
+  const bgmUrl = process.env.NUXT_PUBLIC_BGM_URL
+  if (bgmUrl) sources.add(new URL(bgmUrl).origin)
+  return Array.from(sources).join(' ')
+}
+
 function buildSecurityHeaders(): Record<string, string> {
   return {
     'X-Frame-Options': 'DENY',
@@ -39,6 +47,7 @@ function buildSecurityHeaders(): Record<string, string> {
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       `connect-src ${buildConnectSrc()}`,
+      `media-src ${buildMediaSrc()}`,
       // AdSense iframe 광고 슬롯 허용
       "frame-src 'self' https://googleads.g.doubleclick.net https://*.googlesyndication.com https://www.google.com",
       "frame-ancestors 'none'",

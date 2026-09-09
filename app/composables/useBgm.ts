@@ -18,6 +18,9 @@ export function useBgm() {
   const playing = ref<boolean>(false)
   let audio: HTMLAudioElement | null = null
   let restored = false
+  // 중지 의도와 새 재생 호출의 소유권을 클로저별로 보존한다.
+  let desiredPlaying = false
+  let playGeneration = 0
 
   /** localStorage 선호 복원 — 1회, 클라이언트에서만. 접근 실패(프라이빗 모드 등)는 기본값 유지. */
   function restore(): void {
@@ -55,15 +58,25 @@ export function useBgm() {
 
   /** 재생 시작 — OFF 상태면 아무것도 하지 않는다. 자동재생 차단(NotAllowedError)은 조용히 무시. */
   async function play(): Promise<void> {
+    desiredPlaying = true
+    const generation = ++playGeneration
     restore()
     if (!enabled.value) return
     const el = ensureAudio()
     if (!el) return
     try {
       await el.play()
+      if (generation !== playGeneration) return
+      if (!desiredPlaying || !enabled.value) {
+        el.pause()
+        el.currentTime = 0
+        playing.value = false
+        return
+      }
       playing.value = true
     }
     catch {
+      if (generation !== playGeneration) return
       // 사용자 제스처 전 자동재생 차단 — 토글 탭 시 재시도된다
       playing.value = false
     }
@@ -71,6 +84,7 @@ export function useBgm() {
 
   /** 정지 + 처음으로 되감기. */
   function stop(): void {
+    desiredPlaying = false
     if (audio) {
       audio.pause()
       audio.currentTime = 0

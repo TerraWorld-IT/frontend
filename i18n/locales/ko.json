@@ -57,6 +57,8 @@
       "createError": "아이템 등록에 실패했습니다",
       "loadError": "아이템 목록을 불러오지 못했습니다",
       "fieldName": "이름",
+      "fieldSlug": "slug (선택, 비우면 서버가 생성)",
+      "fieldIsAnimated": "파일이 애니메이션(GIF)",
       "fieldAsset": "에셋 (이모지 또는 URL)",
       "fieldPriceType": "결제 재화",
       "fieldPriceAmount": "가격",
@@ -293,6 +295,8 @@
     "visitTitle": "{nickname}님의 테라리움"
   },
   "home": {
+    "bgmNoSource": "음원 준비 중",
+    "bgmBlocked": "음악을 재생하지 못했어요. 음악 버튼을 껐다 켜서 다시 시도해 주세요.",
     "adCoinConfirm": "광고 보기",
     "adCoinDesc": "광고를 시청해서 루비 1개를 보상받아요!",
     "adCoinTitle": "AD 광고보상",
