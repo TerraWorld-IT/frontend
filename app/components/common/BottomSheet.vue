@@ -146,7 +146,6 @@ function onBackdropClick() {
 
 // focus trap + 배경 스크롤 잠금 + ESC 닫기 — 한 곳에서 일괄 처리.
 const root = ref<HTMLElement | null>(null)
-useDialogFocusTrap(root, computed<boolean>(() => props.open), () => emit('close'))
 
 // Android 하드웨어 뒤로가기 — 열려있는 동안 라우트 back/앱종료보다 먼저 close 를 요청한다.
 const { pushBackHandler } = useBackButtonStack()
@@ -170,6 +169,9 @@ onBeforeUnmount(() => {
   unregisterBackHandler?.()
   unregisterBackHandler = null
 })
+
+// 등록 순서 의존: 닫힘 watch와 언마운트 훅의 동기 blur 뒤에 트랩이 포커스를 복귀시켜야 한다.
+useDialogFocusTrap(root, computed<boolean>(() => props.open), () => emit('close'))
 
 // 핸들 제스처 — dy ≤ -40 확대 / dy ≥ +40 (확대 상태면 축소, 기본 상태면 닫기).
 // 드래그로 동작이 소비되면 뒤따르는 native click 1회를 무시해 탭 토글과 이중 발동을 막는다.

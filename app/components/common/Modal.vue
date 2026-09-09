@@ -147,8 +147,6 @@ function cancel() {
   emit('update:modelValue', false)
 }
 
-// 공용 포커스 소유권으로 중첩 Modal과 독립 다이얼로그를 같은 순서로 처리한다.
-useDialogFocusTrap(modalRoot, toRef(props, 'modelValue'), cancel)
 watch(() => props.modelValue, (open, previous) => {
   if (!import.meta.client) return
   if (open) unregisterBackHandler = pushBackHandler(cancel)
@@ -159,9 +157,12 @@ watch(() => props.modelValue, (open, previous) => {
   }
 }, { immediate: true })
 onBeforeUnmount(() => {
+  if (props.modelValue) void dismissKeyboard()
   unregisterBackHandler?.()
   unregisterBackHandler = null
 })
+// 등록 순서 의존: 닫힘 watch와 언마운트 훅의 동기 blur 뒤에 트랩이 포커스를 복귀시켜야 한다.
+useDialogFocusTrap(modalRoot, toRef(props, 'modelValue'), cancel)
 </script>
 
 <style scoped>

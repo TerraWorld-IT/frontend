@@ -964,9 +964,11 @@ watch([editMode, healingMode], ([edit, heal]) => {
 const backdropSize = computed<number>(() => 87 / viewScale.value)
 function enterHealingMode() {
   introMode.value = 'healing'
+  if (readAccordionPref(STORAGE_KEYS.HEALING_INTRO_SEEN, false)) void onHealingIntroDone()
 }
 async function onHealingIntroDone() {
   if (introMode.value !== 'healing') return
+  writeAccordionPref(STORAGE_KEYS.HEALING_INTRO_SEEN, true)
   introMode.value = null
   healingMode.value = true
   const generation = ++bgmNoticeGeneration
@@ -1137,12 +1139,13 @@ onMounted(async () => {
 // v-if 패널)들은 각자 back-stack 에 직접 등록해야 뒤로가기가 라우트 이동/앱종료 대신 오버레이부터
 // 닫는다(showFreeCoinDialog 는 CommonModal, 공유/초대/해금 팝업은 TerrariumHomeDialog 가 각자 처리 — 중복 등록 방지).
 const { pushBackHandler } = useBackButtonStack()
-function registerOverlayBackClose(overlayOpen: Ref<boolean>) {
+function registerOverlayBackClose(overlayOpen: Ref<boolean>, onBack?: () => void) {
   let unregister: (() => void) | null = null
   watch(overlayOpen, (open) => {
     if (open) {
       unregister = pushBackHandler(() => {
-        if (overlayOpen === editMode) exitManageMode()
+        if (onBack) onBack()
+        else if (overlayOpen === editMode) exitManageMode()
         else overlayOpen.value = false
       })
     } else {
@@ -1167,6 +1170,8 @@ registerOverlayBackClose(showAttendance)
 registerOverlayBackClose(healingMode)
 // 관리 모드도 뒤로가기로 종료(하단 패널이 nav 를 덮으므로 탈출 경로 보장).
 registerOverlayBackClose(editMode)
+// 두 인트로의 뒤로가기는 모드 진입 없이 홈으로 취소한다.
+registerOverlayBackClose(computed<boolean>(() => introMode.value !== null), () => { introMode.value = null })
 
 // ─── T10b 초대코드 팝업 상태 — 발급 코드는 변형 없이 그대로 표시(표기만 TERRA - 코드) ───
 const showInviteCode = ref<boolean>(false)

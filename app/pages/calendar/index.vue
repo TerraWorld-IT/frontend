@@ -213,7 +213,7 @@
     </template>
 
     <!-- 선택된 날짜 상세 — 바텀 시트 -->
-    <CommonBottomSheet :open="selectedDate !== null" ariaLabel="날짜 기록" @close="closeSheet()">
+    <CommonBottomSheet :open="selectedDate !== null" ariaLabel="날짜 기록" @close="onSheetClose">
       <div v-if="selectedDate" class="px-5 pt-1 pb-3">
         <div class="apjek-card p-5">
           <div class="flex items-center justify-between mb-4">
@@ -361,13 +361,22 @@ import type {
   NoteResponse,
   PagedRecordResponse,
 } from '@terraworld-it/openapi-frontend'
-import { recordDisplayIcon, recordDisplayLabel } from '~/utils/constants'
+import { recordDisplayIcon, recordDisplayLabel, STORAGE_KEYS } from '~/utils/constants'
+import { useBackButtonStack } from '~/composables/useBackButtonStack'
+import { useUserStore } from '~/stores/user'
+import { authClient } from '~/lib/auth-client'
+import { onBeforeRouteLeave } from 'vue-router'
+import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { t } = useI18n()
+const userStore = useUserStore()
+const session = authClient.useSession()
+const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
+let noteDraftKey: string | null = null
 
 const DAYS = computed<string[]>(() => [
   t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'),
@@ -405,6 +414,51 @@ const noteSaving = ref<boolean>(false)
 
 // Record row menu / delete
 const openMenuId = ref<number | null>(null)
+const { pushBackHandler } = useBackButtonStack()
+let unregister: (() => void) | null = null
+watch(() => openMenuId.value !== null, (open) => {
+  if (open) unregister = pushBackHandler(() => { openMenuId.value = null })
+  else {
+    unregister?.()
+    unregister = null
+  }
+})
+onBeforeUnmount(() => {
+  persistNoteDraft()
+  unregister?.()
+  unregister = null
+})
+onBeforeRouteLeave(() => {
+  persistNoteDraft()
+  return true
+})
+
+function persistNoteDraft() {
+  if (!isEditingNote.value || !noteDraftKey) return
+  writeDraft(noteDraftKey, editingNoteText.value)
+}
+
+function restoreNoteDraft() {
+  const draft = noteDraftKey ? readDraft<unknown>(noteDraftKey) : null
+  if (typeof draft !== 'string') return
+  editingNoteText.value = draft
+  isEditingNote.value = true
+}
+
+// 직접 진입 뒤 ID가 확보되면 열린 날짜에 연결하고 빈 입력에만 초안을 복원한다.
+watch(draftUserId, (userId, previous) => {
+  if (!selectedDate.value || !userId || previous) return
+  noteDraftKey = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}${userId}.${toDateKey(selectedDate.value)}`
+  if (!editingNoteText.value) restoreNoteDraft()
+})
+
+function onSheetClose() {
+  if (openMenuId.value !== null) {
+    openMenuId.value = null
+    return
+  }
+  closeSheet()
+}
 const deletingId = ref<number | null>(null)
 const deleteTarget = ref<RecordResponse | null>(null)
 
@@ -506,6 +560,9 @@ async function load() {
   const gen = ++monthLoadGen
   pending.value = true
   fetchError.value = null
+  if (!session.value?.data?.user?.id) {
+    void userStore.fetchMe().catch(() => { /* 초안 키 확보용 보조 조회는 실패해도 페이지 로딩을 막지 않는다. */ })
+  }
   try {
     const [statsRes, records] = await Promise.all([
       sdk.getRecordStatistics({ client }),
@@ -573,6 +630,7 @@ function nextMonth() {
 async function selectDay(day: number) {
   // 월 로딩 중에만 차단한다 — 실패 상태에서도 날짜 상세(메모)는 열 수 있어야 한다.
   if (monthLoading.value) return
+  persistNoteDraft()
   const version = ++noteRequestVersion.value
   // 다른 날짜의 메모를 편집 중(textarea 포커스)이었다면 전환 전에 키보드 해제
   // (utils/keyboard.ts 참조 — 포커스 유지한 채 즉시 unmount 되면 키보드가 안 닫힐 수 있음).
@@ -585,11 +643,14 @@ async function selectDay(day: number) {
   noteLoading.value = false
   noteLoadFailed.value = false
   openMenuId.value = null
+  const userId = draftUserId.value
+  noteDraftKey = userId ? `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}${userId}.${key}` : null
+  restoreNoteDraft()
 
   // Fetch note if not cached
   if (noteMap.value[key] !== undefined) {
     selectedNote.value = noteMap.value[key] || null
-    editingNoteText.value = noteMap.value[key] ?? ''
+    if (!isEditingNote.value) editingNoteText.value = noteMap.value[key] ?? ''
     return
   }
   noteLoading.value = true
@@ -608,7 +669,7 @@ async function selectDay(day: number) {
     const text = (data as NoteResponse | undefined)?.note ?? ''
     noteMap.value[key] = text
     selectedNote.value = text || null
-    editingNoteText.value = text
+    if (!isEditingNote.value) editingNoteText.value = text
   }
   catch {
     // 네트워크 예외 — 오류를 "메모 없음"으로 캐시하지 않는다(재시도 가능하게 유지).
@@ -628,10 +689,12 @@ function startEdit() {
   noteRequestVersion.value += 1
   editingNoteText.value = selectedNote.value ?? ''
   isEditingNote.value = true
+  restoreNoteDraft()
 }
 
 function cancelEdit() {
   if (noteSaving.value) return
+  persistNoteDraft()
   void dismissKeyboard()
   isEditingNote.value = false
   editingNoteText.value = selectedNote.value ?? ''
@@ -640,20 +703,26 @@ function cancelEdit() {
 // 날짜 시트를 닫는 모든 경로(백드롭/X/월 전환)가 공유 — 메모 편집 중이었다면 키보드 해제
 // 후 닫는다 (utils/keyboard.ts 참조).
 function closeSheet() {
+  persistNoteDraft()
   noteRequestVersion.value += 1
   noteLoading.value = false
   noteLoadFailed.value = false
   if (isEditingNote.value) void dismissKeyboard()
   selectedDate.value = null
+  isEditingNote.value = false
+  openMenuId.value = null
 }
 
 async function saveNote() {
   if (!selectedDate.value || noteSaving.value) return
   const key = toDateKey(selectedDate.value)
+  const savedDraftKey = noteDraftKey
+  const savedDraftText = editingNoteText.value
+  if (savedDraftKey) writeDraft(savedDraftKey, savedDraftText)
   const version = ++noteRequestVersion.value
   noteSaving.value = true
   try {
-    const text = editingNoteText.value.trim()
+    const text = savedDraftText.trim()
     if (text) {
       const { data, error } = await sdk.saveNote({ client, path: { date: key }, body: { note: text } })
       if (error) throw new Error(errMsg(error, '메모 저장 실패'))
@@ -669,6 +738,11 @@ async function saveNote() {
       noteMap.value[key] = ''
       if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) selectedNote.value = null
       toast.success(t('calendar.memoDeleted'))
+    }
+    // 제출 원문과 같은 초안만 정리하고 다른 문자열로 덮인 새 초안은 보존한다.
+    if (savedDraftKey) {
+      const storedDraft = readDraft<unknown>(savedDraftKey)
+      if (storedDraft === savedDraftText) clearDraft(savedDraftKey)
     }
     if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) {
       void dismissKeyboard()
