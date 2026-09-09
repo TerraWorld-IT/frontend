@@ -39,11 +39,18 @@
               type="checkbox"
               :data-testid="`consent-${item.key}`"
               :checked="item.value"
-              :disabled="consentSaving"
+              :disabled="consentSaving || (item.key === 'push' && pushConsentSavePending)"
               class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
               @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
             >
           </label>
+          <button
+            v-if="isAndroidNative && pushConsentSavePending"
+            type="button"
+            data-testid="retry-push-consent"
+            :disabled="consentSaving"
+            @click="onConsentToggle('push', false)"
+          >동의 저장 다시 시도</button>
         </div>
       </div>
     </div>
@@ -181,6 +188,7 @@
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
 import { Capacitor } from '@capacitor/core'
+import { STORAGE_KEYS } from '~/utils/constants'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -188,8 +196,8 @@ const toast = useToast()
 const { t } = useI18n()
 const { isLoggedIn, signOutAndClear } = useAuth()
 const { sdk, client } = useOpenApi()
-const { registerPush, registerPushIfGranted, getAppInfo } = useNative()
-const isIOS = ref<boolean>(false)
+const { registerPush, registerPushIfGranted, invalidatePushRegistration, getAppInfo } = useNative()
+const isAndroidNative = ref<boolean>(false)
 const appVersion = ref<string>('웹')
 const showDeleteDialog = ref<boolean>(false)
 const deletePassword = ref<string>('')
@@ -214,6 +222,12 @@ async function onDeleteAccount() {
     }
     showDeleteDialog.value = false
     deletePassword.value = ''
+    // 계정 활동 캐시만 제거하고 테마 등 계정과 무관한 설정은 보존한다.
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index)
+      if (key?.startsWith('tw.todos.')) localStorage.removeItem(key)
+    }
+    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE)
     // 삭제로 서버 세션이 사라졌어도 기존 로그아웃 경로로 JWT와 사용자 캐시를 정리한다.
     // 서버 로그아웃이 실패해도 signOutAndClear의 finally에서 로컬 인증 상태는 정리된다.
     await signOutAndClear().catch(() => {})
@@ -254,6 +268,7 @@ const P = {
 const session = authClient.useSession()
 const consentSaving = ref<boolean>(false)
 const consentRenderKey = ref<number>(0)
+const pushConsentSavePending = ref<boolean>(false)
 // 가입 시 받는 선택 동의 5종(photo/push/adId/analytics/marketing)과 1:1 로 맞춘다.
 // 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
 const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
@@ -263,7 +278,7 @@ const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>
   { key: 'photo', field: 'photoConsent', value: false },
   { key: 'push', field: 'pushConsent', value: false },
 ])
-const visibleConsentToggles = computed(() => consentToggles.value.filter(item => !isIOS.value || (item.key !== 'push' && item.key !== 'adId')))
+const visibleConsentToggles = computed(() => consentToggles.value.filter(item => isAndroidNative.value || (item.key !== 'push' && item.key !== 'adId')))
 
 // 세션은 클라이언트에서만 읽힌다 — 서버 렌더(전부 미체크)와 첫 클라이언트 렌더를 같게 두고,
 // 마운트 뒤에 세션 값을 반영해 hydration 불일치(checked 속성)를 피한다.
@@ -281,12 +296,12 @@ function applyConsentFromSession(u: unknown) {
       { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
       { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
       { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
-      { key: 'push', field: 'pushConsent', value: cu.pushConsent ?? false },
+      { key: 'push', field: 'pushConsent', value: pushConsentSavePending.value ? false : cu.pushConsent ?? false },
     ]
 }
 
 onMounted(() => {
-  isIOS.value = Capacitor.getPlatform() === 'ios'
+  isAndroidNative.value = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
   if (Capacitor.isNativePlatform()) {
     appVersion.value = '확인 중'
     void getAppInfo().then((info) => {
@@ -301,7 +316,7 @@ async function onConsentToggle(key: string, checked: boolean) {
   const item = consentToggles.value.find(c => c.key === key)
   if (!item || consentSaving.value || deletingAccount.value || loggingOut.value) return
   if (key === 'push') {
-    if (isIOS.value) return
+    if (!isAndroidNative.value) return
     await onPushConsentToggle(checked)
     return
   }
@@ -335,20 +350,28 @@ async function onPushConsentToggle(checked: boolean) {
       }
     }
     else {
-      const { error } = await sdk.deactivateMyDevices({ client })
-      if (error) throw new Error('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
+      invalidatePushRegistration()
+      if (!pushConsentSavePending.value) {
+        const { error } = await sdk.deactivateMyDevices({ client })
+        if (error) throw new Error('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
+        pushConsentSavePending.value = true
+        item.value = false
+      }
     }
     const { error } = await authClient.updateUser(
       { pushConsent: checked } as Parameters<typeof authClient.updateUser>[0],
     )
     if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
     item.value = checked
+    pushConsentSavePending.value = false
     // 최초 등록 이벤트가 동의 저장보다 먼저 도착해도 저장 이후 다시 등록한다.
     if (checked) await registerPushIfGranted()
     toast.success(t('profile.consentSaved'))
   }
   catch (e) {
-    toast.error((e as Error).message)
+    toast.error(pushConsentSavePending.value
+      ? '동의 저장에 실패했어요. 다시 시도해 주세요'
+      : (e as Error).message)
   }
   finally {
     consentSaving.value = false

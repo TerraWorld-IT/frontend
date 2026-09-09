@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 import * as sdk from '@terraworld-it/openapi-frontend'
 import { authClient } from '~/lib/auth-client'
+import { isPushRegistrationCurrent, pushRegistrationEpoch } from '~/composables/useNative'
 
 /**
  * Capacitor client-only plugin.
@@ -107,17 +108,14 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     const { trackPushRegistrationFailed } = useGtagEvents()
 
     PushNotifications.addListener('registration', async (token) => {
+      const epoch = pushRegistrationEpoch
+      if (resolveDevicePlatform() !== 'ANDROID' || !isPushRegistrationCurrent(epoch)) return
       const session = await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => null)
+      if (!isPushRegistrationCurrent(epoch)) return
       if (session?.error || (session?.data?.user as { pushConsent?: boolean } | undefined)?.pushConsent !== true) return
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
-      // iOS: Firebase Messaging 미통합 상태라 이 토큰은 raw APNs 토큰이다 — 백엔드 FcmService 는
-      // FCM registration token 을 기대하므로 등록해도 발송이 실패하고 무효 행만 쌓인다
-      // (Codex R1). APNs→FCM 토큰 교환(FirebaseMessaging SPM) 통합 전까지 iOS 등록은 보류.
-      // 통합 시 AppDelegate 가 FCM 토큰을 post 하게 되면 이 가드를 제거할 것.
-      if (resolveDevicePlatform() === 'IOS') return
-
-      // 서버에 디바이스 토큰 등록 — 멱등 (동일 user, token 은 lastSeenAt 만 갱신)
+      // 동일 토큰도 isActive를 복구하는 upsert이므로 철회된 세대는 위에서 차단한다.
       // 인증/리프레시는 plugins/openapi.ts 의 인터셉터가 자동 처리.
       // 등록 실패는 silent (UX 차단 없음) — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
       try {

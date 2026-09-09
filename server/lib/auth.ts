@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { jwt, bearer } from 'better-auth/plugins'
 import { Pool } from 'pg'
 
@@ -120,6 +121,16 @@ export const auth = betterAuth({
     enabled: true,
   },
 
+  hooks: {
+    before: createAuthMiddleware(async function (ctx) {
+      // 최근 세션이어도 삭제에는 비밀번호를 요구하고, 검증은 기존 인증 경로에 맡긴다.
+      if (ctx.path === '/delete-user'
+        && (typeof ctx.body?.password !== 'string' || !ctx.body.password.trim())) {
+        throw new APIError('BAD_REQUEST', { message: '비밀번호를 입력해 주세요' })
+      }
+    }),
+  },
+
   /**
    * LEGAL-001 additionalFields 등록 (e2e cycle 2026-05-18 발견).
    *
@@ -139,7 +150,7 @@ export const auth = betterAuth({
       enabled: true,
       async beforeDelete(user) {
         // 도메인 삭제가 실패하면 인증 계정과 세션을 보존해 재시도할 수 있게 한다.
-        await $fetch(`${internalApiBaseUrl}/api/v1/internal/users/${encodeURIComponent(user.id)}`, {
+        const response = await $fetch.raw(`${internalApiBaseUrl}/api/v1/internal/users/${encodeURIComponent(user.id)}`, {
           method: 'DELETE',
           headers: { 'X-Internal-Token': internalApiToken },
           redirect: 'error',
@@ -147,6 +158,9 @@ export const auth = betterAuth({
           retryDelay: 250,
           timeout: 5_000,
         })
+        if (response.status < 200 || response.status >= 300) {
+          throw new APIError('INTERNAL_SERVER_ERROR', { message: '계정 삭제에 실패했어요' })
+        }
       },
       async afterDelete() {
         // 비밀번호·이메일·토큰은 삭제 완료 로그에 남기지 않는다.

@@ -1,6 +1,14 @@
 import { Capacitor } from '@capacitor/core'
 import { authClient } from '~/lib/auth-client'
 
+// 철회 이전 비동기 작업과 철회 뒤 도착한 OS 이벤트를 함께 폐기한다.
+export let pushRegistrationEpoch = 0
+let pushRegistrationBlocked = false
+
+export function isPushRegistrationCurrent(epoch: number): boolean {
+  return epoch === pushRegistrationEpoch && !pushRegistrationBlocked
+}
+
 /**
  * Native API bridge composable.
  *
@@ -157,11 +165,20 @@ export function useNative() {
   }
 
   // --- Push Notifications ---
+  function invalidatePushRegistration() {
+    pushRegistrationEpoch++
+    pushRegistrationBlocked = true
+  }
+
   async function registerPush() {
-    if (!isNative || isIOS) return null
+    if (!isNative || !isAndroid) return null
+    const epoch = pushRegistrationEpoch
     const { PushNotifications } = await import('@capacitor/push-notifications')
     const perm = await PushNotifications.requestPermissions()
+    if (epoch !== pushRegistrationEpoch) return null
     if (perm.receive === 'granted') {
+      // 사용자의 명시적인 ON 액션만 철회 차단을 해제한다.
+      pushRegistrationBlocked = false
       await PushNotifications.register()
     }
     return perm
@@ -169,12 +186,14 @@ export function useNative() {
 
   /** 기존 동의와 OS 권한이 모두 있을 때만 프롬프트 없이 등록한다. */
   async function registerPushIfGranted(): Promise<boolean> {
-    if (!isNative || isIOS) return false
+    if (!isNative || !isAndroid || pushRegistrationBlocked) return false
+    const epoch = pushRegistrationEpoch
     const { data, error } = await authClient.getSession({ query: { disableCookieCache: true } })
+    if (!isPushRegistrationCurrent(epoch)) return false
     if (error || (data?.user as { pushConsent?: boolean } | undefined)?.pushConsent !== true) return false
     const { PushNotifications } = await import('@capacitor/push-notifications')
     const perm = await PushNotifications.checkPermissions()
-    if (perm.receive !== 'granted') return false
+    if (perm.receive !== 'granted' || !isPushRegistrationCurrent(epoch)) return false
     await PushNotifications.register()
     return true
   }
@@ -239,6 +258,7 @@ export function useNative() {
     hapticNotification,
     takePhoto,
     registerPush,
+    invalidatePushRegistration,
     registerPushIfGranted,
     onPushReceived,
     hideSplash,
