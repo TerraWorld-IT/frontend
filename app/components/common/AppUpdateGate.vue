@@ -41,6 +41,15 @@
 
 <script setup lang="ts">
 const { updateRequired, check, openStore, isNative } = useAppUpdate()
+const { pushBackHandler } = useBackButtonStack()
+let unregister: (() => void) | null = null
+watch(updateRequired, (required) => {
+  if (required) unregister = pushBackHandler(() => {})
+  else {
+    unregister?.()
+    unregister = null
+  }
+}, { immediate: true })
 
 // aria-modal 선언에 실제 focus containment 를 부여한다 (audit C1-5). 배경 스크롤 잠금은
 // useDialogFocusTrap 내부의 useOverlayScrollLock 이 함께 처리한다.
@@ -67,6 +76,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  unregister?.()
+  unregister = null
   removeResumeListener?.()
   removeResumeListener = null
 })

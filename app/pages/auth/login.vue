@@ -187,7 +187,7 @@
                 <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
                 {{ t('auth.consent.terms') }}
               </span>
-              <NuxtLink to="/legal/terms" class="relative after:absolute after:-inset-x-[13.875px] after:-inset-y-[3.75px] after:content-[''] ml-auto shrink-0 text-[11px] underline" style="color: #4e62bc">
+              <NuxtLink to="/legal/terms" class="relative after:absolute after:-inset-x-[13.875px] after:-inset-y-[3.75px] after:content-[''] ml-auto shrink-0 text-[11px] underline" style="color: #4e62bc" @click="saveSignupDraft">
                 {{ t('auth.consent.view') }}
               </NuxtLink>
             </label>
@@ -197,7 +197,7 @@
                 <span class="font-medium" style="color: #f092a0">[{{ t('auth.consent.required') }}]</span>
                 {{ t('auth.consent.privacy') }}
               </span>
-              <NuxtLink to="/legal/privacy" class="relative after:absolute after:-inset-x-[13.875px] after:-inset-y-[3.75px] after:content-[''] ml-auto shrink-0 text-[11px] underline" style="color: #4e62bc">
+              <NuxtLink to="/legal/privacy" class="relative after:absolute after:-inset-x-[13.875px] after:-inset-y-[3.75px] after:content-[''] ml-auto shrink-0 text-[11px] underline" style="color: #4e62bc" @click="saveSignupDraft">
                 {{ t('auth.consent.view') }}
               </NuxtLink>
             </label>
@@ -252,6 +252,8 @@
 
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
+import { STORAGE_KEYS } from '~/utils/constants'
+import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 
 definePageMeta({ layout: false })
 
@@ -288,6 +290,7 @@ const SESSION_CHECK_TIMEOUT_MS = 5_000
 const router = useRouter()
 const checkingSession = ref<boolean>(false)
 onMounted(async () => {
+  restoreSignupDraft()
   checkingSession.value = true
   // 데드라인에 요청 자체를 abort 하려고 자체 AbortController 를 쓴다. better-fetch 는 외부
   // signal 이 있으면 자기 timeout 타이머를 안 걸고 이 signal 로 헤더·본문 전 구간을 통제한다.
@@ -343,6 +346,25 @@ const emailInput = ref<HTMLInputElement | null>(null)
 const CONSENT_VERSION = '2026-06-23'
 const agreeTerms = ref<boolean>(false)
 const agreePrivacy = ref<boolean>(false)
+
+function saveSignupDraft() {
+  // 비밀번호와 선택 동의는 일반 저장소에 남기지 않는다.
+  writeDraft(STORAGE_KEYS.DRAFT_SIGNUP, {
+    mode: mode.value, nickname: nickname.value, birthDate: birthDate.value,
+    email: email.value, agreeTerms: agreeTerms.value, agreePrivacy: agreePrivacy.value,
+  })
+}
+
+function restoreSignupDraft() {
+  const draft = readDraft<Record<string, unknown>>(STORAGE_KEYS.DRAFT_SIGNUP)
+  if (!draft || (draft.mode !== 'login' && draft.mode !== 'signup')) return
+  mode.value = draft.mode
+  nickname.value = typeof draft.nickname === 'string' ? draft.nickname : ''
+  birthDate.value = typeof draft.birthDate === 'string' ? draft.birthDate : ''
+  email.value = typeof draft.email === 'string' ? draft.email : ''
+  agreeTerms.value = draft.agreeTerms === true
+  agreePrivacy.value = draft.agreePrivacy === true
+}
 const optionalConsents = ref<Array<{ key: string; value: boolean }>>([
   { key: 'photo', value: false },
   { key: 'push', value: false },
@@ -428,6 +450,7 @@ async function onSubmit() {
         password: password.value,
       })
       if (error) throw new Error(authErrorMessage(error, t('auth.loginFailed')))
+      clearDraft(STORAGE_KEYS.DRAFT_SIGNUP)
 
       const token = await loadJwt()
       if (!token) throw new Error(t('auth.tokenError'))
@@ -468,6 +491,7 @@ async function onSubmit() {
         consentedAt: new Date().toISOString(),
       } as Parameters<typeof authClient.signUp.email>[0])
       if (error) throw new Error(authErrorMessage(error, t('auth.signupFailed')))
+      clearDraft(STORAGE_KEYS.DRAFT_SIGNUP)
 
       // better-auth signs the user in automatically after signUp.email.
       // Pull the JWT immediately so the next API call has a bearer token.

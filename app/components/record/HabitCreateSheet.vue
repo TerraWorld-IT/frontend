@@ -1,7 +1,7 @@
 <template>
   <!-- 습관 생성 3단계 바텀시트 (R2, Figma 393×620 고정) — ① 유형 선택 ② 이름 ③ (친구) 요청 대상.
        단계별 주 CTA 는 footer 슬롯에 고정해 키보드(②)·친구 카드 스크롤(③)과 무관하게 보인다. -->
-  <CommonBottomSheet :open="open" ariaLabel="습관 기록 생성" fixed-height @close="emit('close')">
+  <CommonBottomSheet :open="open" ariaLabel="습관 기록 생성" fixed-height @close="onClose">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
         <span class="text-[18px]">🌸</span>
@@ -105,14 +105,14 @@
           <NuxtLink to="/friends" class="text-apjek-blue underline font-semibold">친구 초대하기</NuxtLink>
         </div>
 
-        <!-- 가로 스크롤 친구 카드 — 선택 시 해당 카드 "요청 대기 중", 나머지 비활성 (댓글 #49) -->
+        <!-- 친구 선택은 전송 전까지 다른 카드로 교체할 수 있다. -->
         <div v-else class="flex gap-[10px] overflow-x-auto scrollbar-hide -mx-5 px-5 pb-[4px]">
           <div
             v-for="f in displayFriends"
             :key="f.userId"
             class="shrink-0 w-[128px] rounded-[16px] border p-[12px] flex flex-col items-center gap-[10px] transition-all"
             :class="selectedFriendId !== null && selectedFriendId !== f.userId
-              ? 'border-apjek-border bg-apjek-bg opacity-50'
+              ? 'border-apjek-border bg-apjek-bg'
               : 'border-apjek-border-strong bg-apjek-surface'"
           >
             <div
@@ -131,10 +131,9 @@
                 : selectedFriendId === null
                   ? 'bg-apjek-cta text-white'
                   : 'bg-apjek-border text-apjek-text-faint'"
-              :disabled="selectedFriendId !== null && selectedFriendId !== f.userId"
               @click="toggleFriend(f.userId)"
             >
-              {{ selectedFriendId === f.userId ? '요청 대기 중' : '요청하기' }}
+              {{ selectedFriendId === f.userId ? '선택됨' : '요청하기' }}
             </button>
           </div>
         </div>
@@ -174,6 +173,13 @@
       >
         {{ busy ? '요청 보내는 중...' : '요청 보내기' }}
       </button>
+      <button
+        v-if="step !== 1"
+        type="button"
+        class="w-full h-[44px] mt-2 rounded-full text-[14px] font-semibold border border-apjek-border-strong text-apjek-text"
+        :disabled="busy"
+        @click="goPrev"
+      >이전</button>
     </template>
   </CommonBottomSheet>
 </template>
@@ -181,6 +187,9 @@
 <script setup lang="ts">
 import type { FriendInfo } from '@terraworld-it/openapi-frontend'
 import { HABIT_REWARD_SPARKLE } from '~/utils/habitState'
+import { useUserStore } from '~/stores/user'
+import { STORAGE_KEYS } from '~/utils/constants'
+import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 
 /**
  * 습관 기록 생성 바텀시트 (R2). 유형(나의/친구) → 이름(≤30자, 생성 후 수정 불가) → (친구) 요청 대상.
@@ -208,6 +217,8 @@ const step = ref<1 | 2 | 3>(1)
 const mode = ref<Mode | null>(null)
 const title = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
+const userStore = useUserStore()
+let draftKey: string | null = null
 
 // 선택한 친구를 DOM 맨 앞으로 옮겨 표시 순서와 키보드 탐색 순서를 맞춘다.
 const displayFriends = computed<FriendInfo[]>(() => [
@@ -228,14 +239,46 @@ const canProceedName = computed<boolean>(() => title.value.trim().length > 0)
 function reset() {
   step.value = 1
   mode.value = null
-  title.value = ''
+  const userId = userStore.me?.userId
+  draftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}` : null
+  const draft = draftKey ? readDraft<unknown>(draftKey) : null
+  title.value = typeof draft === 'string' ? draft : ''
   selectedFriendId.value = null
 }
 
-// 열 때마다 초기화 — 이전 시도의 입력 잔존 방지
-watch(() => props.open, (open) => {
+// 이름만 복원하며 유형·친구 선택·단계는 새로 시작한다.
+watch(() => props.open, (open, previous) => {
   if (open) reset()
+  else if (previous) persistDraft()
 })
+onMounted(() => { if (props.open) reset() })
+onBeforeUnmount(() => { if (props.open) persistDraft() })
+
+function persistDraft() {
+  if (!draftKey) return
+  if (title.value.trim()) writeDraft(draftKey, title.value)
+  else clearDraft(draftKey)
+}
+
+function clear() {
+  title.value = ''
+  if (draftKey) clearDraft(draftKey)
+}
+
+function onClose() {
+  if (props.busy) return
+  persistDraft()
+  emit('close')
+}
+
+defineExpose({ persistDraft, clear })
+
+function goPrev() {
+  if (props.busy) return
+  void dismissKeyboard()
+  if (step.value === 3) step.value = 2
+  else if (step.value === 2) step.value = 1
+}
 
 function goStep2() {
   if (!mode.value) return

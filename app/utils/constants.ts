@@ -93,4 +93,9 @@ export const STORAGE_KEYS = {
   THEME: 'tw-theme',
   AD_PENDING: 'tw-ad-pending.',
   AD_LIMIT_DATE: 'tw-ad-limit-date.',
+  HEALING_INTRO_SEEN: 'tw-healing-intro-seen',
+  DRAFT_DIARY: 'tw-draft-diary.',
+  DRAFT_NOTE_PREFIX: 'tw-draft-note.',
+  DRAFT_HABIT_TITLE: 'tw-draft-habit-title.',
+  DRAFT_SIGNUP: 'tw-draft-signup',
 } as const

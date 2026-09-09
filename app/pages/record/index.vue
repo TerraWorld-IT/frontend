@@ -405,11 +405,21 @@
       :open="focusDiscardOpen" title="집중 기록을 종료할까요?"
       message="저장하지 않은 집중 시간은 사라져요. 계속 기록하려면 닫아주세요."
       confirm-text="저장하지 않고 종료" :busy="submitting"
-      @close="focusDiscardOpen = false"
-      @confirm="resetFocus(); closeModal()"
+      @close="cancelDiscard"
+      @confirm="confirmFocusDiscard"
     />
 
-    <!-- 거리 시트 (R8) — 추적 진행 중 실수 닫기 방지 가드(onSheetClose) 유지 -->
+    <RecordConfirmDialog
+      :open="distDiscardOpen"
+      :title="distPhase === 'tracking' ? '거리 측정을 종료할까요?' : '거리 기록을 종료할까요?'"
+      :message="distPhase === 'tracking' ? '측정을 종료한 뒤 기록을 저장할 수 있어요.' : '저장하지 않은 거리 기록은 사라져요.'"
+      :confirm-text="distPhase === 'tracking' ? '측정 종료' : '저장하지 않고 종료'"
+      :busy="submitting"
+      @close="cancelDiscard"
+      @confirm="confirmDistanceDiscard"
+    />
+
+    <!-- 거리 시트 (R8) — 측정 종료 후 저장하거나 확인 후 폐기한다. -->
     <CommonBottomSheet :open="openModal === 'distance'" ariaLabel="거리 기록" @close="onSheetClose()">
       <template #header>
         <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border mr-9">
@@ -490,6 +500,7 @@
 
     <!-- 습관 생성 3단계 시트 (R2) -->
     <RecordHabitCreateSheet
+      ref="habitCreateSheet"
       :open="habitCreateOpen"
       :friends="friends"
       :loading="initialLoading"
@@ -535,6 +546,9 @@ import { TOKEN_ICON_SRC } from '~/utils/currency'
 import { useUserStore } from '~/stores/user'
 import { deriveHabitView, type HabitView } from '~/utils/habitState'
 import type { DailyTokenKind } from '~/components/record/RecordCompleteToast.vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { STORAGE_KEYS } from '~/utils/constants'
+import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -563,6 +577,7 @@ const mode = ref<Mode>('solo')
 // 아프젝 습관 카드 접기/펴기 — 메인은 접힌 헤더만, ^ 토글이 본문(모드 칩 + 트래커)을 편다 (R6b).
 const habitOpen = ref<boolean>(false)
 const habitCreateOpen = ref<boolean>(false)
+const habitCreateSheet = ref<{ persistDraft: () => void; clear: () => void } | null>(null)
 const creatingHabit = ref<boolean>(false)
 // 체크인/중단/완료/연장 공용 busy — 카드 간 공유
 const habitBusy = ref<boolean>(false)
@@ -624,6 +639,7 @@ async function onHabitCreate(payload: { title: string; friendUserId: string | nu
       return
     }
     habitCreateOpen.value = false
+    habitCreateSheet.value?.clear?.()
     mode.value = payload.friendUserId ? 'friend' : 'solo'
     habitOpen.value = true
     if (payload.friendUserId) toast.success(`${tracker.friendNickname ?? '친구'} 에게 함께 기록 요청을 보냈어요`)
@@ -880,19 +896,23 @@ function fmtTime(s: number): string {
 }
 
 // 집중/거리 시트의 닫기 요청(백드롭/X/ESC/뒤로가기/핸들 드래그) 가드 — 진행 중인
-// 타이머/추적이 있으면 실수 닫기로 기록이 유실되지 않게 무시한다 (TW2 동작 확장).
+// 타이머/추적이 있으면 저장 또는 폐기를 선택할 수 있도록 확인창을 연다.
 function onSheetClose() {
   if (submitting.value) return
   if (openModal.value === 'focus' && focusPhase.value !== 'setup') {
     focusDiscardOpen.value = true
     return
   }
-  if (openModal.value === 'distance' && distPhase.value !== 'idle') return
+  if (openModal.value === 'distance' && distPhase.value !== 'idle') {
+    distDiscardOpen.value = true
+    return
+  }
   closeModal()
 }
 
 function closeModal() {
   if (submitting.value) return
+  if (openModal.value === 'diary') persistDiaryDraft()
   photoRequestVersion.value += 1
   uploadingPhoto.value = false
   // todo/diary 시트의 input/textarea 가 포커스를 유지한 채 즉시 unmount 되면 키보드가 안
@@ -977,6 +997,23 @@ async function saveTodo(note: string) {
 // ── 일기 시트 ──
 const diaryTitle = ref<string>('')
 const diaryText = ref<string>('')
+let diaryDraftKey: string | null = null
+
+function restoreDiaryDraft() {
+  const userId = userStore.me?.userId
+  diaryDraftKey = userId ? `${STORAGE_KEYS.DRAFT_DIARY}${userId}` : null
+  const draft = diaryDraftKey ? readDraft<Record<string, unknown>>(diaryDraftKey) : null
+  diaryTitle.value = typeof draft?.title === 'string' ? draft.title : ''
+  diaryText.value = typeof draft?.text === 'string' ? draft.text : ''
+}
+
+function persistDiaryDraft() {
+  if (!diaryDraftKey) return
+  if (diaryTitle.value.trim() || diaryText.value.trim()) {
+    writeDraft(diaryDraftKey, { title: diaryTitle.value, text: diaryText.value })
+  }
+  else clearDraft(diaryDraftKey)
+}
 
 // 사진 첨부 — POST /uploads/photo 응답의 photoUrl 보관. 저장 시 record body 에 포함.
 // WebView 의 <input type=file> 는 네이티브 파일 피커(카메라/갤러리)를 띄우고 File 을 바로 준다.
@@ -1036,6 +1073,7 @@ async function saveDiary() {
   if (ok) {
     diaryTitle.value = ''
     diaryText.value = ''
+    if (diaryDraftKey) clearDraft(diaryDraftKey)
     photoUrl.value = ''
     closeModal()
     showCompleteToast('sun', reward)
@@ -1135,6 +1173,55 @@ const distName = ref<string>('')
 type DistPhase = 'idle' | 'tracking' | 'done'
 interface Coord { lat: number; lng: number }
 const distPhase = ref<DistPhase>('idle')
+const distDiscardOpen = ref<boolean>(false)
+let resolveRouteLeave: ((leave: boolean) => void) | null = null
+
+function settleRouteLeave(leave: boolean) {
+  const resolve = resolveRouteLeave
+  resolveRouteLeave = null
+  resolve?.(leave)
+}
+
+function cancelDiscard() {
+  if (submitting.value) return
+  focusDiscardOpen.value = false
+  distDiscardOpen.value = false
+  settleRouteLeave(false)
+}
+
+function confirmFocusDiscard() {
+  if (submitting.value) return
+  resetFocus()
+  closeModal()
+  settleRouteLeave(true)
+}
+
+async function confirmDistanceDiscard() {
+  if (submitting.value) return
+  if (distPhase.value === 'tracking') {
+    await stopDistance()
+    distDiscardOpen.value = false
+    // 측정 종료는 저장 기회를 남기므로 최초 라우트 이탈 요청도 취소한다.
+    settleRouteLeave(false)
+    return
+  }
+  resetDistance()
+  closeModal()
+  settleRouteLeave(true)
+}
+
+onBeforeRouteLeave(() => {
+  if (submitting.value || creatingHabit.value) return false
+  if (openModal.value === 'diary') persistDiaryDraft()
+  if (habitCreateOpen.value) habitCreateSheet.value?.persistDraft?.()
+  settleRouteLeave(false)
+  if ((openModal.value === 'focus' && focusPhase.value !== 'setup')
+    || (openModal.value === 'distance' && distPhase.value !== 'idle')) {
+    onSheetClose()
+    return new Promise<boolean>((resolve) => { resolveRouteLeave = resolve })
+  }
+  return true
+})
 const distance = ref<number>(0)
 const distElapsed = ref<number>(0)
 const distError = ref<string>('')
@@ -1201,6 +1288,7 @@ function clearDistWatch() {
 }
 
 function resetDistance() {
+  distDiscardOpen.value = false
   distSessionGen += 1 // 진행 중(pending) 네이티브 start 무효화 (Codex R1 F3)
   abortNativeTracking()
   clearDistWatch()
@@ -1396,24 +1484,31 @@ function resumeDistanceWatchFromBackground() {
 }
 
 async function stopDistance() {
-  // 네이티브 경로: 서비스 종료 + 잔여 fix 회수 (orphan FGS 방지).
-  if (nativeTracking) {
-    nativeTracking = false
-    if (nativeDrainTimer) {
-      clearInterval(nativeDrainTimer)
-      nativeDrainTimer = null
+  if (submitting.value) return
+  submitting.value = true
+  try {
+    // 네이티브 경로: 서비스 종료 + 잔여 fix 회수 (orphan FGS 방지).
+    if (nativeTracking) {
+      nativeTracking = false
+      if (nativeDrainTimer) {
+        clearInterval(nativeDrainTimer)
+        nativeDrainTimer = null
+      }
+      try {
+        const { DistanceTracker } = await import('~/lib/nativeDistanceTracker')
+        const { fixes } = await DistanceTracker.stop({ sessionId: nativeSessionId, afterSeq: nativeLastSeq })
+        applyNativeFixes(fixes)
+      }
+      catch {
+        // 종료 drain 실패 — 이미 회수된 거리까지만 반영.
+      }
     }
-    try {
-      const { DistanceTracker } = await import('~/lib/nativeDistanceTracker')
-      const { fixes } = await DistanceTracker.stop({ sessionId: nativeSessionId, afterSeq: nativeLastSeq })
-      applyNativeFixes(fixes)
-    }
-    catch {
-      // 종료 drain 실패 — 이미 회수된 거리까지만 반영.
-    }
+    clearDistWatch()
+    distPhase.value = 'done'
   }
-  clearDistWatch()
-  distPhase.value = 'done'
+  finally {
+    submitting.value = false
+  }
 }
 
 /** 라우트 이탈/모달 강제 종료 시 네이티브 서비스 잔존 방지 (fire-and-forget). */
@@ -1447,10 +1542,13 @@ async function saveDistance() {
 }
 
 // 시트 전환 시 타이머/추적 정리 (누수 방지). 투두 루틴 로드/프리필은 RecordTodoSheet 가 열림 시 수행.
+// 시트 진입과 같은 틱에 시작한 입력·저장을 복원이 덮지 않도록 전환 시 동기 처리한다.
 watch(openModal, (next, prev) => {
+  if (prev === 'diary' && next !== 'diary') persistDiaryDraft()
+  if (next === 'diary') restoreDiaryDraft()
   if (prev === 'focus' && next !== 'focus') resetFocus()
   if (prev === 'distance' && next !== 'distance') resetDistance()
-})
+}, { flush: 'sync' })
 
 let removePauseListener: (() => void) | null = null
 let removeResumeListener: (() => void) | null = null
@@ -1460,6 +1558,8 @@ let removeResumeListener: (() => void) | null = null
 let disposed = false
 
 onBeforeUnmount(() => {
+  if (openModal.value === 'diary') persistDiaryDraft()
+  settleRouteLeave(false)
   clearFocusTimer()
   photoRequestVersion.value += 1
   distSessionGen += 1 // pending 네이티브 start 무효화 — 이탈 후 서비스 기동 방지 (Codex R1 F3)
@@ -1509,6 +1609,7 @@ function retryInitial() {
 }
 
 onMounted(() => {
+  restoreDiaryDraft()
   void loadInitial()
   loadHabits()
 
