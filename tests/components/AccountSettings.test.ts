@@ -4,12 +4,14 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import SettingsPage from '~/pages/profile/settings.vue'
 import { STORAGE_KEYS } from '~/utils/constants'
+import { deactivateDevicesOnce } from '~/composables/useNative'
 
-type SettingsSession = { data: { user: { id: string; pushConsent: boolean; adConsent: boolean } } }
+type SettingsSession = { data: { user: { id: string; pushConsent: boolean; adConsent: boolean } } | null }
 
 const mocks = vi.hoisted(() => ({
   session: null as Ref<SettingsSession> | null,
   platform: 'web', native: false,
+  isLoggedIn: null as Ref<boolean> | null, getJwt: vi.fn(), getSession: vi.fn(),
   deleteUser: vi.fn(), updateUser: vi.fn(), signOutAndClear: vi.fn(),
   deactivateMyDevices: vi.fn(), registerPush: vi.fn(), registerPushIfGranted: vi.fn(), getAppInfo: vi.fn(),
   invalidatePushRegistration: vi.fn(),
@@ -23,15 +25,18 @@ vi.mock('@capacitor/core', () => ({ Capacitor: {
 vi.mock('better-auth', () => ({ betterAuth: mocks.betterAuth }))
 vi.mock('better-auth/plugins', () => ({ jwt: vi.fn(), bearer: vi.fn() }))
 vi.mock('pg', () => ({ Pool: class {} }))
+vi.mock('@terraworld-it/openapi-frontend', () => ({ deactivateMyDevices: mocks.deactivateMyDevices }))
 vi.mock('~/lib/auth-client', () => ({ authClient: {
   useSession: () => mocks.session ??= ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent: true, adConsent: true } } }),
   deleteUser: mocks.deleteUser, updateUser: mocks.updateUser,
+  getSession: mocks.getSession,
 } }))
-mockNuxtImport('useAuth', () => () => ({ isLoggedIn: ref<boolean>(true), signOutAndClear: mocks.signOutAndClear }))
+mockNuxtImport('useAuth', () => () => ({ isLoggedIn: mocks.isLoggedIn ??= ref<boolean>(true), getJwt: mocks.getJwt, signOutAndClear: mocks.signOutAndClear }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: { deactivateMyDevices: mocks.deactivateMyDevices }, client: mocks.client }))
 mockNuxtImport('useNative', () => () => ({
   registerPush: mocks.registerPush, registerPushIfGranted: mocks.registerPushIfGranted, getAppInfo: mocks.getAppInfo,
   invalidatePushRegistration: mocks.invalidatePushRegistration,
+  deactivateDevicesOnce,
 }))
 mockNuxtImport('useToast', () => () => mocks.toast)
 mockNuxtImport('navigateTo', () => mocks.navigate)
@@ -44,6 +49,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.platform = 'web'
   mocks.native = false
+  mocks.isLoggedIn = ref<boolean>(true)
+  mocks.getJwt.mockReset().mockReturnValue('jwt-a')
+  mocks.getSession.mockReset().mockImplementation(async () => mocks.session!.value)
   mocks.session = ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent: true, adConsent: true } } })
   localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')
   localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-b')
@@ -114,6 +122,20 @@ async function mountSettings() {
 }
 
 describe('계정 설정', () => {
+  it('JWT 발급 전 isLoggedIn이 false여도 세션 사용자가 있으면 삭제 버튼만 표시한다', async () => {
+    mocks.isLoggedIn!.value = false
+    const w = await mountSettings()
+    expect(w.find('[data-testid="delete-account"]').exists()).toBe(true)
+    expect(w.find('a[href="/auth/login"]').exists()).toBe(false)
+  })
+
+  it('세션 사용자가 없으면 삭제 버튼을 숨기고 로그인 링크를 표시한다', async () => {
+    mocks.session!.value = { data: null }
+    const w = await mountSettings()
+    expect(w.find('[data-testid="delete-account"]').exists()).toBe(false)
+    expect(w.find('a[href="/auth/login"]').exists()).toBe(true)
+  })
+
   it('처리방침·약관·버전·삭제 행과 웹 버전을 표시한다', async () => {
     const w = await mountSettings()
     for (const text of ['개인정보 처리방침', '이용약관', '앱 버전', '계정 삭제', '웹']) expect(w.text()).toContain(text)
@@ -256,7 +278,7 @@ describe('계정 설정', () => {
     expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
     expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBeNull()
     expect(mocks.deactivateMyDevices).not.toHaveBeenCalled()
-    expect(mocks.toast.error).toHaveBeenCalled()
+    expect(mocks.toast.error).toHaveBeenCalledWith(failure === '응답 오류' ? 'failed' : 'network')
     await w.get('[data-testid="consent-push"]').setValue(false)
     await flushPromises()
     expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(1)
@@ -265,6 +287,37 @@ describe('계정 설정', () => {
     expect(mocks.registerPush).not.toHaveBeenCalled()
     expect(w.find('[data-testid="retry-push-consent"]').exists()).toBe(false)
     expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+  })
+
+  it.each(['화면', '자동'])('%s 재시도 중 다른 경로가 진입해도 디바이스 해제는 한 번만 호출한다', async (firstPath) => {
+    mocks.platform = 'android'; mocks.native = true
+    mocks.session!.value = { data: { user: { id: 'user-a', pushConsent: false, adConsent: true } } }
+    localStorage.setItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a', '1')
+    let resolve!: (value: object) => void
+    mocks.deactivateMyDevices.mockReturnValueOnce(new Promise((done) => { resolve = done }))
+    const { useNative: useNativeActual } = await vi.importActual<typeof import('~/composables/useNative')>('~/composables/useNative')
+    const native = useNativeActual()
+    let automatic: Promise<boolean>
+    if (firstPath === '자동') {
+      automatic = native.registerPushIfGranted()
+      await flushPromises()
+      await mountSettings()
+    }
+    else {
+      await mountSettings()
+      automatic = native.registerPushIfGranted()
+      await flushPromises()
+    }
+    expect(mocks.getSession).toHaveBeenCalledTimes(1)
+    expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(1)
+    expect(mocks.updateUser).not.toHaveBeenCalled()
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBe('1')
+    resolve({})
+    expect(await automatic).toBe(false)
+    await flushPromises()
+    expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBeNull()
+    expect(wrapper!.find('[data-testid="retry-push-consent"]').exists()).toBe(false)
   })
 
   it.each(['응답 오류', '네트워크 오류'])('디바이스 해제 %s 후 재진입해도 OFF와 재시도를 표시하고 해제 단계만 재시도한다', async (failure) => {

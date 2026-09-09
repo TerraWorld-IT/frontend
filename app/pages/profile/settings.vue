@@ -88,7 +88,7 @@
             <span class="text-[12px] text-apjek-text-sub">{{ appVersion }}</span>
           </div>
           <button
-            v-if="isLoggedIn"
+            v-if="session?.data?.user"
             type="button"
             data-testid="delete-account"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
@@ -118,7 +118,7 @@
 
           <!-- 로그인 — 비로그인 시에만 (더보기 계정 카드와 동일) -->
           <NuxtLink
-            v-if="!isLoggedIn"
+            v-if="!session?.data?.user"
             to="/auth/login"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
           >
@@ -195,9 +195,9 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const toast = useToast()
 const { t } = useI18n()
-const { isLoggedIn, signOutAndClear } = useAuth()
-const { sdk, client } = useOpenApi()
-const { registerPush, registerPushIfGranted, invalidatePushRegistration, getAppInfo } = useNative()
+const { signOutAndClear } = useAuth()
+const { client } = useOpenApi()
+const { registerPush, registerPushIfGranted, invalidatePushRegistration, deactivateDevicesOnce, getAppInfo } = useNative()
 const isAndroidNative = ref<boolean>(false)
 const appVersion = ref<string>('웹')
 const showDeleteDialog = ref<boolean>(false)
@@ -396,9 +396,8 @@ async function onPushConsentToggle(checked: boolean) {
       // 계정 전환 뒤에는 새 사용자의 디바이스를 잘못 해제하지 않는다.
       if (session.value?.data?.user?.id !== userId) return
       applyConsentFromSession(session.value?.data?.user)
-      const { error } = await sdk.deactivateMyDevices({ client })
+      const { error } = await deactivateDevicesOnce(userId, client)
       if (error) throw new Error('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
-      localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId)
       if (session.value?.data?.user?.id !== userId) return
       applyConsentFromSession(session.value?.data?.user)
     }

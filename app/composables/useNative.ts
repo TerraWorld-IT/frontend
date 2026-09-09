@@ -2,10 +2,24 @@ import { Capacitor } from '@capacitor/core'
 import { authClient } from '~/lib/auth-client'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { deactivateMyDevices } from '@terraworld-it/openapi-frontend'
+import type { Client } from '@hey-api/client-fetch'
 
 // 철회 이전 비동기 작업과 철회 뒤 도착한 OS 이벤트를 함께 폐기한다.
 export let pushRegistrationEpoch = 0
 let blockedUserId: string | null = null
+const inflightDeactivations = new Map<string, ReturnType<typeof deactivateMyDevices<false>>>()
+
+// 화면과 자동 재시도가 같은 사용자의 진행 중 요청과 보류 해제 결과를 공유한다.
+export function deactivateDevicesOnce(userId: string, client: Client): ReturnType<typeof deactivateMyDevices<false>> {
+  const inflight = inflightDeactivations.get(userId)
+  if (inflight) return inflight
+  const request = deactivateMyDevices({ client }).then((result) => {
+    if (!result.error && import.meta.client) localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId)
+    return result
+  }).finally(() => { inflightDeactivations.delete(userId) })
+  inflightDeactivations.set(userId, request)
+  return request
+}
 
 export function hasPushOffPending(userId: string): boolean {
   return import.meta.client && localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId) !== null
@@ -196,6 +210,8 @@ export function useNative() {
   /** 기존 동의와 OS 권한이 모두 있을 때만 프롬프트 없이 등록한다. */
   async function registerPushIfGranted(): Promise<boolean> {
     if (!isNative || !isAndroid) return false
+    const { getJwt } = useAuth()
+    const jwt = getJwt()
     const epoch = pushRegistrationEpoch
     const { data, error } = await authClient.getSession({ query: { disableCookieCache: true } })
     if (!isPushRegistrationCurrent(epoch)) return false
@@ -207,8 +223,10 @@ export function useNative() {
       // 플러그인 초기화 뒤 주입된 인증 클라이언트를 재시도 시점에 읽는다.
       const client = nuxtApp!.$apiClient
       if (!client) return false
-      const result = await deactivateMyDevices({ client })
-      if (!result.error) localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + user.id)
+      // 같은 사용자의 JWT 갱신도 이번 재시도를 건너뛰며 다음 진입에서 다시 시도한다.
+      // 콜드 스타트의 양쪽 null, SDK 내부 JWT 주입·401 재전송 중 전환은 감지 범위 밖이다.
+      if (getJwt() !== jwt) return false
+      await deactivateDevicesOnce(user.id, client)
       return false
     }
     if (!isPushRegistrationCurrent(epoch, user.id) || user.pushConsent !== true) return false
@@ -280,6 +298,7 @@ export function useNative() {
     takePhoto,
     registerPush,
     invalidatePushRegistration,
+    deactivateDevicesOnce,
     registerPushIfGranted,
     onPushReceived,
     hideSplash,

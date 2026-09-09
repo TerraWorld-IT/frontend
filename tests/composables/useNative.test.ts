@@ -8,6 +8,7 @@ const pushMocks = vi.hoisted(() => ({
   platform: 'web', native: false,
   getSession: vi.fn().mockResolvedValue({ data: null }), checkPermissions: vi.fn(), requestPermissions: vi.fn(), register: vi.fn(),
   addListener: vi.fn(), registerDevice: vi.fn(), deactivateMyDevices: vi.fn(),
+  isLoggedIn: null as ReturnType<typeof ref<boolean>> | null, getJwt: vi.fn(),
 }))
 vi.mock('@capacitor/core', () => ({ Capacitor: {
   getPlatform: () => pushMocks.platform, isNativePlatform: () => pushMocks.native,
@@ -19,12 +20,14 @@ vi.mock('~/lib/auth-client', () => ({ authClient: {
 vi.mock('@terraworld-it/openapi-frontend', () => ({ registerDevice: pushMocks.registerDevice, deactivateMyDevices: pushMocks.deactivateMyDevices }))
 vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn() } }))
 vi.mock('@capacitor/keyboard', () => ({ Keyboard: { addListener: vi.fn() } }))
-mockNuxtImport('useAuth', () => () => ({ isLoggedIn: ref<boolean>(false) }))
+mockNuxtImport('useAuth', () => () => ({ isLoggedIn: pushMocks.isLoggedIn ??= ref<boolean>(false), getJwt: pushMocks.getJwt }))
 mockNuxtImport('useBackButtonStack', () => () => ({ popTopBackHandler: vi.fn() }))
 mockNuxtImport('useGtagEvents', () => () => ({ trackPushRegistrationFailed: vi.fn() }))
 
 beforeEach(() => {
   vi.resetModules()
+  pushMocks.isLoggedIn = ref<boolean>(false)
+  pushMocks.getJwt.mockReset().mockReturnValue('jwt-a')
   pushMocks.getSession.mockReset().mockResolvedValue({ data: { user: { id: 'user-a', pushConsent: true } } })
   pushMocks.checkPermissions.mockReset().mockResolvedValue({ receive: 'granted' })
   pushMocks.requestPermissions.mockReset().mockResolvedValue({ receive: 'granted' })
@@ -152,6 +155,49 @@ describe('useNative contract', () => {
     expect(pushMocks.register).not.toHaveBeenCalled()
     expect(pushMocks.checkPermissions).not.toHaveBeenCalled()
     expect(localStorage.getItem(pendingKey)).toBe(failed ? '1' : null)
+  })
+
+  it.each([false, true])('세션 조회 대기 중 JWT 전환 %s에 따라 보류 해제를 건너뛰거나 완료한다', async (switched) => {
+    pushMocks.platform = 'android'; pushMocks.native = true
+    const pendingKey = STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a'
+    localStorage.setItem(pendingKey, '1')
+    let resolve!: (value: object) => void
+    pushMocks.getSession.mockReturnValueOnce(new Promise((done) => { resolve = done }))
+    const { useNative } = await import('~/composables/useNative')
+    const registration = useNative().registerPushIfGranted()
+    if (switched) pushMocks.getJwt.mockReturnValue('jwt-b')
+    resolve({ data: { user: { id: 'user-a', pushConsent: false } } })
+    expect(await registration).toBe(false)
+    expect(pushMocks.deactivateMyDevices).toHaveBeenCalledTimes(switched ? 0 : 1)
+    expect(localStorage.getItem(pendingKey)).toBe(switched ? '1' : null)
+    expect(pushMocks.register).not.toHaveBeenCalled()
+  })
+
+  it.each(['성공', '응답 오류', '네트워크 오류'])('동일 사용자의 동시 해제는 요청과 %s 결과를 공유하고 완료 후 재시도한다', async (outcome) => {
+    const { deactivateDevicesOnce } = await import('~/composables/useNative')
+    const { createClient } = await import('@hey-api/client-fetch')
+    const client = createClient()
+    const pendingKey = STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a'
+    localStorage.setItem(pendingKey, '1')
+    let resolve!: (value: object) => void
+    let reject!: (reason: Error) => void
+    pushMocks.deactivateMyDevices.mockReturnValueOnce(new Promise((done, fail) => { resolve = done; reject = fail }))
+    const first = deactivateDevicesOnce('user-a', client)
+    const second = deactivateDevicesOnce('user-a', client)
+    expect(first).toBe(second)
+    expect(pushMocks.deactivateMyDevices).toHaveBeenCalledExactlyOnceWith({ client })
+    const settled = Promise.allSettled([first, second])
+    const result = outcome === '응답 오류' ? { error: { message: 'failed' } } : {}
+    const error = new Error('network')
+    if (outcome === '네트워크 오류') reject(error)
+    else resolve(result)
+    expect(await settled).toEqual(outcome === '네트워크 오류'
+      ? [{ status: 'rejected', reason: error }, { status: 'rejected', reason: error }]
+      : [{ status: 'fulfilled', value: result }, { status: 'fulfilled', value: result }])
+    expect(localStorage.getItem(pendingKey)).toBe(outcome === '성공' ? null : '1')
+    await deactivateDevicesOnce('user-a', client)
+    expect(pushMocks.deactivateMyDevices).toHaveBeenCalledTimes(2)
+    expect(localStorage.getItem(pendingKey)).toBeNull()
   })
 
   it('A의 OFF와 보류 키가 B의 자동 등록을 막거나 B의 디바이스를 해제하지 않는다', async () => {
