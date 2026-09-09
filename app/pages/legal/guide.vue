@@ -29,6 +29,11 @@
         </div>
       </section>
 
+      <nav class="space-y-3 text-sm leading-relaxed" aria-label="법적 고지">
+        <NuxtLink to="/legal/privacy" class="block text-riso-sage dark:text-riso-grass underline">개인정보 처리방침</NuxtLink>
+        <NuxtLink to="/legal/terms" class="block text-riso-sage dark:text-riso-grass underline">이용약관</NuxtLink>
+      </nav>
+
       <footer class="pt-2">
         <button
           type="button"

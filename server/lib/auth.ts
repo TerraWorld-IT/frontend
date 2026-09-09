@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { jwt, bearer } from 'better-auth/plugins'
 import { Pool } from 'pg'
 
@@ -120,6 +121,16 @@ export const auth = betterAuth({
     enabled: true,
   },
 
+  hooks: {
+    before: createAuthMiddleware(async function (ctx) {
+      // 최근 세션이어도 삭제에는 비밀번호를 요구하고, 검증은 기존 인증 경로에 맡긴다.
+      if (ctx.path === '/delete-user'
+        && (typeof ctx.body?.password !== 'string' || !ctx.body.password.trim())) {
+        throw new APIError('BAD_REQUEST', { code: 'PASSWORD_REQUIRED', message: '비밀번호를 입력해 주세요' })
+      }
+    }),
+  },
+
   /**
    * LEGAL-001 additionalFields 등록 (e2e cycle 2026-05-18 발견).
    *
@@ -135,6 +146,30 @@ export const auth = betterAuth({
    * 목적 한정). privacy.md §8 retention policy 준수 (가입 후 N년 후 hash 변환).
    */
   user: {
+    deleteUser: {
+      enabled: true,
+      async beforeDelete(user) {
+        // 도메인 삭제가 실패하면 인증 계정과 세션을 보존해 재시도할 수 있게 한다.
+        const response = await $fetch.raw(`${internalApiBaseUrl}/api/v1/internal/users/${encodeURIComponent(user.id)}`, {
+          method: 'DELETE',
+          headers: { 'X-Internal-Token': internalApiToken },
+          redirect: 'error',
+          // 내부 DELETE는 이미 삭제된 사용자에도 204를 반환하며 부수효과가 중복되지 않는다.
+          // backend InternalUserControllerMvcTest의 멱등 테스트를 전제로 재시도한다.
+          retry: 2,
+          retryDelay: 250,
+          timeout: 5_000,
+        })
+        if (response.status < 200 || response.status >= 300) {
+          throw new APIError('INTERNAL_SERVER_ERROR', { message: '계정 삭제에 실패했어요' })
+        }
+      },
+      async afterDelete() {
+        // 비밀번호·이메일·토큰은 삭제 완료 로그에 남기지 않는다.
+        // eslint-disable-next-line no-console
+        console.info('[auth] 계정 및 세션 삭제 완료')
+      },
+    },
     additionalFields: {
       birthDate: {
         type: 'string',
@@ -213,7 +248,8 @@ export const auth = betterAuth({
       // `<img>`/`<script>`/`<iframe>`/fetch/XHR 에는 Lax 쿠키가 애초에 실리지 않는다.
       // 그 한 가지 델타가 안전한 이유(보안 리뷰로 라우트 전수 확인):
       //   - 상태를 바꾸는 GET 은 `/verify-email` 과 `/delete-user/callback` 뿐인데 둘 다
-      //     추측 불가능한 서명 토큰을 요구하고, 후자는 `user.deleteUser` 미설정이라 404 다.
+      //     추측 불가능한 검증 토큰을 요구한다. 계정 삭제는 비밀번호 재인증 POST 로 수행하며,
+      //     삭제 검증 메일 발급은 설정하지 않는다. 콜백도 유효한 삭제 토큰 없이는 거절된다.
       //   - 데이터를 주는 GET(`/get-session`, `/token`, `/list-sessions`)은 top-level 이동으로
       //     열려도 same-origin policy 상 공격자가 응답을 읽을 수 없다.
       //   - Spring `/api/v1/*` 는 이 쿠키로 인증하지 않는다(Authorization: Bearer RS256).
@@ -226,7 +262,7 @@ export const auth = betterAuth({
       // 이동시키면 Lax 쿠키가 실리고, `updateAge`(1일)를 지난 세션은 그 GET 이 만료를 갱신한다
       // (`session.mjs`). 즉 **세션 수명 강제 연장**이 가능하다. 응답 본문은 same-origin policy
       // 로 못 읽으므로 정보 노출은 없다. 콜드 스타트 로그인 유지와 맞바꾼 값이다.
-      // 향후 `user.deleteUser.enabled` 를 켜거나 토큰 없는 상태변경 GET 을 추가하면 재검토.
+      // 삭제 활성화 시 토큰 검증 콜백을 재확인했다. 토큰 없는 상태변경 GET 추가 시 재검토.
       sameSite: 'lax',
     },
   },

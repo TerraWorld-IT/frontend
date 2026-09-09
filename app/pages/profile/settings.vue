@@ -30,19 +30,27 @@
         <p class="text-[12px] text-apjek-text-sub">{{ $t('profile.consentDesc') }}</p>
         <div class="flex flex-col gap-[8px]">
           <label
-            v-for="item in consentToggles"
+            v-for="item in visibleConsentToggles"
             :key="`${item.key}-${consentRenderKey}`"
             class="w-full flex items-center justify-between p-[13px] bg-apjek-surface border border-apjek-border rounded-[12px] cursor-pointer"
           >
             <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ t(`auth.consent.${item.key}`) }}</span>
             <input
               type="checkbox"
+              :data-testid="`consent-${item.key}`"
               :checked="item.value"
-              :disabled="consentSaving"
+              :disabled="consentSaving || (item.key === 'push' && pushOffPending)"
               class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
               @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
             >
           </label>
+          <button
+            v-if="isAndroidNative && pushOffPending"
+            type="button"
+            data-testid="retry-push-consent"
+            :disabled="consentSaving"
+            @click="onConsentToggle('push', false)"
+          >푸시 알림 해제 다시 시도</button>
         </div>
       </div>
     </div>
@@ -63,6 +71,32 @@
         </div>
 
         <div class="flex flex-col gap-[8px]">
+          <NuxtLink
+            to="/legal/privacy"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+          >
+            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">개인정보 처리방침</span>
+          </NuxtLink>
+          <NuxtLink
+            to="/legal/terms"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+          >
+            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">이용약관</span>
+          </NuxtLink>
+          <div class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left border border-apjek-border">
+            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">앱 버전</span>
+            <span class="text-[12px] text-apjek-text-sub">{{ appVersion }}</span>
+          </div>
+          <button
+            v-if="session?.data?.user"
+            type="button"
+            data-testid="delete-account"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+            :disabled="deletingAccount || loggingOut || consentSaving"
+            @click="showDeleteDialog = true"
+          >
+            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">계정 삭제</span>
+          </button>
           <!-- 이용 안내 — 더보기 계정 카드와 같은 도움말 페이지 -->
           <NuxtLink
             to="/legal/guide"
@@ -84,7 +118,7 @@
 
           <!-- 로그인 — 비로그인 시에만 (더보기 계정 카드와 동일) -->
           <NuxtLink
-            v-if="!isLoggedIn"
+            v-if="!session?.data?.user"
             to="/auth/login"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
           >
@@ -103,7 +137,7 @@
           <button
             type="button"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
-            :disabled="loggingOut"
+            :disabled="loggingOut || deletingAccount"
             @click="onLogout"
           >
             <div class="flex items-center gap-[12px] text-apjek-text">
@@ -125,17 +159,97 @@
         </div>
       </div>
     </div>
+    <CommonModal
+      :model-value="showDeleteDialog"
+      title="계정 삭제"
+      message="계정과 활동 기록, 테라리움 등 계정에 연결된 정보가 즉시 삭제되며 복구할 수 없습니다. 법령에 따라 보관해야 하는 기록은 개인정보 처리방침에 따라 보관됩니다. 계속하려면 비밀번호를 입력해 주세요."
+      :confirm-text="deletingAccount ? '삭제 중…' : '삭제'"
+      :confirm-disabled="deletingAccount || !deletePassword"
+      :show-cancel="!deletingAccount"
+      :show-close="!deletingAccount"
+      variant="danger"
+      @update:model-value="onDeleteDialogChange"
+      @confirm="onDeleteAccount"
+    >
+      <label for="delete-account-password" class="text-[14px] font-semibold text-apjek-text">비밀번호</label>
+      <input
+        id="delete-account-password"
+        v-model="deletePassword"
+        type="password"
+        autocomplete="current-password"
+        :disabled="deletingAccount"
+        class="w-full bg-apjek-surface rounded-[12px] p-[13px] border border-apjek-border"
+        @keydown.enter.prevent="onDeleteAccount"
+      >
+    </CommonModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
+import { Capacitor } from '@capacitor/core'
+import { STORAGE_KEYS } from '~/utils/constants'
+import { hasPushOffPending } from '~/composables/useNative'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const toast = useToast()
 const { t } = useI18n()
-const { isLoggedIn } = useAuth()
+const { signOutAndClear } = useAuth()
+const { client } = useOpenApi()
+const { registerPush, registerPushIfGranted, invalidatePushRegistration, deactivateDevicesOnce, getAppInfo } = useNative()
+const isAndroidNative = ref<boolean>(false)
+const appVersion = ref<string>('웹')
+const showDeleteDialog = ref<boolean>(false)
+const deletePassword = ref<string>('')
+const deletingAccount = ref<boolean>(false)
+
+function onDeleteDialogChange(open: boolean) {
+  if (deletingAccount.value) return
+  showDeleteDialog.value = open
+  if (!open) deletePassword.value = ''
+}
+
+async function onDeleteAccount() {
+  if (deletingAccount.value || loggingOut.value || consentSaving.value) return
+  deletingAccount.value = true
+  try {
+    if (!deletePassword.value.trim()) {
+      toast.error('비밀번호를 입력해 주세요')
+      // 공용 모달의 확인 직후 닫기 이벤트를 막고 입력 화면을 유지한다.
+      await nextTick()
+      return
+    }
+    const { error } = await authClient.deleteUser({ password: deletePassword.value })
+    if (error) {
+      toast.error(error.code === 'PASSWORD_REQUIRED'
+        ? '비밀번호를 입력해 주세요'
+        : error.code === 'INVALID_PASSWORD'
+        ? '비밀번호가 올바르지 않습니다.'
+        : '계정 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.')
+      return
+    }
+    showDeleteDialog.value = false
+    deletePassword.value = ''
+    // 계정 활동 캐시만 제거하고 테마 등 계정과 무관한 설정은 보존한다.
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index)
+      if (key?.startsWith('tw.todos.') || key?.startsWith(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX)) localStorage.removeItem(key)
+    }
+    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE)
+    // 삭제로 서버 세션이 사라졌어도 기존 로그아웃 경로로 JWT와 사용자 캐시를 정리한다.
+    // 서버 로그아웃이 실패해도 signOutAndClear의 finally에서 로컬 인증 상태는 정리된다.
+    await signOutAndClear().catch(() => {})
+    toast.success('계정이 삭제되었습니다.')
+    await navigateTo('/auth/login')
+  }
+  catch {
+    toast.error('계정 삭제 처리 중 오류가 발생했어요. 다시 로그인해 상태를 확인해 주세요.')
+  }
+  finally {
+    deletingAccount.value = false
+  }
+}
 
 function goBack() {
   navigateTo('/profile')
@@ -163,6 +277,9 @@ const P = {
 const session = authClient.useSession()
 const consentSaving = ref<boolean>(false)
 const consentRenderKey = ref<number>(0)
+const pushOffPending = ref<boolean>(false)
+// 저장 중 세션 객체가 교체돼도 현재 사용자의 OFF 의도를 표시값에 우선 반영한다.
+const pushOffUserId = ref<string | null>(null)
 // 가입 시 받는 선택 동의 5종(photo/push/adId/analytics/marketing)과 1:1 로 맞춘다.
 // 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
 const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
@@ -172,35 +289,58 @@ const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>
   { key: 'photo', field: 'photoConsent', value: false },
   { key: 'push', field: 'pushConsent', value: false },
 ])
+const visibleConsentToggles = computed(() => consentToggles.value.filter(item => isAndroidNative.value || (item.key !== 'push' && item.key !== 'adId')))
 
 // 세션은 클라이언트에서만 읽힌다 — 서버 렌더(전부 미체크)와 첫 클라이언트 렌더를 같게 두고,
 // 마운트 뒤에 세션 값을 반영해 hydration 불일치(checked 속성)를 피한다.
 function applyConsentFromSession(u: unknown) {
     const cu = u as {
+      id: string
       marketingConsent?: boolean
       analyticsConsent?: boolean
       adConsent?: boolean
       photoConsent?: boolean
       pushConsent?: boolean
     } | undefined
+    pushOffPending.value = !!cu?.id && hasPushOffPending(cu.id)
+    if (pushOffUserId.value !== cu?.id) pushOffUserId.value = null
     if (!cu) return
     consentToggles.value = [
       { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
       { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
       { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
       { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
-      { key: 'push', field: 'pushConsent', value: cu.pushConsent ?? false },
+      { key: 'push', field: 'pushConsent', value: pushOffPending.value || pushOffUserId.value === cu.id ? false : cu.pushConsent ?? false },
     ]
 }
 
+function restorePushOffState(u: unknown) {
+  applyConsentFromSession(u)
+  if (isAndroidNative.value && pushOffPending.value && !consentSaving.value) {
+    void onConsentToggle('push', false)
+  }
+}
+
 onMounted(() => {
-  applyConsentFromSession(session.value?.data?.user)
-  watch(() => session.value?.data?.user, (u) => applyConsentFromSession(u))
+  isAndroidNative.value = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
+  if (Capacitor.isNativePlatform()) {
+    appVersion.value = '확인 중'
+    void getAppInfo().then((info) => {
+      appVersion.value = info ? `${info.version} (${info.build})` : '확인 불가'
+    }).catch(() => { appVersion.value = '확인 불가' })
+  }
+  restorePushOffState(session.value?.data?.user)
+  watch(() => session.value?.data?.user, restorePushOffState)
 })
 
 async function onConsentToggle(key: string, checked: boolean) {
   const item = consentToggles.value.find(c => c.key === key)
-  if (!item || consentSaving.value) return
+  if (!item || consentSaving.value || deletingAccount.value || loggingOut.value) return
+  if (key === 'push') {
+    if (!isAndroidNative.value) return
+    await onPushConsentToggle(checked)
+    return
+  }
   consentSaving.value = true
   try {
     const { error } = await authClient.updateUser(
@@ -219,10 +359,68 @@ async function onConsentToggle(key: string, checked: boolean) {
   }
 }
 
+async function onPushConsentToggle(checked: boolean) {
+  const userId = session.value?.data?.user?.id
+  if (!userId || (checked && hasPushOffPending(userId))) return
+  consentSaving.value = true
+  try {
+    if (checked) {
+      const permission = await registerPush(userId)
+      if (permission?.receive !== 'granted') {
+        toast.info('알림 권한이 허용되지 않았어요. 기기 설정에서 알림 권한을 확인해 주세요.')
+        return
+      }
+      if (session.value?.data?.user?.id !== userId) return
+      const { error } = await authClient.updateUser(
+        { pushConsent: true } as Parameters<typeof authClient.updateUser>[0],
+      )
+      if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
+      if (session.value?.data?.user?.id !== userId) return
+      pushOffUserId.value = null
+      consentToggles.value.find(c => c.key === 'push')!.value = true
+      // 최초 등록 이벤트가 동의 저장보다 먼저 도착해도 저장 이후 다시 등록한다.
+      await registerPushIfGranted()
+    }
+    else {
+      invalidatePushRegistration(userId)
+      pushOffUserId.value = userId
+      applyConsentFromSession(session.value?.data?.user)
+      if (!hasPushOffPending(userId)) {
+        // 서버 동의를 먼저 철회해 앱이 종료돼도 다음 자동 등록을 막는다.
+        const { error } = await authClient.updateUser(
+          { pushConsent: false } as Parameters<typeof authClient.updateUser>[0],
+        )
+        if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
+        localStorage.setItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId, '1')
+      }
+      // 계정 전환 뒤에는 새 사용자의 디바이스를 잘못 해제하지 않는다.
+      if (session.value?.data?.user?.id !== userId) return
+      applyConsentFromSession(session.value?.data?.user)
+      const { error } = await deactivateDevicesOnce(userId, client)
+      if (error) throw new Error('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
+      if (session.value?.data?.user?.id !== userId) return
+      applyConsentFromSession(session.value?.data?.user)
+    }
+    toast.success(t('profile.consentSaved'))
+  }
+  catch (e) {
+    if (session.value?.data?.user?.id !== userId) return
+    if (!checked && !hasPushOffPending(userId)) pushOffUserId.value = null
+    applyConsentFromSession(session.value?.data?.user)
+    toast.error(pushOffPending.value
+      ? '푸시 알림 해제에 실패했어요. 다시 시도해 주세요.'
+      : (e as Error).message)
+  }
+  finally {
+    consentSaving.value = false
+    consentRenderKey.value++
+  }
+}
+
 const loggingOut = ref<boolean>(false)
 
 async function onLogout() {
-  if (loggingOut.value) return
+  if (loggingOut.value || deletingAccount.value) return
   loggingOut.value = true
   try {
     const { signOutAndClear } = useAuth()

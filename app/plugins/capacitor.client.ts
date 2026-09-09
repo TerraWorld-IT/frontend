@@ -1,5 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 import * as sdk from '@terraworld-it/openapi-frontend'
+import { authClient } from '~/lib/auth-client'
+import { isPushRegistrationCurrent, pushRegistrationEpoch } from '~/composables/useNative'
 
 /**
  * Capacitor client-only plugin.
@@ -106,15 +108,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     const { trackPushRegistrationFailed } = useGtagEvents()
 
     PushNotifications.addListener('registration', async (token) => {
+      const epoch = pushRegistrationEpoch
+      if (resolveDevicePlatform() !== 'ANDROID' || !isPushRegistrationCurrent(epoch)) return
+      const session = await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => null)
+      const user = session?.data?.user as { id: string; pushConsent?: boolean } | undefined
+      if (session?.error || !user?.id || !isPushRegistrationCurrent(epoch, user.id)) return
+      if (user.pushConsent !== true) return
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
-      // iOS: Firebase Messaging 미통합 상태라 이 토큰은 raw APNs 토큰이다 — 백엔드 FcmService 는
-      // FCM registration token 을 기대하므로 등록해도 발송이 실패하고 무효 행만 쌓인다
-      // (Codex R1). APNs→FCM 토큰 교환(FirebaseMessaging SPM) 통합 전까지 iOS 등록은 보류.
-      // 통합 시 AppDelegate 가 FCM 토큰을 post 하게 되면 이 가드를 제거할 것.
-      if (resolveDevicePlatform() === 'IOS') return
-
-      // 서버에 디바이스 토큰 등록 — 멱등 (동일 user, token 은 lastSeenAt 만 갱신)
+      // 동일 토큰도 isActive를 복구하는 upsert이므로 철회된 세대는 위에서 차단한다.
       // 인증/리프레시는 plugins/openapi.ts 의 인터셉터가 자동 처리.
       // 등록 실패는 silent (UX 차단 없음) — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
       try {
@@ -162,32 +164,19 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       if (title) useToast().info(title)
     })
 
-    // 권한 요청 + 등록 트리거 — 부팅 경로에서 로그인-이후로 이동 (2026-07-15 FE-01).
-    // 이전에는 여기서 즉시 `await requestPermissions()` 해 첫 실행 시 사용자가 푸시 권한
-    // 다이얼로그에 응답할 때까지 앱 마운트가 블록됐고, 미로그인 상태의 registerDevice 는
-    // 401 로 버려져 "로그인 후 재등록 경로 없음" 갭이 있었다.
-    // → isLoggedIn 이 true 가 되는 시점(부팅 세션 복원 or 이후 로그인 — refreshJwt 성공이
-    //   유일한 true 전이점)에 1회 fire-and-forget 으로 요청+등록한다. 리스너는 위에서 이미
-    //   부착됐으므로 'registration' 이벤트를 놓치지 않는다. 권한 프롬프트도 콘텐츠를 본 뒤에
-    //   뜨므로 opt-in 관점에서도 개선.
+    // 로그인·복귀 시에는 기존 동의와 권한만 확인한다. 권한 요청은 설정의 사용자 액션에서만 한다.
     const { isLoggedIn } = useAuth()
+    const { registerPushIfGranted } = useNative()
     let pushRegistrationTriggered = false
     function triggerPushRegistration() {
       if (!isLoggedIn.value || pushRegistrationTriggered) return
       pushRegistrationTriggered = true
-      void (async () => {
-        try {
-          const perm = await PushNotifications.requestPermissions()
-          if (perm.receive === 'granted') {
-            await PushNotifications.register()
-          }
-          // denied 는 latch 유지 — 같은 세션에서 반복 프롬프트/무의미 재시도 안 함.
-        }
-        catch {
-          // 일시 실패 (플러그인/네이티브) — latch 해제해 다음 login/resume 에서 재시도.
-          pushRegistrationTriggered = false
-        }
-      })()
+      void registerPushIfGranted().then((registered) => {
+        pushRegistrationTriggered = registered
+      }).catch(() => {
+        // 일시 실패 시 다음 로그인·복귀에서 조용히 재시도한다.
+        pushRegistrationTriggered = false
+      })
     }
     retryPushRegistration = triggerPushRegistration
     watch(isLoggedIn, (loggedIn) => {

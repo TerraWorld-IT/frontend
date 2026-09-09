@@ -52,6 +52,13 @@
             광고·분석 추적은 단말 OS 설정으로도 거부할 수 있습니다.
           </p>
         </div>
+        <div>
+          <h2 class="font-semibold mb-1">앱 외 삭제 요청 경로</h2>
+          <p class="text-riso-dark/80">
+            앱을 사용할 수 없는 경우 <a :href="`mailto:${supportEmail}`" class="underline">{{ supportEmail }}</a>로
+            계정 삭제를 요청할 수 있습니다. 가입한 이메일 주소로 문의해 주세요. 비밀번호는 보내지 마세요.
+          </p>
+        </div>
       </section>
 
       <footer class="pt-2">
@@ -69,6 +76,8 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false })
+
+const supportEmail = useRuntimeConfig().public.supportEmail
 
 // 페이지 배경이 서피스가 아니므로 상·하단 스크림도 같은 색을 따르게 한다(노치 색 띠 제거).
 useHead({ htmlAttrs: { style: '--apjek-scrim: var(--color-riso-cream)' } })

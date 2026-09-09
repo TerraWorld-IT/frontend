@@ -89,5 +89,6 @@ export const STORAGE_KEYS = {
   ONBOARDING_DONE: 'tw-onboarding-done',
   LAYOUT_VARIANT: 'tw-layout',
   PUSH_TOKEN: 'tw-push-token',
+  PUSH_OFF_PENDING_PREFIX: 'tw-push-off-pending.',
   THEME: 'tw-theme',
 } as const
