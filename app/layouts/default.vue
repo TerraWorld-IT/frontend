@@ -36,10 +36,10 @@
             :to="tab.to"
             :class="[
               tab.center
-                ? 'flex flex-col gap-[2px] items-center justify-center overflow-hidden shrink-0'
-                : 'flex flex-1 flex-col gap-[2px] items-center justify-center min-w-0 overflow-hidden',
+                ? 'flex flex-col gap-[2px] items-center justify-center shrink-0'
+                : 'flex flex-1 flex-col gap-[2px] items-center justify-center min-w-0',
               isActive(tab.to) ? 'text-apjek-text' : 'text-apjek-text-faint',
-              'h-11 transition-colors',
+              `relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] h-11 transition-colors`,
             ]"
             :style="tab.center ? { width: '74.6px' } : {}"
             @click="onTabTap"

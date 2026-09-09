@@ -34,7 +34,7 @@
             v-if="showClose"
             type="button"
             data-testid="modal-close"
-            class="group absolute top-[10px] right-[10px] size-11 flex items-center justify-center"
+            class="after:absolute after:-inset-[2px] after:content-[''] group absolute top-[10px] right-[10px] size-11 flex items-center justify-center"
             :aria-label="resolvedCancelText"
             :disabled="busy"
             @click="cancel"

@@ -1,7 +1,7 @@
 <template>
   <div class="py-6 space-y-5">
     <div>
-      <NuxtLink to="/admin" class="text-xs text-riso-dark/40 hover:text-riso-dark">← Admin</NuxtLink>
+      <NuxtLink to="/admin" class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] text-xs text-riso-dark/40 hover:text-riso-dark">← Admin</NuxtLink>
       <h1 class="text-xl font-bold text-riso-dark mt-1">{{ $t('admin.categories.title') }}</h1>
     </div>
 
@@ -15,7 +15,7 @@
       <p class="text-sm text-riso-poppy">{{ $t('admin.categories.loadError') }}</p>
       <button
         type="button"
-        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
         @click="reload"
       >
         {{ $t('common.retry') }}
@@ -72,7 +72,7 @@
         </div>
 
         <button
-          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] w-full h-9 rounded-full bg-riso-sage text-white text-xs font-medium riso-shadow-sm active:scale-95 transition-transform disabled:opacity-40"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] w-full h-9 rounded-full bg-riso-sage text-white text-xs font-medium riso-shadow-sm active:scale-95 transition-transform disabled:opacity-40"
           :disabled="saving !== null"
           @click="saveRewards(row.cat.id)"
         >
