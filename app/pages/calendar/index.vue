@@ -149,6 +149,7 @@
           <button
             type="button"
             class="relative after:absolute after:-inset-[2px] after:content-[''] group size-11 -m-1 flex items-center justify-center"
+            aria-label="이전 달"
             @click="prevMonth"
           >
             <span class="size-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center group-hover:bg-apjek-bg transition-colors group-active:scale-[0.97]">
@@ -159,6 +160,7 @@
           <button
             type="button"
             class="relative after:absolute after:-inset-[2px] after:content-[''] group size-11 -m-1 flex items-center justify-center"
+            aria-label="다음 달"
             @click="nextMonth"
           >
             <span class="size-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center group-hover:bg-apjek-bg transition-colors group-active:scale-[0.97]">
@@ -251,6 +253,9 @@
                       <button
                         type="button"
                         class="relative after:absolute after:-inset-[6px] after:content-[''] w-8 h-8 rounded-full hover:bg-apjek-blue-soft flex items-center justify-center text-apjek-text-sub transition-colors"
+                        aria-label="기록 메뉴"
+                        aria-haspopup="menu"
+                        :aria-expanded="openMenuId === record.id"
                         @click="openMenuId = openMenuId === record.id ? null : record.id"
                       >
                         ⋯
@@ -259,11 +264,13 @@
                       <Transition name="cal-menu">
                         <div
                           v-if="openMenuId === record.id"
+                          role="menu"
                           class="absolute right-0 top-10 bg-apjek-surface rounded-[12px] shadow-lg border border-apjek-border overflow-hidden z-20 min-w-[120px]"
                         >
                           <button
                             type="button"
                             class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] w-full px-4 py-2.5 text-left text-sm hover:bg-apjek-blue-soft flex items-center gap-2 text-apjek-blue font-semibold transition-colors"
+                            role="menuitem"
                             :disabled="deletingId !== null"
                             @click="deleteTarget = record; openMenuId = null"
                           >
@@ -302,7 +309,9 @@
             </div>
 
             <div v-if="isEditingNote" class="space-y-2">
+              <label for="calendar-memo" class="sr-only">메모</label>
               <textarea
+                id="calendar-memo"
                 v-model="editingNoteText"
                 :disabled="noteSaving"
                 rows="3"
@@ -322,6 +331,7 @@
                 <button
                   type="button"
                   class="relative after:absolute after:-inset-[2px] after:content-[''] w-10 h-10 rounded-full border border-apjek-border-strong flex items-center justify-center hover:bg-apjek-bg transition-colors"
+                  aria-label="메모 편집 취소"
                   :disabled="noteSaving" @click="cancelEdit"
                 >
                   <Icon name="lucide:x" class="w-4 h-4" />

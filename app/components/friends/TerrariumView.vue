@@ -24,6 +24,16 @@
         marginBottom: `${-552 * (1 - stageFit)}px`,
       }"
     >
+      <!-- 배경은 병 아트 아래에 렌더하고 URL이 아닌 값은 기존 서피스를 유지한다. -->
+      <img
+        v-if="isAssetUrl(terrarium.background?.assetUrl)"
+        :src="terrarium.background.assetUrl"
+        alt=""
+        class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        draggable="false"
+        @error="onAssetError"
+      >
+
       <!-- 유리병 — 홈과 동일한 병 아트(친구가 표시 중인 티어의 레벨). 질감 오버레이는 아이템 위. -->
       <TerrariumJarArt :level="jarLevel" layer="base" />
       <TerrariumJarArt :level="jarLevel" layer="texture" style="z-index: 5000" />

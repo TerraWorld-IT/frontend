@@ -74,20 +74,24 @@
         <form class="flex flex-col gap-3" @submit.prevent="onSubmit">
           <!-- 닉네임 (가입 전용) -->
           <div v-if="mode === 'signup'">
-            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
+            <label for="auth-nickname" class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.nicknamePlaceholder') }}
             </label>
             <input
+              id="auth-nickname"
               v-model="nickname"
               type="text"
               autocomplete="nickname"
+              autocapitalize="none"
+              aria-describedby="nickname-hint"
               :placeholder="t('auth.nicknamePlaceholder')"
               required
-              maxlength="50"
+              maxlength="20"
               class="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all tw-field"
               @focus="onFieldFocus"
               @blur="onFieldBlur"
             >
+            <p id="nickname-hint" class="text-xs mt-1" style="color: #4f659c">닉네임은 1~20자로 입력해주세요</p>
           </div>
 
           <!--
@@ -97,10 +101,11 @@
             backend better-auth before hook 의 최종 검증 (3중 방어).
           -->
           <div v-if="mode === 'signup'">
-            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
+            <label for="auth-birthDate" class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.birthDateLabel') }}
             </label>
             <input
+              id="auth-birthDate"
               v-model="birthDate"
               type="date"
               autocomplete="bday"
@@ -116,13 +121,16 @@
 
           <!-- 이메일 -->
           <div>
-            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
+            <label for="auth-email" class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.email') }}
             </label>
             <input
               ref="emailInput"
+              id="auth-email"
               v-model="email"
               type="email"
+              inputmode="email"
+              enterkeyhint="next"
               autocomplete="email"
               :placeholder="t('auth.emailPlaceholder')"
               required
@@ -136,10 +144,11 @@
 
           <!-- 비밀번호 -->
           <div>
-            <label class="text-xs font-medium mb-1 block" style="color: #4f659c">
+            <label for="auth-password" class="text-xs font-medium mb-1 block" style="color: #4f659c">
               {{ $t('auth.password') }}
             </label>
             <input
+              id="auth-password"
               v-model="password"
               type="password"
               :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
@@ -288,6 +297,7 @@ const { registerPushIfGranted } = useNative()
 // (underlying fetch 의 AbortError 가 아니라 이 Error 가 catch 로 온다) → 아래 catch 가 fail-open.
 const SESSION_CHECK_TIMEOUT_MS = 5_000
 const router = useRouter()
+const route = useRoute()
 const checkingSession = ref<boolean>(false)
 onMounted(async () => {
   restoreSignupDraft()
@@ -461,7 +471,7 @@ async function onSubmit() {
       toast.success(t('auth.welcomeBack'))
       // 로그인 폼 전체가 페이지 이동으로 언마운트되기 전 키보드 해제 (utils/keyboard.ts 참조).
       void dismissKeyboard()
-      await navigateTo('/')
+      await navigateTo(typeof route.query.redirect === 'string' && /^\/share\/[A-Za-z0-9_-]{1,64}$/.test(route.query.redirect) ? route.query.redirect : '/')
     }
     else {
       // LEGAL-001 fix (Codex audit HIGH, 2026-05-18): 만 14세 미만 가입 차단.
@@ -503,7 +513,7 @@ async function onSubmit() {
       void registerPushIfGranted().catch(() => {})
       toast.success(t('auth.signupSuccess'))
       void dismissKeyboard()
-      await navigateTo('/')
+      await navigateTo(typeof route.query.redirect === 'string' && /^\/share\/[A-Za-z0-9_-]{1,64}$/.test(route.query.redirect) ? route.query.redirect : '/')
     }
   }
   catch (e) {

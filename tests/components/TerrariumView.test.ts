@@ -42,3 +42,30 @@ describe('친구 배치 이미지 fallback과 이모지 보존', () => {
     wrapper.unmount()
   })
 })
+
+
+describe('친구·공유 배경 렌더', () => {
+  it.each(['https://cdn.example/background.png', '/backgrounds/forest.png'])('URL 배경 %s를 병 아래에 렌더하고 오류를 처리한다', async (assetUrl) => {
+    const data = terrarium('🌵', true)
+    data.background.assetUrl = assetUrl
+    const wrapper = await mountSuspended(TerrariumView, { props: { terrarium: data }, shallow: true })
+    const img = wrapper.get('img')
+    expect(img.attributes('src')).toBe(assetUrl)
+    expect(img.attributes('alt')).toBe('')
+    expect(img.element.compareDocumentPosition(wrapper.get('terrarium-jar-art-stub').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await img.trigger('error')
+    expect(img.attributes('src')).toBe('/items/placeholder.png')
+    await img.trigger('error')
+    expect(img.attributes('src')).toBe('/items/placeholder.png')
+    wrapper.unmount()
+  })
+
+  it.each(['', '🌳'])('비 URL 배경 %s는 img로 렌더하지 않는다', async (assetUrl) => {
+    const data = terrarium('🌵', false)
+    data.background.assetUrl = assetUrl
+    const wrapper = await mountSuspended(TerrariumView, { props: { terrarium: data }, shallow: true })
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.text()).toContain('🌵')
+    wrapper.unmount()
+  })
+})
