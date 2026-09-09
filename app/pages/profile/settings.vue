@@ -39,18 +39,18 @@
               type="checkbox"
               :data-testid="`consent-${item.key}`"
               :checked="item.value"
-              :disabled="consentSaving || (item.key === 'push' && pushConsentSavePending)"
+              :disabled="consentSaving || (item.key === 'push' && pushOffPending)"
               class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
               @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
             >
           </label>
           <button
-            v-if="isAndroidNative && pushConsentSavePending"
+            v-if="isAndroidNative && pushOffPending"
             type="button"
             data-testid="retry-push-consent"
             :disabled="consentSaving"
             @click="onConsentToggle('push', false)"
-          >동의 저장 다시 시도</button>
+          >푸시 알림 해제 다시 시도</button>
         </div>
       </div>
     </div>
@@ -189,6 +189,7 @@
 import { authClient } from '~/lib/auth-client'
 import { Capacitor } from '@capacitor/core'
 import { STORAGE_KEYS } from '~/utils/constants'
+import { hasPushOffPending } from '~/composables/useNative'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
@@ -210,12 +211,20 @@ function onDeleteDialogChange(open: boolean) {
 }
 
 async function onDeleteAccount() {
-  if (deletingAccount.value || loggingOut.value || consentSaving.value || !deletePassword.value) return
+  if (deletingAccount.value || loggingOut.value || consentSaving.value) return
   deletingAccount.value = true
   try {
+    if (!deletePassword.value.trim()) {
+      toast.error('비밀번호를 입력해 주세요')
+      // 공용 모달의 확인 직후 닫기 이벤트를 막고 입력 화면을 유지한다.
+      await nextTick()
+      return
+    }
     const { error } = await authClient.deleteUser({ password: deletePassword.value })
     if (error) {
-      toast.error(error.code === 'INVALID_PASSWORD'
+      toast.error(error.code === 'PASSWORD_REQUIRED'
+        ? '비밀번호를 입력해 주세요'
+        : error.code === 'INVALID_PASSWORD'
         ? '비밀번호가 올바르지 않습니다.'
         : '계정 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.')
       return
@@ -225,7 +234,7 @@ async function onDeleteAccount() {
     // 계정 활동 캐시만 제거하고 테마 등 계정과 무관한 설정은 보존한다.
     for (let index = localStorage.length - 1; index >= 0; index--) {
       const key = localStorage.key(index)
-      if (key?.startsWith('tw.todos.')) localStorage.removeItem(key)
+      if (key?.startsWith('tw.todos.') || key?.startsWith(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX)) localStorage.removeItem(key)
     }
     localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE)
     // 삭제로 서버 세션이 사라졌어도 기존 로그아웃 경로로 JWT와 사용자 캐시를 정리한다.
@@ -268,7 +277,9 @@ const P = {
 const session = authClient.useSession()
 const consentSaving = ref<boolean>(false)
 const consentRenderKey = ref<number>(0)
-const pushConsentSavePending = ref<boolean>(false)
+const pushOffPending = ref<boolean>(false)
+// 저장 중 세션 객체가 교체돼도 현재 사용자의 OFF 의도를 표시값에 우선 반영한다.
+const pushOffUserId = ref<string | null>(null)
 // 가입 시 받는 선택 동의 5종(photo/push/adId/analytics/marketing)과 1:1 로 맞춘다.
 // 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
 const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
@@ -284,20 +295,30 @@ const visibleConsentToggles = computed(() => consentToggles.value.filter(item =>
 // 마운트 뒤에 세션 값을 반영해 hydration 불일치(checked 속성)를 피한다.
 function applyConsentFromSession(u: unknown) {
     const cu = u as {
+      id: string
       marketingConsent?: boolean
       analyticsConsent?: boolean
       adConsent?: boolean
       photoConsent?: boolean
       pushConsent?: boolean
     } | undefined
+    pushOffPending.value = !!cu?.id && hasPushOffPending(cu.id)
+    if (pushOffUserId.value !== cu?.id) pushOffUserId.value = null
     if (!cu) return
     consentToggles.value = [
       { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
       { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
       { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
       { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
-      { key: 'push', field: 'pushConsent', value: pushConsentSavePending.value ? false : cu.pushConsent ?? false },
+      { key: 'push', field: 'pushConsent', value: pushOffPending.value || pushOffUserId.value === cu.id ? false : cu.pushConsent ?? false },
     ]
+}
+
+function restorePushOffState(u: unknown) {
+  applyConsentFromSession(u)
+  if (isAndroidNative.value && pushOffPending.value && !consentSaving.value) {
+    void onConsentToggle('push', false)
+  }
 }
 
 onMounted(() => {
@@ -308,8 +329,8 @@ onMounted(() => {
       appVersion.value = info ? `${info.version} (${info.build})` : '확인 불가'
     }).catch(() => { appVersion.value = '확인 불가' })
   }
-  applyConsentFromSession(session.value?.data?.user)
-  watch(() => session.value?.data?.user, (u) => applyConsentFromSession(u))
+  restorePushOffState(session.value?.data?.user)
+  watch(() => session.value?.data?.user, restorePushOffState)
 })
 
 async function onConsentToggle(key: string, checked: boolean) {
@@ -339,38 +360,56 @@ async function onConsentToggle(key: string, checked: boolean) {
 }
 
 async function onPushConsentToggle(checked: boolean) {
-  const item = consentToggles.value.find(c => c.key === 'push')!
+  const userId = session.value?.data?.user?.id
+  if (!userId || (checked && hasPushOffPending(userId))) return
   consentSaving.value = true
   try {
     if (checked) {
-      const permission = await registerPush()
+      const permission = await registerPush(userId)
       if (permission?.receive !== 'granted') {
         toast.info('알림 권한이 허용되지 않았어요. 기기 설정에서 알림 권한을 확인해 주세요.')
         return
       }
+      if (session.value?.data?.user?.id !== userId) return
+      const { error } = await authClient.updateUser(
+        { pushConsent: true } as Parameters<typeof authClient.updateUser>[0],
+      )
+      if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
+      if (session.value?.data?.user?.id !== userId) return
+      pushOffUserId.value = null
+      consentToggles.value.find(c => c.key === 'push')!.value = true
+      // 최초 등록 이벤트가 동의 저장보다 먼저 도착해도 저장 이후 다시 등록한다.
+      await registerPushIfGranted()
     }
     else {
-      invalidatePushRegistration()
-      if (!pushConsentSavePending.value) {
-        const { error } = await sdk.deactivateMyDevices({ client })
-        if (error) throw new Error('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
-        pushConsentSavePending.value = true
-        item.value = false
+      invalidatePushRegistration(userId)
+      pushOffUserId.value = userId
+      applyConsentFromSession(session.value?.data?.user)
+      if (!hasPushOffPending(userId)) {
+        // 서버 동의를 먼저 철회해 앱이 종료돼도 다음 자동 등록을 막는다.
+        const { error } = await authClient.updateUser(
+          { pushConsent: false } as Parameters<typeof authClient.updateUser>[0],
+        )
+        if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
+        localStorage.setItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId, '1')
       }
+      // 계정 전환 뒤에는 새 사용자의 디바이스를 잘못 해제하지 않는다.
+      if (session.value?.data?.user?.id !== userId) return
+      applyConsentFromSession(session.value?.data?.user)
+      const { error } = await sdk.deactivateMyDevices({ client })
+      if (error) throw new Error('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
+      localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId)
+      if (session.value?.data?.user?.id !== userId) return
+      applyConsentFromSession(session.value?.data?.user)
     }
-    const { error } = await authClient.updateUser(
-      { pushConsent: checked } as Parameters<typeof authClient.updateUser>[0],
-    )
-    if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
-    item.value = checked
-    pushConsentSavePending.value = false
-    // 최초 등록 이벤트가 동의 저장보다 먼저 도착해도 저장 이후 다시 등록한다.
-    if (checked) await registerPushIfGranted()
     toast.success(t('profile.consentSaved'))
   }
   catch (e) {
-    toast.error(pushConsentSavePending.value
-      ? '동의 저장에 실패했어요. 다시 시도해 주세요'
+    if (session.value?.data?.user?.id !== userId) return
+    if (!checked && !hasPushOffPending(userId)) pushOffUserId.value = null
+    applyConsentFromSession(session.value?.data?.user)
+    toast.error(pushOffPending.value
+      ? '푸시 알림 해제에 실패했어요. 다시 시도해 주세요.'
       : (e as Error).message)
   }
   finally {

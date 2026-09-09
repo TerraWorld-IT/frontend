@@ -111,8 +111,9 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       const epoch = pushRegistrationEpoch
       if (resolveDevicePlatform() !== 'ANDROID' || !isPushRegistrationCurrent(epoch)) return
       const session = await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => null)
-      if (!isPushRegistrationCurrent(epoch)) return
-      if (session?.error || (session?.data?.user as { pushConsent?: boolean } | undefined)?.pushConsent !== true) return
+      const user = session?.data?.user as { id: string; pushConsent?: boolean } | undefined
+      if (session?.error || !user?.id || !isPushRegistrationCurrent(epoch, user.id)) return
+      if (user.pushConsent !== true) return
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
       // 동일 토큰도 isActive를 복구하는 upsert이므로 철회된 세대는 위에서 차단한다.

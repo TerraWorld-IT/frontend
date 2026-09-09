@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import SettingsPage from '~/pages/profile/settings.vue'
 import { STORAGE_KEYS } from '~/utils/constants'
 
+type SettingsSession = { data: { user: { id: string; pushConsent: boolean; adConsent: boolean } } }
+
 const mocks = vi.hoisted(() => ({
+  session: null as Ref<SettingsSession> | null,
   platform: 'web', native: false,
   deleteUser: vi.fn(), updateUser: vi.fn(), signOutAndClear: vi.fn(),
   deactivateMyDevices: vi.fn(), registerPush: vi.fn(), registerPushIfGranted: vi.fn(), getAppInfo: vi.fn(),
@@ -21,10 +24,10 @@ vi.mock('better-auth', () => ({ betterAuth: mocks.betterAuth }))
 vi.mock('better-auth/plugins', () => ({ jwt: vi.fn(), bearer: vi.fn() }))
 vi.mock('pg', () => ({ Pool: class {} }))
 vi.mock('~/lib/auth-client', () => ({ authClient: {
-  useSession: () => ref({ data: { user: { pushConsent: true, adConsent: true } } }),
+  useSession: () => mocks.session ??= ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent: true, adConsent: true } } }),
   deleteUser: mocks.deleteUser, updateUser: mocks.updateUser,
 } }))
-mockNuxtImport('useAuth', () => () => ({ isLoggedIn: ref(true), signOutAndClear: mocks.signOutAndClear }))
+mockNuxtImport('useAuth', () => () => ({ isLoggedIn: ref<boolean>(true), signOutAndClear: mocks.signOutAndClear }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: { deactivateMyDevices: mocks.deactivateMyDevices }, client: mocks.client }))
 mockNuxtImport('useNative', () => () => ({
   registerPush: mocks.registerPush, registerPushIfGranted: mocks.registerPushIfGranted, getAppInfo: mocks.getAppInfo,
@@ -41,6 +44,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.platform = 'web'
   mocks.native = false
+  mocks.session = ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent: true, adConsent: true } } })
+  localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')
+  localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-b')
   mocks.deleteUser.mockReset().mockResolvedValue({ error: null })
   mocks.updateUser.mockReset().mockResolvedValue({ error: null })
   mocks.deactivateMyDevices.mockReset().mockResolvedValue({ error: undefined })
@@ -69,7 +75,7 @@ describe('계정 삭제 서버 훅', () => {
 
   it.each([undefined, {}, { password: '' }, { password: '   ' }, { password: 123 }])('비밀번호가 없는 삭제 요청 %j를 거절한다', async (body) => {
     const config = await loadDeletionHooks()
-    await expect(config.hooks.before({ path: '/delete-user', body, context: {} })).rejects.toMatchObject({ status: 'BAD_REQUEST', body: { message: '비밀번호를 입력해 주세요' } })
+    await expect(config.hooks.before({ path: '/delete-user', body, context: {} })).rejects.toMatchObject({ status: 'BAD_REQUEST', body: { code: 'PASSWORD_REQUIRED', message: '비밀번호를 입력해 주세요' } })
   })
 
   it('입력된 비밀번호와 다른 엔드포인트는 기존 인증 경로로 넘긴다', async () => {
@@ -159,6 +165,29 @@ describe('계정 설정', () => {
     expect(w.find('[role="dialog"]').exists()).toBe(true)
   })
 
+  it('공백 비밀번호는 서버 호출 없이 입력 안내를 표시한다', async () => {
+    const w = await mountSettings()
+    await w.get('[data-testid="delete-account"]').trigger('click')
+    await w.get('#delete-account-password').setValue('   ')
+    await w.get('[role="dialog"] button[autofocus]').trigger('click')
+    await flushPromises()
+    expect(mocks.toast.error).toHaveBeenCalledWith('비밀번호를 입력해 주세요')
+    expect(mocks.deleteUser).not.toHaveBeenCalled()
+    expect(mocks.signOutAndClear).not.toHaveBeenCalled()
+    expect(w.find('[role="dialog"]').exists()).toBe(true)
+  })
+
+  it('서버 PASSWORD_REQUIRED 오류를 비밀번호 입력 안내로 표시한다', async () => {
+    mocks.deleteUser.mockResolvedValueOnce({ error: { code: 'PASSWORD_REQUIRED' } })
+    const w = await mountSettings()
+    await w.get('[data-testid="delete-account"]').trigger('click')
+    await w.get('#delete-account-password').setValue('password')
+    await w.get('[role="dialog"] button[autofocus]').trigger('click')
+    await flushPromises()
+    expect(mocks.toast.error).toHaveBeenCalledWith('비밀번호를 입력해 주세요')
+    expect(mocks.signOutAndClear).not.toHaveBeenCalled()
+  })
+
   it('iOS에서는 푸시·광고 동의 토글을 숨기고 앱 버전과 빌드를 표시한다', async () => {
     mocks.platform = 'ios'; mocks.native = true
     const w = await mountSettings()
@@ -168,31 +197,37 @@ describe('계정 설정', () => {
     expect(w.text()).toContain('1.2.3 (42)')
   })
 
-  it('푸시 OFF는 모든 디바이스 비활성화 성공 후 동의를 저장한다', async () => {
+  it('푸시 OFF는 동의를 먼저 저장하고 모든 디바이스를 비활성화한다', async () => {
     mocks.platform = 'android'; mocks.native = true
     let resolve!: (value: object) => void
     mocks.deactivateMyDevices.mockReturnValueOnce(new Promise((done) => { resolve = done }))
     const w = await mountSettings()
     await w.get('[data-testid="consent-push"]').setValue(false)
+    await flushPromises()
     expect(mocks.deactivateMyDevices).toHaveBeenCalledExactlyOnceWith({ client: mocks.client })
-    expect(mocks.invalidatePushRegistration).toHaveBeenCalledTimes(1)
-    expect(mocks.invalidatePushRegistration.mock.invocationCallOrder[0]).toBeLessThan(mocks.deactivateMyDevices.mock.invocationCallOrder[0]!)
-    expect(mocks.updateUser).not.toHaveBeenCalled()
+    expect(mocks.invalidatePushRegistration).toHaveBeenCalledExactlyOnceWith('user-a')
+    expect(mocks.invalidatePushRegistration.mock.invocationCallOrder[0]).toBeLessThan(mocks.updateUser.mock.invocationCallOrder[0]!)
+    expect(mocks.updateUser.mock.invocationCallOrder[0]).toBeLessThan(mocks.deactivateMyDevices.mock.invocationCallOrder[0]!)
+    expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ pushConsent: false })
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBe('1')
     resolve({})
     await flushPromises()
     expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ pushConsent: false })
     expect(mocks.registerPush).not.toHaveBeenCalled()
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBeNull()
   })
 
-  it('비활성화 실패 시 동의 저장을 중단하고 토글을 복원한다', async () => {
+  it('비활성화 실패 시 동의 OFF와 사용자별 보류 키를 유지한다', async () => {
     mocks.platform = 'android'; mocks.native = true
     mocks.deactivateMyDevices.mockResolvedValueOnce({ error: { message: 'failed' } })
     const w = await mountSettings()
     await w.get('[data-testid="consent-push"]').setValue(false)
     await flushPromises()
-    expect(mocks.updateUser).not.toHaveBeenCalled()
-    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
-    expect(mocks.toast.error).toHaveBeenCalled()
+    expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ pushConsent: false })
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBe('1')
+    expect(w.get('[data-testid="retry-push-consent"]').text()).toContain('다시 시도')
+    expect(mocks.toast.error).toHaveBeenCalledWith('푸시 알림 해제에 실패했어요. 다시 시도해 주세요.')
   })
 
   it('푸시 ON 권한 거절 시 동의를 저장하지 않고 토글을 복원한다', async () => {
@@ -210,7 +245,7 @@ describe('계정 설정', () => {
     expect(mocks.toast.info).toHaveBeenCalled()
   })
 
-  it.each(['응답 오류', '네트워크 오류'])('OFF 동의 저장 %s 시 OFF를 유지하고 저장 단계만 재시도한다', async (failure) => {
+  it.each(['응답 오류', '네트워크 오류'])('OFF 동의 저장 %s 시 디바이스를 해제하지 않고 동의 저장부터 재시도한다', async (failure) => {
     mocks.platform = 'android'; mocks.native = true
     if (failure === '응답 오류') mocks.updateUser.mockResolvedValueOnce({ error: { message: 'failed' } })
     else mocks.updateUser.mockRejectedValueOnce(new Error('network'))
@@ -218,10 +253,11 @@ describe('계정 설정', () => {
     expect(w.find('[data-testid="consent-adId"]').exists()).toBe(true)
     await w.get('[data-testid="consent-push"]').setValue(false)
     await flushPromises()
-    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
-    expect(w.get('[data-testid="consent-push"]').attributes('disabled')).toBeDefined()
-    expect(mocks.toast.error).toHaveBeenCalledWith('동의 저장에 실패했어요. 다시 시도해 주세요')
-    await w.get('[data-testid="retry-push-consent"]').trigger('click')
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBeNull()
+    expect(mocks.deactivateMyDevices).not.toHaveBeenCalled()
+    expect(mocks.toast.error).toHaveBeenCalled()
+    await w.get('[data-testid="consent-push"]').setValue(false)
     await flushPromises()
     expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(1)
     expect(mocks.updateUser).toHaveBeenCalledTimes(2)
@@ -231,8 +267,65 @@ describe('계정 설정', () => {
     expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
   })
 
+  it.each(['응답 오류', '네트워크 오류'])('디바이스 해제 %s 후 재진입해도 OFF와 재시도를 표시하고 해제 단계만 재시도한다', async (failure) => {
+    mocks.platform = 'android'; mocks.native = true
+    if (failure === '응답 오류') mocks.deactivateMyDevices.mockResolvedValue({ error: { message: 'failed' } })
+    else mocks.deactivateMyDevices.mockRejectedValue(new Error('network'))
+    const first = await mountSettings()
+    await first.get('[data-testid="consent-push"]').setValue(false)
+    await flushPromises()
+    first.unmount()
+    // 서버 동의가 OFF로 갱신된 뒤 화면을 다시 마운트한다.
+    mocks.session!.value = { data: { user: { id: 'user-a', pushConsent: false, adConsent: true } } }
+    const w = await mountSettings()
+    expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ pushConsent: false })
+    expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(2)
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+    expect(w.get('[data-testid="consent-push"]').attributes('disabled')).toBeDefined()
+    expect(w.get('[data-testid="retry-push-consent"]').text()).toContain('다시 시도')
+    mocks.deactivateMyDevices.mockResolvedValueOnce({})
+    await w.get('[data-testid="retry-push-consent"]').trigger('click')
+    await flushPromises()
+    expect(mocks.updateUser).toHaveBeenCalledTimes(1)
+    expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(3)
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBeNull()
+    expect(w.find('[data-testid="retry-push-consent"]').exists()).toBe(false)
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+  })
+
+  it.each([false, true])('첫 동의 저장 대기 중 세션 교체 후 디바이스 해제 오류 %s여도 현재 토글은 OFF다', async (failed) => {
+    mocks.platform = 'android'; mocks.native = true
+    let resolve!: (value: object) => void
+    mocks.updateUser.mockReturnValueOnce(new Promise((done) => { resolve = done }))
+    mocks.deactivateMyDevices.mockResolvedValueOnce(failed ? { error: { message: 'failed' } } : {})
+    const w = await mountSettings()
+    await w.get('[data-testid="consent-push"]').setValue(false)
+    mocks.session!.value = { data: { user: { id: 'user-a', pushConsent: true, adConsent: false } } }
+    await flushPromises()
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+    expect(mocks.deactivateMyDevices).not.toHaveBeenCalled()
+    resolve({ error: null })
+    await flushPromises()
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+    expect(w.find('[data-testid="retry-push-consent"]').exists()).toBe(failed)
+  })
+
+  it('A의 보류 상태가 있는 설정 화면에서 B로 전환하면 B의 동의와 토글을 복원한다', async () => {
+    mocks.platform = 'android'; mocks.native = true
+    mocks.deactivateMyDevices.mockResolvedValue({ error: { message: 'failed' } })
+    const w = await mountSettings()
+    await w.get('[data-testid="consent-push"]').setValue(false)
+    await flushPromises()
+    mocks.session!.value = { data: { user: { id: 'user-b', pushConsent: true, adConsent: true } } }
+    await flushPromises()
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
+    expect(w.find('[data-testid="retry-push-consent"]').exists()).toBe(false)
+    expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')).toBe('1')
+  })
+
   it.each([true, false])('삭제 성공 여부 %s에 따라 활동 캐시만 제거한다', async (succeeded) => {
-    const keys = ['tw.todos.user-a', 'tw.todos.user-b', STORAGE_KEYS.ONBOARDING_DONE, STORAGE_KEYS.THEME, 'unrelated-setting']
+    const keys = ['tw.todos.user-a', 'tw.todos.user-b', STORAGE_KEYS.ONBOARDING_DONE, STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a', STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-b', STORAGE_KEYS.THEME, 'unrelated-setting']
     for (const key of keys) localStorage.setItem(key, 'preserved')
     if (!succeeded) mocks.deleteUser.mockResolvedValueOnce({ error: { code: 'INTERNAL_SERVER_ERROR' } })
     const w = await mountSettings()
@@ -240,8 +333,8 @@ describe('계정 설정', () => {
     await w.get('#delete-account-password').setValue('password')
     await w.get('[role="dialog"] button[autofocus]').trigger('click')
     await flushPromises()
-    for (const key of keys.slice(0, 3)) expect(localStorage.getItem(key)).toBe(succeeded ? null : 'preserved')
-    for (const key of keys.slice(3)) expect(localStorage.getItem(key)).toBe('preserved')
+    for (const key of keys.slice(0, 5)) expect(localStorage.getItem(key)).toBe(succeeded ? null : 'preserved')
+    for (const key of keys.slice(5)) expect(localStorage.getItem(key)).toBe('preserved')
     for (const key of keys) localStorage.removeItem(key)
   })
 })

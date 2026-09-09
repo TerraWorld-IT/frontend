@@ -126,7 +126,7 @@ export const auth = betterAuth({
       // 최근 세션이어도 삭제에는 비밀번호를 요구하고, 검증은 기존 인증 경로에 맡긴다.
       if (ctx.path === '/delete-user'
         && (typeof ctx.body?.password !== 'string' || !ctx.body.password.trim())) {
-        throw new APIError('BAD_REQUEST', { message: '비밀번호를 입력해 주세요' })
+        throw new APIError('BAD_REQUEST', { code: 'PASSWORD_REQUIRED', message: '비밀번호를 입력해 주세요' })
       }
     }),
   },
@@ -154,6 +154,8 @@ export const auth = betterAuth({
           method: 'DELETE',
           headers: { 'X-Internal-Token': internalApiToken },
           redirect: 'error',
+          // 내부 DELETE는 이미 삭제된 사용자에도 204를 반환하며 부수효과가 중복되지 않는다.
+          // backend InternalUserControllerMvcTest의 멱등 테스트를 전제로 재시도한다.
           retry: 2,
           retryDelay: 250,
           timeout: 5_000,

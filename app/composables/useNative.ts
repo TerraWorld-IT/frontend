@@ -1,12 +1,19 @@
 import { Capacitor } from '@capacitor/core'
 import { authClient } from '~/lib/auth-client'
+import { STORAGE_KEYS } from '~/utils/constants'
+import { deactivateMyDevices } from '@terraworld-it/openapi-frontend'
 
 // 철회 이전 비동기 작업과 철회 뒤 도착한 OS 이벤트를 함께 폐기한다.
 export let pushRegistrationEpoch = 0
-let pushRegistrationBlocked = false
+let blockedUserId: string | null = null
 
-export function isPushRegistrationCurrent(epoch: number): boolean {
-  return epoch === pushRegistrationEpoch && !pushRegistrationBlocked
+export function hasPushOffPending(userId: string): boolean {
+  return import.meta.client && localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId) !== null
+}
+
+export function isPushRegistrationCurrent(epoch: number, userId?: string): boolean {
+  return epoch === pushRegistrationEpoch
+    && (!userId || (blockedUserId !== userId && !hasPushOffPending(userId)))
 }
 
 /**
@@ -24,6 +31,7 @@ export function useNative() {
   const platform = import.meta.client ? Capacitor.getPlatform() : 'web'
   const isIOS = platform === 'ios'
   const isAndroid = platform === 'android'
+  const nuxtApp = isNative && isAndroid ? useNuxtApp() : null
 
   /** 사용자가 공유 시트를 취소했을 때 흔한 에러 신호 — 실패 토스트를 띄우면 안 되는 정상 경로. */
   function isShareCancellation(e: unknown): boolean {
@@ -165,20 +173,21 @@ export function useNative() {
   }
 
   // --- Push Notifications ---
-  function invalidatePushRegistration() {
+  function invalidatePushRegistration(userId: string) {
     pushRegistrationEpoch++
-    pushRegistrationBlocked = true
+    blockedUserId = userId
   }
 
-  async function registerPush() {
+  async function registerPush(userId: string) {
     if (!isNative || !isAndroid) return null
+    if (hasPushOffPending(userId)) return null
     const epoch = pushRegistrationEpoch
     const { PushNotifications } = await import('@capacitor/push-notifications')
     const perm = await PushNotifications.requestPermissions()
     if (epoch !== pushRegistrationEpoch) return null
     if (perm.receive === 'granted') {
       // 사용자의 명시적인 ON 액션만 철회 차단을 해제한다.
-      pushRegistrationBlocked = false
+      if (blockedUserId === userId) blockedUserId = null
       await PushNotifications.register()
     }
     return perm
@@ -186,14 +195,26 @@ export function useNative() {
 
   /** 기존 동의와 OS 권한이 모두 있을 때만 프롬프트 없이 등록한다. */
   async function registerPushIfGranted(): Promise<boolean> {
-    if (!isNative || !isAndroid || pushRegistrationBlocked) return false
+    if (!isNative || !isAndroid) return false
     const epoch = pushRegistrationEpoch
     const { data, error } = await authClient.getSession({ query: { disableCookieCache: true } })
     if (!isPushRegistrationCurrent(epoch)) return false
-    if (error || (data?.user as { pushConsent?: boolean } | undefined)?.pushConsent !== true) return false
+    const user = data?.user as { id: string; pushConsent?: boolean } | undefined
+    if (error || !user?.id) return false
+    // 재시작 뒤에도 사용자별 보류를 먼저 처리하고 동의 재저장이나 자동 등록은 하지 않는다.
+    if (hasPushOffPending(user.id)) {
+      invalidatePushRegistration(user.id)
+      // 플러그인 초기화 뒤 주입된 인증 클라이언트를 재시도 시점에 읽는다.
+      const client = nuxtApp!.$apiClient
+      if (!client) return false
+      const result = await deactivateMyDevices({ client })
+      if (!result.error) localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + user.id)
+      return false
+    }
+    if (!isPushRegistrationCurrent(epoch, user.id) || user.pushConsent !== true) return false
     const { PushNotifications } = await import('@capacitor/push-notifications')
     const perm = await PushNotifications.checkPermissions()
-    if (perm.receive !== 'granted' || !isPushRegistrationCurrent(epoch)) return false
+    if (perm.receive !== 'granted' || !isPushRegistrationCurrent(epoch, user.id)) return false
     await PushNotifications.register()
     return true
   }
