@@ -205,12 +205,11 @@
         <div
           id="my-terra-container"
           ref="stageEl"
-          class="touch-none"
           :role="healingMode ? 'dialog' : undefined" :aria-modal="healingMode ? true : undefined"
           :aria-label="healingMode ? '힐링 모드' : undefined"
-          :class="healingMode
+          :class="[editMode || healingMode ? 'touch-none' : 'touch-pan-x touch-pan-y', healingMode
             ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
-            : 'relative flex justify-center items-center w-full overflow-hidden'"
+            : 'relative flex justify-center items-center w-full overflow-hidden']"
           :style="healingMode
             ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
             : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
@@ -758,15 +757,8 @@
   <CommonOnboarding :show="showOnboarding" @close="showOnboarding = false" />
 </template>
 
-<script lang="ts">
-// 거리 비율만으로 배율을 계산한다. 겹친 포인터와 비정상 거리는 현재 배율을 유지한다.
-export function calculatePinchScale(scale: number, previousDistance: number, distance: number): number {
-  if (!Number.isFinite(previousDistance) || !Number.isFinite(distance) || previousDistance <= 0 || distance <= 0) return scale
-  return Math.max(0.5, Math.min(2, scale * distance / previousDistance))
-}
-</script>
-
 <script setup lang="ts">
+import { calculatePinchScale } from '~/utils/pinchZoom'
 import { Capacitor } from '@capacitor/core'
 import { onBeforeRouteLeave } from 'vue-router'
 import type {
@@ -1532,10 +1524,15 @@ function onPinchPointer(e: PointerEvent) {
   }
   if (editMode.value || e.pointerType !== 'touch') return
   if (e.type === 'pointerdown') {
+    // 버튼·링크 탭은 원래 클릭 대상으로 전달하고 핀치에 포함하지 않는다.
+    if (e.target instanceof Element && e.target.closest('button,a')) return
     if (pinchPointers.size >= 2) return
     pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    const el = e.currentTarget as HTMLElement
-    el.setPointerCapture(e.pointerId)
+    // 두 손가락이 모인 뒤에만 캡처해 한 손가락 스크롤·스와이프를 유지한다.
+    if (pinchPointers.size === 2) {
+      const el = e.currentTarget as HTMLElement
+      for (const pointerId of pinchPointers.keys()) el.setPointerCapture(pointerId)
+    }
     return
   }
   if (!pinchPointers.has(e.pointerId)) return

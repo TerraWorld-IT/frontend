@@ -88,3 +88,22 @@ describe('기록 완료 토스트 읽기 시간', () => {
     wrapper = undefined
   })
 })
+
+describe('RecordCompleteToast', () => {
+  it.each([
+    ['dew', '이슬'], ['sun', '햇살'], ['bolt', '번개'], ['wind', '바람'],
+  ] as const)('A-07 %s 완료 토스트는 기존 PNG를 표시하고 서버 지급 문구를 유지한다', async (kind, name) => {
+    wrapper = await mountSuspended(RecordCompleteToast, {
+      props: { open: true, kind, count: 3 },
+      global: { stubs: { RecordCompleteBurst: true } },
+    })
+    const status = document.body.querySelector('[role="status"]')!
+    expect(status.querySelector('img')!.getAttribute('src')).toBe(`/icons/token/mini/${kind}.png`)
+    expect(status.querySelector('img')!.getAttribute('width')).toBe('24')
+    expect(status.textContent).toContain(`${name}토큰 3개 획득!`)
+    await wrapper.setProps({ count: null })
+    expect(status.textContent).toContain(`${name}토큰 획득!`)
+    await wrapper.setProps({ open: false })
+    expect(document.body.querySelector('[role="status"]')).toBeNull()
+  })
+})
