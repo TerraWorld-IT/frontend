@@ -62,20 +62,24 @@ describe('useInternalApi', () => {
     expect(signals[0]).not.toBe(signals[1])
   })
 
-  it('IAP의 60초 옵션은 15초에 취소하지 않고 자체 데드라인에서 취소한다', async () => {
+  it('IAP의 데드라인 면제는 60초 이후에도 취소하지 않고 검증 결과를 기다린다', async () => {
     const { useInternalApi } = await import('~/composables/useInternalApi')
     let signal!: AbortSignal
+    let resolve!: (value: { granted: boolean }) => void
     vi.stubGlobal('$fetch', vi.fn((_path, opts) => {
       signal = opts.signal
-      return new Promise(() => {})
+      return new Promise<{ granted: boolean }>((done) => { resolve = done })
     }))
     vi.useFakeTimers()
-    const assertion = expect(useInternalApi().request('/api/v1/billing/iap/verify', { method: 'POST', deadlineMs: 60_000 }))
-      .rejects.toThrow('요청 처리 중 오류가 발생했습니다')
+    const request = useInternalApi().request('/api/v1/billing/iap/verify', { method: 'POST', deadlineMs: 0 })
+    const settled = vi.fn()
+    void request.then(settled)
     await vi.advanceTimersByTimeAsync(15_000)
     expect(signal.aborted).toBe(false)
-    await vi.advanceTimersByTimeAsync(45_000)
-    await assertion
-    expect(signal.aborted).toBe(true)
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(signal.aborted).toBe(false)
+    expect(settled).not.toHaveBeenCalled()
+    resolve({ granted: true })
+    await expect(request).resolves.toEqual({ granted: true })
   })
 })

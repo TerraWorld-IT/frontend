@@ -37,13 +37,16 @@ export function useInternalApi() {
   ): Promise<T> {
     function doFetch(token: string | null): Promise<T> {
       const controller = new AbortController()
-      return withTimeout($fetch<T>(path, {
+      const response = $fetch<T>(path, {
         baseURL: origin,
         method: opts.method ?? 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: opts.body as Record<string, unknown> | undefined,
         signal: controller.signal,
-      }), opts.deadlineMs ?? REQUEST_DEADLINE_MS, controller).catch((error: unknown) => {
+      })
+      // 지급 검증처럼 취소하면 안 되는 요청은 0으로 데드라인을 면제한다.
+      if (opts.deadlineMs === 0) return response
+      return withTimeout(response, opts.deadlineMs ?? REQUEST_DEADLINE_MS, controller).catch((error: unknown) => {
         if (controller.signal.aborted) throw new Error($i18n.t('common.loadFailDesc'))
         throw error
       })

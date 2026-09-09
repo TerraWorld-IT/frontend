@@ -135,9 +135,11 @@ async function verifyAndSettle(
   }
 
   // 서버 검증 + entitlement 부여 (off-spec @Hidden endpoint → useInternalApi).
+  const { $i18n } = useNuxtApp()
+  const toast = useToast()
   const res = await useInternalApi().request<IapVerifyResponse>(
     '/api/v1/billing/iap/verify',
-    { method: 'POST', body: { productId, purchaseToken, platform: apiPlatform, receipt }, deadlineMs: 60_000 },
+    { method: 'POST', body: { productId, purchaseToken, platform: apiPlatform, receipt }, deadlineMs: 0 },
   )
 
   if (res?.granted || res?.alreadyOwned) {
@@ -145,7 +147,9 @@ async function verifyAndSettle(
     // → 서버 alreadyOwned → 다시 finish 시도 (자기치유 루프, audit B1-8).
     await safeFinish(transaction)
     // 지급은 이미 확정됐다. 잔액 재조회 실패가 결제 실패로 전파되지 않게 분리한다.
-    void useUserStore().fetchMe(true).catch(() => {})
+    void useUserStore().fetchMe(true).catch(() => {
+      toast.info($i18n.t('common.loadFailDesc'))
+    })
     return res.granted ? 'granted' : 'already_owned'
   }
   return 'failed'

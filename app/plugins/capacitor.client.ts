@@ -201,6 +201,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     triggerPushRegistration()
   } catch {
     // 푸시 미지원 환경(예: iOS 시뮬레이터)은 건너뛴다.
+    useGtagEvents().trackPushRegistrationFailed({ reason: 'initialization_failed' })
   }
 
   // 푸시 초기화 실패와 무관하게 구매 복구를 등록한다.

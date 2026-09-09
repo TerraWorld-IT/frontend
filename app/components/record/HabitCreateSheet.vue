@@ -237,6 +237,7 @@ function goStep2() {
 }
 
 function onPrimary() {
+  if (props.loading || props.loadError) return
   if (!canProceedName.value || props.busy) return
   if (mode.value === 'friend') {
     void dismissKeyboard()

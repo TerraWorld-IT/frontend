@@ -49,7 +49,9 @@ export default defineNuxtPlugin((nuxtApp) => {
           return fetch(request)
         }
         const controller = new AbortController()
-        const abort = () => controller.abort(request.signal.reason)
+        function abort() {
+          controller.abort(request.signal.reason)
+        }
         if (request.signal.aborted) abort()
         else request.signal.addEventListener('abort', abort, { once: true })
         return withTimeout(

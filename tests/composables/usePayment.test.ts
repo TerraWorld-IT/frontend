@@ -81,13 +81,16 @@ describe('usePayment', () => {
     expect(payment.loading.value).toBe(false)
     expect(tx.finish).toHaveBeenCalledOnce()
     expect(mocks.fetchMe).toHaveBeenCalledWith(true)
-    expect(mocks.request).toHaveBeenCalledWith('/api/v1/billing/iap/verify', expect.objectContaining({ deadlineMs: 60_000 }))
+    expect(mocks.request).toHaveBeenCalledWith('/api/v1/billing/iap/verify', expect.objectContaining({ deadlineMs: 0 }))
+    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('요청 처리 중 오류가 발생했습니다')
     expect(mocks.toast.error).not.toHaveBeenCalled()
 
     // 구매 대기자가 없는 재방출도 동일한 지급/잔액 분리를 사용한다.
+    mocks.toast.info.mockClear()
     approved({ ...tx, transactionId: 'tx-2' })
     await flushPromises()
     expect(mocks.toast.success).toHaveBeenCalledOnce()
+    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('요청 처리 중 오류가 발생했습니다')
     expect(mocks.toast.error).not.toHaveBeenCalled()
   })
 })

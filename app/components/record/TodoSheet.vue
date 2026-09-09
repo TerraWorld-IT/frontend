@@ -465,13 +465,21 @@ watch(() => props.submitting, (submitting) => {
 const pending = ref<boolean>(false)
 const loadFailed = ref<boolean>(false)
 let routinesLoaded: boolean = false
+let routinesInFlight: boolean = false
+let routinesGeneration: number = 0
+
+onBeforeUnmount(() => { routinesGeneration++ })
 
 // 시트 열림 시 루틴 로드 — 실패해도 기존 투두 입력은 유지하고 명시 재시도를 제공한다.
 async function loadRoutines(): Promise<void> {
-  if (pending.value) return
+  if (routinesInFlight) return
+  routinesInFlight = true
+  const generation = ++routinesGeneration
   pending.value = !routinesLoaded
   loadFailed.value = false
   await sdk.listTodoRoutines({ client }).then(({ data, error }) => {
+    // 조회보다 나중에 완료된 생성·삭제 결과와 해제된 시트는 덮어쓰지 않는다.
+    if (generation !== routinesGeneration) return
     if (error) {
       loadFailed.value = true
       return
@@ -482,8 +490,9 @@ async function loadRoutines(): Promise<void> {
     routinesLoaded = true
     prefillFromRoutines(list)
   }).catch(() => {
-    loadFailed.value = true
+    if (generation === routinesGeneration) loadFailed.value = true
   }).finally(() => {
+    routinesInFlight = false
     pending.value = false
   })
 }
@@ -511,6 +520,7 @@ async function createRoutine() {
     }
     const created = castData<TodoRoutineResponse>(data)
     if (created) {
+      routinesGeneration++
       routines.value = [created, ...routines.value]
       prefillFromRoutines([created]) // 오늘 해당분이면 즉시 항목 반영
       toast.success('루틴을 추가했어요')
@@ -534,6 +544,7 @@ async function removeRoutine(r: TodoRoutineResponse) {
       toast.error('루틴 삭제에 실패했어요. 잠시 후 다시 시도해주세요')
       return
     }
+    routinesGeneration++
     routines.value = routines.value.filter(x => x.id !== r.id)
     // 프리필된 미체크 항목은 유지한다 — 루틴은 항목의 "출처"일 뿐, 오늘 목록의 소유자가 아님.
     toast.success('루틴을 삭제했어요')

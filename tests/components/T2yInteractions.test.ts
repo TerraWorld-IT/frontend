@@ -100,6 +100,72 @@ describe('WP2a 조회 상태', () => {
     await flushPromises()
   })
 
+  it('첫 성공 이후 빠르게 두 번 재열어도 진행 중인 루틴 조회를 중복하지 않는다', async () => {
+    const w = await mountPage(TodoSheet, { open: false })
+    await w.setProps({ open: true })
+    await flushPromises()
+    mocks.sdk.listTodoRoutines!.mockClear()
+    const refresh = deferred()
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(refresh.promise)
+    await w.setProps({ open: false })
+    await w.setProps({ open: true })
+    await w.setProps({ open: false })
+    await w.setProps({ open: true })
+    expect(state(w).pending).toBe(false)
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledOnce()
+    refresh.resolve({ data: { routines: [] } })
+    await flushPromises()
+    await w.setProps({ open: false })
+    await w.setProps({ open: true })
+    await flushPromises()
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(2)
+  })
+
+  it('생성·삭제보다 늦게 도착한 조회 결과가 최신 루틴과 프리필을 덮지 않는다', async () => {
+    const w = await mountPage(TodoSheet, { open: false })
+    const s = state(w)
+    await w.setProps({ open: true })
+    await flushPromises()
+    const staleCreate = deferred()
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(staleCreate.promise)
+    const readingCreate = s.loadRoutines()
+    const created = { id: 'new', label: '새 루틴', repeatType: 'DAILY', createdAt: '2026-09-09' }
+    mocks.sdk.createTodoRoutine!.mockResolvedValueOnce({ data: created })
+    s.routineLabel = created.label
+    await s.createRoutine()
+    staleCreate.resolve({ data: { routines: [] } })
+    await readingCreate
+    expect(s.routines).toEqual([created])
+    expect(s.todos).toHaveLength(1)
+
+    const staleDelete = deferred()
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(staleDelete.promise)
+    const readingDelete = s.loadRoutines()
+    await s.removeRoutine(created)
+    s.clear()
+    staleDelete.resolve({ data: { routines: [created] } })
+    await readingDelete
+    expect(s.routines).toEqual([])
+    expect(s.todos).toEqual([])
+    expect(s.loadFailed).toBe(false)
+  })
+
+  it('단독 습관도 조회 중이거나 실패하면 제출하지 않고 복구 후 제출한다', async () => {
+    const w = await mountPage(HabitCreateSheet, { open: true, friends: [], loading: true })
+    const s = state(w)
+    s.mode = 'solo'
+    s.step = 2
+    s.title = '매일 걷기'
+    s.onPrimary()
+    expect(w.emitted('submit')).toBeUndefined()
+    await w.setProps({ loading: false, loadError: true })
+    s.onPrimary()
+    expect(w.emitted('submit')).toBeUndefined()
+    await w.setProps({ loadError: false })
+    s.onPrimary()
+    expect(w.emitted('submit')).toEqual([[{ title: '매일 걷기', friendUserId: null }]])
+  })
+
   it('B-12 초기 자료 조회와 실패 중에는 입력 진입을 막고 재시도 성공 후 해제한다', async () => {
     const pending = deferred()
     mocks.sdk.listFriends!.mockReturnValueOnce(pending.promise)
