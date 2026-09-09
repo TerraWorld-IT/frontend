@@ -7,6 +7,7 @@
         class="fixed inset-0 z-[9997] apjek-safe-dialog p-4"
         role="dialog"
         aria-modal="true"
+        :aria-busy="busy"
         :aria-labelledby="title ? 'modal-title' : undefined"
         :aria-describedby="message ? 'modal-message' : undefined"
         tabindex="-1"
@@ -35,6 +36,7 @@
             data-testid="modal-close"
             class="group absolute top-[10px] right-[10px] size-11 flex items-center justify-center"
             :aria-label="resolvedCancelText"
+            :disabled="busy"
             @click="cancel"
           >
             <span class="size-8 rounded-full bg-apjek-blue-soft text-apjek-blue-deep flex items-center justify-center group-active:opacity-70">
@@ -55,6 +57,7 @@
               v-if="showCancel"
               type="button"
               class="flex-1 py-3 rounded-full text-sm font-semibold bg-apjek-surface border border-apjek-border-strong text-apjek-text-sub active:bg-apjek-bg"
+              :disabled="busy"
               @click="cancel"
             >
               {{ resolvedCancelText }}
@@ -64,7 +67,7 @@
               type="button"
               class="apjek-cta flex-1 py-3 text-sm font-bold transition-opacity"
               :class="confirmClass"
-              :disabled="confirmDisabled"
+              :disabled="confirmDisabled || busy"
               @click="confirm"
             >
               {{ resolvedConfirmText }}
@@ -97,6 +100,8 @@ const props = withDefaults(defineProps<{
   showClose?: boolean
   /** confirm 비활성 — 회색 필 (Figma "이전 레벨을 먼저 해금해 주세요" 류) */
   confirmDisabled?: boolean
+  /** 처리 중 확인·취소·뒤로가기를 잠근다. */
+  busy?: boolean
   /** danger 도 검정 CTA 유지(Figma) — 라벨로 구분한다. 호환을 위해 prop 은 남긴다. */
   variant?: 'primary' | 'danger'
 }>(), {
@@ -105,6 +110,7 @@ const props = withDefaults(defineProps<{
   showCancel: true,
   showClose: true,
   confirmDisabled: false,
+  busy: false,
   variant: 'primary',
 })
 
@@ -126,13 +132,17 @@ const confirmClass = computed<string>(() =>
   props.confirmDisabled ? 'modal-cta-disabled' : '',
 )
 
-function confirm() {
-  if (props.confirmDisabled) return
+async function confirm() {
+  if (props.confirmDisabled || props.busy) return
   emit('confirm')
+  // 부모 확인 핸들러가 올린 busy prop 반영 후 자동 닫힘 여부를 결정한다.
+  await nextTick()
+  if (props.busy) return
   emit('update:modelValue', false)
 }
 
 function cancel() {
+  if (props.busy) return
   emit('cancel')
   emit('update:modelValue', false)
 }

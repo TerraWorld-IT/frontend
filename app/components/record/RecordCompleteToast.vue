@@ -87,11 +87,11 @@ watch([height, () => props.open], () => { slots.value.record = props.open ? heig
 onBeforeUnmount(() => { slots.value.record = 0 })
 
 const burstVisible = ref<boolean>(false)
-let hideTimer: ReturnType<typeof setTimeout> | null = null
+let hideTimer: ReturnType<typeof setInterval> | null = null
 let burstTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearTimers() {
-  if (hideTimer) clearTimeout(hideTimer)
+  if (hideTimer) clearInterval(hideTimer)
   if (burstTimer) clearTimeout(burstTimer)
   hideTimer = null
   burstTimer = null
@@ -105,8 +105,21 @@ watch(() => props.open, (open) => {
   }
   burstVisible.value = true
   burstTimer = setTimeout(() => { burstVisible.value = false }, 1200)
-  hideTimer = setTimeout(() => emit('close'), 3500)
-})
+  // 공용 토스트와 같이 포커스·hover 동안에는 읽기 시간을 차감하지 않는다.
+  let remaining = 3500
+  let previous = Date.now()
+  hideTimer = setInterval(() => {
+    const now = Date.now()
+    const focused = root.value?.contains(document.activeElement)
+    const hovered = typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover)').matches && root.value?.matches(':hover')
+    if (!focused && !hovered) remaining -= now - previous
+    previous = now
+    if (remaining <= 0) {
+      clearTimers()
+      emit('close')
+    }
+  }, 100)
+}, { immediate: true })
 
 onBeforeUnmount(clearTimers)
 
