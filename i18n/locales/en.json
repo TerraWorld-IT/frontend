@@ -533,6 +533,7 @@
     "myTerrariumTitle": "My Terrarium",
     "notFound": "Terrarium not found",
     "notFoundDesc": "The invite code may have expired or be invalid",
+    "expiredDesc": "This invite code has expired. Please ask for a new code",
     "ogDesc": "Record your daily life and decorate your own terrarium",
     "ogSocialTitle": "Come see a friend's terrarium!",
     "ogTitle": "Take a look at the terrarium",

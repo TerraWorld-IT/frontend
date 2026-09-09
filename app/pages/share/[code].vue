@@ -19,10 +19,19 @@
     <!-- Error -->
     <div v-else-if="error" class="text-center space-y-4 my-auto">
       <p class="text-6xl">🫧</p>
-      <p class="text-riso-dark font-bold text-lg">{{ $t('share.notFound') }}</p>
-      <p class="text-sm text-riso-dark/40">{{ $t('share.notFoundDesc') }}</p>
+      <p class="text-riso-dark font-bold text-lg">{{ $t(error.statusCode === 404 || error.statusCode === 410 ? 'share.notFound' : 'error.generic.title') }}</p>
+      <p class="text-sm text-riso-dark/40">{{ $t(error.statusCode === 404 ? 'share.notFoundDesc' : error.statusCode === 410 ? 'share.expiredDesc' : 'error.generic.desc') }}</p>
       <div class="h-[40px]">
+        <button
+          v-if="error.statusCode !== 404 && error.statusCode !== 410"
+          type="button"
+          class="inline-block bg-riso-sage text-white px-6 py-2.5 rounded-full text-sm font-medium riso-shadow-sm"
+          @click="refresh()"
+        >
+          {{ $t('error.generic.cta') }}
+        </button>
         <NuxtLink
+          v-else
           to="/"
           class="inline-flex p-[2.5px] -m-[2.5px]"
         >
@@ -43,29 +52,8 @@
           <h1 class="text-xl font-bold text-riso-dark">{{ $t('share.myTerrariumTitle') }}</h1>
         </div>
 
-        <!-- Jar preview (read-only) -->
-        <div class="relative aspect-square bg-gradient-to-b from-riso-cream via-white to-riso-cream/60 rounded-[2.5rem] border-2 border-riso-walnut/10 overflow-hidden riso-shadow mx-auto">
-          <div class="absolute inset-3 rounded-[2rem] border-2 border-riso-walnut/8">
-            <div class="absolute -top-1 left-1/2 -translate-x-1/2 w-2/5 h-5 bg-riso-cream/80 rounded-t-xl border-2 border-b-0 border-riso-walnut/8" />
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-[45%] h-3 bg-riso-walnut/15 rounded-t-lg" />
-          </div>
-
-          <div class="absolute bottom-3 left-3 right-3 h-1/5 bg-gradient-to-t from-riso-walnut/20 to-riso-walnut/5 rounded-b-[1.8rem]" />
-
-          <!-- Placed items -->
-          <div
-            v-for="(item, idx) in sharedData?.placedItems ?? []"
-            :key="idx"
-            class="absolute transition-all duration-300"
-            :style="slotPosition(item.slotId ?? 0)"
-          >
-            <div :class="['flex items-center justify-center text-3xl', item.isAnimated ? 'animate-sway' : '']">
-              {{ item.itemImage }}
-            </div>
-          </div>
-
-          <div class="absolute top-6 left-6 w-8 h-20 bg-white/30 rounded-full rotate-12 blur-sm" />
-        </div>
+        <!-- 방문 화면과 동일한 읽기 전용 테라리움 -->
+        <FriendsTerrariumView v-if="sharedData" :terrarium="sharedData" />
 
         <!-- Stats -->
         <div class="flex gap-3">
@@ -90,7 +78,8 @@
             {{ accepting ? $t('share.accepting') : $t('share.acceptInvite') }}
           </button>
           <NuxtLink
-            to="/"
+            v-if="!isLoggedIn"
+            :to="`/auth/login?redirect=/share/${code}`"
             class="block w-full bg-riso-sage text-white rounded-2xl py-3 font-bold text-sm riso-shadow-sm text-center active:scale-95 transition-transform"
           >
             {{ $t('share.startTerraWorldCta') }}
@@ -121,11 +110,11 @@ const code = computed<string>(() => route.params.code as string)
 // 응답 ShareResponse { nickname, terrarium } 를 평탄화해 기존 템플릿 shape 유지.
 type ShareData = TerrariumResponse & { nickname?: string }
 
-const { data: sharedData, pending, error } = await useAsyncData(
+const { data: sharedData, pending, error, refresh } = await useAsyncData(
   `share-${code.value}`,
   async () => {
-    const { data, error } = await sdk.getSharedTerrarium({ client, path: { code: code.value } })
-    if (error) throw error
+    const { data, error, response } = await sdk.getSharedTerrarium({ client, path: { code: code.value } })
+    if (error) throw createError({ statusCode: response.status })
     const share = castData<import('@terraworld-it/openapi-frontend').ShareResponse>(data)
     if (!share) return null
     const result: ShareData = {
@@ -171,18 +160,4 @@ async function acceptInvite() {
   }
 }
 
-// Slot position mapping for share preview
-const SLOT_POSITIONS: Record<number, { top: string; left: string }> = {
-  0: { top: '26%', left: '35%' },
-  1: { top: '26%', left: '55%' },
-  2: { top: '52%', left: '25%' },
-  3: { top: '52%', left: '45%' },
-  4: { top: '52%', left: '65%' },
-}
-
-const DEFAULT_SLOT_POS = { top: '26%', left: '35%' }
-
-function slotPosition(slotId: number): { top: string; left: string } {
-  return SLOT_POSITIONS[slotId] ?? DEFAULT_SLOT_POS
-}
 </script>

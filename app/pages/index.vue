@@ -299,6 +299,10 @@
               class="absolute flex items-center justify-center select-none"
               :class="animClass(placed)"
               :style="itemStyle(placed)"
+              :role="editMode ? 'button' : undefined"
+              :tabindex="editMode ? 0 : undefined"
+              :aria-label="editMode ? placed.name : undefined"
+              @keydown="(e) => onItemKeydown(e, placed)"
               @pointerdown="(e) => onItemPointerDown(e, placed)"
               @click="onItemClick(placed)"
             >
@@ -378,6 +382,7 @@
                     touchAction: 'none',
                   }"
                   @pointerdown="(e) => onCornerPointerDown(e, placed, c.dirX, c.dirY)"
+                  @keydown="(e) => onCornerKeydown(e, placed)"
                 >
                   <span
                     class="rounded-full bg-white shadow-md border-2 pointer-events-none"
@@ -1435,6 +1440,8 @@ function exitManageMode(confirmed = false, finish?: (allow: boolean) => void) {
     }
     return
   }
+  for (const timer of keyboardPlacementTimers.values()) clearTimeout(timer)
+  keyboardPlacementTimers.clear()
   if (confirmed && dirtyPlacementIds.value.size > 0) {
     const snapshot = homeSnapshot.snapshot
     if (snapshot) {
@@ -1521,6 +1528,9 @@ async function onManageTile(tile: ManageTile) {
 // [저장하기] — 미확정 배치를 재전송해 최종 확정하고 토스트 "저장됨" 후 메인으로(관리 모드 종료, 댓글 #41).
 async function onSaveManage() {
   if (saving.value || placementBusy.value || backgroundBusy.value) return
+  // 명시 저장이 예약된 키보드 저장을 대신하므로 중복 요청을 취소한다.
+  for (const timer of keyboardPlacementTimers.values()) clearTimeout(timer)
+  keyboardPlacementTimers.clear()
   saving.value = true
   placementBusy.value = true
   try {
@@ -1616,6 +1626,52 @@ function onItemClick(placed: PlacedFreeItem) {
   }
   selectedItemId.value = selectedItemId.value === placed.placementId ? null : placed.placementId
 }
+
+// 아이템별 마지막 입력 뒤 저장한다. 다른 아이템으로 포커스를 옮겨도 저장 예약을 잃지 않는다.
+const keyboardPlacementTimers = new Map<number, ReturnType<typeof setTimeout>>()
+function applyKeyboardPlacement(placed: PlacedFreeItem, dx: number, dy: number, scaleDelta = 0) {
+  if (!editMode.value || placementBusy.value || saving.value || backgroundBusy.value) return
+  placed.scale = clamp(placed.scale + scaleDelta, 0.3, 4.0)
+  const vh = visualHalf(placed)
+  placed.x = clamp(placed.x + dx, Math.max(EDIT.minX, vh), Math.min(EDIT.maxX, STAGE_W - vh))
+  placed.y = clamp(placed.y + dy, EDIT.minY, Math.min(EDIT.maxY, STAGE_H - vh))
+  if (user.value?.entitlements?.freePlacement) dirtyPlacementIds.value.add(placed.placementId)
+  clearTimeout(keyboardPlacementTimers.get(placed.placementId))
+  keyboardPlacementTimers.set(placed.placementId, setTimeout(() => {
+    keyboardPlacementTimers.delete(placed.placementId)
+    if (!editMode.value || placementBusy.value || saving.value || backgroundBusy.value) return
+    // 스냅샷 재적용으로 객체가 교체돼도 유지된 초안을 저장한다. 삭제된 배치는 건너뛴다.
+    const current = placedItems.value.find(item => item.placementId === placed.placementId)
+    if (current) void persistPosition(current)
+  }, 300))
+}
+
+function onItemKeydown(e: KeyboardEvent, placed: PlacedFreeItem) {
+  // 내부 액션 버튼의 키는 해당 버튼이 처리한다. IME 조합도 선택·이동으로 해석하지 않는다.
+  if (e.target !== e.currentTarget || e.isComposing || !editMode.value
+    || placementBusy.value || saving.value || backgroundBusy.value) return
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    onItemClick(placed)
+    return
+  }
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+  e.preventDefault()
+  applyKeyboardPlacement(placed, e.key === 'ArrowLeft' ? -4 : e.key === 'ArrowRight' ? 4 : 0,
+    e.key === 'ArrowUp' ? -4 : e.key === 'ArrowDown' ? 4 : 0)
+}
+
+function onCornerKeydown(e: KeyboardEvent, placed: PlacedFreeItem) {
+  if (e.isComposing || (e.key !== '+' && e.key !== '-')) return
+  e.preventDefault()
+  e.stopPropagation()
+  applyKeyboardPlacement(placed, 0, 0, e.key === '+' ? 0.1 : -0.1)
+}
+
+onBeforeUnmount(() => {
+  for (const timer of keyboardPlacementTimers.values()) clearTimeout(timer)
+  keyboardPlacementTimers.clear()
+})
 
 // ─── 드래그 이동 (PointerEvent — free.vue 패턴) ───
 // moved: 이동량(dx²+dy²)>16px² 초과 시 true — pointerup 후 native click 억제 판정에 사용(VL-01).

@@ -533,6 +533,7 @@
     "myTerrariumTitle": "My Terrarium",
     "notFound": "테라리움을 찾을 수 없어요",
     "notFoundDesc": "초대 코드가 만료되었거나 잘못되었을 수 있어요",
+    "expiredDesc": "초대 코드가 만료되었어요. 새 초대 코드를 요청해주세요",
     "ogDesc": "일상을 기록하고, 나만의 테라리움을 꾸며보세요",
     "ogSocialTitle": "친구의 테라리움을 구경해보세요!",
     "ogTitle": "테라리움 구경하기",

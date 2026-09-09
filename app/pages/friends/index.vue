@@ -63,7 +63,7 @@
 
     <!-- Section 2: 친구 코드 입력 -->
     <section class="apjek-card p-4 space-y-3">
-      <h3 class="apjek-section-title text-[15px]">
+      <h3 id="invite-code-title" class="apjek-section-title text-[15px]">
         {{ $t('friends.enterCode') }}
       </h3>
       <p class="text-[12px] text-apjek-text-sub leading-[18px]">
@@ -71,11 +71,17 @@
       </p>
       <input
         v-model="inputCode"
+        aria-labelledby="invite-code-title"
+        enterkeyhint="done"
+        inputmode="text"
+        autocapitalize="characters"
+        autocomplete="off"
         type="text"
         maxlength="8"
         placeholder="ABCD1234"
         class="w-full h-12 px-4 rounded-xl bg-apjek-bg border border-apjek-border text-apjek-text font-mono tracking-[3px] text-center uppercase text-[18px] focus:outline-none focus:ring-2 focus:ring-apjek-blue"
         @input="onCodeInput"
+        @keydown.enter="!$event.isComposing && onAcceptInvite()"
       >
       <button
         type="button"
