@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref, type Component } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { createPinia } from 'pinia'
 import RecordPage from '~/pages/record/index.vue'
 import CalendarPage from '~/pages/calendar/index.vue'
 import LoginPage from '~/pages/auth/login.vue'
@@ -16,7 +17,7 @@ const profile = ref<UserMeResponse | null>(null)
 const session = ref<{ data: { user: { id: string } } | null }>({ data: null })
 
 const mocks = vi.hoisted(() => ({
-  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'getUnreadNotificationCount'].map(key => [key, vi.fn()])),
+  sdk: Object.fromEntries(['getMe', 'listCategories', 'listFriends', 'createRecord', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'getUnreadNotificationCount'].map(key => [key, vi.fn()])),
   user: { me: { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn() },
   home: { snapshot: { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }, fetch: vi.fn(), invalidate: vi.fn() },
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -241,6 +242,90 @@ describe('PR-A 뒤로가기', () => {
 })
 
 describe('PR-A 이탈 초안', () => {
+  it.each(['reject', 'error', 'pending'])('프로필 보조 조회가 %s여도 기록 목록을 반영하고 로딩을 해제한다', async (result) => {
+    profile.value = null
+    const { useUserStore } = await vi.importActual<typeof import('~/stores/user')>('~/stores/user')
+    const user = useUserStore(createPinia())
+    mocks.user.fetchMe.mockImplementation(() => user.fetchMe())
+    let resolve!: (value: unknown) => void
+    if (result === 'reject') mocks.sdk.getMe!.mockRejectedValueOnce(new Error('getMe failed'))
+    else if (result === 'error') mocks.sdk.getMe!.mockResolvedValueOnce({ error: { message: 'getMe failed' } })
+    else mocks.sdk.getMe!.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const friends = [{ userId: 'friend-1', nickname: '친구' }]
+    mocks.sdk.listFriends!.mockResolvedValueOnce({ data: friends })
+    const s = state(await mountPage(RecordPage))
+    expect(mocks.sdk.getMe).toHaveBeenCalledOnce()
+    expect(s.categories).toEqual([{ id: 1, name: '독서', isCustom: false }])
+    expect(s.friends).toEqual(friends)
+    expect(s.loadError).toBe(false)
+    expect(s.initialLoading).toBe(false)
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(true)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    if (result === 'pending') {
+      expect(user.loading).toBe(true)
+      resolve({ data: mocks.user.me })
+      await flushPromises()
+      expect(user.loading).toBe(false)
+    }
+  })
+
+  it.each(['reject', 'error', 'pending'])('프로필 보조 조회가 %s여도 캘린더 통계를 반영하고 로딩을 해제한다', async (result) => {
+    profile.value = null
+    const { useUserStore } = await vi.importActual<typeof import('~/stores/user')>('~/stores/user')
+    const user = useUserStore(createPinia())
+    mocks.user.fetchMe.mockImplementation(() => user.fetchMe())
+    let resolve!: (value: unknown) => void
+    if (result === 'reject') mocks.sdk.getMe!.mockRejectedValueOnce(new Error('getMe failed'))
+    else if (result === 'error') mocks.sdk.getMe!.mockResolvedValueOnce({ error: { message: 'getMe failed' } })
+    else mocks.sdk.getMe!.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const statistics = { totalRecords: 7, byCategory: [] }
+    mocks.sdk.getRecordStatistics!.mockResolvedValueOnce({ data: statistics })
+    const s = state(await mountPage(CalendarPage))
+    expect(mocks.sdk.getMe).toHaveBeenCalledOnce()
+    expect(s.stats).toEqual(statistics)
+    expect(s.fetchError).toBeNull()
+    expect(s.pending).toBe(false)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    if (result === 'pending') {
+      expect(user.loading).toBe(true)
+      resolve({ data: mocks.user.me })
+      await flushPromises()
+      expect(user.loading).toBe(false)
+    }
+  })
+
+  it.each(['new submitted', '  new submitted  ', ''])('복원한 메모를 수정해 저장(%s)하면 소유한 옛 초안을 삭제하고 재진입 시 편집하지 않는다', async (submitted) => {
+    const first = await mountPage(CalendarPage)
+    const original = state(first)
+    await original.selectDay(10)
+    original.startEdit()
+    original.editingNoteText = 'old draft'
+    original.closeSheet()
+    const key = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}u1.${original.dateKey(10)}`
+    expect(readDraft(key)).toBe('old draft')
+    first.unmount()
+    wrappers.splice(wrappers.indexOf(first), 1)
+    const restored = await mountPage(CalendarPage)
+    const s = state(restored)
+    await s.selectDay(10)
+    expect(s.editingNoteText).toBe('old draft')
+    expect(s.isEditingNote).toBe(true)
+    s.editingNoteText = submitted
+    await s.saveNote()
+    expect(readDraft(key)).toBeNull()
+    expect(localStorage.getItem(key)).toBeNull()
+    s.closeSheet()
+    restored.unmount()
+    wrappers.splice(wrappers.indexOf(restored), 1)
+    mocks.sdk.getNote!.mockResolvedValueOnce({ data: { note: submitted.trim() } })
+    const next = state(await mountPage(CalendarPage))
+    await next.selectDay(10)
+    expect(next.editingNoteText).toBe(submitted.trim())
+    expect(next.isEditingNote).toBe(false)
+    expect(readDraft(key)).toBeNull()
+  })
+
   it('프로필 없이 세션만 있는 직접 진입에서 일기와 습관 이름을 닫기 저장하고 재마운트 복원한다', async () => {
     profile.value = null
     session.value = { data: { user: { id: 'session-user' } } }

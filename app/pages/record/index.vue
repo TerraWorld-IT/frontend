@@ -1588,11 +1588,13 @@ const initialLoading = ref<boolean>(true)
 async function loadInitial() {
   initialLoading.value = true
   loadError.value = false
+  if (!session.value?.data?.user?.id) {
+    void userStore.fetchMe().catch(() => { /* 초안 키 확보용 보조 조회는 실패해도 페이지 로딩을 막지 않는다. */ })
+  }
   try {
     const [catRes, friRes] = await Promise.all([
       sdk.listCategories({ client }),
       sdk.listFriends({ client }),
-      session.value?.data?.user?.id ? Promise.resolve() : userStore.fetchMe(),
     ])
     if (!catRes.error) {
       categories.value = castData<CategoryListResponse>(catRes.data)?.categories ?? []

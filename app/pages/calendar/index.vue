@@ -377,6 +377,7 @@ const userStore = useUserStore()
 const session = authClient.useSession()
 const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
 let noteDraftKey: string | null = null
+const ownedNoteDraftText = ref<string | null>(null)
 
 const DAYS = computed<string[]>(() => [
   t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'),
@@ -434,11 +435,14 @@ onBeforeRouteLeave(() => {
 })
 
 function persistNoteDraft() {
-  if (isEditingNote.value && noteDraftKey) writeDraft(noteDraftKey, editingNoteText.value)
+  if (!isEditingNote.value || !noteDraftKey) return
+  writeDraft(noteDraftKey, editingNoteText.value)
+  ownedNoteDraftText.value = editingNoteText.value
 }
 
 function restoreNoteDraft() {
   const draft = noteDraftKey ? readDraft<unknown>(noteDraftKey) : null
+  ownedNoteDraftText.value = typeof draft === 'string' ? draft : null
   if (typeof draft !== 'string') return
   editingNoteText.value = draft
   isEditingNote.value = true
@@ -448,6 +452,7 @@ function restoreNoteDraft() {
 watch(draftUserId, (userId, previous) => {
   if (!selectedDate.value || !userId || previous) return
   noteDraftKey = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}${userId}.${toDateKey(selectedDate.value)}`
+  ownedNoteDraftText.value = null
   if (!editingNoteText.value) restoreNoteDraft()
 })
 
@@ -559,11 +564,13 @@ async function load() {
   const gen = ++monthLoadGen
   pending.value = true
   fetchError.value = null
+  if (!session.value?.data?.user?.id) {
+    void userStore.fetchMe().catch(() => { /* 초안 키 확보용 보조 조회는 실패해도 페이지 로딩을 막지 않는다. */ })
+  }
   try {
     const [statsRes, records] = await Promise.all([
       sdk.getRecordStatistics({ client }),
       fetchMonthRecords(viewYear.value, viewMonth.value + 1),
-      session.value?.data?.user?.id ? Promise.resolve() : userStore.fetchMe(),
     ])
     if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
     stats.value = castData<StatisticsResponse>(statsRes.data) ?? null
@@ -715,6 +722,7 @@ async function saveNote() {
   const key = toDateKey(selectedDate.value)
   const savedDraftKey = noteDraftKey
   const savedDraftText = editingNoteText.value
+  const savedOwnedDraftText = ownedNoteDraftText.value
   const version = ++noteRequestVersion.value
   noteSaving.value = true
   try {
@@ -735,11 +743,15 @@ async function saveNote() {
       if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) selectedNote.value = null
       toast.success(t('calendar.memoDeleted'))
     }
-    // 이전 페이지의 늦은 성공 응답은 다른 인스턴스가 남긴 새 초안을 삭제하지 않는다.
-    if (savedDraftKey && readDraft<unknown>(savedDraftKey) === savedDraftText) clearDraft(savedDraftKey)
+    // 제출 원문이나 이 요청이 소유한 초안만 정리하고 다른 인스턴스의 새 초안은 보존한다.
+    if (savedDraftKey) {
+      const storedDraft = readDraft<unknown>(savedDraftKey)
+      if (storedDraft === savedDraftText || (savedOwnedDraftText !== null && storedDraft === savedOwnedDraftText)) clearDraft(savedDraftKey)
+    }
     if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) {
       void dismissKeyboard()
       isEditingNote.value = false
+      ownedNoteDraftText.value = null
     }
   }
   catch (e) {
