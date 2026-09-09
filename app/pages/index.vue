@@ -218,6 +218,7 @@
           @pointermove="onPinchPointer"
           @pointerup="onPinchPointer"
           @pointercancel="onPinchPointer"
+          @gotpointercapture="onPinchPointer"
           @lostpointercapture="onPinchPointer"
         >
           <!-- 관리 모드에서는 transform 전환 애니메이션을 끈다 — 0.44→1 로 움직이는 200ms 동안 드래그/리사이즈
@@ -852,6 +853,8 @@ const capturingImage = ref<boolean>(false)
 const zoomLevel = ref<number>(1)
 // 이벤트 처리 중에만 쓰는 포인터 좌표로 렌더 상태를 추가하지 않는다.
 const pinchPointers = new Map<number, { x: number; y: number }>()
+// 자식의 암묵적 캡처가 이전되는 동안 발생한 상실 이벤트와 스테이지 상실을 구분한다.
+const confirmedPinchCaptures = new Set<number>()
 // 스테이지(400×552 설계 기준)를 컨테이너 폭에 uniform 하게 맞추는 배율. flex 축소로 폭만
 // 줄면 병 아트(%-inset)와 px 좌표계의 기준이 어긋나므로, 스테이지는 shrink-0 로 400 을
 // 유지하고 이 배율로만 축소한다. 드래그/리사이즈 좌표 환산도 zoomLevel*stageFit 사용.
@@ -860,8 +863,8 @@ const stageFit = ref<number>(1)
 // watch 해 요소가 나타나는 시점에 observer 를 부착한다.
 const stageEl = ref<HTMLElement | null>(null)
 let stageFitObserver: ResizeObserver | null = null
-watch(stageEl, (el) => {
-  pinchPointers.clear()
+watch(stageEl, (el, previousEl) => {
+  resetPinchPointers(previousEl)
   stageFitObserver?.disconnect()
   stageFitObserver = null
   if (!el || typeof ResizeObserver === 'undefined') return
@@ -874,6 +877,7 @@ watch(stageEl, (el) => {
   stageFitObserver.observe(el)
 })
 onBeforeUnmount(() => {
+  resetPinchPointers()
   stageFitObserver?.disconnect()
   stageFitObserver = null
 })
@@ -940,7 +944,7 @@ const inverseStageScale = computed<number>(() => 1 / stageScale.value)
 // 보기 모드에서 휠로 바꾼 zoomLevel(0.5~2)이 관리/힐링 모드로 넘어가면 설계 기준 스테이지가 잘리거나
 // 반으로 줄고, 편집 중에는 휠이 막혀 되돌릴 수도 없다 — 모드 진입 시 줌을 1 로 되돌린다.
 watch([editMode, healingMode], ([edit, heal]) => {
-  pinchPointers.clear()
+  resetPinchPointers()
   if (edit || heal) zoomLevel.value = 1
 })
 // 병 뒤 원의 폭 비율 — 부모의 보기 축소를 보정해 줌 1에서 스테이지 폭의 87%를 유지한다.
@@ -1516,10 +1520,34 @@ function onWheel(e: WheelEvent) {
   zoomLevel.value = clamp(zoomLevel.value + (e.deltaY > 0 ? -0.1 : 0.1), 0.5, 2)
 }
 
+// 핀치 종료·모드 전환·스테이지 교체 시 남아 있는 캡처까지 해제한다.
+function resetPinchPointers(el: HTMLElement | null = stageEl.value) {
+  const pointerIds = [...pinchPointers.keys()]
+  pinchPointers.clear()
+  confirmedPinchCaptures.clear()
+  for (const pointerId of pointerIds) {
+    try {
+      if (el?.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId)
+    }
+    catch {
+      // 브라우저가 이미 종료한 포인터는 별도 처리 없이 정리한다.
+    }
+  }
+}
+
 // 보기·힐링 모드의 두 포인터만 추적한다. 편집 드래그/리사이즈는 기존 핸들러가 처리한다.
 function onPinchPointer(e: PointerEvent) {
+  if (e.type === 'gotpointercapture') {
+    if (e.target === stageEl.value && pinchPointers.has(e.pointerId)) confirmedPinchCaptures.add(e.pointerId)
+    return
+  }
+  if (e.type === 'lostpointercapture') {
+    if (e.target !== stageEl.value || !confirmedPinchCaptures.has(e.pointerId)) return
+  }
   if (e.type === 'pointerup' || e.type === 'pointercancel' || e.type === 'lostpointercapture') {
+    if (!pinchPointers.has(e.pointerId)) return
     pinchPointers.delete(e.pointerId)
+    resetPinchPointers()
     return
   }
   if (editMode.value || e.pointerType !== 'touch') return
