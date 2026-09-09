@@ -1900,6 +1900,9 @@ async function removeItem(placed: PlacedFreeItem) {
       .map(p => ({ itemId: p.itemId, slotId: p.slotId ?? 0 }))
     const { error } = await sdk.updateTerrariumPlacements({ client, body: { placedItems: existing } })
     if (error) throw new Error(errMsg(error, '제거 실패'))
+    // 삭제 성공 즉시 예약을 취소해 재조회 실패로 남은 객체에 위치를 저장하지 않는다.
+    clearTimeout(keyboardPlacementTimers.get(placed.placementId))
+    keyboardPlacementTimers.delete(placed.placementId)
     selectedItemId.value = null
     dirtyPlacementIds.value.delete(placed.placementId)
     await reloadAfterPlacement()

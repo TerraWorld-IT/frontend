@@ -5,7 +5,7 @@ import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import HomePage from '~/pages/index.vue'
 
 const mocks = vi.hoisted(() => ({
-  sdk: Object.fromEntries(['updateFreePosition', 'listCategories', 'listFriends', 'createRecord', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'getUnreadNotificationCount'].map(key => [key, vi.fn()])),
+  sdk: Object.fromEntries(['updateFreePosition', 'updateTerrariumPlacements', 'listCategories', 'listFriends', 'createRecord', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'getUnreadNotificationCount'].map(key => [key, vi.fn()])),
   user: { me: { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn() },
   home: { snapshot: { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }, fetch: vi.fn(), invalidate: vi.fn(), patchFreePlacement: vi.fn() },
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -54,6 +54,7 @@ beforeEach(() => {
   mocks.sdk.getRecordStatistics!.mockResolvedValue({ data: { totalRecords: 0, byCategory: [] } })
   mocks.sdk.getNote!.mockResolvedValue({ data: { note: '서버 메모' } })
   mocks.user.fetchMe.mockResolvedValue(undefined)
+  mocks.home.fetch.mockReset().mockResolvedValue(undefined)
   localStorage.clear()
 })
 afterEach(() => {
@@ -249,9 +250,66 @@ describe('홈 배치 키보드 조작', () => {
       s.manageExitTarget(true)
     }
     else if (action === '언마운트') wrapper.unmount()
-    else s.placedItems = []
+    else await s.removeItem(s.placedItems[0])
     await vi.advanceTimersByTimeAsync(300)
     expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+  })
+
+  it.each(['성공', '실패'])('삭제 응답 뒤 재조회 %s에도 삭제한 배치의 보류 예약과 dirty를 즉시 지운다', async (reloadResult) => {
+    const { s, item } = await managePage()
+    // 삭제할 한 개의 배치를 준비하고 삭제 응답과 후속 재조회만 외부 I/O 경계에서 제어한다.
+    s.placedItems = [s.placedItems[0]]
+    s.terrarium = { placedItems: [{ itemId: 1, slotId: 0 }], maxSlots: 6 }
+    const removed = s.placedItems[0]
+    let finishDelete!: (result: { error: undefined }) => void
+    mocks.sdk.updateTerrariumPlacements!.mockReturnValueOnce(new Promise<{ error: undefined }>((resolve) => {
+      finishDelete = resolve
+    }))
+    let finishReload!: () => void
+    let rejectReload!: (error: Error) => void
+    mocks.home.fetch.mockReturnValueOnce(new Promise<void>((resolve, reject) => {
+      finishReload = resolve
+      rejectReload = reject
+    }))
+    mocks.home.fetch.mockClear()
+
+    await item.trigger('keydown', { key: 'ArrowRight' })
+    await vi.advanceTimersByTimeAsync(100)
+    const removal = s.removeItem(removed)
+    expect(s.placementBusy).toBe(true)
+    expect(mocks.sdk.updateTerrariumPlacements).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      body: { placedItems: [] },
+    }))
+    await vi.advanceTimersByTimeAsync(800)
+    expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+    expect(mocks.home.fetch).not.toHaveBeenCalled()
+    expect(s.keyboardPlacementTimers.size).toBe(1)
+    expect(s.dirtyPlacementIds.has(1)).toBe(true)
+
+    finishDelete({ error: undefined })
+    await flushPromises()
+    expect(mocks.home.fetch).toHaveBeenCalledExactlyOnceWith(true)
+    expect(s.placementBusy).toBe(true)
+    expect.soft(s.keyboardPlacementTimers.size).toBe(0)
+    expect.soft(vi.getTimerCount()).toBe(0)
+    expect(s.dirtyPlacementIds.size).toBe(0)
+    if (reloadResult === '실패') rejectReload(new Error('삭제 후 재조회 실패'))
+    else finishReload()
+    await removal
+    expect(s.placementBusy).toBe(false)
+    if (reloadResult === '실패') {
+      expect(s.placedItems[0]).toBe(removed)
+      expect(mocks.toast.error).toHaveBeenCalledWith('삭제 후 재조회 실패')
+    }
+    else {
+      expect(s.placedItems).toHaveLength(0)
+      expect(mocks.toast.success).toHaveBeenCalledWith('아이템이 제거되었습니다!')
+    }
+    await vi.advanceTimersByTimeAsync(300)
+    expect.soft(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+    expect(s.keyboardPlacementTimers.size).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(s.dirtyPlacementIds.size).toBe(0)
   })
 
   it('종료 확인창에서 300ms 이상 기다린 뒤 저장하지 않고 종료해도 저장하지 않는다', async () => {
@@ -301,7 +359,7 @@ describe('홈 배치 키보드 조작', () => {
       s.manageExitTarget(true)
     }
     else if (action === '언마운트') wrapper.unmount()
-    else s.placedItems = []
+    else await s.removeItem(s.placedItems[0])
     await vi.advanceTimersByTimeAsync(900)
     expect(mocks.sdk.updateFreePosition).toHaveBeenCalledTimes(action === '명시 저장' ? 1 : 0)
   })
