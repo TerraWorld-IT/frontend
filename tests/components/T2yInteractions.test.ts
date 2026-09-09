@@ -17,8 +17,8 @@ import FriendsPage from '~/pages/friends/index.vue'
 import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
 
 const mocks = vi.hoisted(() => ({
-  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward', 'issueAdRewardNonce', 'getGrowth', 'reviveGrowth'].map(k => [k, vi.fn()])),
-  user: { me: { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn() },
+  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward', 'issueAdRewardNonce', 'getGrowth', 'reviveGrowth', 'clickTerrariumHeart'].map(k => [k, vi.fn()])),
+  user: { me: { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn(), setCurrencyBalance: vi.fn() },
   items: { items: [], fetchAll: vi.fn(), invalidate: vi.fn() },
   home: { snapshot: { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }, fetch: vi.fn(), invalidate: vi.fn(), patchFreePlacement: vi.fn() },
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -926,6 +926,122 @@ describe('T2-Y 확인 다이얼로그와 DOM 계약', () => {
 
 
 describe('T2-Y 이미지 공유와 배치 복구', () => {
+  // happy-dom에는 실제 포인터 캡처가 없어 캡처 소유권만 모사하고 이벤트는 DOM으로 전달한다.
+  async function mountPinchStage() {
+    const w = await mountPage(HomePage)
+    const stage = w.get('#my-terra-container')
+    const captures = new Set<number>()
+    const capture = vi.fn((id: number) => captures.add(id))
+    const release = vi.fn((id: number) => captures.delete(id))
+    Object.defineProperties(stage.element, {
+      setPointerCapture: { value: capture, configurable: true },
+      hasPointerCapture: { value: (id: number) => captures.has(id), configurable: true },
+      releasePointerCapture: { value: release, configurable: true },
+    })
+    return { w, s: state(w), stage, capture, release, captures }
+  }
+  it('자식 암묵 캡처 이전의 lost는 [1,2] 추적과 첫 포인터 줌을 보존한다', async () => {
+    const { s, stage, capture } = await mountPinchStage()
+    const child = stage.get(':scope > div')
+    await child.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 })
+    await child.trigger('gotpointercapture', { pointerId: 1, pointerType: 'touch' })
+    await child.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 10, clientY: 0 })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 110, clientY: 0 })
+    expect(capture.mock.calls).toEqual([[1], [2]])
+    await child.trigger('lostpointercapture', { pointerId: 1, pointerType: 'touch' })
+    // 스테이지 캡처가 확정되기 전의 상실도 추적을 지우지 않는다.
+    await stage.trigger('lostpointercapture', { pointerId: 1, pointerType: 'touch' })
+    await stage.trigger('gotpointercapture', { pointerId: 1, pointerType: 'touch' })
+    await stage.trigger('gotpointercapture', { pointerId: 2, pointerType: 'touch' })
+    expect([...s.pinchPointers.keys()]).toEqual([1, 2])
+    await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: -40, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    expect([...s.pinchPointers.keys()]).toEqual([1, 2])
+  })
+  it.each(['pointerup', 'pointercancel', 'lostpointercapture'])('%s 종료 시 남은 포인터 캡처를 한 번 해제한다', async (event) => {
+    const { s, stage, release, captures } = await mountPinchStage()
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0 })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100 })
+    await stage.trigger('gotpointercapture', { pointerId: 2, pointerType: 'touch' })
+    captures.delete(2) // 종료된 포인터는 브라우저가 자동 해제한다.
+    await stage.trigger(event, { pointerId: 2, pointerType: 'touch' })
+    expect(release.mock.calls).toEqual([[1]])
+    expect(s.pinchPointers.size).toBe(0)
+    await stage.trigger('lostpointercapture', { pointerId: 1, pointerType: 'touch' })
+    expect(release).toHaveBeenCalledTimes(1)
+  })
+  it.each(['editMode', 'healingMode'])('%s 전환 시 두 포인터 캡처와 추적을 정리한다', async (mode) => {
+    const { s, stage, release } = await mountPinchStage()
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0 })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100 })
+    s[mode] = true
+    await nextTick()
+    expect(release.mock.calls).toEqual([[1], [2]])
+    expect(s.pinchPointers.size).toBe(0)
+  })
+  it('이미 종료된 캡처의 해제 예외도 나머지 캡처 정리를 막지 않는다', async () => {
+    const { s, stage, release } = await mountPinchStage()
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0 })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100 })
+    release.mockImplementationOnce(() => { throw new Error('inactive pointer') })
+    s.healingMode = true
+    await nextTick()
+    expect(release.mock.calls).toEqual([[1], [2]])
+    expect(s.pinchPointers.size).toBe(0)
+  })
+
+  it('A-03 터치 두 포인터만 줌하고 취소·편집 전환 시 이전 포인터를 버린다', async () => {
+    const w = await mountPage(HomePage); const s = state(w)
+    const stage = w.get('#my-terra-container')
+    Object.defineProperty(stage.element, 'setPointerCapture', { value: vi.fn(), configurable: true })
+    expect(stage.classes()).toContain('touch-pan-x')
+    expect(stage.classes()).toContain('touch-pan-y')
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 20, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+    expect(stage.element.setPointerCapture).not.toHaveBeenCalled()
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 120, clientY: 0 })
+    expect(stage.element.setPointerCapture).toHaveBeenCalledTimes(2)
+    expect(stage.element.setPointerCapture).toHaveBeenCalledWith(1)
+    expect(stage.element.setPointerCapture).toHaveBeenCalledWith(2)
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 170, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    await stage.trigger('pointercancel', { pointerId: 2, pointerType: 'touch' })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 220, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    await stage.trigger('pointerdown', { pointerId: 3, pointerType: 'mouse', clientX: 120, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 3, pointerType: 'mouse', clientX: 220, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    s.editMode = true; await nextTick()
+    expect(s.zoomLevel).toBe(1)
+    expect(stage.classes()).toContain('touch-none')
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 120, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 220, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+    s.editMode = false; await nextTick()
+    await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 30, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+  })
+  it('하트 자식의 단일 터치는 캡처 없이 API 클릭에 도달하고 링크는 핀치에 포함하지 않는다', async () => {
+    const w = await mountPage(HomePage); const s = state(w)
+    const stage = w.get('#my-terra-container')
+    Object.defineProperty(stage.element, 'setPointerCapture', { value: vi.fn(), configurable: true })
+    const heart = w.get('[data-testid="home-heart"]')
+    await heart.get('nuxt-icon-stub').trigger('pointerdown', { pointerId: 1, pointerType: 'touch' })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100, clientY: 0 })
+    expect(stage.element.setPointerCapture).not.toHaveBeenCalled()
+    await heart.trigger('pointerup', { pointerId: 1, pointerType: 'touch' })
+    await heart.trigger('click'); await flushPromises()
+    expect(mocks.sdk.clickTerrariumHeart).toHaveBeenCalledTimes(1)
+    const link = document.createElement('a')
+    const child = document.createElement('span')
+    link.append(child); stage.element.append(link)
+    child.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 3, pointerType: 'touch', clientX: 200 }))
+    expect(stage.element.setPointerCapture).not.toHaveBeenCalled()
+    expect(s.zoomLevel).toBe(1)
+    s.healingMode = true; await nextTick()
+    expect(stage.classes()).toContain('touch-none')
+  })
   it('C18/C48 SNS action은 캡처 PNG를 공유하고 갤러리 완료를 주장하지 않는다', async () => {
     const w = await mountPage(HomePage); const s = state(w)
     // 캡처 대상은 실제 마운트한 스테이지 DOM이다.

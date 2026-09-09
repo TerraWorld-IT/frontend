@@ -31,7 +31,7 @@
               :style="{ background: tokenStyle.bg }"
               aria-hidden="true"
             >
-              {{ tokenStyle.emoji }}
+              <IconsCurrencyIcon :code="kind.toUpperCase() as CurrencyCode" :size="24" />
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-[15px] font-bold text-apjek-text leading-[20px] truncate">{{ headline }}</p>
@@ -48,6 +48,8 @@
 </template>
 
 <script setup lang="ts">
+import type { CurrencyCode } from '~/utils/currency'
+
 /**
  * 일상 기록 완료 토스트. 표시/숨김은 부모가 소유(open), 탭 또는 자동 만료(3.5s)에 close 를 요청한다.
  * 보상 수치는 서버 reward.categoryTokens — 0/누락이면 수치 없이 "○○토큰 획득!" 로 표기해
@@ -64,14 +66,14 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>()
 
-const TOKEN_STYLE: Record<DailyTokenKind, { name: string; emoji: string; bg: string }> = {
-  dew: { name: '이슬', emoji: '💧', bg: 'var(--color-apjek-dew-bg)' },
-  sun: { name: '햇살', emoji: '☀️', bg: 'var(--color-apjek-sun-bg)' },
-  bolt: { name: '번개', emoji: '⚡', bg: 'var(--color-apjek-bolt-bg)' },
-  wind: { name: '바람', emoji: '🌀', bg: 'var(--color-apjek-wind-bg)' },
+const TOKEN_STYLE: Record<DailyTokenKind, { name: string; bg: string }> = {
+  dew: { name: '이슬', bg: 'var(--color-apjek-dew-bg)' },
+  sun: { name: '햇살', bg: 'var(--color-apjek-sun-bg)' },
+  bolt: { name: '번개', bg: 'var(--color-apjek-bolt-bg)' },
+  wind: { name: '바람', bg: 'var(--color-apjek-wind-bg)' },
 }
 
-const tokenStyle = computed<{ name: string; emoji: string; bg: string }>(() => TOKEN_STYLE[props.kind])
+const tokenStyle = computed<{ name: string; bg: string }>(() => TOKEN_STYLE[props.kind])
 
 const headline = computed<string>(() => {
   const n = props.count

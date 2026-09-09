@@ -207,13 +207,19 @@
           ref="stageEl"
           :role="healingMode ? 'dialog' : undefined" :aria-modal="healingMode ? true : undefined"
           :aria-label="healingMode ? '힐링 모드' : undefined"
-          :class="healingMode
+          :class="[editMode || healingMode ? 'touch-none' : 'touch-pan-x touch-pan-y', healingMode
             ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
-            : 'relative flex justify-center items-center w-full overflow-hidden'"
+            : 'relative flex justify-center items-center w-full overflow-hidden']"
           :style="healingMode
             ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
             : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
+          @pointerdown="onPinchPointer"
+          @pointermove="onPinchPointer"
+          @pointerup="onPinchPointer"
+          @pointercancel="onPinchPointer"
+          @gotpointercapture="onPinchPointer"
+          @lostpointercapture="onPinchPointer"
         >
           <!-- 관리 모드에서는 transform 전환 애니메이션을 끈다 — 0.44→1 로 움직이는 200ms 동안 드래그/리사이즈
                좌표 환산(zoomLevel*stageFit)과 실제 렌더 배율이 어긋나 첫 입력이 잘못 저장될 수 있다. -->
@@ -231,7 +237,7 @@
                  없으면 기존 라디얼 하이라이트. inline transform 이라 Tailwind translate 유틸과의 이중 적용 함정 없음. -->
             <div
               class="absolute pointer-events-none rounded-full overflow-hidden"
-              :style="{ left: '50%', top: '52%', width: `${backdropSize}px`, height: `${backdropSize}px`, transform: 'translate(-50%, -50%)', background: 'radial-gradient(circle, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.92) 56%, rgba(255,255,255,0) 70%)' }"
+              :style="{ left: '50%', top: '52%', width: `${backdropSize}%`, aspectRatio: '1', transform: 'translate(-50%, -50%)', background: 'radial-gradient(circle, rgba(81,140,219,0.2) 0%, #FFFFFF 100%)' }"
               data-testid="home-jar-backdrop"
             >
               <img
@@ -495,7 +501,7 @@
                 <!-- T15 놀러가기 — 방문 모달 직접 오픈 (friends 페이지와 동일 API) -->
                 <button
                   type="button"
-                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0 disabled:opacity-50"
+                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0 disabled:opacity-50"
                   style="background: var(--color-apjek-cta)"
                   :disabled="visitingId !== null"
                   :data-testid="`home-visit-${friend.userId}`"
@@ -507,7 +513,7 @@
               <p class="text-xs text-apjek-text-faint">{{ homeFriendsError ? '친구 목록을 불러오지 못했어요' : '아직 함께하는 친구가 없어요' }}</p>
               <button
                 type="button"
-                class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
+                class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] rounded-full px-3 py-1.5 text-[11px] font-semibold text-white shrink-0"
                 style="background: var(--color-apjek-cta)"
                 @click="navigateTo('/friends')"
               >{{ homeFriendsError ? '친구 페이지로' : '친구 초대하기' }}</button>
@@ -755,6 +761,7 @@
 </template>
 
 <script setup lang="ts">
+import { calculatePinchScale } from '~/utils/pinchZoom'
 import { Capacitor } from '@capacitor/core'
 import { onBeforeRouteLeave } from 'vue-router'
 import type {
@@ -857,6 +864,10 @@ const editMode = ref<boolean>(false)
 const selectedItemId = ref<number | null>(null)
 const capturingImage = ref<boolean>(false)
 const zoomLevel = ref<number>(1)
+// 이벤트 처리 중에만 쓰는 포인터 좌표로 렌더 상태를 추가하지 않는다.
+const pinchPointers = new Map<number, { x: number; y: number }>()
+// 자식의 암묵적 캡처가 이전되는 동안 발생한 상실 이벤트와 스테이지 상실을 구분한다.
+const confirmedPinchCaptures = new Set<number>()
 // 스테이지(400×552 설계 기준)를 컨테이너 폭에 uniform 하게 맞추는 배율. flex 축소로 폭만
 // 줄면 병 아트(%-inset)와 px 좌표계의 기준이 어긋나므로, 스테이지는 shrink-0 로 400 을
 // 유지하고 이 배율로만 축소한다. 드래그/리사이즈 좌표 환산도 zoomLevel*stageFit 사용.
@@ -865,7 +876,8 @@ const stageFit = ref<number>(1)
 // watch 해 요소가 나타나는 시점에 observer 를 부착한다.
 const stageEl = ref<HTMLElement | null>(null)
 let stageFitObserver: ResizeObserver | null = null
-watch(stageEl, (el) => {
+watch(stageEl, (el, previousEl) => {
+  resetPinchPointers(previousEl)
   stageFitObserver?.disconnect()
   stageFitObserver = null
   if (!el || typeof ResizeObserver === 'undefined') return
@@ -878,6 +890,7 @@ watch(stageEl, (el) => {
   stageFitObserver.observe(el)
 })
 onBeforeUnmount(() => {
+  resetPinchPointers()
   stageFitObserver?.disconnect()
   stageFitObserver = null
 })
@@ -932,7 +945,7 @@ useHead({
       : '--apjek-scrim: var(--color-apjek-blue-soft); --apjek-scrim-bottom: var(--color-apjek-surface)'),
   },
 })
-// 보기 모드 축소 배율 — Figma "나의테라 - 기본" 은 병이 화면 폭의 약 35%, 흰 글로우 원이 약 62% 다.
+// 보기 모드 축소 배율 — 병 크기는 유지하고 배경 원은 아래에서 스테이지 폭의 87%로 맞춘다.
 // 관리 모드(배치 편집)·힐링 모드(풀블리드)는 설계 기준 큰 병을 그대로 쓴다. 드래그/리사이즈 좌표
 // 환산은 편집 모드에서만 일어나므로 viewScale 은 1 이고 기존 식(zoomLevel*stageFit)이 유지된다.
 const VIEW_SCALE = 0.44
@@ -944,10 +957,11 @@ const inverseStageScale = computed<number>(() => 1 / stageScale.value)
 // 보기 모드에서 휠로 바꾼 zoomLevel(0.5~2)이 관리/힐링 모드로 넘어가면 설계 기준 스테이지가 잘리거나
 // 반으로 줄고, 편집 중에는 휠이 막혀 되돌릴 수도 없다 — 모드 진입 시 줌을 1 로 되돌린다.
 watch([editMode, healingMode], ([edit, heal]) => {
+  resetPinchPointers()
   if (edit || heal) zoomLevel.value = 1
 })
-// 병 뒤 글로우 원 — 보기 모드에서는 작아진 병을 감싸도록 스테이지 좌표계에서 더 크게 그린다.
-const backdropSize = computed<number>(() => (viewScale.value < 1 ? 620 : 430))
+// 병 뒤 원의 폭 비율 — 부모의 보기 축소를 보정해 줌 1에서 스테이지 폭의 87%를 유지한다.
+const backdropSize = computed<number>(() => 87 / viewScale.value)
 function enterHealingMode() {
   introMode.value = 'healing'
 }
@@ -1531,6 +1545,59 @@ function onWheel(e: WheelEvent) {
   if (editMode.value) return
   e.preventDefault()
   zoomLevel.value = clamp(zoomLevel.value + (e.deltaY > 0 ? -0.1 : 0.1), 0.5, 2)
+}
+
+// 핀치 종료·모드 전환·스테이지 교체 시 남아 있는 캡처까지 해제한다.
+function resetPinchPointers(el: HTMLElement | null = stageEl.value) {
+  const pointerIds = [...pinchPointers.keys()]
+  pinchPointers.clear()
+  confirmedPinchCaptures.clear()
+  for (const pointerId of pointerIds) {
+    try {
+      if (el?.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId)
+    }
+    catch {
+      // 브라우저가 이미 종료한 포인터는 별도 처리 없이 정리한다.
+    }
+  }
+}
+
+// 보기·힐링 모드의 두 포인터만 추적한다. 편집 드래그/리사이즈는 기존 핸들러가 처리한다.
+function onPinchPointer(e: PointerEvent) {
+  if (e.type === 'gotpointercapture') {
+    if (e.target === stageEl.value && pinchPointers.has(e.pointerId)) confirmedPinchCaptures.add(e.pointerId)
+    return
+  }
+  if (e.type === 'lostpointercapture') {
+    if (e.target !== stageEl.value || !confirmedPinchCaptures.has(e.pointerId)) return
+  }
+  if (e.type === 'pointerup' || e.type === 'pointercancel' || e.type === 'lostpointercapture') {
+    if (!pinchPointers.has(e.pointerId)) return
+    pinchPointers.delete(e.pointerId)
+    resetPinchPointers()
+    return
+  }
+  if (editMode.value || e.pointerType !== 'touch') return
+  if (e.type === 'pointerdown') {
+    // 버튼·링크 탭은 원래 클릭 대상으로 전달하고 핀치에 포함하지 않는다.
+    if (e.target instanceof Element && e.target.closest('button,a')) return
+    if (pinchPointers.size >= 2) return
+    pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    // 두 손가락이 모인 뒤에만 캡처해 한 손가락 스크롤·스와이프를 유지한다.
+    if (pinchPointers.size === 2) {
+      const el = e.currentTarget as HTMLElement
+      for (const pointerId of pinchPointers.keys()) el.setPointerCapture(pointerId)
+    }
+    return
+  }
+  if (!pinchPointers.has(e.pointerId)) return
+  const [first, second] = [...pinchPointers.values()]
+  const previousDistance = first && second ? Math.hypot(first.x - second.x, first.y - second.y) : 0
+  pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  const [nextFirst, nextSecond] = [...pinchPointers.values()]
+  if (!nextFirst || !nextSecond) return
+  e.preventDefault()
+  zoomLevel.value = calculatePinchScale(zoomLevel.value, previousDistance, Math.hypot(nextFirst.x - nextSecond.x, nextFirst.y - nextSecond.y))
 }
 
 // ─── 아이템 선택 ───

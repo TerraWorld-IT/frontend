@@ -108,7 +108,7 @@
         <!-- 가로 스크롤 친구 카드 — 선택 시 해당 카드 "요청 대기 중", 나머지 비활성 (댓글 #49) -->
         <div v-else class="flex gap-[10px] overflow-x-auto scrollbar-hide -mx-5 px-5 pb-[4px]">
           <div
-            v-for="f in friends"
+            v-for="f in displayFriends"
             :key="f.userId"
             class="shrink-0 w-[128px] rounded-[16px] border p-[12px] flex flex-col items-center gap-[10px] transition-all"
             :class="selectedFriendId !== null && selectedFriendId !== f.userId
@@ -208,6 +208,12 @@ const step = ref<1 | 2 | 3>(1)
 const mode = ref<Mode | null>(null)
 const title = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
+
+// 선택한 친구를 DOM 맨 앞으로 옮겨 표시 순서와 키보드 탐색 순서를 맞춘다.
+const displayFriends = computed<FriendInfo[]>(() => [
+  ...props.friends.filter(friend => friend.userId === selectedFriendId.value),
+  ...props.friends.filter(friend => friend.userId !== selectedFriendId.value),
+])
 
 const introText = computed<string>(() => mode.value === 'friend'
   ? `1주일 동안 친구와 함께 실천 트래커를 완성해보세요!\n완료 시 반짝이 ${HABIT_REWARD_SPARKLE.friend}개를 획득합니다.`
