@@ -20,6 +20,7 @@ describe('useToast contract', () => {
     vi.clearAllTimers()
     vi.useRealTimers()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     document.body.innerHTML = ''
   })
 
@@ -75,6 +76,25 @@ describe('useToast contract', () => {
     vi.advanceTimersByTime(100)
     expect(toast.toasts.value).toHaveLength(0)
     expect(media).toHaveBeenCalledWith('(hover: hover)')
+  })
+
+  it('matchMedia 가 없어도 포커스 정지 후 예외 없이 3초에 만료한다', () => {
+    vi.stubGlobal('matchMedia', undefined)
+    const toast = useToast()
+    toast.info('미지원 환경 안내')
+    const root = document.createElement('div')
+    root.dataset.toastId = String(toast.toasts.value[0]!.id)
+    const button = document.createElement('button')
+    root.append(button); document.body.append(root)
+    vi.spyOn(document, 'querySelector').mockReturnValue(root)
+    button.focus()
+    expect(() => vi.advanceTimersByTime(10000)).not.toThrow()
+    expect(toast.toasts.value).toHaveLength(1)
+    button.blur()
+    vi.advanceTimersByTime(2900)
+    expect(toast.toasts.value).toHaveLength(1)
+    expect(() => vi.advanceTimersByTime(100)).not.toThrow()
+    expect(toast.toasts.value).toHaveLength(0)
   })
 
   it('exports useToast function', async () => {

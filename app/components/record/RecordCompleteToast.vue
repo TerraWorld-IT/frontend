@@ -111,7 +111,7 @@ watch(() => props.open, (open) => {
   hideTimer = setInterval(() => {
     const now = Date.now()
     const focused = root.value?.contains(document.activeElement)
-    const hovered = window.matchMedia('(hover: hover)').matches && root.value?.matches(':hover')
+    const hovered = typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover)').matches && root.value?.matches(':hover')
     if (!focused && !hovered) remaining -= now - previous
     previous = now
     if (remaining <= 0) {

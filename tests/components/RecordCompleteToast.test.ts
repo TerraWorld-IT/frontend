@@ -10,6 +10,7 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   document.body.innerHTML = ''
 })
 
@@ -48,6 +49,26 @@ describe('기록 완료 토스트 읽기 시간', () => {
     vi.advanceTimersByTime(100)
     expect(wrapper.emitted('close')).toHaveLength(1)
     expect(media).toHaveBeenCalledWith('(hover: hover)')
+  })
+
+  it('matchMedia 가 없어도 포커스 정지 후 예외 없이 3.5초에 한 번만 닫힌다', async () => {
+    wrapper = await mountSuspended(RecordCompleteToast, { props: { open: false, kind: 'dew', count: 1 } })
+    vi.stubGlobal('matchMedia', undefined)
+    vi.useFakeTimers()
+    await wrapper.setProps({ open: true })
+    const root = document.body.querySelector('[role="status"]') as HTMLElement
+    const button = root.querySelector('button')!
+    vi.spyOn(root, 'matches').mockReturnValue(true)
+    button.focus()
+    expect(() => vi.advanceTimersByTime(10000)).not.toThrow()
+    expect(wrapper.emitted('close')).toBeFalsy()
+    button.blur()
+    vi.advanceTimersByTime(3400)
+    expect(wrapper.emitted('close')).toBeFalsy()
+    expect(() => vi.advanceTimersByTime(100)).not.toThrow()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    vi.advanceTimersByTime(5000)
+    expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
   it('닫힌 뒤 재개방하면 표시 시간이 초기화되고 언마운트가 타이머를 해제한다', async () => {
