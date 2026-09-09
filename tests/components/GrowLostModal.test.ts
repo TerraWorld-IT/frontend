@@ -58,6 +58,13 @@ describe('GrowLostModal', () => {
     expect(wrapper.emitted('revive')).toBeFalsy()
   })
 
+  it('adAvailable=false면 광고 버튼을 숨기고 루비와 닫기는 유지한다', async () => {
+    await mountSuspended(GrowLostModal, { props: { open: true, ruby: 0, rubyCost: 10, adAvailable: false } })
+    expect(buttons().ad).toBeUndefined()
+    expect(buttons().ruby.disabled).toBe(true)
+    expect(buttons().close).toBeDefined()
+  })
+
   it('open=false 면 미렌더', async () => {
     await mountSuspended(GrowLostModal, { props: { open: false, ruby: 0, rubyCost: 10 } })
     expect(document.body.querySelector('#grow-lost-title')).toBeNull()

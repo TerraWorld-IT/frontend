@@ -91,4 +91,6 @@ export const STORAGE_KEYS = {
   PUSH_TOKEN: 'tw-push-token',
   PUSH_OFF_PENDING_PREFIX: 'tw-push-off-pending.',
   THEME: 'tw-theme',
+  AD_PENDING: 'tw-ad-pending.',
+  AD_LIMIT_DATE: 'tw-ad-limit-date.',
 } as const
