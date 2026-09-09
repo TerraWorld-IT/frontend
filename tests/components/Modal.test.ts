@@ -1,8 +1,9 @@
 // UltraPlan M17 — component spec
 import { describe, it, expect, afterEach } from 'vitest'
-import { nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import Modal from '~/components/common/Modal.vue'
+import { useBackButtonStack } from '~/composables/useBackButtonStack'
 
 describe('Modal (common)', () => {
   // Modal 은 <Teleport to="body"> 라 mountSuspended wrapper 가 해제돼도
@@ -50,6 +51,83 @@ describe('Modal (common)', () => {
     confirmBtn.click()
     await wrapper.vm.$nextTick()
     expect(wrapper.emitted('confirm')).toBeFalsy()
+  })
+
+  it.each(['confirm', 'cancel', 'backdrop', 'close', 'escape', 'back'] as const)('busy 동안 %s 경로는 닫기와 액션을 발화하지 않는다', async (path) => {
+    const wrapper = await mountSuspended(Modal, { props: { modelValue: true, busy: true } })
+    const setup = wrapper.vm.$.setupState as { confirm: () => Promise<void>, cancel: () => void }
+    try {
+      if (path === 'confirm') {
+        const button = document.body.querySelector('[autofocus]') as HTMLButtonElement
+        expect(button.disabled).toBe(true)
+        button.click()
+        await setup.confirm()
+      }
+      else if (path === 'cancel') {
+        const button = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent?.includes('취소'))!
+        expect(button.disabled).toBe(true)
+        button.click()
+        setup.cancel()
+      }
+      else if (path === 'backdrop') (document.body.querySelector('[data-testid="modal-backdrop"]') as HTMLElement).click()
+      else if (path === 'close') {
+        const button = document.body.querySelector('[data-testid="modal-close"]') as HTMLButtonElement
+        expect(button.disabled).toBe(true)
+        button.click()
+      }
+      else if (path === 'escape') {
+        const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+        document.dispatchEvent(event)
+        expect(event.defaultPrevented).toBe(true)
+      }
+      else {
+        expect(useBackButtonStack().popTopBackHandler()).toBe(true)
+        expect(useBackButtonStack().popTopBackHandler()).toBe(true)
+      }
+      await nextTick()
+      expect(wrapper.emitted('confirm')).toBeFalsy()
+      expect(wrapper.emitted('cancel')).toBeFalsy()
+      expect(wrapper.emitted('update:modelValue')).toBeFalsy()
+      expect(document.body.querySelector('[role="dialog"]')?.getAttribute('aria-busy')).toBe('true')
+    }
+    finally { wrapper.unmount() }
+  })
+
+  it('busy 해제 후 Android back 으로 정상 닫힌다', async () => {
+    const wrapper = await mountSuspended(Modal, { props: { modelValue: true, busy: true } })
+    try {
+      await wrapper.setProps({ busy: false })
+      expect(useBackButtonStack().popTopBackHandler()).toBe(true)
+      expect(wrapper.emitted('cancel')).toHaveLength(1)
+      expect(wrapper.emitted('update:modelValue')).toEqual([[false]])
+    }
+    finally { wrapper.unmount() }
+  })
+
+  it('confirm 핸들러가 올린 부모 busy 를 기다리고 모달을 유지한다', async () => {
+    const busy = ref<boolean>(false)
+    const open = ref<boolean>(true)
+    let confirms = 0
+    const host = defineComponent({
+      setup: () => () => h(Modal, {
+        modelValue: open.value, busy: busy.value,
+        'onUpdate:modelValue': (value: boolean) => { open.value = value },
+        onConfirm: () => { confirms++; busy.value = true },
+      }),
+    })
+    const wrapper = await mountSuspended(host)
+    try {
+      ;(document.body.querySelector('[autofocus]') as HTMLButtonElement).click()
+      await nextTick(); await nextTick()
+      expect(confirms).toBe(1)
+      expect(open.value).toBe(true)
+      expect((document.body.querySelector('[autofocus]') as HTMLButtonElement).disabled).toBe(true)
+      busy.value = false
+      await nextTick()
+      ;(document.body.querySelector('[data-testid="modal-close"]') as HTMLButtonElement).click()
+      expect(open.value).toBe(false)
+    }
+    finally { wrapper.unmount() }
   })
 
   it('우상단 X(연파랑 원형) 클릭 시 cancel + update:modelValue=false emit', async () => {

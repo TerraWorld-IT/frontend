@@ -1,6 +1,6 @@
 // useToast — 아프젝 2종 토스트(card/pill) 확장 + 기존 success/error/info(message) 호환 계약.
 // nuxt 환경(vitest.config.ts)이라 useState 기반 composable 을 테스트 안에서 직접 호출할 수 있다.
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useToast } from '~/composables/useToast'
 
 function clearAll() {
@@ -12,6 +12,52 @@ function clearAll() {
 describe('useToast contract', () => {
   beforeEach(() => {
     clearAll()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    clearAll()
+    vi.clearAllTimers()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    document.body.innerHTML = ''
+  })
+
+  it.each(['success', 'error', 'info'] as const)('%s 는 기본 3초에서 포커스 정지 시간을 제외한다', (type) => {
+    const toast = useToast()
+    toast[type]('읽는 중')
+    const root = document.createElement('div')
+    root.dataset.toastId = String(toast.toasts.value[0]!.id)
+    const button = document.createElement('button')
+    root.append(button); document.body.append(root)
+    vi.advanceTimersByTime(1000)
+    button.focus()
+    vi.advanceTimersByTime(10000)
+    expect(toast.toasts.value).toHaveLength(1)
+    button.blur()
+    vi.advanceTimersByTime(1900)
+    expect(toast.toasts.value).toHaveLength(1)
+    vi.advanceTimersByTime(100)
+    expect(toast.toasts.value).toHaveLength(0)
+  })
+
+  it('card hover 와 대기열은 지정한 표시 시간을 소모하지 않는다', () => {
+    const toast = useToast()
+    toast.show({ title: '카드', description: '본문', duration: 1000 })
+    toast.info('대기', { duration: 2000 })
+    const root = document.createElement('div')
+    root.dataset.toastId = String(toast.toasts.value[0]!.id)
+    document.body.append(root)
+    const query = vi.spyOn(document, 'querySelector').mockReturnValue(root)
+    vi.advanceTimersByTime(10000)
+    expect(toast.toasts.value).toHaveLength(2)
+    query.mockRestore()
+    vi.advanceTimersByTime(1000)
+    expect(toast.toasts.value.map(t => t.message)).toEqual(['대기'])
+    vi.advanceTimersByTime(1800)
+    expect(toast.toasts.value).toHaveLength(1)
+    vi.advanceTimersByTime(200)
+    expect(toast.toasts.value).toHaveLength(0)
   })
 
   it('exports useToast function', async () => {

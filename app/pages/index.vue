@@ -179,10 +179,20 @@
       </div>
 
       <!-- ─── T14 병 캐러셀: Lv.1/2/3 레벨당 한 장 — 활성 병 레벨은 스테이지(slot), 나머지는 전환/해금 카드 ─── -->
+      <div v-if="!tier.loading.value && tier.loadError.value" class="flex flex-col items-center gap-3 py-10 text-apjek-text-sub">
+        <p class="text-[14px]">정보를 불러오지 못했어요</p>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+          @click="tier.load()"
+        >
+          다시 시도
+        </button>
+      </div>
       <TerrariumJarCarousel
         :levels="jarLevels"
         :selected-level="viewLevel"
-        :locked="editMode || healingMode"
+        :locked="editMode || healingMode || tier.loading.value || tier.loadError.value"
         data-layout-anchor="home-stage"
         @unlock="onUnlockRequest"
         @select="onSelectLevel"
@@ -723,6 +733,7 @@
     :title="$t('home.adCoinTitle')"
     :confirm-text="$t('home.adCoinConfirm')"
     :show-cancel="false"
+    :busy="adClaiming"
     @confirm="onClaimAdReward"
   >
     <div class="text-center py-2" data-testid="home-ad-body">
@@ -860,6 +871,7 @@ const showShareDialog = ref<boolean>(false)
 const showAttendance = ref<boolean>(false)
 const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
+const adClaiming = ref<boolean>(false)
 // 광고 진입점 가용성 — SSR 은 항상 숨김, 클라 마운트 후 판정(하이드레이션 mismatch 회피).
 // T7b: 메뉴는 상시 노출하고, 비가용 환경은 탭 시 안내 토스트(§4 N-3).
 const adAvailable = ref<boolean>(false)
@@ -868,6 +880,7 @@ onMounted(() => {
   adAvailable.value = (adNative && adAndroid) || import.meta.dev
 })
 function onAdMenuClick() {
+  if (adClaiming.value) return
   if (adAvailable.value) {
     showFreeCoinDialog.value = true
     return
@@ -1126,16 +1139,18 @@ const attendanceCycleDone = computed<boolean>(() => {
   return st.cycleBonusClaimed && (st.board.find(d => d.day === 7)?.claimed ?? false)
 })
 const attendanceSubtitle = computed<string>(() => {
+  if (attendance.error.value) return '정보를 불러오지 못했어요'
   if (attendanceCycleDone.value) return '7일 출석을 모두 달성했어요!'
   if (alreadyCheckedToday.value) return '오늘 출석 완료!'
   return '7일 연속 출석하면 보너스 루비를 받아요!'
 })
 const attendanceCtaLabel = computed<string>(() => {
+  if (attendance.error.value) return '다시 시도'
   if (attendanceCycleDone.value) return '7일 출석 완료'
   if (alreadyCheckedToday.value) return '오늘 출석 완료'
   return '출석하기'
 })
-const attendanceCtaDisabled = computed<boolean>(() => alreadyCheckedToday.value || attendanceLoading.value)
+const attendanceCtaDisabled = computed<boolean>(() => attendanceLoading.value || (!attendance.error.value && alreadyCheckedToday.value))
 
 // 보유 아이템 — slug 기준으로 소유 판정. 관리 패널 탭별로 layout 으로 나눈다
 // (아이템 배치 = FOREGROUND, 정령 = FIGURE, 배경 = BACKGROUND).
@@ -1458,7 +1473,7 @@ async function onSaveManage() {
         return
       }
     }
-    toast.success('저장됨', { variant: 'pill' })
+    if (user.value?.entitlements?.freePlacement) toast.success('저장됨', { variant: 'pill' })
     saving.value = false
     placementBusy.value = false
     exitManageMode()
@@ -1754,6 +1769,11 @@ async function onHeartClick() {
 
 // ─── 출석 (useAttendance 실 API) ───
 async function onAttendanceCheck() {
+  if (attendanceLoading.value) return
+  if (attendance.error.value) {
+    await attendance.refresh()
+    return
+  }
   if (alreadyCheckedToday.value) return
   const result = await attendance.checkIn()
   if (result) {
@@ -1772,6 +1792,8 @@ async function onAttendanceCheck() {
 
 // ─── 광고 보상 (기존 로직 보존 — 보상 표시는 서버 응답(RUBY 1) 기준) ───
 async function onClaimAdReward() {
+  if (adClaiming.value) return
+  adClaiming.value = true
   try {
     const { showRewardedAd, generateNonce } = useAdMob()
     const nonce = generateNonce()
@@ -1793,9 +1815,13 @@ async function onClaimAdReward() {
     const reward = ad?.reward.specialCoins ?? 0
     toast.success(t('home.adRewardEarned', { n: reward }), { variant: 'pill' })
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
+    showFreeCoinDialog.value = false
   }
   catch (e) {
     toast.error((e as Error).message)
+  }
+  finally {
+    adClaiming.value = false
   }
 }
 
@@ -2052,7 +2078,7 @@ const unlockSuccess = ref<TierUnlockSuccess | null>(null)
 // 해금된 카드 탭 = 표시 병 전환(PUT /terrarium/active-tier). 배치·슬롯 수가 티어별이라 전환 성공 후
 // 홈 스냅샷(terrarium + free-placement)을 강제 재조회해 스테이지를 그 병의 배치로 바꾼다(댓글 #46).
 async function switchActiveTier(level: JarLevel): Promise<boolean> {
-  if (tierSwitching.value) return false
+  if (tierSwitching.value || tier.loading.value || tier.loadError.value) return false
   if (!level.unlocked) return false
   if (level.active) return true
   tierSwitching.value = true
@@ -2079,6 +2105,7 @@ function onSelectLevel(level: JarLevel) {
   void switchActiveTier(level)
 }
 function onUnlockRequest(level: JarLevel) {
+  if (tier.loading.value || tier.loadError.value) return
   unlockSuccess.value = null
   unlockTarget.value = level
 }

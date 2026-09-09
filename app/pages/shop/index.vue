@@ -143,7 +143,7 @@
           <!-- CTA — 검정 [구매하기] / 연파랑 [보유중](disabled) / 재화 부족 시 비활성 -->
           <button
             type="button"
-            :disabled="isOwned(item) || !canAfford(item) || purchasing === item.id"
+            :disabled="isOwned(item) || !canAfford(item) || purchasing !== null"
             class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] w-full h-8 rounded-full text-[12px] font-semibold text-center transition-all disabled:active:scale-100"
             :class="isOwned(item)
               ? 'bg-apjek-blue-soft text-apjek-blue-deep cursor-default'
@@ -292,7 +292,7 @@ function canAfford(item: ItemResponse): boolean {
 
 // --- 구매 (idempotencyKey) ---
 async function onPurchase(item: ItemResponse) {
-  if (isOwned(item) || !canAfford(item) || purchasing.value) return
+  if (isOwned(item) || !canAfford(item) || purchasing.value !== null) return
   purchasing.value = item.id
   try {
     const { data, error } = await sdk.purchaseItem({

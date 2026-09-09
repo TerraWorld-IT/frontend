@@ -157,7 +157,7 @@
               type="button"
               class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               :class="friend.liked ? 'apjek-chip-active' : ''"
-              :disabled="likingId === friend.userId"
+              :disabled="likingId !== null"
               :aria-pressed="friend.liked ? 'true' : 'false'"
               @click="onToggleLike(friend)"
             >
@@ -245,7 +245,7 @@ async function loadFriends() {
 }
 
 async function onToggleLike(friend: FriendItem) {
-  if (likingId.value) return
+  if (likingId.value !== null) return
   likingId.value = friend.userId
   try {
     const { data, error } = await sdk.toggleFriendLike({ client, path: { friendId: friend.userId } })
