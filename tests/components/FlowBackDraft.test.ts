@@ -10,6 +10,10 @@ import AppUpdateGate from '~/components/common/AppUpdateGate.vue'
 import { useBackButtonStack } from '~/composables/useBackButtonStack'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { readDraft, writeDraft } from '~/utils/draftStorage'
+import type { UserMeResponse } from '@terraworld-it/openapi-frontend'
+
+const profile = ref<UserMeResponse | null>(null)
+const session = ref<{ data: { user: { id: string } } | null }>({ data: null })
 
 const mocks = vi.hoisted(() => ({
   sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'getUnreadNotificationCount'].map(key => [key, vi.fn()])),
@@ -21,10 +25,10 @@ const mocks = vi.hoisted(() => ({
   nativeStart: vi.fn(), nativeStop: vi.fn(), nativeAvailable: false,
 }))
 vi.mock('vue-router', async () => ({ ...(await vi.importActual('vue-router')), onBeforeRouteLeave: mocks.routeLeave }))
-vi.mock('~/stores/user', () => ({ useUserStore: () => mocks.user }))
+vi.mock('~/stores/user', () => ({ useUserStore: () => ({ ...mocks.user, get me() { return profile.value } }) }))
 vi.mock('~/stores/items', () => ({ useItemsStore: () => ({ items: [], fetchAll: vi.fn() }) }))
 vi.mock('~/stores/homeSnapshot', () => ({ useHomeSnapshotStore: () => mocks.home }))
-vi.mock('~/lib/auth-client', () => ({ authClient: { getSession: mocks.getSession, signIn: { email: mocks.signIn }, signUp: { email: mocks.signUp } } }))
+vi.mock('~/lib/auth-client', () => ({ authClient: { useSession: () => session, getSession: mocks.getSession, signIn: { email: mocks.signIn }, signUp: { email: mocks.signUp } } }))
 vi.mock('~/lib/nativeDistanceTracker', () => ({
   isNativeDistanceTrackerAvailable: async () => mocks.nativeAvailable,
   DistanceTracker: { start: mocks.nativeStart, stop: mocks.nativeStop, drain: vi.fn(async () => ({ fixes: [] })) },
@@ -62,6 +66,8 @@ function state(wrapper: VueWrapper): Record<string, any> {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.user.me.userId = 'u1'
+  profile.value = mocks.user.me as UserMeResponse
+  session.value = { data: null }
   mocks.nativeAvailable = false
   mocks.nativeStart.mockResolvedValue(undefined)
   mocks.nativeStop.mockResolvedValue({ fixes: [] })
@@ -70,7 +76,7 @@ beforeEach(() => {
   mocks.sdk.listRecords!.mockResolvedValue({ data: { content: [], totalPages: 1 } })
   mocks.sdk.getRecordStatistics!.mockResolvedValue({ data: { totalRecords: 0, byCategory: [] } })
   mocks.sdk.getNote!.mockResolvedValue({ data: { note: '서버 메모' } })
-  mocks.user.fetchMe.mockResolvedValue(undefined)
+  mocks.user.fetchMe.mockReset().mockResolvedValue(undefined)
   mocks.getSession.mockResolvedValue({ data: null })
   mocks.signIn.mockResolvedValue({ error: null })
   mocks.signUp.mockResolvedValue({ error: null })
@@ -235,6 +241,164 @@ describe('PR-A 뒤로가기', () => {
 })
 
 describe('PR-A 이탈 초안', () => {
+  it('프로필 없이 세션만 있는 직접 진입에서 일기와 습관 이름을 닫기 저장하고 재마운트 복원한다', async () => {
+    profile.value = null
+    session.value = { data: { user: { id: 'session-user' } } }
+    const w = await mountPage(RecordPage, true)
+    const s = state(w)
+    s.openModal = 'diary'
+    await nextTick()
+    s.diaryTitle = '직접 진입'
+    s.diaryText = '일기 입력'
+    s.onSheetClose()
+    await nextTick()
+    expect(readDraft(`${STORAGE_KEYS.DRAFT_DIARY}session-user`)).toEqual({ title: '직접 진입', text: '일기 입력' })
+    s.openHabitCreate()
+    await nextTick()
+    const habit = state(w.getComponent({ name: 'RecordHabitCreateSheet' }))
+    habit.title = '습관 입력'
+    habit.onClose()
+    await nextTick()
+    expect(readDraft(`${STORAGE_KEYS.DRAFT_HABIT_TITLE}session-user`)).toBe('습관 입력')
+    expect(mocks.user.fetchMe).not.toHaveBeenCalled()
+    w.unmount()
+    wrappers.splice(wrappers.indexOf(w), 1)
+    const next = await mountPage(RecordPage, true)
+    expect(state(next).diaryText).toBe('일기 입력')
+    state(next).openHabitCreate()
+    await nextTick()
+    expect(state(next.getComponent({ name: 'RecordHabitCreateSheet' })).title).toBe('습관 입력')
+    expect(profile.value).toBeNull()
+  })
+
+  it('프로필 없이 세션만 있는 캘린더 직접 진입에서 메모를 닫기 저장하고 재마운트 복원한다', async () => {
+    profile.value = null
+    session.value = { data: { user: { id: 'session-user' } } }
+    const w = await mountPage(CalendarPage)
+    const s = state(w)
+    await s.selectDay(10)
+    s.startEdit()
+    s.editingNoteText = '직접 진입 메모'
+    s.closeSheet()
+    const key = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}session-user.${s.dateKey(10)}`
+    expect(readDraft(key)).toBe('직접 진입 메모')
+    expect(mocks.user.fetchMe).not.toHaveBeenCalled()
+    w.unmount()
+    wrappers.splice(wrappers.indexOf(w), 1)
+    const next = state(await mountPage(CalendarPage))
+    await next.selectDay(10)
+    expect(next.editingNoteText).toBe('직접 진입 메모')
+    expect(profile.value).toBeNull()
+  })
+
+  it.each(['session', 'profile'])('늦은 %s ID는 빈 일기·습관만 복원하고 작성한 입력은 유지한다', async (source) => {
+    for (const typed of [false, true]) {
+      profile.value = null
+      session.value = { data: null }
+      writeDraft(`${STORAGE_KEYS.DRAFT_DIARY}late-user`, { title: '저장 제목', text: '저장 일기' })
+      writeDraft(`${STORAGE_KEYS.DRAFT_HABIT_TITLE}late-user`, '저장 습관')
+      let resolve!: () => void
+      mocks.user.fetchMe.mockImplementationOnce(() => new Promise<void>(done => { resolve = done }))
+      const w = await mountPage(RecordPage, true)
+      const s = state(w)
+      expect(mocks.user.fetchMe).toHaveBeenCalled()
+      s.openModal = 'diary'
+      // 초기 조회 버튼 가드와 별개로 열린 자식 시트의 늦은 ID 연결도 검증한다.
+      s.habitCreateOpen = true
+      await nextTick()
+      const habit = state(w.getComponent({ name: 'RecordHabitCreateSheet' }))
+      if (typed) {
+        s.diaryText = '새 일기'
+        habit.title = '새 습관'
+      }
+      if (source === 'session') session.value = { data: { user: { id: 'late-user' } } }
+      else profile.value = { ...mocks.user.me, userId: 'late-user' } as UserMeResponse
+      resolve()
+      await flushPromises()
+      expect(s.diaryText).toBe(typed ? '새 일기' : '저장 일기')
+      expect(s.diaryTitle).toBe(typed ? '' : '저장 제목')
+      expect(habit.title).toBe(typed ? '새 습관' : '저장 습관')
+      s.onSheetClose()
+      habit.onClose()
+      await nextTick()
+      expect(readDraft(`${STORAGE_KEYS.DRAFT_DIARY}late-user`)).toEqual({ title: typed ? '' : '저장 제목', text: typed ? '새 일기' : '저장 일기' })
+      expect(readDraft(`${STORAGE_KEYS.DRAFT_HABIT_TITLE}late-user`)).toBe(typed ? '새 습관' : '저장 습관')
+      w.unmount()
+      wrappers.splice(wrappers.indexOf(w), 1)
+    }
+  })
+
+  it.each(['session', 'profile'])('늦은 %s ID는 빈 메모만 복원하고 작성한 입력은 유지한다', async (source) => {
+    for (const typed of [false, true]) {
+      profile.value = null
+      session.value = { data: null }
+      mocks.sdk.getNote!.mockResolvedValue({ data: { note: '' } })
+      let resolve!: () => void
+      mocks.user.fetchMe.mockImplementationOnce(() => new Promise<void>(done => { resolve = done }))
+      const w = await mountPage(CalendarPage)
+      const s = state(w)
+      expect(mocks.user.fetchMe).toHaveBeenCalled()
+      const key = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}late-user.${s.dateKey(10)}`
+      writeDraft(key, '저장 메모')
+      await s.selectDay(10)
+      s.startEdit()
+      if (typed) s.editingNoteText = '새 메모'
+      if (source === 'session') session.value = { data: { user: { id: 'late-user' } } }
+      else profile.value = { ...mocks.user.me, userId: 'late-user' } as UserMeResponse
+      resolve()
+      await flushPromises()
+      expect(s.editingNoteText).toBe(typed ? '새 메모' : '저장 메모')
+      s.closeSheet()
+      expect(readDraft(key)).toBe(typed ? '새 메모' : '저장 메모')
+      w.unmount()
+      wrappers.splice(wrappers.indexOf(w), 1)
+    }
+  })
+
+  it('세션 ID를 프로필 ID보다 우선하고 사용자 ID가 없으면 공용 초안을 쓰지 않는다', async () => {
+    session.value = { data: { user: { id: 'session-user' } } }
+    writeDraft(`${STORAGE_KEYS.DRAFT_DIARY}u1`, { text: '다른 프로필 초안' })
+    const w = await mountPage(RecordPage)
+    expect(state(w).diaryText).toBe('')
+    w.unmount()
+    wrappers.splice(wrappers.indexOf(w), 1)
+    localStorage.clear()
+    profile.value = null
+    session.value = { data: null }
+    const s = state(await mountPage(RecordPage, true))
+    s.openModal = 'diary'
+    await nextTick()
+    s.diaryText = 'ID 미확인 입력'
+    s.onSheetClose()
+    await nextTick()
+    expect(localStorage.length).toBe(0)
+  })
+
+  it.each(['v1', '  v1  ', ''])('이전 캘린더의 지연 저장 성공(%s)은 새 인스턴스의 v2 초안을 유지한다', async (text) => {
+    const w = await mountPage(CalendarPage)
+    const s = state(w)
+    await s.selectDay(10)
+    s.startEdit()
+    s.editingNoteText = text
+    let resolve!: (value: unknown) => void
+    const request = text.trim() ? mocks.sdk.saveNote! : mocks.sdk.deleteNote!
+    request.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const saving = s.saveNote()
+    expect(mocks.routeLeave.mock.calls[0]![0]()).toBe(true)
+    w.unmount()
+    wrappers.splice(wrappers.indexOf(w), 1)
+    const next = state(await mountPage(CalendarPage))
+    await next.selectDay(10)
+    expect(next.editingNoteText).toBe(text)
+    next.editingNoteText = 'v2 newer unsent'
+    next.closeSheet()
+    const key = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}u1.${next.dateKey(10)}`
+    expect(readDraft(key)).toBe('v2 newer unsent')
+    resolve({ data: { note: text.trim() } })
+    await saving
+    expect(readDraft(key)).toBe('v2 newer unsent')
+  })
+
   it('습관 이름은 부모 라우트 이탈에서도 저장되고 생성 성공 후 닫힘·언마운트가 재생성하지 않는다', async () => {
     const key = `${STORAGE_KEYS.DRAFT_HABIT_TITLE}u1`
     const w = await mountPage(RecordPage, true)
@@ -300,6 +464,7 @@ describe('PR-A 이탈 초안', () => {
   it('다른 사용자 일기 초안을 복원하지 않는다', async () => {
     writeDraft(`${STORAGE_KEYS.DRAFT_DIARY}u1`, { title: '사용자1', text: '비공개 초안' })
     mocks.user.me.userId = 'u2'
+    profile.value = { ...profile.value!, userId: 'u2' }
     const s = state(await mountPage(RecordPage))
     s.openModal = 'diary'
     await nextTick()

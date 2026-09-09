@@ -3,9 +3,11 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { readDraft } from '~/utils/draftStorage'
+import { ref } from 'vue'
 import HabitCreateSheet from '~/components/record/HabitCreateSheet.vue'
 
 vi.mock('~/stores/user', () => ({ useUserStore: () => ({ me: { userId: 'habit-user' } }) }))
+vi.mock('~/lib/auth-client', () => ({ authClient: { useSession: () => ref<{ data: null }>({ data: null }) } }))
 
 const wrappers: VueWrapper[] = []
 

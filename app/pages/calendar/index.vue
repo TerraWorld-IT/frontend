@@ -364,6 +364,7 @@ import type {
 import { recordDisplayIcon, recordDisplayLabel, STORAGE_KEYS } from '~/utils/constants'
 import { useBackButtonStack } from '~/composables/useBackButtonStack'
 import { useUserStore } from '~/stores/user'
+import { authClient } from '~/lib/auth-client'
 import { onBeforeRouteLeave } from 'vue-router'
 import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 
@@ -373,6 +374,8 @@ const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { t } = useI18n()
 const userStore = useUserStore()
+const session = authClient.useSession()
+const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
 let noteDraftKey: string | null = null
 
 const DAYS = computed<string[]>(() => [
@@ -440,6 +443,13 @@ function restoreNoteDraft() {
   editingNoteText.value = draft
   isEditingNote.value = true
 }
+
+// 직접 진입 뒤 ID가 확보되면 열린 날짜에 연결하고 빈 입력에만 초안을 복원한다.
+watch(draftUserId, (userId, previous) => {
+  if (!selectedDate.value || !userId || previous) return
+  noteDraftKey = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}${userId}.${toDateKey(selectedDate.value)}`
+  if (!editingNoteText.value) restoreNoteDraft()
+})
 
 function onSheetClose() {
   if (openMenuId.value !== null) {
@@ -553,6 +563,7 @@ async function load() {
     const [statsRes, records] = await Promise.all([
       sdk.getRecordStatistics({ client }),
       fetchMonthRecords(viewYear.value, viewMonth.value + 1),
+      session.value?.data?.user?.id ? Promise.resolve() : userStore.fetchMe(),
     ])
     if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
     stats.value = castData<StatisticsResponse>(statsRes.data) ?? null
@@ -629,7 +640,7 @@ async function selectDay(day: number) {
   noteLoading.value = false
   noteLoadFailed.value = false
   openMenuId.value = null
-  const userId = userStore.me?.userId
+  const userId = draftUserId.value
   noteDraftKey = userId ? `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}${userId}.${key}` : null
   restoreNoteDraft()
 
@@ -703,10 +714,11 @@ async function saveNote() {
   if (!selectedDate.value || noteSaving.value) return
   const key = toDateKey(selectedDate.value)
   const savedDraftKey = noteDraftKey
+  const savedDraftText = editingNoteText.value
   const version = ++noteRequestVersion.value
   noteSaving.value = true
   try {
-    const text = editingNoteText.value.trim()
+    const text = savedDraftText.trim()
     if (text) {
       const { data, error } = await sdk.saveNote({ client, path: { date: key }, body: { note: text } })
       if (error) throw new Error(errMsg(error, '메모 저장 실패'))
@@ -723,7 +735,8 @@ async function saveNote() {
       if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) selectedNote.value = null
       toast.success(t('calendar.memoDeleted'))
     }
-    if (savedDraftKey) clearDraft(savedDraftKey)
+    // 이전 페이지의 늦은 성공 응답은 다른 인스턴스가 남긴 새 초안을 삭제하지 않는다.
+    if (savedDraftKey && readDraft<unknown>(savedDraftKey) === savedDraftText) clearDraft(savedDraftKey)
     if (version === noteRequestVersion.value && selectedDate.value && toDateKey(selectedDate.value) === key) {
       void dismissKeyboard()
       isEditingNote.value = false

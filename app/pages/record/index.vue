@@ -544,6 +544,7 @@ import type {
 } from '@terraworld-it/openapi-frontend'
 import { TOKEN_ICON_SRC } from '~/utils/currency'
 import { useUserStore } from '~/stores/user'
+import { authClient } from '~/lib/auth-client'
 import { deriveHabitView, type HabitView } from '~/utils/habitState'
 import type { DailyTokenKind } from '~/components/record/RecordCompleteToast.vue'
 import { onBeforeRouteLeave } from 'vue-router'
@@ -556,6 +557,8 @@ const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { trackRecordCreated } = useGtagEvents()
 const userStore = useUserStore()
+const session = authClient.useSession()
+const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
 const {
   trackers,
   loaded: habitsLoaded,
@@ -1000,12 +1003,19 @@ const diaryText = ref<string>('')
 let diaryDraftKey: string | null = null
 
 function restoreDiaryDraft() {
-  const userId = userStore.me?.userId
+  const userId = draftUserId.value
   diaryDraftKey = userId ? `${STORAGE_KEYS.DRAFT_DIARY}${userId}` : null
   const draft = diaryDraftKey ? readDraft<Record<string, unknown>>(diaryDraftKey) : null
   diaryTitle.value = typeof draft?.title === 'string' ? draft.title : ''
   diaryText.value = typeof draft?.text === 'string' ? draft.text : ''
 }
+
+// 직접 진입 후 사용자가 확인되면 키를 연결하되 이미 작성한 입력은 보존한다.
+watch(draftUserId, (userId, previous) => {
+  if (!userId || previous) return
+  diaryDraftKey = `${STORAGE_KEYS.DRAFT_DIARY}${userId}`
+  if (!diaryTitle.value && !diaryText.value) restoreDiaryDraft()
+})
 
 function persistDiaryDraft() {
   if (!diaryDraftKey) return
@@ -1582,6 +1592,7 @@ async function loadInitial() {
     const [catRes, friRes] = await Promise.all([
       sdk.listCategories({ client }),
       sdk.listFriends({ client }),
+      session.value?.data?.user?.id ? Promise.resolve() : userStore.fetchMe(),
     ])
     if (!catRes.error) {
       categories.value = castData<CategoryListResponse>(catRes.data)?.categories ?? []

@@ -188,6 +188,7 @@
 import type { FriendInfo } from '@terraworld-it/openapi-frontend'
 import { HABIT_REWARD_SPARKLE } from '~/utils/habitState'
 import { useUserStore } from '~/stores/user'
+import { authClient } from '~/lib/auth-client'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 
@@ -218,6 +219,8 @@ const mode = ref<Mode | null>(null)
 const title = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
 const userStore = useUserStore()
+const session = authClient.useSession()
+const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
 let draftKey: string | null = null
 
 // 선택한 친구를 DOM 맨 앞으로 옮겨 표시 순서와 키보드 탐색 순서를 맞춘다.
@@ -239,12 +242,21 @@ const canProceedName = computed<boolean>(() => title.value.trim().length > 0)
 function reset() {
   step.value = 1
   mode.value = null
-  const userId = userStore.me?.userId
+  const userId = draftUserId.value
   draftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}` : null
   const draft = draftKey ? readDraft<unknown>(draftKey) : null
   title.value = typeof draft === 'string' ? draft : ''
   selectedFriendId.value = null
 }
+
+// 부모 초기 조회로 ID가 늦게 확보돼도 현재 이름을 덮어쓰지 않는다.
+watch(draftUserId, (userId, previous) => {
+  if (!props.open || !userId || previous) return
+  draftKey = `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}`
+  if (title.value) return
+  const draft = readDraft<unknown>(draftKey)
+  if (typeof draft === 'string') title.value = draft
+})
 
 // 이름만 복원하며 유형·친구 선택·단계는 새로 시작한다.
 watch(() => props.open, (open, previous) => {
