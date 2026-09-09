@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import * as sdk from '@terraworld-it/openapi-frontend'
+import { authClient } from '~/lib/auth-client'
 
 /**
  * Capacitor client-only plugin.
@@ -106,6 +107,8 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     const { trackPushRegistrationFailed } = useGtagEvents()
 
     PushNotifications.addListener('registration', async (token) => {
+      const session = await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => null)
+      if (session?.error || (session?.data?.user as { pushConsent?: boolean } | undefined)?.pushConsent !== true) return
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
       // iOS: Firebase Messaging 미통합 상태라 이 토큰은 raw APNs 토큰이다 — 백엔드 FcmService 는
@@ -162,32 +165,19 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       if (title) useToast().info(title)
     })
 
-    // 권한 요청 + 등록 트리거 — 부팅 경로에서 로그인-이후로 이동 (2026-07-15 FE-01).
-    // 이전에는 여기서 즉시 `await requestPermissions()` 해 첫 실행 시 사용자가 푸시 권한
-    // 다이얼로그에 응답할 때까지 앱 마운트가 블록됐고, 미로그인 상태의 registerDevice 는
-    // 401 로 버려져 "로그인 후 재등록 경로 없음" 갭이 있었다.
-    // → isLoggedIn 이 true 가 되는 시점(부팅 세션 복원 or 이후 로그인 — refreshJwt 성공이
-    //   유일한 true 전이점)에 1회 fire-and-forget 으로 요청+등록한다. 리스너는 위에서 이미
-    //   부착됐으므로 'registration' 이벤트를 놓치지 않는다. 권한 프롬프트도 콘텐츠를 본 뒤에
-    //   뜨므로 opt-in 관점에서도 개선.
+    // 로그인·복귀 시에는 기존 동의와 권한만 확인한다. 권한 요청은 설정의 사용자 액션에서만 한다.
     const { isLoggedIn } = useAuth()
+    const { registerPushIfGranted } = useNative()
     let pushRegistrationTriggered = false
     function triggerPushRegistration() {
       if (!isLoggedIn.value || pushRegistrationTriggered) return
       pushRegistrationTriggered = true
-      void (async () => {
-        try {
-          const perm = await PushNotifications.requestPermissions()
-          if (perm.receive === 'granted') {
-            await PushNotifications.register()
-          }
-          // denied 는 latch 유지 — 같은 세션에서 반복 프롬프트/무의미 재시도 안 함.
-        }
-        catch {
-          // 일시 실패 (플러그인/네이티브) — latch 해제해 다음 login/resume 에서 재시도.
-          pushRegistrationTriggered = false
-        }
-      })()
+      void registerPushIfGranted().then((registered) => {
+        pushRegistrationTriggered = registered
+      }).catch(() => {
+        // 일시 실패 시 다음 로그인·복귀에서 조용히 재시도한다.
+        pushRegistrationTriggered = false
+      })
     }
     retryPushRegistration = triggerPushRegistration
     watch(isLoggedIn, (loggedIn) => {

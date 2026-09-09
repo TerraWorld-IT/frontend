@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { authClient } from '~/lib/auth-client'
 
 /**
  * Native API bridge composable.
@@ -157,13 +158,25 @@ export function useNative() {
 
   // --- Push Notifications ---
   async function registerPush() {
-    if (!isNative) return null
+    if (!isNative || isIOS) return null
     const { PushNotifications } = await import('@capacitor/push-notifications')
     const perm = await PushNotifications.requestPermissions()
     if (perm.receive === 'granted') {
       await PushNotifications.register()
     }
     return perm
+  }
+
+  /** 기존 동의와 OS 권한이 모두 있을 때만 프롬프트 없이 등록한다. */
+  async function registerPushIfGranted(): Promise<boolean> {
+    if (!isNative || isIOS) return false
+    const { data, error } = await authClient.getSession({ query: { disableCookieCache: true } })
+    if (error || (data?.user as { pushConsent?: boolean } | undefined)?.pushConsent !== true) return false
+    const { PushNotifications } = await import('@capacitor/push-notifications')
+    const perm = await PushNotifications.checkPermissions()
+    if (perm.receive !== 'granted') return false
+    await PushNotifications.register()
+    return true
   }
 
   /**
@@ -226,6 +239,7 @@ export function useNative() {
     hapticNotification,
     takePhoto,
     registerPush,
+    registerPushIfGranted,
     onPushReceived,
     hideSplash,
     setStatusBarColor,

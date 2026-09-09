@@ -262,7 +262,7 @@ const { t, te } = useI18n()
 const { loadJwt } = useAuth()
 const toast = useToast()
 const { trackLogin, trackSignup } = useGtagEvents()
-const { registerPush } = useNative()
+const { registerPushIfGranted } = useNative()
 
 /**
  * 콜드 스타트 세션 복구.
@@ -433,9 +433,8 @@ async function onSubmit() {
       if (!token) throw new Error(t('auth.tokenError'))
 
       trackLogin('email')
-      // FCM: 로그인 직후 디바이스 토큰 등록 재시도. 부팅 시 미로그인이라 401 났던 토큰을
-      // 인증 상태에서 재등록 (native 전용 — 웹/iOS sim 은 no-op). 네비게이션 차단 방지 위해 fire-and-forget.
-      void registerPush().catch(() => {})
+      // 기존 푸시 동의와 OS 권한이 있는 경우에만 프롬프트 없이 재등록한다.
+      void registerPushIfGranted().catch(() => {})
       toast.success(t('auth.welcomeBack'))
       // 로그인 폼 전체가 페이지 이동으로 언마운트되기 전 키보드 해제 (utils/keyboard.ts 참조).
       void dismissKeyboard()
@@ -476,8 +475,8 @@ async function onSubmit() {
       if (!token) throw new Error(t('auth.tokenError'))
 
       trackSignup('email')
-      // FCM: 가입 직후 디바이스 토큰 등록 (위 로그인 분기와 동일 — fire-and-forget, native 전용).
-      void registerPush().catch(() => {})
+      // 가입 직후에는 권한을 요청하지 않는다. 기존 동의·권한만 확인한다.
+      void registerPushIfGranted().catch(() => {})
       toast.success(t('auth.signupSuccess'))
       void dismissKeyboard()
       await navigateTo('/')
