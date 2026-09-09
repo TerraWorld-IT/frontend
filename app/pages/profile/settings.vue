@@ -165,10 +165,11 @@
       message="계정과 활동 기록, 테라리움 등 계정에 연결된 정보가 즉시 삭제되며 복구할 수 없습니다. 법령에 따라 보관해야 하는 기록은 개인정보 처리방침에 따라 보관됩니다. 계속하려면 비밀번호를 입력해 주세요."
       :confirm-text="deletingAccount ? '삭제 중…' : '삭제'"
       :confirm-disabled="deletingAccount || !deletePassword"
+      :busy="deletingAccount"
       :show-cancel="!deletingAccount"
       :show-close="!deletingAccount"
       variant="danger"
-      @update:model-value="onDeleteDialogChange"
+      @cancel="onDeleteDialogChange(false)"
       @confirm="onDeleteAccount"
     >
       <label for="delete-account-password" class="text-[14px] font-semibold text-apjek-text">비밀번호</label>
@@ -216,8 +217,6 @@ async function onDeleteAccount() {
   try {
     if (!deletePassword.value.trim()) {
       toast.error('비밀번호를 입력해 주세요')
-      // 공용 모달의 확인 직후 닫기 이벤트를 막고 입력 화면을 유지한다.
-      await nextTick()
       return
     }
     const { error } = await authClient.deleteUser({ password: deletePassword.value })

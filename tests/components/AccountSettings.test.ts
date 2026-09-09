@@ -185,6 +185,12 @@ describe('계정 설정', () => {
     expect(mocks.toast.error).toHaveBeenCalledWith('계정 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.')
     expect(mocks.signOutAndClear).not.toHaveBeenCalled()
     expect(w.find('[role="dialog"]').exists()).toBe(true)
+    expect((w.get('#delete-account-password').element as HTMLInputElement).value).toBe('password')
+    expect(w.get('[role="dialog"] button[autofocus]').attributes('disabled')).toBeUndefined()
+    await w.get('[data-testid="modal-close"]').trigger('click')
+    expect(w.find('[role="dialog"]').exists()).toBe(false)
+    await w.get('[data-testid="delete-account"]').trigger('click')
+    expect((w.get('#delete-account-password').element as HTMLInputElement).value).toBe('')
   })
 
   it('공백 비밀번호는 서버 호출 없이 입력 안내를 표시한다', async () => {
@@ -197,6 +203,12 @@ describe('계정 설정', () => {
     expect(mocks.deleteUser).not.toHaveBeenCalled()
     expect(mocks.signOutAndClear).not.toHaveBeenCalled()
     expect(w.find('[role="dialog"]').exists()).toBe(true)
+    await w.get('#delete-account-password').setValue('correct-password')
+    await w.get('[role="dialog"] button[autofocus]').trigger('click')
+    await flushPromises()
+    expect(mocks.deleteUser).toHaveBeenCalledExactlyOnceWith({ password: 'correct-password' })
+    expect(mocks.navigate).toHaveBeenCalledWith('/auth/login')
+    expect(w.find('[role="dialog"]').exists()).toBe(false)
   })
 
   it('서버 PASSWORD_REQUIRED 오류를 비밀번호 입력 안내로 표시한다', async () => {
