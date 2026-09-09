@@ -199,14 +199,20 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       triggerPushRegistration()
     })
     triggerPushRegistration()
+  } catch {
+    // 푸시 미지원 환경(예: iOS 시뮬레이터)은 건너뛴다.
+  }
 
+  // 푸시 초기화 실패와 무관하게 구매 복구를 등록한다.
+  try {
+    const { isLoggedIn } = useAuth()
     // 미완료 IAP 콜드스타트 복구 (audit B1-2) — verify 에 bearer 가 필요하므로 로그인 이후에만.
     // 멱등(등록 1회 가드)이라 로그인 전이마다 호출해도 안전. fire-and-forget — 부팅 비차단.
     watch(isLoggedIn, (loggedIn) => {
       if (loggedIn) void recoverPendingPurchases()
     }, { immediate: true })
   } catch {
-    // Push not available — ignore (e.g., iOS simulator)
+    // 구매 복구 초기화 실패도 다른 네이티브 하위 시스템을 막지 않는다.
   }
 
   // --- Keyboard ---

@@ -69,6 +69,77 @@ function deferred<T = any>() {
   return { promise, resolve, reject }
 }
 
+describe('WP2a 조회 상태', () => {
+  it('B-10 첫 로딩/실패/빈 결과를 구분하고 명시 재시도로 루틴을 다시 읽는다', async () => {
+    const pending = deferred()
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(pending.promise)
+    const w = await mountPage(TodoSheet, { open: false })
+    const s = state(w)
+    expect(s.pending).toBe(false)
+    await w.setProps({ open: true })
+    s.segment = 'routine'
+    await nextTick()
+    expect(s.pending).toBe(true)
+    expect(w.text()).not.toContain('매일 반복할 항목을 루틴으로 등록해보세요')
+    pending.resolve({ error: { message: 'unavailable' } })
+    await flushPromises()
+    expect(w.text()).toContain('정보를 불러오지 못했어요')
+    expect(w.text()).not.toContain('매일 반복할 항목을 루틴으로 등록해보세요')
+    const retry = w.findAll('button').find(button => button.text() === '다시 시도')!
+    await retry.trigger('click')
+    await flushPromises()
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(2)
+    expect(w.text()).toContain('매일 반복할 항목을 루틴으로 등록해보세요')
+    expect(s.loadFailed).toBe(false)
+    const refresh = deferred()
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(refresh.promise)
+    await w.setProps({ open: false })
+    await w.setProps({ open: true })
+    expect(s.pending).toBe(false)
+    refresh.resolve({ data: { routines: [] } })
+    await flushPromises()
+  })
+
+  it('B-12 초기 자료 조회와 실패 중에는 입력 진입을 막고 재시도 성공 후 해제한다', async () => {
+    const pending = deferred()
+    mocks.sdk.listFriends!.mockReturnValueOnce(pending.promise)
+    const w = await mountPage(RecordPage)
+    const s = state(w)
+    const entry = w.findAll('button').find(button => button.attributes('aria-label')?.includes('기록하기'))!
+    expect(entry.attributes('disabled')).toBeDefined()
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(false)
+    pending.resolve({ error: { message: 'unavailable' } })
+    await flushPromises()
+    expect(entry.attributes('disabled')).toBeDefined()
+    expect(w.text()).toContain('기록 정보를 불러오지 못했어요')
+    s.retryInitial()
+    await flushPromises()
+    expect(entry.attributes('disabled')).toBeUndefined()
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(true)
+  })
+
+  it('B-12 친구 조회 실패를 빈 목록과 구분하고 부모에게 재시도를 요청한다', async () => {
+    const w = await mountPage(HabitCreateSheet, { open: true, friends: [], loadError: true })
+    const s = state(w)
+    s.step = 3
+    s.mode = 'friend'
+    s.selectedFriendId = 'friend-1'
+    await nextTick()
+    expect(w.text()).toContain('정보를 불러오지 못했어요')
+    expect(w.text()).not.toContain('함께 할 친구가 없어요')
+    s.submit()
+    expect(w.emitted('submit')).toBeUndefined()
+    await w.findAll('button').find(button => button.text() === '다시 시도')!.trigger('click')
+    expect(w.emitted('retry')).toHaveLength(1)
+    await w.setProps({ loadError: false, loading: true })
+    expect(w.text()).not.toContain('함께 할 친구가 없어요')
+    await w.setProps({ loading: false })
+    expect(w.text()).toContain('함께 할 친구가 없어요')
+  })
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.backHandlers.length = 0

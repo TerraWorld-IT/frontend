@@ -91,7 +91,16 @@
           함께할 친구를 선택해 요청해 주세요!<br>친구가 수락하면 기록이 자동으로 생성돼요.
         </p>
 
-        <div v-if="friends.length === 0" class="text-[13px] text-apjek-text-faint text-center py-[16px]">
+        <CommonLoading v-if="loading" />
+        <div v-else-if="loadError" class="text-[13px] text-apjek-text-faint text-center py-[16px]">
+          <p>정보를 불러오지 못했어요</p>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+            @click="emit('retry')"
+          >다시 시도</button>
+        </div>
+        <div v-else-if="friends.length === 0" class="text-[13px] text-apjek-text-faint text-center py-[16px]">
           함께 할 친구가 없어요.
           <NuxtLink to="/friends" class="text-apjek-blue underline font-semibold">친구 초대하기</NuxtLink>
         </div>
@@ -160,7 +169,7 @@
         type="button"
         class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
         :class="selectedFriendId ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-        :disabled="!selectedFriendId || busy"
+        :disabled="!selectedFriendId || busy || loading || loadError"
         @click="submit"
       >
         {{ busy ? '요청 보내는 중...' : '요청 보내기' }}
@@ -181,12 +190,16 @@ import { HABIT_REWARD_SPARKLE } from '~/utils/habitState'
 const props = defineProps<{
   open: boolean
   friends: FriendInfo[]
+  /** 부모의 초기 자료 조회 상태를 빈 친구 목록과 구분한다. */
+  loading?: boolean
+  loadError?: boolean
   /** 생성 요청 진행 중 (부모 busy) */
   busy?: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
+  retry: []
   submit: [payload: { title: string; friendUserId: string | null }]
 }>()
 
@@ -239,7 +252,7 @@ function toggleFriend(userId: string) {
 }
 
 function submit() {
-  if (!selectedFriendId.value || props.busy) return
+  if (!selectedFriendId.value || props.busy || props.loading || props.loadError) return
   emit('submit', { title: title.value.trim(), friendUserId: selectedFriendId.value })
 }
 </script>

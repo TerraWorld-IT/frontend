@@ -1,4 +1,5 @@
 import { createClient, createConfig } from '@hey-api/client-fetch'
+import { withTimeout } from '~/utils/withTimeout'
 
 /**
  * TerraWorld OpenAPI 클라이언트 플러그인.
@@ -29,8 +30,9 @@ import { createClient, createConfig } from '@hey-api/client-fetch'
  *   - SEC-022: JWT 에 값이 있을 때만 bearer 를 붙인다. 공개 엔드포인트
  *     (/share, /items, /categories)는 로그인 상태여도 토큰을 싣지 않아 우발적 노출을 줄인다.
  */
-export default defineNuxtPlugin(() => {
+export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
+  const REQUEST_DEADLINE_MS = 15_000
 
   // 주의: 5xx / 네트워크 오류 사용자 알림은 인터셉터에서 처리하지 않는다.
   // call-site 들이 이미 구체적인 메시지로 toast.error 를 띄우므로(예: '기록 저장 실패'),
@@ -41,6 +43,30 @@ export default defineNuxtPlugin(() => {
     createConfig({
       baseUrl: config.public.apiBaseUrl as string,
       credentials: 'include',
+      fetch: async (request) => {
+        // 사진 업로드는 크기와 회선에 따라 오래 걸리므로 공통 데드라인에서 제외한다.
+        if (new URL(request.url).pathname === `${new URL(config.public.apiBaseUrl as string).pathname.replace(/\/$/, '')}/uploads/photo`) {
+          return fetch(request)
+        }
+        const controller = new AbortController()
+        const abort = () => controller.abort(request.signal.reason)
+        if (request.signal.aborted) abort()
+        else request.signal.addEventListener('abort', abort, { once: true })
+        return withTimeout(
+          fetch(request, { signal: controller.signal }).then(async (response) => {
+            // 헤더만 온 뒤 본문이 멈춘 경우도 제한한다. 원본 응답은 SDK 파싱용으로 보존한다.
+            await response.clone().arrayBuffer()
+            return response
+          }),
+          REQUEST_DEADLINE_MS,
+          controller,
+        ).catch((error: unknown) => {
+          if (controller.signal.aborted && !request.signal.aborted) {
+            throw new Error((nuxtApp.$i18n as { t: (key: string) => string }).t('common.loadFailDesc'))
+          }
+          throw error
+        }).finally(() => request.signal.removeEventListener('abort', abort))
+      },
     }),
   )
 
@@ -142,12 +168,13 @@ export default defineNuxtPlugin(() => {
     retryHeaders.set('x-tw-retried', '1')
 
     try {
-      const retried = await fetch(
+      const retried = await apiClient.getConfig().fetch!(
         new Request(retryBase.url, {
           method: retryBase.method,
           headers: retryHeaders,
           body: retryBase.body,
           credentials: 'include',
+          signal: request.signal,
           // Preserve duplex when streaming a body — required by spec.
           // @ts-expect-error - duplex not in current TS lib types
           duplex: retryBase.body ? 'half' : undefined,

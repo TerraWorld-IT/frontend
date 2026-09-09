@@ -199,7 +199,16 @@
 
       <!-- 루틴 목록 — "수영 · 화" / "청소 · 매일" + 빨강 휴지통 (수정 버튼 없음 — 댓글 #29 취지) -->
       <p class="text-[13px] font-bold text-apjek-text pt-[4px]">루틴 목록</p>
-      <div v-if="routines.length === 0" class="text-[12px] text-apjek-text-faint text-center py-[10px]">
+      <CommonLoading v-if="pending" />
+      <div v-else-if="loadFailed" class="text-[12px] text-apjek-text-faint text-center py-[10px]">
+        <p>정보를 불러오지 못했어요</p>
+        <button
+          type="button"
+          class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+          @click="loadRoutines()"
+        >다시 시도</button>
+      </div>
+      <div v-else-if="routines.length === 0" class="text-[12px] text-apjek-text-faint text-center py-[10px]">
         매일 반복할 항목을 루틴으로 등록해보세요
       </div>
       <div
@@ -452,19 +461,31 @@ watch(() => props.submitting, (submitting) => {
   prefillFromRoutines(pending)
 })
 
-// 시트 열림 시 루틴 로드 — 실패는 비차단(루틴 없이 기존 투두 동작 유지, 백엔드 미구현 404 포함).
+// 첫 조회만 로딩 표시하고 이후 재조회는 기존 목록을 유지한다.
+const pending = ref<boolean>(false)
+const loadFailed = ref<boolean>(false)
+let routinesLoaded: boolean = false
+
+// 시트 열림 시 루틴 로드 — 실패해도 기존 투두 입력은 유지하고 명시 재시도를 제공한다.
 async function loadRoutines(): Promise<void> {
-  try {
-    const { data, error } = await sdk.listTodoRoutines({ client })
-    if (error) return
+  if (pending.value) return
+  pending.value = !routinesLoaded
+  loadFailed.value = false
+  await sdk.listTodoRoutines({ client }).then(({ data, error }) => {
+    if (error) {
+      loadFailed.value = true
+      return
+    }
     const list = castData<TodoRoutineListResponse>(data)?.routines ?? []
     // 최근 추가 상단 (댓글 #62) — createdAt 내림차순
     routines.value = [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    routinesLoaded = true
     prefillFromRoutines(list)
-  }
-  catch {
-    // 네트워크 예외 — 조용히 skip (매 열기마다 재시도됨)
-  }
+  }).catch(() => {
+    loadFailed.value = true
+  }).finally(() => {
+    pending.value = false
+  })
 }
 
 async function createRoutine() {
