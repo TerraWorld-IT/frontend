@@ -441,7 +441,7 @@ async function callRevive(speciesCode: string, body: GrowthReviveRequest): Promi
     const code = errCode(error)
     if (code === 'NONCE_ALREADY_CONSUMED') {
       // 중복 소비만으로 지급을 단정하지 않고 잔액과 정령 상태를 다시 확인한다.
-      await userStore.fetchMe(true)
+      await userStore.fetchMe(true).catch(() => { toast.info('잔액 정보를 다시 불러오지 못했어요') })
       await loadGrowth()
       if (loadFailed.value) return false
       lostModalSpecies.value = null
@@ -479,13 +479,9 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
     }
     const { isAndroid, isIos: adIos, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
     if (adIos) return
-    const stored = readPendingAdClaim(userId)
+    const stored = readPendingAdClaim('GROWTH_REVIVE', userId)
     if (stored?.purpose === 'GROWTH_REVIVE' && stored.speciesCode === species) {
-      if (Date.now() < Date.parse(stored.expiresAt)) pendingClaim = stored
-      else {
-        clearPendingAdClaim(userId, stored.nonce)
-        toast.info(t('home.adPendingExpired'))
-      }
+      pendingClaim = stored
     }
     const recovering = pendingClaim !== null
     if (!pendingClaim) {
@@ -500,17 +496,23 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
         return
       }
       pendingClaim = { nonce: issued.nonce, purpose: issued.purpose, expiresAt: issued.expiresAt, speciesCode: species }
-      writePendingAdClaim(userId, pendingClaim)
+      writePendingAdClaim('GROWTH_REVIVE', userId, pendingClaim)
     }
-    const verified = await awaitNonceVerified('GROWTH_REVIVE', pendingClaim.nonce, recovering ? { tries: 1 } : undefined)
+    const verified = Date.now() < Date.parse(pendingClaim.expiresAt)
+      ? await awaitNonceVerified('GROWTH_REVIVE', pendingClaim.nonce, recovering ? { tries: 1 } : undefined)
+      : null
     if (!verified) {
-      clearPendingAdClaim(userId, pendingClaim.nonce)
+      await userStore.fetchMe(true).catch(() => { toast.info('잔액 정보를 다시 불러오지 못했어요') })
+      await loadGrowth()
+      if (loadFailed.value) return
+      lostModalSpecies.value = null
+      clearPendingAdClaim('GROWTH_REVIVE', userId, pendingClaim.nonce)
       pendingClaim = null
       toast.info(t('home.adPendingExpired'))
       return
     }
     if (await callRevive(species, { method: 'AD', adNonce: pendingClaim.nonce })) {
-      clearPendingAdClaim(userId, pendingClaim.nonce)
+      clearPendingAdClaim('GROWTH_REVIVE', userId, pendingClaim.nonce)
     }
   }
   catch (e) {

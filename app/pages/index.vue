@@ -887,14 +887,10 @@ onMounted(() => {
 function onAdMenuClick() {
   if (adClaiming.value) return
   if (!adMenuVisible.value) return
-  const pendingClaim = readPendingAdClaim(user.value?.userId)
+  const pendingClaim = readPendingAdClaim('AD_REWARD', user.value?.userId)
   if (pendingClaim?.purpose === 'AD_REWARD') {
-    if (Date.now() < Date.parse(pendingClaim.expiresAt)) {
-      void claimPendingAdReward()
-      return
-    }
-    clearPendingAdClaim(user.value?.userId, pendingClaim.nonce)
-    toast.info(t('home.adPendingExpired'))
+    void claimPendingAdReward()
+    return
   }
   if (isAdLimitReachedToday(user.value?.userId)) {
     toast.info(t('home.adLimitReached'))
@@ -1817,7 +1813,7 @@ async function claimPendingAdReward(): Promise<void> {
 async function onClaimAdReward(recoverPending = false) {
   if (adClaiming.value || !adMenuVisible.value) return
   // 시한 초과 후 열린 팝업에서 재확인해도 새 광고보다 보류 복구를 우선한다.
-  if (!recoverPending && readPendingAdClaim(user.value?.userId)?.purpose === 'AD_REWARD') {
+  if (!recoverPending && readPendingAdClaim('AD_REWARD', user.value?.userId)?.purpose === 'AD_REWARD') {
     await claimPendingAdReward()
     return
   }
@@ -1842,14 +1838,9 @@ async function onClaimAdReward(recoverPending = false) {
 
   async function claimReward() {
     const { showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
-    let issued = recoverPending ? readPendingAdClaim(userId) : null
+    let issued = recoverPending ? readPendingAdClaim('AD_REWARD', userId) : null
     if (recoverPending) {
       if (issued?.purpose !== 'AD_REWARD') return
-      if (!(Date.now() < Date.parse(issued.expiresAt))) {
-        clearPendingAdClaim(userId, issued.nonce)
-        toast.info(t('home.adPendingExpired'))
-        return
-      }
       pendingClaim = issued
     }
     else {
@@ -1863,7 +1854,7 @@ async function onClaimAdReward(recoverPending = false) {
       if (watched) {
         pendingClaim = issued
         // 시청 증거가 생긴 즉시 저장해 전체 시한 초과·응답 유실에도 같은 nonce로 복구한다.
-        writePendingAdClaim(userId, issued)
+        writePendingAdClaim('AD_REWARD', userId, issued)
       }
       if (deadline.signal.aborted) return
       if (!watched) {
@@ -1873,11 +1864,18 @@ async function onClaimAdReward(recoverPending = false) {
     }
     if (!issued) return
     const nonce = issued.nonce
-    const verified = await awaitNonceVerified('AD_REWARD', nonce, recoverPending ? { tries: 1 } : undefined)
+    const verified = Date.now() < Date.parse(issued.expiresAt)
+      ? await awaitNonceVerified('AD_REWARD', nonce, { ...(recoverPending ? { tries: 1 } : {}), signal: deadline.signal })
+      : null
+    if (deadline.signal.aborted) return
     if (!verified) {
-      clearPendingAdClaim(userId, nonce)
+      // 소비와 만료를 구분할 수 없으므로 청구하지 않고 잔액을 다시 확인한다.
+      await userStore.fetchMe(true)
+      if (deadline.signal.aborted) return
+      clearPendingAdClaim('AD_REWARD', userId, nonce)
       pendingClaim = null
-      if (!deadline.signal.aborted) toast.info(t('home.adPendingExpired'))
+      showFreeCoinDialog.value = false
+      toast.info(t('home.adPendingExpired'))
       return
     }
     if (deadline.signal.aborted) return
@@ -1891,7 +1889,7 @@ async function onClaimAdReward(recoverPending = false) {
       if (code === 'NONCE_ALREADY_CONSUMED') {
         await userStore.fetchMe(true)
         if (deadline.signal.aborted) return
-        clearPendingAdClaim(userId, nonce)
+        clearPendingAdClaim('AD_REWARD', userId, nonce)
         pendingClaim = null
         showFreeCoinDialog.value = false
         toast.info(t('home.adAlreadyProcessed'))
@@ -1900,7 +1898,7 @@ async function onClaimAdReward(recoverPending = false) {
       if (code === 'AD_DAILY_LIMIT_EXCEEDED') {
         markAdLimitReachedToday(userId)
         adRemainingToday.value = 0
-        clearPendingAdClaim(userId, nonce)
+        clearPendingAdClaim('AD_REWARD', userId, nonce)
         pendingClaim = null
         toast.info(t('home.adLimitReached'))
         return
@@ -1912,7 +1910,7 @@ async function onClaimAdReward(recoverPending = false) {
     userStore.updateCurrency(ad.updatedCurrency)
     adRemainingToday.value = ad.remainingToday
     if (ad.remainingToday === 0) markAdLimitReachedToday(userId)
-    clearPendingAdClaim(userId, nonce)
+    clearPendingAdClaim('AD_REWARD', userId, nonce)
     pendingClaim = null
     // 보상 표시는 서버 응답의 루비 수량을 사용한다.
     const reward = ad.reward.specialCoins

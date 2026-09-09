@@ -9,14 +9,14 @@ export const REWARD_AD_TIMEOUT_MS = 60_000
 export const REWARD_AD_PREPARE_TIMEOUT_MS = 20_000
 
 /** 보류는 서버 만료시각 그대로 보존한다. 만료 안내와 제거는 진입점이 담당한다. */
-export function readPendingAdClaim(userId: string | undefined): (Pick<AdRewardNonceResponse, 'nonce' | 'purpose' | 'expiresAt'> & { speciesCode?: string }) | null {
+export function readPendingAdClaim(purpose: AdRewardNonceResponse['purpose'], userId: string | undefined): (Pick<AdRewardNonceResponse, 'nonce' | 'purpose' | 'expiresAt'> & { speciesCode?: string }) | null {
   if (!import.meta.client || !userId) return null
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.AD_PENDING + userId)
+    const raw = localStorage.getItem(STORAGE_KEYS.AD_PENDING + purpose + '.' + userId)
     if (!raw) return null
     const value = JSON.parse(raw)
     if (!value || typeof value.nonce !== 'string' || !value.nonce
-      || !['AD_REWARD', 'GROWTH_REVIVE'].includes(value.purpose)
+      || value.purpose !== purpose
       || typeof value.expiresAt !== 'string' || !Number.isFinite(Date.parse(value.expiresAt))
       || (value.speciesCode !== undefined && typeof value.speciesCode !== 'string')
       || (value.purpose === 'GROWTH_REVIVE' && !value.speciesCode)) return null
@@ -27,21 +27,21 @@ export function readPendingAdClaim(userId: string | undefined): (Pick<AdRewardNo
   }
 }
 
-export function writePendingAdClaim(userId: string | undefined, claim: NonNullable<ReturnType<typeof readPendingAdClaim>>): void {
-  if (!import.meta.client || !userId) return
+export function writePendingAdClaim(purpose: AdRewardNonceResponse['purpose'], userId: string | undefined, claim: NonNullable<ReturnType<typeof readPendingAdClaim>>): void {
+  if (!import.meta.client || !userId || claim.purpose !== purpose) return
   try {
-    localStorage.setItem(STORAGE_KEYS.AD_PENDING + userId, JSON.stringify({ nonce: claim.nonce, purpose: claim.purpose, expiresAt: claim.expiresAt, ...(claim.speciesCode ? { speciesCode: claim.speciesCode } : {}) }))
+    localStorage.setItem(STORAGE_KEYS.AD_PENDING + purpose + '.' + userId, JSON.stringify({ nonce: claim.nonce, purpose: claim.purpose, expiresAt: claim.expiresAt, ...(claim.speciesCode ? { speciesCode: claim.speciesCode } : {}) }))
   }
   catch {
     // 저장소 사용 불가 시 현재 청구는 계속 진행한다.
   }
 }
 
-export function clearPendingAdClaim(userId: string | undefined, expectedNonce?: string): void {
+export function clearPendingAdClaim(purpose: AdRewardNonceResponse['purpose'], userId: string | undefined, expectedNonce?: string): void {
   if (!import.meta.client || !userId) return
   try {
-    if (expectedNonce && readPendingAdClaim(userId)?.nonce !== expectedNonce) return
-    localStorage.removeItem(STORAGE_KEYS.AD_PENDING + userId)
+    if (expectedNonce && readPendingAdClaim(purpose, userId)?.nonce !== expectedNonce) return
+    localStorage.removeItem(STORAGE_KEYS.AD_PENDING + purpose + '.' + userId)
   }
   catch {
     // 저장소가 막혀 있어도 성공한 청구를 실패로 바꾸지 않는다.
@@ -123,17 +123,44 @@ export function useAdMob() {
   async function awaitNonceVerified(
     purpose: AdRewardNonceResponse['purpose'],
     expectedNonce: string,
-    opts: { tries?: number, intervalMs?: number } = {},
+    opts: { tries?: number, intervalMs?: number, signal?: AbortSignal } = {},
   ): Promise<AdRewardNonceResponse | null> {
     const tries = opts.tries ?? 3
     let last: AdRewardNonceResponse | null = null
     for (let attempt = 0; attempt < tries; attempt++) {
-      if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, opts.intervalMs ?? 1000))
-      last = await issueServerNonce(purpose)
-      if (last.nonce !== expectedNonce) return null
+      if (opts.signal?.aborted) return null
+      if (attempt > 0) {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        await untilAborted(new Promise<void>((resolve) => { timer = setTimeout(resolve, opts.intervalMs ?? 1000) }))
+        clearTimeout(timer)
+      }
+      if (opts.signal?.aborted) return null
+      last = await untilAborted(issueServerNonce(purpose))
+      if (opts.signal?.aborted || !last || last.nonce !== expectedNonce) return null
       if (last.status === 'VERIFIED') return last
     }
     return last
+
+    // 대기와 진행 중 조회 모두 즉시 반환하며 늦은 응답·오류는 이전 청구에 반영하지 않는다.
+    async function untilAborted<T>(operation: Promise<T>): Promise<T | null> {
+      const signal = opts.signal
+      if (!signal) return operation
+      let resolveAbort!: (value: null) => void
+      function onAbort(): void { resolveAbort(null) }
+      try {
+        return await Promise.race([
+          operation,
+          new Promise<null>((resolve) => {
+            resolveAbort = resolve
+            signal.addEventListener('abort', onAbort, { once: true })
+            if (signal.aborted) onAbort()
+          }),
+        ])
+      }
+      finally {
+        signal.removeEventListener('abort', onAbort)
+      }
+    }
   }
 
   async function initialize(): Promise<void> {

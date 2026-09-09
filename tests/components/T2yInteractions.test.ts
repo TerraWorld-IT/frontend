@@ -8,16 +8,17 @@ import CategoriesPage from '~/pages/admin/categories.vue'
 import ItemsPage from '~/pages/admin/items.vue'
 import ProfilePage from '~/pages/profile/index.vue'
 import HomePage from '~/pages/index.vue'
+import GrowPage from '~/pages/grow.vue'
 import TodoSheet from '~/components/record/TodoSheet.vue'
 import HabitCreateSheet from '~/components/record/HabitCreateSheet.vue'
 import HabitTrackerCard from '~/components/record/HabitTrackerCard.vue'
 import ShareModal from '~/components/terrarium/ShareModal.vue'
 import FriendsPage from '~/pages/friends/index.vue'
-import { REWARD_AD_TIMEOUT_MS } from '~/composables/useAdMob'
+import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
 
 const mocks = vi.hoisted(() => ({
-  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward'].map(k => [k, vi.fn()])),
-  user: { me: { nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn() },
+  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward', 'issueAdRewardNonce', 'getGrowth', 'reviveGrowth'].map(k => [k, vi.fn()])),
+  user: { me: { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn() },
   items: { items: [], fetchAll: vi.fn(), invalidate: vi.fn() },
   home: { snapshot: { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }, fetch: vi.fn(), invalidate: vi.fn(), patchFreePlacement: vi.fn() },
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -26,6 +27,9 @@ const mocks = vi.hoisted(() => ({
   shareFile: vi.fn(),
   routeLeave: vi.fn(),
   showRewardedAd: vi.fn(),
+  adAndroid: false,
+  issueServerNonce: vi.fn(),
+  awaitNonceVerified: vi.fn(),
   backHandlers: [] as Array<() => void>,
 }))
 vi.mock('html2canvas', () => ({ default: (...args: unknown[]) => mocks.capture(...args) }))
@@ -45,7 +49,7 @@ mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true),
 mockNuxtImport('useAttendance', () => () => ({ state: ref(null), loading: ref(false), error: ref<string | null>(null), refresh: vi.fn(), checkIn: vi.fn() }))
 mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
 mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
-mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: false, isIos: false, issueServerNonce: async () => ({ nonce: 'n1', purpose: 'AD_REWARD', status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() }), awaitNonceVerified: async () => ({ nonce: 'n1', status: 'VERIFIED' }), showRewardedAd: mocks.showRewardedAd }))
+mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: mocks.adAndroid, isIos: false, issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd }))
 
 const wrappers: VueWrapper[] = []
 // 실제 SFC setup을 마운트하고 외부 I/O와 자식 셸만 대체한다. 로직 복제/소스 문자열 실행은 하지 않는다.
@@ -325,7 +329,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.backHandlers.length = 0
   mocks.home.snapshot = { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }
-  mocks.user.me = { nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }
+  mocks.user.me = { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }
   for (const fn of Object.values(mocks.sdk)) fn.mockReset().mockResolvedValue({ data: [], error: undefined })
   mocks.sdk.listCategories!.mockResolvedValue({ data: { categories: [{ id: 1, name: '일기', dailyLimit: 1, baseCoinReward: 1, baseTokenReward: 1 }, { id: 2, name: '집중', dailyLimit: 1, baseCoinReward: 1, baseTokenReward: 1 }] } })
   mocks.sdk.listTodoRoutines!.mockResolvedValue({ data: { routines: [] } })
@@ -335,12 +339,175 @@ beforeEach(() => {
   mocks.user.fetchMe.mockReset().mockResolvedValue(undefined)
   mocks.shareFile.mockReset().mockResolvedValue(true)
   mocks.capture.mockReset().mockResolvedValue({ toBlob: (callback: (blob: Blob) => void) => callback(new Blob(['png'], { type: 'image/png' })) })
+  mocks.adAndroid = false
+  mocks.showRewardedAd.mockReset().mockResolvedValue(true)
+  mocks.issueServerNonce.mockReset().mockImplementation(async (purpose) => ({ nonce: 'n1', purpose, status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() }))
+  mocks.awaitNonceVerified.mockReset().mockResolvedValue({ nonce: 'n1', status: 'VERIFIED' })
+  mocks.sdk.issueAdRewardNonce!.mockImplementation(async ({ query }) => ({ data: { nonce: 'n1', purpose: query.purpose, status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() } }))
+  mocks.sdk.getGrowth!.mockResolvedValue({ data: { items: [] } })
   localStorage.clear()
 })
 afterEach(() => {
   wrappers.splice(0).forEach(w => w.unmount())
   vi.useRealTimers()
   document.body.innerHTML = ''
+})
+
+describe('WP4a 보류 복구 델타', () => {
+  beforeEach(() => { mocks.adAndroid = true })
+  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 보류는 다른 purpose 시청 후 청구 실패에도 유지된다', async (purpose) => {
+    const claim = { nonce: 'previous', purpose, expiresAt: new Date(Date.now() + 600000).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) }
+    writePendingAdClaim(purpose, 'u1', claim)
+    const s = state(await mountPage(purpose === 'AD_REWARD' ? GrowPage : HomePage))
+    if (purpose === 'AD_REWARD') {
+      s.lostModalSpecies = 'SPIRIT_A'
+      mocks.sdk.reviveGrowth!.mockRejectedValueOnce(new Error('응답 유실'))
+      await s.onRevive('AD')
+      expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(1)
+    }
+    else {
+      mocks.sdk.claimAdReward!.mockRejectedValue(new Error('응답 유실'))
+      await s.onClaimAdReward()
+      expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(2)
+    }
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    expect(readPendingAdClaim(purpose, 'u1')).toEqual(claim)
+    expect(readPendingAdClaim(purpose === 'AD_REWARD' ? 'GROWTH_REVIVE' : 'AD_REWARD', 'u1')?.nonce).toBe('n1')
+  })
+
+  it.each([true, false])('홈 nonce 불일치는 재동기화 후 보류와 팝업을 정리한다: 보류=%s', async (recovering) => {
+    const s = state(await mountPage(HomePage))
+    if (recovering) writePendingAdClaim('AD_REWARD', 'u1', { nonce: 'n1', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    mocks.awaitNonceVerified.mockResolvedValueOnce(null)
+    mocks.user.fetchMe.mockClear()
+    const balance = deferred()
+    mocks.user.fetchMe.mockReturnValueOnce(balance.promise)
+    s.showFreeCoinDialog = true
+    const result = s.onClaimAdReward()
+    await flushPromises()
+    expect(mocks.user.fetchMe).toHaveBeenCalledWith(true)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).not.toBeNull()
+    expect(s.showFreeCoinDialog).toBe(true)
+    balance.resolve(); await result
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    expect(s.showFreeCoinDialog).toBe(false)
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(recovering ? 0 : 1)
+    expect(mocks.toast.info).toHaveBeenCalledWith('이전 광고 요청을 확인할 수 없어 잔액을 다시 확인했어요')
+  })
+
+  it('홈 잔액 재조회 실패는 보류와 팝업을 유지한다', async () => {
+    const s = state(await mountPage(HomePage))
+    writePendingAdClaim('AD_REWARD', 'u1', { nonce: 'n1', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    s.showFreeCoinDialog = true
+    mocks.awaitNonceVerified.mockResolvedValueOnce(null)
+    mocks.user.fetchMe.mockRejectedValueOnce(new Error('잔액 실패'))
+    await s.onClaimAdReward()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).not.toBeNull()
+    expect(s.showFreeCoinDialog).toBe(true)
+    expect(s.adClaiming).toBe(false)
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+  })
+
+  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 로컬 만료도 재조회 후 정리하며 광고나 청구를 시작하지 않는다', async (purpose) => {
+    const s = state(await mountPage(purpose === 'AD_REWARD' ? HomePage : GrowPage))
+    writePendingAdClaim(purpose, 'u1', { nonce: 'expired', purpose, expiresAt: new Date(Date.now() - 1).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) })
+    mocks.user.fetchMe.mockClear()
+    if (purpose === 'AD_REWARD') {
+      s.onAdMenuClick()
+      await flushPromises()
+    }
+    else {
+      s.lostModalSpecies = 'SPIRIT_A'
+      await s.onRevive('AD')
+    }
+    expect(mocks.user.fetchMe).toHaveBeenCalledWith(true)
+    expect(readPendingAdClaim(purpose, 'u1')).toBeNull()
+    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
+  })
+
+  it.each(['mismatch', 'consumed', 'new-mismatch'] as const)('성장 %s에서 잔액 실패를 격리하고 성장 재조회 성공 후 정리한다', async (scenario) => {
+    const s = state(await mountPage(GrowPage))
+    if (scenario !== 'new-mismatch') writePendingAdClaim('GROWTH_REVIVE', 'u1', { nonce: 'n1', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' })
+    s.lostModalSpecies = 'SPIRIT_A'
+    if (scenario === 'consumed') mocks.sdk.reviveGrowth!.mockResolvedValueOnce({ error: { code: 'NONCE_ALREADY_CONSUMED' } })
+    else mocks.awaitNonceVerified.mockResolvedValueOnce(null)
+    mocks.user.fetchMe.mockRejectedValueOnce(new Error('잔액 실패'))
+    mocks.sdk.getGrowth!.mockClear()
+    const growth = deferred()
+    mocks.sdk.getGrowth!.mockReturnValueOnce(growth.promise)
+    const result = s.onRevive('AD')
+    await flushPromises()
+    expect(mocks.sdk.getGrowth).toHaveBeenCalledTimes(1)
+    expect(s.lostModalSpecies).toBe('SPIRIT_A')
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).not.toBeNull()
+    growth.resolve({ data: { items: [] } }); await result
+    expect(s.lostModalSpecies).toBeNull()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(mocks.toast.info).toHaveBeenCalledWith('잔액 정보를 다시 불러오지 못했어요')
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(scenario === 'consumed' ? 1 : 0)
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(scenario === 'new-mismatch' ? 1 : 0)
+  })
+
+  it.each(['mismatch', 'consumed'] as const)('성장 %s 재조회 실패는 모달과 보류를 유지한다', async (scenario) => {
+    const s = state(await mountPage(GrowPage))
+    writePendingAdClaim('GROWTH_REVIVE', 'u1', { nonce: 'n1', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' })
+    s.lostModalSpecies = 'SPIRIT_A'
+    if (scenario === 'consumed') mocks.sdk.reviveGrowth!.mockResolvedValueOnce({ error: { code: 'NONCE_ALREADY_CONSUMED' } })
+    else mocks.awaitNonceVerified.mockResolvedValueOnce(null)
+    mocks.sdk.getGrowth!.mockRejectedValueOnce(new Error('성장 실패'))
+    await s.onRevive('AD')
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).not.toBeNull()
+    expect(s.lostModalSpecies).toBe('SPIRIT_A')
+    expect(s.reviving).toBe(false)
+  })
+
+  it('실제 폴링은 홈 60초 abort 후 GET을 추가하지 않고 보류를 유지한다', async () => {
+    const s = state(await mountPage(HomePage))
+    const actual = await vi.importActual<typeof import('~/composables/useAdMob')>('~/composables/useAdMob')
+    mocks.awaitNonceVerified.mockImplementation(actual.useAdMob().awaitNonceVerified)
+    vi.useFakeTimers()
+    const ad = deferred<boolean>()
+    mocks.showRewardedAd.mockReturnValueOnce(ad.promise)
+    const first = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(59500)
+    ad.resolve(true)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mocks.sdk.issueAdRewardNonce).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(500); await first
+    expect(s.adClaiming).toBe(false)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(mocks.sdk.issueAdRewardNonce).toHaveBeenCalledTimes(1)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+  })
+
+  it('abort 후 이전 폴링의 늦은 null은 새 재청구의 보류와 잠금을 변경하지 않는다', async () => {
+    const s = state(await mountPage(HomePage))
+    vi.useFakeTimers()
+    const polling = deferred()
+    mocks.awaitNonceVerified.mockReturnValueOnce(polling.promise)
+    const first = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS); await first
+    expect(mocks.awaitNonceVerified.mock.calls[0]![2].signal.aborted).toBe(true)
+    const post = deferred()
+    mocks.sdk.claimAdReward!.mockReturnValueOnce(post.promise)
+    const second = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(1)
+    polling.resolve(null)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(s.adClaiming).toBe(true)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS); await second
+    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+    post.resolve({ error: { code: 'NONCE_ALREADY_CONSUMED' } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+  })
 })
 
 describe('WP2a-B 홈 피드백', () => {
@@ -623,7 +790,7 @@ describe('T2-Y 홈 배치', () => {
     expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
   })
   it('F1 자유배치 미보유는 저장을 시도하지 않고 dirty도 종료 확인창도 남기지 않는다', async () => {
-    mocks.user.me = { nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: false } }
+    mocks.user.me = { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: false } }
     const s = state(await mountPage(HomePage))
     s.editMode = true; s.placedItems = [{ placementId: 1, itemId: 1, x: 100, y: 300, scale: 1, flipped: false, zIndex: 0 }]
     // 종전 동작 복원 — preview 는 성공으로 간주(오류 토스트 없음), 서버 저장은 시도하지 않는다.

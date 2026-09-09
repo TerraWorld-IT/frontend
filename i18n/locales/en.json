@@ -301,7 +301,7 @@
     "adLimitReached": "You have reached today's ad viewing limit",
     "adRemainingToday": "{n} views left today",
     "adAlreadyProcessed": "This request was already processed. Your balance has been refreshed.",
-    "adPendingExpired": "The previous reward request expired. Please watch another ad.",
+    "adPendingExpired": "We could not verify the previous ad request, so we refreshed your balance.",
     "adVerifyPending": "Your ad view is awaiting verification. Please try again shortly.",
     "ariaEffect": "Effect: {type}",
     "ariaEvolution": "Switch evolution stage",
