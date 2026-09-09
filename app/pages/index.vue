@@ -120,6 +120,7 @@
           data-testid="home-freecoin"
           class="menu-item"
           :aria-label="$t('home.ariaFreeCoin')"
+          v-if="adMenuVisible"
           @click="onAdMenuClick"
         >
           <span class="menu-circle"><Icon name="lucide:gift" class="w-5 h-5" /></span>
@@ -737,7 +738,7 @@
     @confirm="onClaimAdReward"
   >
     <div class="text-center py-2" data-testid="home-ad-body">
-      <p class="text-sm font-semibold text-apjek-text mb-4">{{ $t('home.adCoinDesc') }}</p>
+      <p class="text-sm font-semibold text-apjek-text mb-4">{{ $t('home.adCoinDesc') }}<template v-if="adRemainingToday !== null"> · {{ $t('home.adRemainingToday', { n: adRemainingToday }) }}</template></p>
       <!-- [AD] > 루비 — Figma: 검정 AD 타일, 화살표, 디자이너 루비 토큰 아이콘 -->
       <div class="flex items-center justify-center gap-3 mb-2" aria-hidden="true">
         <span class="w-14 h-14 rounded-2xl flex items-center justify-center text-sm font-extrabold text-white" style="background: var(--color-apjek-cta)">AD</span>
@@ -771,7 +772,7 @@ import { hasHomeEntryQuery, parseHomeEntryQuery, stripHomeEntryQuery } from '~/u
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
-import { REWARD_AD_TIMEOUT_MS } from '~/composables/useAdMob'
+import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 
 const { sdk, client } = useOpenApi()
 const userStore = useUserStore()
@@ -873,15 +874,32 @@ const showAttendance = ref<boolean>(false)
 const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 const adClaiming = ref<boolean>(false)
-// 광고 진입점 가용성 — SSR 은 항상 숨김, 클라 마운트 후 판정(하이드레이션 mismatch 회피).
-// T7b: 메뉴는 상시 노출하고, 비가용 환경은 탭 시 안내 토스트(§4 N-3).
+// 서버 렌더링과 웹은 메뉴를 유지하고, 마운트 후 iOS만 숨긴다.
+// 웹의 비가용 안내와 Android 광고 시청 흐름은 유지한다.
 const adAvailable = ref<boolean>(false)
+const adMenuVisible = ref<boolean>(true)
+const adRemainingToday = ref<number | null>(null)
 onMounted(() => {
-  const { isNative: adNative, isAndroid: adAndroid } = useAdMob()
+  const { isNative: adNative, isAndroid: adAndroid, isIos } = useAdMob()
+  adMenuVisible.value = !isIos
   adAvailable.value = (adNative && adAndroid) || import.meta.dev
 })
 function onAdMenuClick() {
   if (adClaiming.value) return
+  if (!adMenuVisible.value) return
+  const pendingClaim = readPendingAdClaim(user.value?.userId)
+  if (pendingClaim?.purpose === 'AD_REWARD') {
+    if (Date.now() < Date.parse(pendingClaim.expiresAt)) {
+      void claimPendingAdReward()
+      return
+    }
+    clearPendingAdClaim(user.value?.userId, pendingClaim.nonce)
+    toast.info(t('home.adPendingExpired'))
+  }
+  if (isAdLimitReachedToday(user.value?.userId)) {
+    toast.info(t('home.adLimitReached'))
+    return
+  }
   if (adAvailable.value) {
     showFreeCoinDialog.value = true
     return
@@ -1792,44 +1810,112 @@ async function onAttendanceCheck() {
 }
 
 // ─── 광고 보상 (기존 로직 보존 — 보상 표시는 서버 응답(RUBY 1) 기준) ───
-async function onClaimAdReward() {
-  if (adClaiming.value) return
+async function claimPendingAdReward(): Promise<void> {
+  await onClaimAdReward(true)
+}
+
+async function onClaimAdReward(recoverPending = false) {
+  if (adClaiming.value || !adMenuVisible.value) return
+  // 시한 초과 후 열린 팝업에서 재확인해도 새 광고보다 보류 복구를 우선한다.
+  if (!recoverPending && readPendingAdClaim(user.value?.userId)?.purpose === 'AD_REWARD') {
+    await claimPendingAdReward()
+    return
+  }
   adClaiming.value = true
   const deadline = new AbortController()
+  const userId = user.value?.userId
+  let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
   try {
     // 준비·시청·보상 요청 전체의 잠금 시간을 제한한다. 네이티브 준비 자체의 취소는 별도 범위다.
     await withTimeout(claimReward(), REWARD_AD_TIMEOUT_MS, deadline)
   }
   catch (e) {
-    toast.error(deadline.signal.aborted ? '광고 보상 실패' : (e as Error).message)
+    if (deadline.signal.aborted) toast.error('광고 보상 실패')
+    else if (pendingClaim) toast.error(t('home.adVerifyPending'), {
+      actionLabel: '다시 시도', duration: 8000, onAction: () => { void claimPendingAdReward() },
+    })
+    else toast.error(errMsg(e, '광고 보상 실패'))
   }
   finally {
     adClaiming.value = false
   }
 
   async function claimReward() {
-    const { showRewardedAd, generateNonce } = useAdMob()
-    const nonce = generateNonce()
-    // SSV 콜백에 user/nonce 식별값 전달 — 서버가 "누가 어떤 nonce 로 시청했나"를 대조할 수 있는
-    // 전제 배선 (audit B2-2 부수, SSV-authoritative 전환 Phase 4 의 선행 조건).
-    const watched = await showRewardedAd({ ssvUserId: user.value?.userId, ssvCustomData: nonce })
-    // 시한 뒤 도착한 결과는 새 청구·재시도나 현재 화면의 상태를 변경하지 않는다.
-    if (deadline.signal.aborted) return
-    if (!watched) {
-      toast.info(t('home.adWatchRequired'))
+    const { showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
+    let issued = recoverPending ? readPendingAdClaim(userId) : null
+    if (recoverPending) {
+      if (issued?.purpose !== 'AD_REWARD') return
+      if (!(Date.now() < Date.parse(issued.expiresAt))) {
+        clearPendingAdClaim(userId, issued.nonce)
+        toast.info(t('home.adPendingExpired'))
+        return
+      }
+      pendingClaim = issued
+    }
+    else {
+      if (isAdLimitReachedToday(userId)) {
+        toast.info(t('home.adLimitReached'))
+        return
+      }
+      issued = await issueServerNonce('AD_REWARD')
+      if (deadline.signal.aborted) return
+      const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
+      if (watched) {
+        pendingClaim = issued
+        // 시청 증거가 생긴 즉시 저장해 전체 시한 초과·응답 유실에도 같은 nonce로 복구한다.
+        writePendingAdClaim(userId, issued)
+      }
+      if (deadline.signal.aborted) return
+      if (!watched) {
+        toast.info(t('home.adWatchRequired'))
+        return
+      }
+    }
+    if (!issued) return
+    const nonce = issued.nonce
+    const verified = await awaitNonceVerified('AD_REWARD', nonce, recoverPending ? { tries: 1 } : undefined)
+    if (!verified) {
+      clearPendingAdClaim(userId, nonce)
+      pendingClaim = null
+      if (!deadline.signal.aborted) toast.info(t('home.adPendingExpired'))
       return
     }
-    // 동일 nonce 로 claim — 네트워크 실패(throw)면 1회 자동 재시도(nonce dedup 안전, FP-07).
-    // 백엔드 반환 에러(한도초과/이미소비 등, error 필드)는 재시도하지 않음(재호출해도 동일 결과).
-    let res = await claimWithNonce(nonce, false)
+    if (deadline.signal.aborted) return
+    // 네트워크 예외만 동일 nonce로 한 번 재시도한다. 보류 복구는 사용자 재시도 한 번으로 제한한다.
+    let res = await claimWithNonce(nonce, recoverPending)
     if (deadline.signal.aborted) return
     if (res.networkFailed) res = await claimWithNonce(nonce, true)
     if (deadline.signal.aborted) return
-    if (res.error) throw new Error(errMsg(res.error, '광고 보상 실패'))
+    if (res.error) {
+      const code = errCode(res.error)
+      if (code === 'NONCE_ALREADY_CONSUMED') {
+        await userStore.fetchMe(true)
+        if (deadline.signal.aborted) return
+        clearPendingAdClaim(userId, nonce)
+        pendingClaim = null
+        showFreeCoinDialog.value = false
+        toast.info(t('home.adAlreadyProcessed'))
+        return
+      }
+      if (code === 'AD_DAILY_LIMIT_EXCEEDED') {
+        markAdLimitReachedToday(userId)
+        adRemainingToday.value = 0
+        clearPendingAdClaim(userId, nonce)
+        pendingClaim = null
+        toast.info(t('home.adLimitReached'))
+        return
+      }
+      throw new Error(errMsg(res.error, '광고 보상 실패'))
+    }
     const ad = castData<AdRewardResponse>(res.data)
-    if (ad) userStore.updateCurrency(ad.updatedCurrency)
-    // reward.specialCoins 는 필드명만 구세대 — 실지급 재화는 RUBY(백엔드 AdRewardService, 고정 1).
-    const reward = ad?.reward.specialCoins ?? 0
+    if (!ad) throw new Error('광고 보상 실패')
+    userStore.updateCurrency(ad.updatedCurrency)
+    adRemainingToday.value = ad.remainingToday
+    if (ad.remainingToday === 0) markAdLimitReachedToday(userId)
+    clearPendingAdClaim(userId, nonce)
+    pendingClaim = null
+    // 보상 표시는 서버 응답의 루비 수량을 사용한다.
+    const reward = ad.reward.specialCoins
     toast.success(t('home.adRewardEarned', { n: reward }), { variant: 'pill' })
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
     showFreeCoinDialog.value = false

@@ -45,7 +45,7 @@ mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true),
 mockNuxtImport('useAttendance', () => () => ({ state: ref(null), loading: ref(false), error: ref<string | null>(null), refresh: vi.fn(), checkIn: vi.fn() }))
 mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
 mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
-mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: false, generateNonce: () => 'nonce', showRewardedAd: mocks.showRewardedAd }))
+mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: false, isIos: false, issueServerNonce: async () => ({ nonce: 'n1', purpose: 'AD_REWARD', status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() }), awaitNonceVerified: async () => ({ nonce: 'n1', status: 'VERIFIED' }), showRewardedAd: mocks.showRewardedAd }))
 
 const wrappers: VueWrapper[] = []
 // 실제 SFC setup을 마운트하고 외부 I/O와 자식 셸만 대체한다. 로직 복제/소스 문자열 실행은 하지 않는다.
@@ -433,6 +433,8 @@ describe('WP2a-B 홈 피드백', () => {
     expect(dialog.getAttribute('busy')).toBe('false')
     expect(mocks.toast.error).toHaveBeenCalledWith('광고 보상 실패')
     const reentry = s.onClaimAdReward()
+    // 서버 nonce 발급의 비동기 경계를 기다리되 기존 호출 횟수와 시한 단정은 유지한다.
+    await nextTick()
     expect(mocks.showRewardedAd).toHaveBeenCalledTimes(2)
     ad.resolve(true); await flushPromises()
     expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()

@@ -268,6 +268,7 @@
       :ruby="ruby"
       :ruby-cost="lostRubyCost"
       :busy="reviving"
+      :ad-available="!isIos"
       @close="closeLostModal"
       @revive="onRevive"
     />
@@ -277,7 +278,8 @@
 <script setup lang="ts">
 import { h } from 'vue'
 import { useUserStore } from '~/stores/user'
-import type { GrowthItem, GrowthResponse } from '@terraworld-it/openapi-frontend'
+import { readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim } from '~/composables/useAdMob'
+import type { GrowthItem, GrowthResponse, GrowthReviveRequest } from '@terraworld-it/openapi-frontend'
 import {
   BOOSTER_COST,
   BOOSTER_STAMPS,
@@ -300,6 +302,8 @@ useHead({ htmlAttrs: { style: '--apjek-scrim: #f5f9fc; --apjek-scrim-bottom: var
 
 const { sdk, client } = useOpenApi()
 const toast = useToast()
+const { t } = useI18n()
+const isIos = ref<boolean>(false)
 const userStore = useUserStore()
 
 const heroFrame = ref<HTMLElement | null>(null)
@@ -431,22 +435,34 @@ function maybeOpenLostModal(list: GrowthItem[]): void {
 }
 
 /** revive 공통 호출 — 성공 시 개체 교체 + 재화 재동기화, 실패는 코드별 안내 */
-async function callRevive(speciesCode: string, body: { method: 'RUBY' | 'AD'; adNonce?: string }): Promise<boolean> {
+async function callRevive(speciesCode: string, body: GrowthReviveRequest): Promise<boolean> {
   const { data, error } = await sdk.reviveGrowth({ client, path: { speciesCode }, body })
   if (error) {
     const code = errCode(error)
+    if (code === 'NONCE_ALREADY_CONSUMED') {
+      // 중복 소비만으로 지급을 단정하지 않고 잔액과 정령 상태를 다시 확인한다.
+      await userStore.fetchMe(true)
+      await loadGrowth()
+      if (loadFailed.value) return false
+      lostModalSpecies.value = null
+      toast.info(t('home.adAlreadyProcessed'))
+      return true
+    }
     if (code === 'INSUFFICIENT_FUNDS') toast.error('루비가 부족해요')
     else if (code === 'GROWTH_REVIVE_SNOOZED') toast.error('오늘은 다시 불러올 수 없어요 · 내일 새로운 정령이 찾아와요')
-    else if (code === 'NONCE_ALREADY_CONSUMED') toast.error('이미 사용된 광고 보상이에요')
+    else if (code === 'INVALID_INPUT' && body.method === 'AD') toast.error(t('home.adVerifyPending'), {
+      actionLabel: '다시 시도', duration: 8000, onAction: () => { void onRevive('AD') },
+    })
     else toast.error(errMsg(error, '정령을 다시 불러오지 못했어요'))
-    await userStore.fetchMe(true) // 재화 재동기화 — TTL 캐시 무시
+    await userStore.fetchMe(true).catch(() => { toast.info('잔액 정보를 다시 불러오지 못했어요') })
     return false
   }
   const updated = castData<GrowthItem>(data)
   if (updated) replaceItem(updated)
   lostModalSpecies.value = null
-  await userStore.fetchMe(true) // 루비 차감 반영 — TTL 캐시 무시
   toast.success('정령이 돌아왔어요! 이어서 기록해요')
+  // 되살리기 성공은 잔액 조회 실패와 분리한다.
+  await userStore.fetchMe(true).catch(() => { toast.info('잔액 정보를 다시 불러오지 못했어요') })
   return true
 }
 
@@ -454,24 +470,53 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
   const species = lostModalSpecies.value
   if (!species || reviving.value) return
   reviving.value = true
+  const userId = userStore.me?.userId
+  let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
   try {
     if (method === 'RUBY') {
       await callRevive(species, { method: 'RUBY' })
       return
     }
-    // AD — 기존 보상형 광고 플로우(useAdMob) 재사용: Android 네이티브에서만 실 광고, 웹은 안내.
-    const { isAndroid, showRewardedAd, generateNonce } = useAdMob()
-    if (!isAndroid && !import.meta.dev) {
-      toast.info('앱에서 이용할 수 있어요')
+    const { isAndroid, isIos: adIos, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
+    if (adIos) return
+    const stored = readPendingAdClaim(userId)
+    if (stored?.purpose === 'GROWTH_REVIVE' && stored.speciesCode === species) {
+      if (Date.now() < Date.parse(stored.expiresAt)) pendingClaim = stored
+      else {
+        clearPendingAdClaim(userId, stored.nonce)
+        toast.info(t('home.adPendingExpired'))
+      }
+    }
+    const recovering = pendingClaim !== null
+    if (!pendingClaim) {
+      if (!isAndroid && !import.meta.dev) {
+        toast.info('앱에서 이용할 수 있어요')
+        return
+      }
+      const issued = await issueServerNonce('GROWTH_REVIVE')
+      const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
+      if (!watched) {
+        toast.info('광고를 끝까지 시청하면 정령을 다시 불러올 수 있어요')
+        return
+      }
+      pendingClaim = { nonce: issued.nonce, purpose: issued.purpose, expiresAt: issued.expiresAt, speciesCode: species }
+      writePendingAdClaim(userId, pendingClaim)
+    }
+    const verified = await awaitNonceVerified('GROWTH_REVIVE', pendingClaim.nonce, recovering ? { tries: 1 } : undefined)
+    if (!verified) {
+      clearPendingAdClaim(userId, pendingClaim.nonce)
+      pendingClaim = null
+      toast.info(t('home.adPendingExpired'))
       return
     }
-    const nonce = generateNonce()
-    const watched = await showRewardedAd({ ssvUserId: userStore.me?.userId, ssvCustomData: nonce })
-    if (!watched) {
-      toast.info('광고를 끝까지 시청하면 정령을 다시 불러올 수 있어요')
-      return
+    if (await callRevive(species, { method: 'AD', adNonce: pendingClaim.nonce })) {
+      clearPendingAdClaim(userId, pendingClaim.nonce)
     }
-    await callRevive(species, { method: 'AD', adNonce: nonce })
+  }
+  catch (e) {
+    toast.error(errMsg(e, '정령을 다시 불러오지 못했어요'), pendingClaim
+      ? { actionLabel: '다시 시도', duration: 8000, onAction: () => { void onRevive('AD') } }
+      : undefined)
   }
   finally {
     reviving.value = false
@@ -515,6 +560,7 @@ async function loadGrowth(): Promise<void> {
 }
 
 onMounted(() => {
+  isIos.value = useAdMob().isIos
   // 콜드 진입(직접 URL/새로고침) 시 userStore.me 가 비어 있으면 보유 반짝이가 0 으로
   // 표시되는 정합 버그 방지. fetchMe 는 TTL fetchGuard 가 있어 홈 경유 진입 시 중복 비용 없음.
   void userStore.fetchMe()

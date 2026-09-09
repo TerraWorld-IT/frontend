@@ -56,6 +56,7 @@
             </button>
             <!-- 광고 보상 사용 — 파랑 #A1CCDB -->
             <button
+              v-if="adAvailable !== false"
               type="button"
               class="h-[48px] rounded-full text-[14px] font-semibold inline-flex items-center justify-center gap-[8px] text-[#163a4a] transition-all active:scale-[0.98] disabled:opacity-60"
               style="background: #A1CCDB"
@@ -73,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   open: boolean
   /** 보유 루비 */
   ruby: number
@@ -81,7 +82,9 @@ const props = defineProps<{
   rubyCost: number
   /** 복귀 요청 진행 중 */
   busy?: boolean
-}>()
+  /** iOS 첫 출시는 광고 진입점을 숨긴다. 생략하면 기존대로 노출한다. */
+  adAvailable?: boolean
+}>(), { adAvailable: true })
 
 const emit = defineEmits<{
   close: []

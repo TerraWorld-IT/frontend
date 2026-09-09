@@ -1,30 +1,82 @@
 import { Capacitor } from '@capacitor/core'
+import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
+import { STORAGE_KEYS } from '~/utils/constants'
+import { kstTodayKey } from '~/utils/habitState'
+import { withTimeout } from '~/utils/withTimeout'
 
 export const REWARD_AD_TIMEOUT_MS = 60_000
+// 준비는 전체 60초 안에서 20초로 제한한다. 운영 실측 전 가정값이다.
+export const REWARD_AD_PREPARE_TIMEOUT_MS = 20_000
+
+/** 보류는 서버 만료시각 그대로 보존한다. 만료 안내와 제거는 진입점이 담당한다. */
+export function readPendingAdClaim(userId: string | undefined): (Pick<AdRewardNonceResponse, 'nonce' | 'purpose' | 'expiresAt'> & { speciesCode?: string }) | null {
+  if (!import.meta.client || !userId) return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.AD_PENDING + userId)
+    if (!raw) return null
+    const value = JSON.parse(raw)
+    if (!value || typeof value.nonce !== 'string' || !value.nonce
+      || !['AD_REWARD', 'GROWTH_REVIVE'].includes(value.purpose)
+      || typeof value.expiresAt !== 'string' || !Number.isFinite(Date.parse(value.expiresAt))
+      || (value.speciesCode !== undefined && typeof value.speciesCode !== 'string')
+      || (value.purpose === 'GROWTH_REVIVE' && !value.speciesCode)) return null
+    return { nonce: value.nonce, purpose: value.purpose, expiresAt: value.expiresAt, ...(value.speciesCode ? { speciesCode: value.speciesCode } : {}) }
+  }
+  catch {
+    return null
+  }
+}
+
+export function writePendingAdClaim(userId: string | undefined, claim: NonNullable<ReturnType<typeof readPendingAdClaim>>): void {
+  if (!import.meta.client || !userId) return
+  try {
+    localStorage.setItem(STORAGE_KEYS.AD_PENDING + userId, JSON.stringify({ nonce: claim.nonce, purpose: claim.purpose, expiresAt: claim.expiresAt, ...(claim.speciesCode ? { speciesCode: claim.speciesCode } : {}) }))
+  }
+  catch {
+    // 저장소 사용 불가 시 현재 청구는 계속 진행한다.
+  }
+}
+
+export function clearPendingAdClaim(userId: string | undefined, expectedNonce?: string): void {
+  if (!import.meta.client || !userId) return
+  try {
+    if (expectedNonce && readPendingAdClaim(userId)?.nonce !== expectedNonce) return
+    localStorage.removeItem(STORAGE_KEYS.AD_PENDING + userId)
+  }
+  catch {
+    // 저장소가 막혀 있어도 성공한 청구를 실패로 바꾸지 않는다.
+  }
+}
+
+export function isAdLimitReachedToday(userId: string | undefined): boolean {
+  if (!import.meta.client || !userId) return false
+  try {
+    return localStorage.getItem(STORAGE_KEYS.AD_LIMIT_DATE + userId) === kstTodayKey()
+  }
+  catch {
+    return false
+  }
+}
+
+export function markAdLimitReachedToday(userId: string | undefined): void {
+  if (!import.meta.client || !userId) return
+  try {
+    localStorage.setItem(STORAGE_KEYS.AD_LIMIT_DATE + userId, kstTodayKey())
+  }
+  catch {
+    // 저장할 수 없으면 다음 청구의 서버 한도 판정에 맡긴다.
+  }
+}
 
 // H3 (code-review): iOS ATT 결과를 모듈 스코프에 보존한다. ATT 요청은 앱 시작 시
 // (capacitor.client.ts) 의 useAdMob() 인스턴스에서, 광고 표시는 별도 useAdMob() 인스턴스에서
 // 일어나므로 인스턴스 변수로는 공유 불가. 미인증/오류 시 fail-closed(개인화 광고 미요청).
 let iosTrackingAuthorized = false
 
-/**
- * AdMob 보상형 광고 composable.
- *
- * - 네이티브(Android) 에서만 실제 광고. 웹/iOS-dev 에서는 30초 카운트다운 모달로 대체.
- * - `@capacitor-community/admob` 플러그인은 Android 에서 native 코드(MobileAds SDK)를 등록.
- * - dev 빌드는 `capacitor.config.ts` 의 `initializeForTesting=true` 로 Google 테스트 광고 ID 자동 사용 → 어뷰징 정책 위반 없음.
- *
- * 사용
- *   const { showRewardedAd, generateNonce } = useAdMob()
- *   const nonce = generateNonce()           // N9: 광고 시청 직전 발급 (UUID v4)
- *   const rewarded = await showRewardedAd()
- *   if (rewarded) { sdk.claimAdReward({ client, body: { nonce } }) }  // backend dedup
- *
- * N9 (구현 계획서 v4, 2026-05-26): client-issued nonce 도입. 광고 1회당 하나의 nonce 만
- * 발급 — backend `ad_reward_nonce_inbox` 가 같은 nonce 두 번 사용을 거부. 외부 AdMob SSV
- * public key 활성화 전이라도 단순 replay attack 차단.
- */
+/** 서버 nonce를 광고 SSV에 전달하고 시청 완료 증거를 반환한다. */
 export function useAdMob() {
+  const { sdk, client } = useOpenApi()
+  const config = useRuntimeConfig()
   const isNative = import.meta.client ? Capacitor.isNativePlatform() : false
   const isAndroid = import.meta.client ? Capacitor.getPlatform() === 'android' : false
   const isIos = import.meta.client ? Capacitor.getPlatform() === 'ios' : false
@@ -58,28 +110,30 @@ export function useAdMob() {
     }
   }
 
-  /**
-   * N9: 광고 보상 nonce 발급 (UUID v4). 광고 시청 직전 호출 → 시청 완료 후 backend
-   * `/rewards/ad` 에 body.nonce 로 전달. 같은 nonce 로 두 번 호출 시 backend 가 409.
-   *
-   * 암호학적으로 안전한 nonce 만 발급 — replay 방어가 client nonce 예측 불가능성에 의존.
-   * 우선순위: crypto.randomUUID() → crypto.getRandomValues() (둘 다 CSPRNG).
-   * Math.random 기반 예측가능 fallback 은 secure context 아닌 환경의 최후 수단
-   * (운영 빌드는 HTTPS 강제로 도달 불가). 출력 길이는 spec nonce 16~64 범위 내.
-   */
-  function generateNonce(): string {
-    if (typeof crypto !== 'undefined') {
-      if (typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID() // 36자 (CSPRNG)
-      }
-      if (typeof crypto.getRandomValues === 'function') {
-        // 16바이트 → 32자 hex (CSPRNG). randomUUID 미지원 secure context 대비.
-        const bytes = crypto.getRandomValues(new Uint8Array(16))
-        return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
-      }
+  async function issueServerNonce(purpose: AdRewardNonceResponse['purpose']): Promise<AdRewardNonceResponse> {
+    const { data, error } = await sdk.issueAdRewardNonce({ client, query: { purpose } })
+    if (error) throw new Error(errMsg(error, '광고 보상 요청을 준비하지 못했어요'))
+    const nonce = castData<AdRewardNonceResponse>(data)
+    if (!nonce?.nonce || nonce.purpose !== purpose || !Number.isFinite(Date.parse(nonce.expiresAt))) {
+      throw new Error('광고 보상 요청을 준비하지 못했어요')
     }
-    // 최후 fallback — secure context 아님(예측가능). 운영 빌드는 HTTPS 강제로 도달 불가.
-    return `nonce-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+    return nonce
+  }
+
+  async function awaitNonceVerified(
+    purpose: AdRewardNonceResponse['purpose'],
+    expectedNonce: string,
+    opts: { tries?: number, intervalMs?: number } = {},
+  ): Promise<AdRewardNonceResponse | null> {
+    const tries = opts.tries ?? 3
+    let last: AdRewardNonceResponse | null = null
+    for (let attempt = 0; attempt < tries; attempt++) {
+      if (attempt > 0) await new Promise<void>(resolve => setTimeout(resolve, opts.intervalMs ?? 1000))
+      last = await issueServerNonce(purpose)
+      if (last.nonce !== expectedNonce) return null
+      if (last.status === 'VERIFIED') return last
+    }
+    return last
   }
 
   async function initialize(): Promise<void> {
@@ -118,10 +172,8 @@ export function useAdMob() {
       return import.meta.dev
     }
     try {
-      await initialize()
       const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob')
 
-      const config = useRuntimeConfig()
       const adId = (config.public.admobRewardedAdId as string | undefined) ?? ''
       // 빈 adId 일 때는 아래 fallback 의 Google 공식 테스트 ID 가 사용됨.
 
@@ -134,13 +186,18 @@ export function useAdMob() {
           : undefined
 
       // 광고 준비 (prepare) → 표시 (show). @capacitor-community/admob v8 API.
-      await AdMob.prepareRewardVideoAd({
-        adId: adId || 'ca-app-pub-3940256099942544/5224354917', // Google 공식 테스트 보상형 광고 ID
-        // H3: iOS 에서 ATT 미인증이면 비개인화 광고(npa) 요청. 현재 iOS 는 위 isAndroid 게이트로
-        //     이 경로 미도달이라 사실상 false(Android 개인화)지만, iOS 광고 도입 시 ATT 정합 보장.
-        npa: isIos && !iosTrackingAuthorized,
-        ...(ssv ? { ssv } : {}),
-      })
+      const preparation = new AbortController()
+      await withTimeout((async () => {
+        await initialize()
+        if (preparation.signal.aborted) return
+        await AdMob.prepareRewardVideoAd({
+          adId: adId || 'ca-app-pub-3940256099942544/5224354917', // Google 공식 테스트 보상형 광고 ID
+          // H3: iOS 에서 ATT 미인증이면 비개인화 광고(npa) 요청. 현재 iOS 는 위 isAndroid 게이트로
+          //     이 경로 미도달이라 사실상 false(Android 개인화)지만, iOS 광고 도입 시 ATT 정합 보장.
+          npa: isIos && !iosTrackingAuthorized,
+          ...(ssv ? { ssv } : {}),
+        })
+      })(), REWARD_AD_PREPARE_TIMEOUT_MS, preparation)
 
       return await new Promise<boolean>((resolve) => {
         let rewarded = false
@@ -160,7 +217,7 @@ export function useAdMob() {
         // AdMob 네이티브 SDK 문제나 백그라운드 전환 중 Dismissed 이벤트가 아예 안 오면 이 프라미스가
         // 무기한 대기 — 호출부(pages/index.vue)가 영원히 로딩 상태로 멈춘다(auth.ts 세션체크와
         // 같은 클래스의 hang 위험). 보상형 광고는 보통 15~30초라 60초 여유를 두고 fail-closed.
-        const timeoutId = setTimeout(() => settle(false), REWARD_AD_TIMEOUT_MS)
+        const timeoutId = setTimeout(() => settle(rewarded), REWARD_AD_TIMEOUT_MS)
         // 세 종료 경로(dismiss/failedToShow/timeout/reject) 모두 동일하게 정리 — 이전엔
         // showRewardVideoAd() 의 .catch() 경로만 리스너 remove 를 빠뜨려(Architecture/Codex
         // 감사 둘 다 지적) reject 가 반복되면 전역 리스너가 계속 누적됐다.
@@ -190,6 +247,7 @@ export function useAdMob() {
     initialize,
     requestTrackingAuthorization,
     showRewardedAd,
-    generateNonce,
+    issueServerNonce,
+    awaitNonceVerified,
   }
 }
