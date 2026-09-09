@@ -1,5 +1,7 @@
 import { Capacitor } from '@capacitor/core'
 
+export const REWARD_AD_TIMEOUT_MS = 60_000
+
 // H3 (code-review): iOS ATT 결과를 모듈 스코프에 보존한다. ATT 요청은 앱 시작 시
 // (capacitor.client.ts) 의 useAdMob() 인스턴스에서, 광고 표시는 별도 useAdMob() 인스턴스에서
 // 일어나므로 인스턴스 변수로는 공유 불가. 미인증/오류 시 fail-closed(개인화 광고 미요청).
@@ -158,7 +160,6 @@ export function useAdMob() {
         // AdMob 네이티브 SDK 문제나 백그라운드 전환 중 Dismissed 이벤트가 아예 안 오면 이 프라미스가
         // 무기한 대기 — 호출부(pages/index.vue)가 영원히 로딩 상태로 멈춘다(auth.ts 세션체크와
         // 같은 클래스의 hang 위험). 보상형 광고는 보통 15~30초라 60초 여유를 두고 fail-closed.
-        const REWARD_AD_TIMEOUT_MS = 60_000
         const timeoutId = setTimeout(() => settle(false), REWARD_AD_TIMEOUT_MS)
         // 세 종료 경로(dismiss/failedToShow/timeout/reject) 모두 동일하게 정리 — 이전엔
         // showRewardVideoAd() 의 .catch() 경로만 리스너 remove 를 빠뜨려(Architecture/Codex

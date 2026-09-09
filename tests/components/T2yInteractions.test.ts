@@ -13,9 +13,10 @@ import HabitCreateSheet from '~/components/record/HabitCreateSheet.vue'
 import HabitTrackerCard from '~/components/record/HabitTrackerCard.vue'
 import ShareModal from '~/components/terrarium/ShareModal.vue'
 import FriendsPage from '~/pages/friends/index.vue'
+import { REWARD_AD_TIMEOUT_MS } from '~/composables/useAdMob'
 
 const mocks = vi.hoisted(() => ({
-  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite'].map(k => [k, vi.fn()])),
+  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward'].map(k => [k, vi.fn()])),
   user: { me: { nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn() },
   items: { items: [], fetchAll: vi.fn(), invalidate: vi.fn() },
   home: { snapshot: { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }, fetch: vi.fn(), invalidate: vi.fn(), patchFreePlacement: vi.fn() },
@@ -42,7 +43,7 @@ mockNuxtImport('useNative', () => () => ({ isNative: false, hapticImpact: vi.fn(
 mockNuxtImport('useAuth', () => () => ({ isLoggedIn: ref(true) }))
 mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true), loadError: ref(false), load: vi.fn() }))
 mockNuxtImport('useAttendance', () => () => ({ state: ref(null), loading: ref(false), error: ref<string | null>(null), refresh: vi.fn(), checkIn: vi.fn() }))
-mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref(false), loadError: ref(false), load: vi.fn() }))
+mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
 mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
 mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: false, generateNonce: () => 'nonce', showRewardedAd: mocks.showRewardedAd }))
 
@@ -161,6 +162,62 @@ describe('WP2a-B 홈 피드백', () => {
     else ad.reject(new Error('광고 오류'))
     await claiming
     expect(s.adClaiming).toBe(false)
+    expect(s.showFreeCoinDialog).toBe(true)
+  })
+
+  it('B-16 준비가 끝나지 않아도 시한 뒤 재진입하고 늦은 광고 완료로 청구하지 않는다', async () => {
+    const w = await mountPage(HomePage); const s = state(w)
+    vi.useFakeTimers()
+    const ad = deferred<boolean>(); const nextAd = deferred<boolean>()
+    mocks.showRewardedAd.mockReset().mockReturnValueOnce(ad.promise).mockReturnValueOnce(nextAd.promise)
+    s.showFreeCoinDialog = true
+    const claiming = s.onClaimAdReward()
+    await nextTick()
+    const dialog = w.get('[data-testid="home-ad-body"]').element.closest('common-modal-stub')!
+    expect(dialog.getAttribute('busy')).toBe('true')
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS - 1)
+    expect(s.adClaiming).toBe(true)
+    await vi.advanceTimersByTimeAsync(1)
+    await claiming; await nextTick()
+    expect(s.adClaiming).toBe(false)
+    expect(dialog.getAttribute('busy')).toBe('false')
+    expect(mocks.toast.error).toHaveBeenCalledWith('광고 보상 실패')
+    const reentry = s.onClaimAdReward()
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(2)
+    ad.resolve(true); await flushPromises()
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(s.adClaiming).toBe(true)
+    expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
+    expect(mocks.toast.success).not.toHaveBeenCalled()
+    expect(s.showFreeCoinDialog).toBe(true)
+    nextAd.resolve(false); await reentry
+    expect(s.adClaiming).toBe(false)
+  })
+
+  it.each(['success', 'network-error', 'retry'] as const)('B-16 보상 요청 %s 도 전체 시한을 따르고 늦은 응답을 반영하지 않는다', async (outcome) => {
+    const s = state(await mountPage(HomePage))
+    vi.useFakeTimers()
+    const claim = deferred()
+    mocks.showRewardedAd.mockReset().mockImplementationOnce(async () => {
+      await new Promise<void>(resolve => setTimeout(resolve, 1000))
+      return true
+    })
+    if (outcome === 'retry') mocks.sdk.claimAdReward!.mockRejectedValueOnce(new Error('네트워크 오류'))
+    mocks.sdk.claimAdReward!.mockReturnValueOnce(claim.promise)
+    s.showFreeCoinDialog = true
+    const claiming = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS - 1)
+    expect(s.adClaiming).toBe(true)
+    await vi.advanceTimersByTimeAsync(1); await claiming
+    expect(s.adClaiming).toBe(false)
+    expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith('광고 보상 실패')
+    if (outcome === 'network-error') claim.reject(new Error('늦은 네트워크 오류'))
+    else claim.resolve({ data: { updatedCurrency: { ruby: 1 }, reward: { specialCoins: 1 } } })
+    await flushPromises()
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(outcome === 'retry' ? 2 : 1)
+    expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
+    expect(mocks.toast.success).not.toHaveBeenCalled()
+    expect(mocks.toast.error).toHaveBeenCalledTimes(1)
     expect(s.showFreeCoinDialog).toBe(true)
   })
 })

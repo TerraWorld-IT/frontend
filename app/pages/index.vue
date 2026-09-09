@@ -771,6 +771,7 @@ import { hasHomeEntryQuery, parseHomeEntryQuery, stripHomeEntryQuery } from '~/u
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
+import { REWARD_AD_TIMEOUT_MS } from '~/composables/useAdMob'
 
 const { sdk, client } = useOpenApi()
 const userStore = useUserStore()
@@ -1794,12 +1795,26 @@ async function onAttendanceCheck() {
 async function onClaimAdReward() {
   if (adClaiming.value) return
   adClaiming.value = true
+  const deadline = new AbortController()
   try {
+    // 준비·시청·보상 요청 전체의 잠금 시간을 제한한다. 네이티브 준비 자체의 취소는 별도 범위다.
+    await withTimeout(claimReward(), REWARD_AD_TIMEOUT_MS, deadline)
+  }
+  catch (e) {
+    toast.error(deadline.signal.aborted ? '광고 보상 실패' : (e as Error).message)
+  }
+  finally {
+    adClaiming.value = false
+  }
+
+  async function claimReward() {
     const { showRewardedAd, generateNonce } = useAdMob()
     const nonce = generateNonce()
     // SSV 콜백에 user/nonce 식별값 전달 — 서버가 "누가 어떤 nonce 로 시청했나"를 대조할 수 있는
     // 전제 배선 (audit B2-2 부수, SSV-authoritative 전환 Phase 4 의 선행 조건).
     const watched = await showRewardedAd({ ssvUserId: user.value?.userId, ssvCustomData: nonce })
+    // 시한 뒤 도착한 결과는 새 청구·재시도나 현재 화면의 상태를 변경하지 않는다.
+    if (deadline.signal.aborted) return
     if (!watched) {
       toast.info(t('home.adWatchRequired'))
       return
@@ -1807,7 +1822,9 @@ async function onClaimAdReward() {
     // 동일 nonce 로 claim — 네트워크 실패(throw)면 1회 자동 재시도(nonce dedup 안전, FP-07).
     // 백엔드 반환 에러(한도초과/이미소비 등, error 필드)는 재시도하지 않음(재호출해도 동일 결과).
     let res = await claimWithNonce(nonce, false)
+    if (deadline.signal.aborted) return
     if (res.networkFailed) res = await claimWithNonce(nonce, true)
+    if (deadline.signal.aborted) return
     if (res.error) throw new Error(errMsg(res.error, '광고 보상 실패'))
     const ad = castData<AdRewardResponse>(res.data)
     if (ad) userStore.updateCurrency(ad.updatedCurrency)
@@ -1816,12 +1833,6 @@ async function onClaimAdReward() {
     toast.success(t('home.adRewardEarned', { n: reward }), { variant: 'pill' })
     if (reward > 0) trackAdRewardClaimed({ specialCoins: reward, reason: 'daily' })
     showFreeCoinDialog.value = false
-  }
-  catch (e) {
-    toast.error((e as Error).message)
-  }
-  finally {
-    adClaiming.value = false
   }
 }
 

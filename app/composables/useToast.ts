@@ -79,8 +79,8 @@ export function useToast() {
         const present = toasts.value.some(t => t.id === id)
         if (!present) { clearInterval(timer); return }
         const focused = document.activeElement?.closest(`[data-toast-id="${id}"]`)
-        // 종류와 관계없이 읽거나 조작 중인 토스트의 남은 시간을 보존한다.
-        const hovered = document.querySelector(`[data-toast-id="${id}"]:hover`)
+        // 터치 후 잔류하는 hover 는 무시하고 실제 hover 가능한 환경에서만 정지한다.
+        const hovered = window.matchMedia('(hover: hover)').matches && document.querySelector(`[data-toast-id="${id}"]:hover`)
         if (toasts.value[0]?.id === id && !focused && !hovered) remaining -= now - previous
         previous = now
         if (remaining <= 0) { dismiss(id); clearInterval(timer) }
