@@ -85,7 +85,7 @@
         v-for="(slide, i) in slides"
         :key="slide.level"
         type="button"
-        class="w-6 h-11 -my-[18px] flex items-center justify-center"
+        class="relative after:absolute after:-inset-x-[3px] after:-inset-y-[2px] after:content-[''] w-6 h-11 -my-[18px] flex items-center justify-center"
         :aria-pressed="index === i"
         :aria-label="`Lv.${slide.level} 슬라이드`"
         @click="scrollTo(i)"

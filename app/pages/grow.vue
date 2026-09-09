@@ -41,7 +41,7 @@
 
         <!-- 보유 반짝이 필 칩 (탭 시 습관 기록으로 이동 — 반짝이 획득 경로 안내) -->
         <button
-          class="mt-[16px] h-[38px] rounded-full bg-white border border-white/60 inline-flex items-center gap-[8px] pl-[8px] pr-[14px] transition-all active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[68px] after:h-full after:content-[''] mt-[16px] h-[38px] rounded-full bg-white border border-white/60 inline-flex items-center gap-[8px] pl-[8px] pr-[14px] transition-all active:scale-95"
           data-testid="grow-hero-sparkle-chip"
           @click="onSparkleInfo"
         >
@@ -97,7 +97,7 @@
           <button
             v-if="!isSnoozed(items[0])"
             type="button"
-            class="absolute left-1/2 top-[455px] -translate-x-1/2 h-[34px] px-[16px] rounded-full bg-white/90 text-[12px] font-semibold text-apjek-text transition-all active:scale-95"
+            class="after:absolute after:inset-x-0 after:top-[11px] after:-translate-y-1/2 after:min-h-[68px] after:h-full after:content-[''] absolute left-1/2 top-[455px] -translate-x-1/2 h-[34px] px-[16px] rounded-full bg-white/90 text-[12px] font-semibold text-apjek-text transition-all active:scale-95"
             @click="openLostModal(items[0])"
           >
             정령 다시 불러오기
@@ -155,7 +155,7 @@
               </div>
             </div>
             <button
-              class="mt-[16px] h-[38px] px-[18px] rounded-full bg-[#a9c9d3] inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#1f3d4d] transition-all active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] mt-[16px] h-[38px] px-[18px] rounded-full bg-[#a9c9d3] inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#1f3d4d] transition-all active:scale-95"
               @click="onManage"
             >
               <Icon name="lucide:pencil" class="w-4 h-4" />
@@ -210,7 +210,7 @@
                 </p>
               </div>
               <button
-                class="shrink-0 h-[34px] px-[16px] rounded-full text-[13px] font-semibold transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100"
+                class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] shrink-0 h-[34px] px-[16px] rounded-full text-[13px] font-semibold transition-all active:scale-95 disabled:opacity-60 disabled:active:scale-100"
                 :class="c.notifyNext ? 'bg-white/25 text-white/80' : 'bg-[#ffffff] text-[#121212]'"
                 :aria-pressed="c.notifyNext"
                 :aria-label="c.notifyNext ? '다음 정령 도착 알림 신청 취소' : '다음 정령 도착 알림받기'"
@@ -233,7 +233,7 @@
                 </p>
               </div>
               <button
-                class="shrink-0 h-[34px] px-[16px] rounded-full bg-[#ffffff] text-[13px] font-semibold text-[#121212] transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] shrink-0 h-[34px] px-[16px] rounded-full bg-[#ffffff] text-[13px] font-semibold text-[#121212] transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
                 :disabled="boosting === c.speciesCode || isLost(c)"
                 @click="onUse(c)"
               >
@@ -249,7 +249,7 @@
         <p class="text-[14px]">정보를 불러오지 못했어요</p>
         <button
           type="button"
-          class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
           @click="loadGrowth()"
         >
           다시 시도

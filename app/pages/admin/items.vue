@@ -2,11 +2,11 @@
   <div class="py-6 space-y-5">
     <div class="flex justify-between items-center">
       <div>
-        <NuxtLink to="/admin" class="text-xs text-riso-dark/40 hover:text-riso-dark">← Admin</NuxtLink>
+        <NuxtLink to="/admin" class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] text-xs text-riso-dark/40 hover:text-riso-dark">← Admin</NuxtLink>
         <h1 class="text-xl font-bold text-riso-dark mt-1">{{ $t('admin.items.title') }}</h1>
       </div>
       <button
-        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] bg-riso-sage text-white px-4 py-2 rounded-full text-xs font-medium riso-shadow-sm active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] bg-riso-sage text-white px-4 py-2 rounded-full text-xs font-medium riso-shadow-sm active:scale-95 transition-transform"
         @click="showCreateDialog = true"
       >
         {{ $t('admin.items.newItem') }}
@@ -23,7 +23,7 @@
       <p class="text-sm text-riso-poppy">{{ $t('admin.items.loadError') }}</p>
       <button
         type="button"
-        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] shrink-0 px-3 py-1.5 rounded-full bg-riso-sage text-white text-xs font-medium active:scale-95 transition-transform"
         @click="loadAll"
       >
         {{ $t('common.retry') }}
@@ -58,7 +58,7 @@
           </div>
         </div>
         <button
-          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-transform active:scale-95 disabled:opacity-40 shrink-0"
+          class="relative after:absolute after:-inset-x-[4px] after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-transform active:scale-95 disabled:opacity-40 shrink-0"
           :class="row.active ? 'bg-riso-sage/15 text-riso-sage dark:text-riso-grass' : 'bg-gray-100 text-gray-400'"
           :disabled="toggling !== null || creating"
           @click="toggleActive(row.item.id)"

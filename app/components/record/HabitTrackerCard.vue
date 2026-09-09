@@ -39,7 +39,7 @@
             v-for="day in DAYS"
             :key="day"
             type="button"
-            class="relative after:absolute after:-inset-x-[4.5px] after:-inset-y-[3px] after:content-[''] size-[38px] rounded-full flex items-center justify-center text-[13px] font-bold transition-all active:scale-95 disabled:cursor-default"
+            class="relative after:absolute after:-inset-[5px] after:content-[''] size-[38px] rounded-full flex items-center justify-center text-[13px] font-bold transition-all active:scale-95 disabled:cursor-default"
             :class="circleClass(day)"
             :disabled="!canCheckIn"
             :aria-label="dayAria(day)"

@@ -148,7 +148,7 @@
         <div class="flex items-center justify-between mb-5">
           <button
             type="button"
-            class="group size-11 -m-1 flex items-center justify-center"
+            class="relative after:absolute after:-inset-[2px] after:content-[''] group size-11 -m-1 flex items-center justify-center"
             @click="prevMonth"
           >
             <span class="size-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center group-hover:bg-apjek-bg transition-colors group-active:scale-[0.97]">
@@ -158,7 +158,7 @@
           <h3 class="text-lg font-bold text-apjek-text">{{ $t('calendar.yearMonth', { year: currentYear, month: currentMonth + 1 }) }}</h3>
           <button
             type="button"
-            class="group size-11 -m-1 flex items-center justify-center"
+            class="relative after:absolute after:-inset-[2px] after:content-[''] group size-11 -m-1 flex items-center justify-center"
             @click="nextMonth"
           >
             <span class="size-9 rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center group-hover:bg-apjek-bg transition-colors group-active:scale-[0.97]">
@@ -190,10 +190,10 @@
               v-for="day in daysInMonth"
               :key="day"
               type="button"
-              class="aspect-square rounded-[12px] p-1 text-sm relative transition-all font-semibold flex flex-col items-center justify-center gap-[2px] active:scale-95"
+              class="aspect-square rounded-[12px] p-1 text-sm relative after:absolute after:-inset-[4px] after:content-[''] transition-all font-semibold flex flex-col items-center justify-center gap-[2px] active:scale-95"
               :class="[
                 hasRecords(day) ? 'bg-[#A1CCDB]/35 text-apjek-text' : 'bg-apjek-surface text-apjek-text',
-                isSelectedDay(day) ? 'ring-2 ring-[#A1CCDB]' : 'border border-apjek-border',
+                isSelectedDay(day) ? 'ring-2 ring-[#A1CCDB]' : 'border border-apjek-border after:-inset-[5px]',
                 isFuture(day) ? 'opacity-40' : '',
               ]"
               :aria-label="`${day}일${hasRecords(day) ? ' 기록 있음' : ''}${isToday(day) ? ' 오늘' : ''}`"
@@ -263,7 +263,7 @@
                         >
                           <button
                             type="button"
-                            class="w-full px-4 py-2.5 text-left text-sm hover:bg-apjek-blue-soft flex items-center gap-2 text-apjek-blue font-semibold transition-colors"
+                            class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] w-full px-4 py-2.5 text-left text-sm hover:bg-apjek-blue-soft flex items-center gap-2 text-apjek-blue font-semibold transition-colors"
                             :disabled="deletingId !== null"
                             @click="deleteTarget = record; openMenuId = null"
                           >
@@ -293,7 +293,7 @@
                 v-if="!isEditingNote"
                 type="button"
                 :disabled="noteLoading || noteLoadFailed"
-                class="flex items-center gap-1 text-xs font-medium text-apjek-text-sub hover:text-apjek-text transition-colors"
+                class="relative after:absolute after:-inset-x-[5px] after:-inset-y-[16px] after:content-[''] flex items-center gap-1 text-xs font-medium text-apjek-text-sub hover:text-apjek-text transition-colors"
                 @click="startEdit"
               >
                 <Icon name="lucide:edit-2" class="w-3 h-3" />
@@ -312,7 +312,7 @@
               <div class="flex gap-2">
                 <button
                   type="button"
-                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] flex-1 h-10 rounded-full bg-apjek-cta text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] flex-1 h-10 rounded-full bg-apjek-cta text-white text-sm font-semibold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-50"
                   :disabled="noteSaving"
                   @click="saveNote"
                 >

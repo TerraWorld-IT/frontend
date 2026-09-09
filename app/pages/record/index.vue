@@ -478,7 +478,7 @@
             </button>
             <button
               type="button"
-              class="w-full h-10 rounded-full text-[13px] text-apjek-text-faint border border-apjek-border"
+              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] w-full h-10 rounded-full text-[13px] text-apjek-text-faint border border-apjek-border"
               @click="resetDistance"
             >
               다시 측정

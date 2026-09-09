@@ -56,7 +56,7 @@
           <button
             v-if="showClose"
             type="button"
-            class="group absolute top-[10px] right-[10px] z-10 size-11 flex items-center justify-center"
+            class="after:absolute after:-inset-[2px] after:content-[''] group absolute top-[10px] right-[10px] z-10 size-11 flex items-center justify-center"
             style="right: max(10px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
             aria-label="닫기"
             @click="emit('close')"

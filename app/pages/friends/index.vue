@@ -27,14 +27,14 @@
           <div class="flex gap-1.5 shrink-0">
             <button
               type="button"
-              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="relative after:absolute after:-inset-x-[3px] after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               @click="copyMyCode"
             >
               {{ $t('friends.copy') }}
             </button>
             <button
               type="button"
-              class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] apjek-chip apjek-chip-active px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="relative after:absolute after:-inset-x-[3px] after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] apjek-chip apjek-chip-active px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               @click="shareMyCode"
             >
               {{ $t('common.share') }}
@@ -105,7 +105,7 @@
         <p class="text-[13px] text-apjek-text-sub">{{ $t('friends.listLoadError') }}</p>
         <button
           type="button"
-          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-[''] apjek-cta px-4 py-2 text-[12px] active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] apjek-cta px-4 py-2 text-[12px] active:scale-95"
           @click="loadFriends"
         >
           {{ $t('common.retry') }}
