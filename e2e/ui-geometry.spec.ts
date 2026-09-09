@@ -9,6 +9,17 @@ test.describe.configure({ mode: 'serial' })
 const output = join(process.cwd(), 'e2e/output-screenshots/ui-geometry')
 const calendarTime = '2026-08-15T12:00:00+09:00'
 const missingPath = '/ui-geometry-no-such-page'
+const fixtureOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000').origin
+
+// frontend#56 승인 밀집 예외(48px 미만 후보에서 제거하지 않는다):
+// 캘린더 날짜 320폭 35.14×40(기록일 53), 도트 30×48,
+// 습관 원 44, 가입 약관 링크 48×24, 캘린더 삭제 행 40(클리핑).
+// 아래 대조군은 실제 캡처되는 날짜·도트·가입 링크의 최소값을 지킨다.
+const denseHitAreaMinimum = {
+  calendar: { width: 35, height: 40 },
+  carouselDot: { width: 30, height: 48 },
+  signupLink: { width: 48, height: 24 },
+}
 
 type Scenario = {
   path: string
@@ -28,11 +39,11 @@ function allowedConsoleError(path: string, error: ConsoleError, previous: Consol
     // 404 오류 화면의 격리 프레임에서는 저장소 초기화 스크립트의 localStorage 접근이 거부될 수 있다.
     if (error.text === "Failed to read the 'localStorage' property from 'Window': Access is denied for this document.") return true
     // 404에서 관찰한 빈 격리 프레임 출처와 frame-src 지시문 원문만 허용해 다른 출처의 CSP 회귀는 잡는다.
-    if (error.url === `http://localhost:3000${missingPath}`
+    if (error.url === `${fixtureOrigin}${missingPath}`
       && error.text.trim() === `Framing '' violates the following Content Security Policy directive: "frame-src 'self' https://googleads.g.doubleclick.net https://*.googlesyndication.com https://www.google.com". The request has been blocked.`) return true
     // 의도적으로 요청한 없는 경로 자체의 404만 허용하며 다른 리소스 404는 실패시킨다.
     if (/Failed to load resource: the server responded with a status of 404/.test(error.text)
-      && error.url === `http://localhost:3000${missingPath}`) return true
+      && error.url === `${fixtureOrigin}${missingPath}`) return true
   }
   return false
 }
@@ -162,8 +173,9 @@ async function measure(page: Page) {
       return { width: Math.max(0, right - left), height: Math.max(0, bottom - top), pseudoElements }
     }
     // 감사 하네스의 small처럼 시각 자식 대신 클릭 가능한 요소 자체를 측정한다.
-    const small = all.filter(element => element.matches('button,a,[role=button],input[type=checkbox]'))
+    const hitTargets = all.filter(element => element.matches('button,a,[role=button],input[type=checkbox]'))
       .map(element => ({ ...describe(element), hitArea: hitArea(element), disabled: element.matches(':disabled') }))
+    const small = hitTargets
       .filter(element => element.hitArea.width < 48 || element.hitArea.height < 48)
       .map(element => ({ ...element, severe: element.hitArea.width < 44 || element.hitArea.height < 44 }))
     // 내비게이션의 아이콘과 라벨은 서로 다른 행이므로 라벨 span의 텍스트만 검사한다.
@@ -202,7 +214,7 @@ async function measure(page: Page) {
     const root = document.scrollingElement!
     return {
       overflow: { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, violated: root.scrollWidth > root.clientWidth },
-      wrap, dialogPanels: dialogs.map(describe), toastPanels: toastRoots.map(describe), small, clip,
+      wrap, dialogPanels: dialogs.map(describe), toastPanels: toastRoots.map(describe), hitTargets, small, clip,
       insets: ['--sat', '--sab', '--sal', '--sar'].map(key => getComputedStyle(document.documentElement).getPropertyValue(key)),
     }
   })
@@ -323,7 +335,8 @@ test('밀집 화면 매트릭스와 상태의 기하를 검사하고 후보를 �
   expect(allowedConsoleError('/calendar', slice, [])).toBe(false)
   expect(allowedConsoleError('/calendar', slice, [hydration])).toBe(true)
   expect(allowedConsoleError('/', slice, [hydration])).toBe(false)
-  expect(allowedConsoleError(missingPath, { text: `Framing 'https://unexpected.example' violates the following Content Security Policy directive: "frame-src 'self'". The request has been blocked.`, url: `http://localhost:3000${missingPath}` }, [])).toBe(false)
+  expect(allowedConsoleError(missingPath, { text: `Framing 'https://unexpected.example' violates the following Content Security Policy directive: "frame-src 'self'". The request has been blocked.`, url: `${fixtureOrigin}${missingPath}` }, [])).toBe(false)
+  expect(allowedConsoleError('/profile/settings', hydration, [])).toBe(false)
   expect(allowedConsoleError(missingPath, { text: 'localStorage: unrelated Access is denied', url: '' }, [])).toBe(false)
   persist()
   const matrix = [
@@ -360,6 +373,10 @@ test('밀집 화면 매트릭스와 상태의 기하를 검사하고 후보를 �
           await page.evaluate(path => Reflect.get(document.getElementById('__nuxt')!, '__vue_app__').$nuxt.$router.push(path), scenario.path)
         }
         await ready(page)
+        if (scenario.path === '/profile/settings') {
+          await expect(page.getByTestId('delete-account')).toBeVisible()
+          await expect(page.locator('a[href="/auth/login"]')).toHaveCount(0)
+        }
         if (scenario.path === '/calendar') await expect(page.getByTestId('calendar-days-grid')).toBeVisible()
         await scenario.action?.(page)
         await ready(page)
@@ -396,9 +413,10 @@ test('밀집 화면 매트릭스와 상태의 기하를 검사하고 후보를 �
             }, original)
           }
           expect((await measure(page)).wrap, '돌연변이 원복 뒤 줄바꿈 0').toEqual([])
-          const visit = geometry.small.filter(entry => entry.selector.startsWith('[data-testid="home-visit-'))
+          const visit = geometry.hitTargets.filter(entry => entry.selector.startsWith('[data-testid="home-visit-'))
           expect(visit.length, '놀러가기 버튼 대조군이 존재한다').toBeGreaterThan(0)
-          expect(visit.every(entry => !entry.severe && entry.hitArea.width >= 44 && entry.hitArea.height >= 44)).toBe(true)
+          expect(visit.every(entry => entry.hitArea.width >= 48 && entry.hitArea.height >= 48), '놀러가기 버튼 히트 영역은 48px 이상이다').toBe(true)
+          expect(geometry.small.filter(entry => entry.selector.startsWith('[data-testid="home-visit-')), '놀러가기 버튼은 48px 미만 후보에 없다').toEqual([])
           controls.visitHitArea = visit
         }
         if (name === 'invite-modal__393__light') {
@@ -434,14 +452,29 @@ test('밀집 화면 매트릭스와 상태의 기하를 검사하고 후보를 �
   await testInfo.attach('hit-area-candidates', { body: JSON.stringify(candidates, null, 2), contentType: 'application/json' })
   await testInfo.attach('clip-candidates', { body: JSON.stringify(clips, null, 2), contentType: 'application/json' })
   expect.soft(results.length, '모든 기본 화면 60개와 상태 화면 14개를 캡처한다').toBe(74)
-  // 후보 자체는 실패 조건이 아니다. 알려진 대조군 세 종류로 검출기의 회귀만 확인한다.
+  // 후보 자체는 실패 조건이 아니다. #56 이후 확대된 대상은 존재와 48px 이상을 함께 확인한다.
   expect.soft(candidates.some(candidate => candidate.selector.startsWith('button.aspect-square') && candidate.text.startsWith('1일')), '캘린더 날짜 대조군').toBe(true)
-  expect.soft(candidates.some(candidate => candidate.selector === '[data-testid="grow-hero-sparkle-chip"]'), '키우기 칩 대조군').toBe(true)
-  expect.soft(candidates.some(candidate => candidate.selector.includes('.w-6.h-11') && /슬라이드/.test(candidate.text)), '캐러셀 도트 대조군').toBe(true)
-  const calendar = candidates.filter(candidate => candidate.capture === 'calendar__393__light'
-    && candidate.selector.startsWith('button.aspect-square') && candidate.hitArea.height >= 27 && candidate.hitArea.height < 44)
-  expect.soft(calendar.length, '27~43px 캘린더 날짜는 후보로 남는다').toBeGreaterThan(0)
+  for (const result of results.filter(result => result.path === '/grow')) {
+    const chips = result.geometry.hitTargets.filter(entry => entry.selector === '[data-testid="grow-hero-sparkle-chip"]')
+    expect.soft(chips, `${result.name}: 키우기 칩이 존재한다`).toHaveLength(1)
+    expect.soft(chips.every(entry => entry.hitArea.width >= 48 && entry.hitArea.height >= 48), `${result.name}: 키우기 칩은 48px 이상이다`).toBe(true)
+  }
+  expect.soft(candidates.some(candidate => candidate.selector === '[data-testid="grow-hero-sparkle-chip"]'), '키우기 칩은 48px 미만 후보에 없다').toBe(false)
+  const calendar = candidates.filter(candidate => candidate.capture === 'calendar__320__light'
+    && candidate.selector.startsWith('button.aspect-square'))
+  expect.soft(calendar, '320폭 캘린더 날짜 31개는 밀집 예외 후보로 남는다').toHaveLength(31)
+  expect.soft(calendar.every(candidate => candidate.hitArea.width >= denseHitAreaMinimum.calendar.width
+    && candidate.hitArea.height >= denseHitAreaMinimum.calendar.height), '320폭 날짜는 승인된 35×40 이상이다').toBe(true)
   controls.calendarHitArea = calendar
+  const dots = candidates.filter(candidate => candidate.capture === 'home__393__light' && /^Lv\.\d+ 슬라이드$/.test(candidate.text))
+  expect.soft(dots, '캐러셀 도트 3개는 가로 30px 밀집 예외 후보로 남는다').toHaveLength(3)
+  expect.soft(dots.every(candidate => candidate.hitArea.width >= denseHitAreaMinimum.carouselDot.width
+    && candidate.hitArea.height >= denseHitAreaMinimum.carouselDot.height), '캐러셀 도트는 승인된 30×48 이상이다').toBe(true)
+  const signupLinks = candidates.filter(candidate => candidate.capture === 'signup__320__light'
+    && candidate.selector.startsWith('a.') && candidate.text === '보기')
+  expect.soft(signupLinks, '가입 약관 링크 2개는 행 피치 24px 밀집 예외 후보로 남는다').toHaveLength(2)
+  expect.soft(signupLinks.every(candidate => candidate.hitArea.width >= denseHitAreaMinimum.signupLink.width
+    && candidate.hitArea.height >= denseHitAreaMinimum.signupLink.height), '가입 약관 링크는 승인된 48×24 이상이다').toBe(true)
   expect.soft(Object.keys(controls).sort(), '대조군 4종과 캘린더 회귀 증거를 모두 남긴다')
     .toEqual(['calendarHitArea', 'separatedToast', 'syntheticOverlap', 'visitHitArea', 'wrapMutation'])
   persist()

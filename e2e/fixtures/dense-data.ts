@@ -153,7 +153,7 @@ export async function installDenseData(context: BrowserContext, options: {
   onboarding?: boolean
 }) {
   const origin = new URL(options.baseURL).origin
-  if (origin !== 'http://localhost:3000') throw new Error('픽스처 서버는 http://localhost:3000만 허용합니다')
+  if (!['http://localhost:3000', 'http://localhost:3017'].includes(origin)) throw new Error('픽스처 서버는 localhost의 3000·3017 포트만 허용합니다')
   await context.route('**/*', (route) => {
     if (new URL(route.request().url()).origin !== origin) return route.abort('blockedbyclient')
     // 미등록 API가 로컬 프록시를 거쳐 실백엔드에 전달되는 것도 차단한다.

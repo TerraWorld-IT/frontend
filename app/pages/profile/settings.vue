@@ -88,7 +88,7 @@
             <span class="text-[12px] text-apjek-text-sub">{{ appVersion }}</span>
           </div>
           <button
-            v-if="session?.data?.user"
+            v-if="hasMountedSession"
             type="button"
             data-testid="delete-account"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
@@ -118,7 +118,7 @@
 
           <!-- 로그인 — 비로그인 시에만 (더보기 계정 카드와 동일) -->
           <NuxtLink
-            v-if="!session?.data?.user"
+            v-if="!hasMountedSession"
             to="/auth/login"
             class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
           >
@@ -274,6 +274,10 @@ const P = {
 
 // P3-2 (PIPA): 동의 항목 관리 — better-auth session 의 동의 필드를 읽어 토글, 변경 시 updateUser.
 const session = authClient.useSession()
+// 클라이언트 플러그인이 세션을 먼저 복원해도 SSR과 첫 렌더의 계정 메뉴를 같게 유지한다.
+// 마운트 뒤에는 세션 교체·로그아웃을 계속 반영한다.
+const mounted = ref(false)
+const hasMountedSession = computed(() => mounted.value && !!session.value?.data?.user)
 const consentSaving = ref<boolean>(false)
 const consentRenderKey = ref<number>(0)
 const pushOffPending = ref<boolean>(false)
@@ -321,6 +325,7 @@ function restorePushOffState(u: unknown) {
 }
 
 onMounted(() => {
+  mounted.value = true
   isAndroidNative.value = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
   if (Capacitor.isNativePlatform()) {
     appVersion.value = '확인 중'
