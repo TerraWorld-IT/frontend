@@ -926,6 +926,33 @@ describe('T2-Y 확인 다이얼로그와 DOM 계약', () => {
 
 
 describe('T2-Y 이미지 공유와 배치 복구', () => {
+  it('A-03 터치 두 포인터만 줌하고 취소·편집 전환 시 이전 포인터를 버린다', async () => {
+    const w = await mountPage(HomePage); const s = state(w)
+    const stage = w.get('#my-terra-container')
+    Object.defineProperty(stage.element, 'setPointerCapture', { value: vi.fn(), configurable: true })
+    expect(stage.classes()).toContain('touch-none')
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 20, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 120, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 170, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    await stage.trigger('pointercancel', { pointerId: 2, pointerType: 'touch' })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 220, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    await stage.trigger('pointerdown', { pointerId: 3, pointerType: 'mouse', clientX: 120, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 3, pointerType: 'mouse', clientX: 220, clientY: 0 })
+    expect(s.zoomLevel).toBe(1.5)
+    s.editMode = true; await nextTick()
+    expect(s.zoomLevel).toBe(1)
+    expect(stage.classes()).toContain('touch-none')
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 120, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 220, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+    s.editMode = false; await nextTick()
+    await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 30, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+  })
   it('C18/C48 SNS action은 캡처 PNG를 공유하고 갤러리 완료를 주장하지 않는다', async () => {
     const w = await mountPage(HomePage); const s = state(w)
     // 캡처 대상은 실제 마운트한 스테이지 DOM이다.

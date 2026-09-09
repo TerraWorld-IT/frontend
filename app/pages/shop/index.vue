@@ -127,16 +127,18 @@
             </div>
           </div>
 
-          <!-- 가격 — Figma: 미니 토큰 아이콘 / 토큰명(작게) / 수량(굵게) 세로 2줄 (MIXED 는 재화별 반복) -->
+          <!-- 가격 — Figma: 아이콘 좌측 + 토큰명/수량 2줄 (MIXED 는 재화별 반복) -->
           <div class="flex items-start justify-center gap-[12px] mt-2 mb-3">
             <div
               v-for="part in priceParts(item)"
               :key="part.label"
-              class="flex flex-col items-center gap-[2px]"
+              class="flex items-center gap-[6px]"
             >
               <IconsCurrencyIcon v-if="part.code" :code="part.code" :size="20" />
-              <span class="text-[10px] text-apjek-text-sub leading-[14px] whitespace-nowrap">{{ part.label }}</span>
-              <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums">{{ part.amount }}</span>
+              <div class="flex flex-col items-start gap-[2px]">
+                <span class="text-[10px] text-apjek-text-sub leading-[14px] whitespace-nowrap">{{ part.label }}</span>
+                <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums">{{ part.amount }}</span>
+              </div>
             </div>
           </div>
 
