@@ -299,10 +299,6 @@
               class="absolute flex items-center justify-center select-none"
               :class="animClass(placed)"
               :style="itemStyle(placed)"
-              :role="editMode ? 'button' : undefined"
-              :tabindex="editMode ? 0 : undefined"
-              :aria-label="editMode ? placed.name : undefined"
-              @keydown="(e) => onItemKeydown(e, placed)"
               @pointerdown="(e) => onItemPointerDown(e, placed)"
               @click="onItemClick(placed)"
             >
@@ -310,6 +306,10 @@
               <div
                 class="relative flex items-center justify-center"
                 :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
+                :role="editMode ? 'button' : undefined"
+                :tabindex="editMode ? 0 : undefined"
+                :aria-label="editMode ? placed.name : undefined"
+                @keydown="(e) => onItemKeydown(e, placed)"
               >
                 <img
                   v-if="isAssetUrl(placed.image)"
@@ -1427,6 +1427,9 @@ function exitManageMode(confirmed = false, finish?: (allow: boolean) => void) {
     return
   }
   if (!confirmed && manageExitTarget.value) { finish?.(false); return }
+  // 확인창을 읽는 동안 미저장 변경이 먼저 저장되지 않도록 예약만 취소한다.
+  for (const timer of keyboardPlacementTimers.values()) clearTimeout(timer)
+  keyboardPlacementTimers.clear()
   if (!confirmed && dirtyPlacementIds.value.size > 0) {
     manageExitTarget.value = (allow) => {
       // 저장 진행 중에는 확인창을 유지하되 대기 중인 라우팅은 즉시 취소한다(가드가 매달리지 않게).
@@ -1440,8 +1443,6 @@ function exitManageMode(confirmed = false, finish?: (allow: boolean) => void) {
     }
     return
   }
-  for (const timer of keyboardPlacementTimers.values()) clearTimeout(timer)
-  keyboardPlacementTimers.clear()
   if (confirmed && dirtyPlacementIds.value.size > 0) {
     const snapshot = homeSnapshot.snapshot
     if (snapshot) {
@@ -1637,11 +1638,19 @@ function applyKeyboardPlacement(placed: PlacedFreeItem, dx: number, dy: number, 
   placed.y = clamp(placed.y + dy, EDIT.minY, Math.min(EDIT.maxY, STAGE_H - vh))
   if (user.value?.entitlements?.freePlacement) dirtyPlacementIds.value.add(placed.placementId)
   clearTimeout(keyboardPlacementTimers.get(placed.placementId))
-  keyboardPlacementTimers.set(placed.placementId, setTimeout(() => {
-    keyboardPlacementTimers.delete(placed.placementId)
-    if (!editMode.value || placementBusy.value || saving.value || backgroundBusy.value) return
+  keyboardPlacementTimers.set(placed.placementId, setTimeout(function saveWhenIdle() {
     // 스냅샷 재적용으로 객체가 교체돼도 유지된 초안을 저장한다. 삭제된 배치는 건너뛴다.
     const current = placedItems.value.find(item => item.placementId === placed.placementId)
+    if (!editMode.value || manageExitTarget.value || !current) {
+      keyboardPlacementTimers.delete(placed.placementId)
+      return
+    }
+    // 다른 저장 작업이 끝날 때까지 예약을 보류하고 최종 좌표를 한 번 저장한다.
+    if (placementBusy.value || saving.value || backgroundBusy.value) {
+      keyboardPlacementTimers.set(placed.placementId, setTimeout(saveWhenIdle, 300))
+      return
+    }
+    keyboardPlacementTimers.delete(placed.placementId)
     if (current) void persistPosition(current)
   }, 300))
 }

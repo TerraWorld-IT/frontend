@@ -94,6 +94,27 @@ describe('홈 배치 키보드 조작', () => {
     expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
   })
 
+  it('본체에 포커스한 뒤 Enter로 선택하고 본체·작업·코너 순서로 포커스 대상을 제공한다', async () => {
+    const { wrapper, s, item } = await managePage()
+    ;(item.element as HTMLElement).focus()
+    expect(document.activeElement).toBe(item.element)
+    await item.trigger('keydown', { key: 'Enter' })
+    expect(s.selectedItemId).toBe(1)
+    const focusable = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]'
+    for (const body of wrapper.findAll('[role="button"]')) {
+      expect(body.findAll(focusable)).toHaveLength(0)
+    }
+    const placement = item.element.parentElement!
+    const actions = wrapper.findAll('[data-testid^="home-item-action-"]')
+    const corners = wrapper.findAll('[data-testid^="home-resize-"]')
+    expect(actions).toHaveLength(4)
+    expect(corners).toHaveLength(4)
+    expect([...placement.querySelectorAll(focusable)]).toEqual([
+      item.element, ...actions.map(button => button.element), ...corners.map(button => button.element),
+    ])
+    for (const button of [...actions, ...corners]) expect(button.element.parentElement).toBe(placement)
+  })
+
   it('방향키는 4px씩 이동하고 마지막 키 이후 300ms에 최종 좌표만 한 번 저장한다', async () => {
     const { s, item } = await managePage()
     await item.trigger('keydown', { key: 'ArrowRight' })
@@ -163,6 +184,25 @@ describe('홈 배치 키보드 조작', () => {
     expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
   })
 
+  it.each(['placementBusy', 'saving', 'backgroundBusy'])('입력 뒤 시작한 %s가 끝나면 추가 입력 없이 최종 좌표를 한 번 저장한다', async (busy) => {
+    const { s, item } = await managePage()
+    await item.trigger('keydown', { key: 'ArrowRight' })
+    await vi.advanceTimersByTimeAsync(100)
+    s[busy] = true
+    await vi.advanceTimersByTimeAsync(800)
+    expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+    expect(s.dirtyPlacementIds.has(1)).toBe(true)
+    s[busy] = false
+    await vi.advanceTimersByTimeAsync(300)
+    expect(mocks.sdk.updateFreePosition).toHaveBeenCalledTimes(1)
+    expect(mocks.sdk.updateFreePosition).toHaveBeenCalledWith(expect.objectContaining({
+      path: { placementId: 1 }, body: expect.objectContaining({ posX: 104 / 400, posY: 300 / 552 }),
+    }))
+    expect(s.dirtyPlacementIds.size).toBe(0)
+    await vi.advanceTimersByTimeAsync(900)
+    expect(mocks.sdk.updateFreePosition).toHaveBeenCalledTimes(1)
+  })
+
   it('다른 아이템으로 포커스를 옮겨도 각 최종 위치를 저장한다', async () => {
     const { wrapper, item } = await managePage()
     await item.trigger('keydown', { key: 'ArrowRight' })
@@ -212,6 +252,58 @@ describe('홈 배치 키보드 조작', () => {
     else s.placedItems = []
     await vi.advanceTimersByTimeAsync(300)
     expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+  })
+
+  it('종료 확인창에서 300ms 이상 기다린 뒤 저장하지 않고 종료해도 저장하지 않는다', async () => {
+    const { s, item } = await managePage()
+    await item.trigger('keydown', { key: 'ArrowRight' })
+    await vi.advanceTimersByTimeAsync(100)
+    s.exitManageMode()
+    expect(s.manageExitTarget).toBeTypeOf('function')
+    await vi.advanceTimersByTimeAsync(900)
+    expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+    expect(s.dirtyPlacementIds.has(1)).toBe(true)
+    s.manageExitTarget(true)
+    await vi.advanceTimersByTimeAsync(900)
+    expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+    expect(s.editMode).toBe(false)
+    expect(s.dirtyPlacementIds.size).toBe(0)
+  })
+
+  it('종료를 취소하면 초안을 유지하고 다음 키 입력으로 저장을 다시 예약한다', async () => {
+    const { s, item } = await managePage()
+    await item.trigger('keydown', { key: 'ArrowRight' })
+    s.exitManageMode()
+    s.manageExitTarget(false)
+    await vi.advanceTimersByTimeAsync(900)
+    expect(s.editMode).toBe(true)
+    expect(s.dirtyPlacementIds.has(1)).toBe(true)
+    expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+    await item.trigger('keydown', { key: 'ArrowDown' })
+    await vi.advanceTimersByTimeAsync(300)
+    expect(mocks.sdk.updateFreePosition).toHaveBeenCalledTimes(1)
+    expect(mocks.sdk.updateFreePosition).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({ posX: 104 / 400, posY: 304 / 552 }),
+    }))
+  })
+
+  it.each(['명시 저장', '폐기', '언마운트', '삭제'])('busy 중 보류한 예약도 %s 후에는 다시 저장하지 않는다', async (action) => {
+    const { wrapper, s, item } = await managePage()
+    await item.trigger('keydown', { key: 'ArrowRight' })
+    s.backgroundBusy = true
+    await vi.advanceTimersByTimeAsync(600)
+    s.backgroundBusy = false
+    if (action === '명시 저장') await s.onSaveManage()
+    else if (action === '폐기') {
+      s.exitManageMode()
+      await vi.advanceTimersByTimeAsync(600)
+      expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
+      s.manageExitTarget(true)
+    }
+    else if (action === '언마운트') wrapper.unmount()
+    else s.placedItems = []
+    await vi.advanceTimersByTimeAsync(900)
+    expect(mocks.sdk.updateFreePosition).toHaveBeenCalledTimes(action === '명시 저장' ? 1 : 0)
   })
 
   it('명시 저장은 지연 저장을 취소하고 실패 건은 dirty로 재시도 가능하게 유지한다', async () => {
