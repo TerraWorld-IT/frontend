@@ -484,6 +484,34 @@ describe('PR-A 이탈 초안', () => {
     expect(readDraft(key)).toBe('v2 newer unsent')
   })
 
+  it.each(['old draft', 'v1'])('복원한 메모의 지연 저장 성공은 새 초안(%s)을 제출 원문과만 비교한다', async (draft) => {
+    const w = await mountPage(CalendarPage)
+    const s = state(w)
+    const key = `${STORAGE_KEYS.DRAFT_NOTE_PREFIX}u1.${s.dateKey(10)}`
+    writeDraft(key, 'old draft')
+    await s.selectDay(10)
+    expect(s.editingNoteText).toBe('old draft')
+    expect(s.isEditingNote).toBe(true)
+    s.editingNoteText = 'v1'
+    let resolve!: (value: unknown) => void
+    mocks.sdk.saveNote!.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const saving = s.saveNote()
+    expect(mocks.sdk.saveNote).toHaveBeenCalledWith(expect.objectContaining({ body: { note: 'v1' } }))
+    expect(mocks.routeLeave.mock.calls[0]![0]()).toBe(true)
+    w.unmount()
+    wrappers.splice(wrappers.indexOf(w), 1)
+    const next = state(await mountPage(CalendarPage))
+    await next.selectDay(10)
+    expect(next.editingNoteText).toBe('v1')
+    next.editingNoteText = draft
+    next.closeSheet()
+    expect(readDraft(key)).toBe(draft)
+    resolve({ data: { note: 'v1' } })
+    await saving
+    // 제출 원문과 같은 새 초안은 문자열 비교로 구분할 수 없는 기존 한계를 유지한다.
+    expect(readDraft(key)).toBe(draft === 'v1' ? null : draft)
+  })
+
   it('습관 이름은 부모 라우트 이탈에서도 저장되고 생성 성공 후 닫힘·언마운트가 재생성하지 않는다', async () => {
     const key = `${STORAGE_KEYS.DRAFT_HABIT_TITLE}u1`
     const w = await mountPage(RecordPage, true)
