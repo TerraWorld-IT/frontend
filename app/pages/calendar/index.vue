@@ -292,6 +292,7 @@
               <button
                 v-if="!isEditingNote"
                 type="button"
+                :disabled="noteLoading || noteLoadFailed"
                 class="flex items-center gap-1 text-xs font-medium text-apjek-text-sub hover:text-apjek-text transition-colors"
                 @click="startEdit"
               >
@@ -328,7 +329,16 @@
               </div>
             </div>
             <div v-else class="p-4 bg-apjek-bg rounded-[12px] text-sm min-h-[60px] text-apjek-text-sub">
-              <span v-if="selectedNote">{{ selectedNote }}</span>
+              <CommonLoading v-if="noteLoading" />
+              <template v-else-if="noteLoadFailed">
+                <p>{{ $t('common.loadFailDesc') }}</p>
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+                  @click="selectedDate && selectDay(selectedDate.getDate())"
+                >{{ $t('common.retry') }}</button>
+              </template>
+              <span v-else-if="selectedNote">{{ selectedNote }}</span>
               <span v-else class="text-apjek-text-faint">{{ $t('calendar.noMemo') }}</span>
             </div>
           </div>
@@ -384,6 +394,8 @@ const stats = ref<StatisticsResponse | null>(null)
 const selectedDate = ref<Date | null>(null)
 const selectedNote = ref<string | null>(null)
 const noteRequestVersion = ref<number>(0)
+const noteLoading = ref<boolean>(false)
+const noteLoadFailed = ref<boolean>(false)
 const isEditingNote = ref<boolean>(false)
 const editingNoteText = ref<string>('')
 const noteSaving = ref<boolean>(false)
@@ -570,6 +582,8 @@ async function selectDay(day: number) {
   isEditingNote.value = false
   editingNoteText.value = ''
   selectedNote.value = null
+  noteLoading.value = false
+  noteLoadFailed.value = false
   openMenuId.value = null
 
   // Fetch note if not cached
@@ -578,6 +592,7 @@ async function selectDay(day: number) {
     editingNoteText.value = noteMap.value[key] ?? ''
     return
   }
+  noteLoading.value = true
   try {
     const { data, error, response } = await sdk.getNote({ client, path: { date: key } })
     if (version !== noteRequestVersion.value || !selectedDate.value || toDateKey(selectedDate.value) !== key) return
@@ -586,6 +601,7 @@ async function selectDay(day: number) {
     // 것처럼 보였다. 404(메모 미작성)만 정상 빈 상태로 캐시하고, 그 외 오류는 캐시하지
     // 않고 toast 로 알린다(다음 셀 클릭 시 재시도됨).
     if (error && response.status !== 404) {
+      noteLoadFailed.value = true
       toast.error(errMsg(error, t('common.loadFailDesc')))
       return
     }
@@ -596,12 +612,19 @@ async function selectDay(day: number) {
   }
   catch {
     // 네트워크 예외 — 오류를 "메모 없음"으로 캐시하지 않는다(재시도 가능하게 유지).
-    if (version === noteRequestVersion.value) toast.error(t('common.loadFailDesc'))
+    if (version === noteRequestVersion.value) {
+      noteLoadFailed.value = true
+      toast.error(t('common.loadFailDesc'))
+    }
+  }
+  finally {
+    // 이전 날짜의 늦은 완료가 현재 날짜의 로딩 상태를 해제하지 못하게 한다.
+    if (version === noteRequestVersion.value) noteLoading.value = false
   }
 }
 
 function startEdit() {
-  if (noteSaving.value) return
+  if (noteSaving.value || noteLoading.value || noteLoadFailed.value) return
   noteRequestVersion.value += 1
   editingNoteText.value = selectedNote.value ?? ''
   isEditingNote.value = true
@@ -618,6 +641,8 @@ function cancelEdit() {
 // 후 닫는다 (utils/keyboard.ts 참조).
 function closeSheet() {
   noteRequestVersion.value += 1
+  noteLoading.value = false
+  noteLoadFailed.value = false
   if (isEditingNote.value) void dismissKeyboard()
   selectedDate.value = null
 }

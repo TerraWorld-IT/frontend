@@ -2,6 +2,7 @@ import { authClient } from '~/lib/auth-client'
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useTerrariumStore } from '~/stores/terrarium'
 import { useUserStore } from '~/stores/user'
+import { withTimeout } from '~/utils/withTimeout'
 
 /**
  * Client-only JWT cache + auth lifecycle helpers.
@@ -69,14 +70,17 @@ function httpStatusOf(error: unknown): number | undefined {
 }
 
 async function requestToken(): Promise<JwtRefreshResult> {
+  const REQUEST_DEADLINE_MS = 15_000
+  const controller = new AbortController()
   try {
-    const response = await $fetch<{ token: string }>('/api/auth/token', {
+    const response = await withTimeout($fetch<{ token: string }>('/api/auth/token', {
       credentials: 'include',
       // ofetch 는 `retries = isPayloadMethod(method) ? 0 : 1` 이라 GET 을 **자동으로 1회
       // 더** 시도한다. 아래 백오프와 곱해지면 토큰 엔드포인트 장애 시 요청이 6배로 증폭되고
       // (429 를 악화시킨다) 콜드 스타트도 그만큼 더 기다린다. 재시도 정책은 여기서 소유한다.
       retry: 0,
-    })
+      signal: controller.signal,
+    }), REQUEST_DEADLINE_MS, controller)
     return { status: 'ok', token: response.token }
   }
   catch (e) {

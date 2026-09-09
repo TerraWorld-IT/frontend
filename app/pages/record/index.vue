@@ -60,6 +60,7 @@
           <button
             v-else-if="!hasAnyHabit"
             type="button"
+            :disabled="initialLoading || loadError || habitLoadError"
             class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             @click="openHabitCreate()"
           >
@@ -146,7 +147,7 @@
               <button
                 type="button"
                 class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-[40px] px-[18px] rounded-full bg-apjek-cta text-white text-[13px] font-semibold inline-flex items-center gap-[6px] transition-all active:scale-95 disabled:opacity-40"
-                :disabled="hasAnyHabit"
+                :disabled="hasAnyHabit || initialLoading || loadError || !habitsLoaded || habitLoadError"
                 @click="openHabitCreate()"
               >
                 <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
@@ -202,6 +203,7 @@
             type="button"
             class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             :aria-label="`${card.title} 기록하기`"
+            :disabled="initialLoading || loadError"
             @click="openModal = card.modal"
           >
             <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
@@ -218,6 +220,7 @@
           type="button"
           class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
           @click="retryInitial()"
+          :disabled="initialLoading"
         >다시 시도</button>
       </div>
     </div>
@@ -489,9 +492,12 @@
     <RecordHabitCreateSheet
       :open="habitCreateOpen"
       :friends="friends"
+      :loading="initialLoading"
+      :load-error="loadError"
       :busy="creatingHabit"
       @close="habitCreateOpen = false"
       @submit="onHabitCreate"
+      @retry="retryInitial"
     />
 
     <!-- 응원 시트 (R3b) — 친구 미기록 습관에서 진입. 전송/토스트는 본 페이지가 담당 -->
@@ -590,6 +596,7 @@ function goToCalendar() {
 }
 
 function openHabitCreate() {
+  if (initialLoading.value || loadError.value || !habitsLoaded.value || habitLoadError.value) return
   if (hasAnyHabit.value) {
     toast.info('습관 기록은 한 번에 1개만 진행할 수 있어요')
     return
@@ -1466,8 +1473,10 @@ onBeforeUnmount(() => {
 
 // ─── 초기 로드 ───
 const loadError = ref<boolean>(false)
+const initialLoading = ref<boolean>(true)
 
 async function loadInitial() {
+  initialLoading.value = true
   loadError.value = false
   try {
     const [catRes, friRes] = await Promise.all([
@@ -1489,9 +1498,13 @@ async function loadInitial() {
   catch {
     loadError.value = true
   }
+  finally {
+    initialLoading.value = false
+  }
 }
 
 function retryInitial() {
+  if (initialLoading.value) return
   void loadInitial()
 }
 

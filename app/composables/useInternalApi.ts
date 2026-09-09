@@ -15,9 +15,13 @@
  *   const dash = await request<AdminDashboard>('/api/v1/admin/dashboard')
  *   await request('/api/v1/admin/categories/1', { method: 'PUT', body: {...} })
  */
+import { withTimeout } from '~/utils/withTimeout'
+
 export function useInternalApi() {
   const config = useRuntimeConfig()
+  const { $i18n } = useNuxtApp()
   const { getJwt, loadJwt } = useAuth()
+  const REQUEST_DEADLINE_MS = 15_000
 
   // CDX-002: apiBaseUrl 끝의 `/api/v1` 제거 → origin. path 가 `/api/v1/...` 풀경로.
   const origin = (config.public.apiBaseUrl as string).replace(/\/api\/v1\/?$/, '')
@@ -29,15 +33,24 @@ export function useInternalApi() {
 
   async function request<T>(
     path: string,
-    opts: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE', body?: unknown } = {},
+    opts: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE', body?: unknown, deadlineMs?: number } = {},
   ): Promise<T> {
-    const doFetch = (token: string | null) =>
-      $fetch<T>(path, {
+    function doFetch(token: string | null): Promise<T> {
+      const controller = new AbortController()
+      const response = $fetch<T>(path, {
         baseURL: origin,
         method: opts.method ?? 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: opts.body as Record<string, unknown> | undefined,
+        signal: controller.signal,
       })
+      // 지급 검증처럼 취소하면 안 되는 요청은 0으로 데드라인을 면제한다.
+      if (opts.deadlineMs === 0) return response
+      return withTimeout(response, opts.deadlineMs ?? REQUEST_DEADLINE_MS, controller).catch((error: unknown) => {
+        if (controller.signal.aborted) throw new Error($i18n.t('common.loadFailDesc'))
+        throw error
+      })
+    }
 
     const cached = getJwt()
     try {

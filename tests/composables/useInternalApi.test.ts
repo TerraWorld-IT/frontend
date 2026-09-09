@@ -1,5 +1,13 @@
 // @vitest-environment nuxt
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
+
+mockNuxtImport('useAuth', () => () => ({ isLoggedIn: { value: true }, getJwt: () => 'cached', loadJwt: async () => 'refreshed' }))
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 /**
  * useInternalApi 는 OpenAPI spec 밖의 @Hidden backend endpoint(admin/friend/free-placement)
@@ -29,5 +37,49 @@ describe('useInternalApi', () => {
     const { request } = useInternalApi()
     // request 의 시그니처: (path, opts?) => Promise<T>
     expect(request.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('15초 초과 요청을 취소하고 오류를 전파하며 다음 요청은 정상 처리한다', async () => {
+    const { useInternalApi } = await import('~/composables/useInternalApi')
+    const signals: AbortSignal[] = []
+    const fetch = vi.fn((_path, opts) => {
+      signals.push(opts.signal)
+      return new Promise(() => {})
+    })
+    vi.stubGlobal('$fetch', fetch)
+    vi.useFakeTimers()
+    const { request } = useInternalApi()
+    const assertion = expect(request('/api/v1/example')).rejects.toThrow('요청 처리 중 오류가 발생했습니다')
+    await vi.advanceTimersByTimeAsync(15_000)
+    await assertion
+    expect(signals[0]?.aborted).toBe(true)
+    fetch.mockImplementationOnce((_path, opts) => {
+      signals.push(opts.signal)
+      return Promise.resolve({ ok: true })
+    })
+    await expect(request('/api/v1/example')).resolves.toEqual({ ok: true })
+    expect(signals[1]?.aborted).toBe(false)
+    expect(signals[0]).not.toBe(signals[1])
+  })
+
+  it('IAP의 데드라인 면제는 60초 이후에도 취소하지 않고 검증 결과를 기다린다', async () => {
+    const { useInternalApi } = await import('~/composables/useInternalApi')
+    let signal!: AbortSignal
+    let resolve!: (value: { granted: boolean }) => void
+    vi.stubGlobal('$fetch', vi.fn((_path, opts) => {
+      signal = opts.signal
+      return new Promise<{ granted: boolean }>((done) => { resolve = done })
+    }))
+    vi.useFakeTimers()
+    const request = useInternalApi().request('/api/v1/billing/iap/verify', { method: 'POST', deadlineMs: 0 })
+    const settled = vi.fn()
+    void request.then(settled)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(signal.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(signal.aborted).toBe(false)
+    expect(settled).not.toHaveBeenCalled()
+    resolve({ granted: true })
+    await expect(request).resolves.toEqual({ granted: true })
   })
 })

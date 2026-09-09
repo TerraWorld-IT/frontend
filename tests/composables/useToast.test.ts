@@ -11,6 +11,7 @@ function clearAll() {
 
 describe('useToast contract', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     clearAll()
     vi.useFakeTimers()
   })
@@ -95,6 +96,18 @@ describe('useToast contract', () => {
     expect(toast.toasts.value).toHaveLength(1)
     expect(() => vi.advanceTimersByTime(100)).not.toThrow()
     expect(toast.toasts.value).toHaveLength(0)
+  })
+
+  afterEach(() => {
+    try {
+      // DOM 환경 해제 전에 토스트를 닫고 interval의 자체 정리를 실행한다.
+      clearAll()
+      vi.runOnlyPendingTimers()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
   })
 
   it('exports useToast function', async () => {
