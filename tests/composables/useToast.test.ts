@@ -1,6 +1,6 @@
 // useToast — 아프젝 2종 토스트(card/pill) 확장 + 기존 success/error/info(message) 호환 계약.
 // nuxt 환경(vitest.config.ts)이라 useState 기반 composable 을 테스트 안에서 직접 호출할 수 있다.
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useToast } from '~/composables/useToast'
 
 function clearAll() {
@@ -11,7 +11,20 @@ function clearAll() {
 
 describe('useToast contract', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     clearAll()
+  })
+
+  afterEach(() => {
+    try {
+      // DOM 환경 해제 전에 토스트를 닫고 interval의 자체 정리를 실행한다.
+      clearAll()
+      vi.runOnlyPendingTimers()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
   })
 
   it('exports useToast function', async () => {
