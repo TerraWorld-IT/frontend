@@ -22,8 +22,8 @@ mockNuxtImport('useOpenApi', () => () => ({ sdk: {}, client: {} }))
 mockNuxtImport('useToast', () => () => mocks.toast)
 mockNuxtImport('useGtagEvents', () => () => new Proxy({}, { get: () => vi.fn() }))
 mockNuxtImport('useNative', () => () => ({ isNative: false, hapticImpact: vi.fn() }))
-mockNuxtImport('useAttendance', () => () => ({ state: ref<null>(null), loading: ref<boolean>(false), refresh: vi.fn() }))
-mockNuxtImport('useTier', () => () => ({ state: ref<null>(null), catalog: ref<null>(null), load: vi.fn() }))
+mockNuxtImport('useAttendance', () => () => ({ state: ref<null>(null), loading: ref<boolean>(false), error: ref<string | null>(null), refresh: vi.fn() }))
+mockNuxtImport('useTier', () => () => ({ state: ref<null>(null), catalog: ref<null>(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
 
 // Nuxt 테스트 앱의 다른 public 설정은 보존하고 음원 키만 채운다.
 mockNuxtImport('useRuntimeConfig', () => () => {
@@ -153,13 +153,66 @@ describe('홈 BGM 상태와 토글', () => {
     expect(toggle.find('[name="lucide:volume-x"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="home-healing-bar"]').text()).toContain('음악 OFF')
     expect(mocks.toast.info).toHaveBeenCalledTimes(1)
+    const persist = vi.spyOn(Storage.prototype, 'setItem')
     await toggle.trigger('click')
-    await flushPromises()
-    await toggle.trigger('click')
+    expect(audio.play).toHaveBeenCalledTimes(2)
+    expect(localStorage.getItem(BGM_STORAGE_KEY)).toBeNull()
+    expect(persist).not.toHaveBeenCalledWith(BGM_STORAGE_KEY, '0')
+    persist.mockRestore()
     audio.pending[1]!.reject(new Error('still blocked'))
     await flushPromises()
     expect(state.bgmStatus).toBe('blocked')
     expect(mocks.toast.info).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['intro', 'toggle'])('%s 재생 요청 중 홈 unmount 후 거부되어도 안내하지 않는다', async (path) => {
+    if (path === 'toggle') localStorage.setItem(BGM_STORAGE_KEY, '0')
+    const { wrapper, state } = await mountHome()
+    state.enterHealingMode()
+    const play = state.onHealingIntroDone()
+    if (path === 'toggle') {
+      await play
+      await nextTick()
+      await wrapper.get('[data-testid="home-bgm-toggle"]').trigger('click')
+    }
+    expect(audio.play).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+    audio.pending[0]!.reject(new Error('blocked after unmount'))
+    await play
+    await flushPromises()
+    expect(audio.paused).toBe(true)
+    expect(mocks.toast.info).not.toHaveBeenCalled()
+  })
+
+  it.each(['resolve', 'reject'] as const)('이전 재생의 %s는 새 재시도가 pending일 때 안내하지 않는다', async (completion) => {
+    const { wrapper, state } = await mountHome()
+    state.enterHealingMode()
+    const first = state.onHealingIntroDone()
+    await nextTick()
+    await wrapper.get('[data-testid="home-bgm-toggle"]').trigger('click')
+    expect(audio.play).toHaveBeenCalledTimes(2)
+    if (completion === 'resolve') audio.pending[0]!.resolve()
+    else audio.pending[0]!.reject(new Error('old request blocked'))
+    await first
+    await flushPromises()
+    expect(mocks.toast.info).not.toHaveBeenCalled()
+    audio.pending[1]!.reject(new Error('current request blocked'))
+    await flushPromises()
+    expect(mocks.toast.info).toHaveBeenCalledTimes(1)
+  })
+
+  it('힐링 종료 후 재진입한 화면에 이전 요청의 안내를 표시하지 않는다', async () => {
+    const { state } = await mountHome()
+    state.enterHealingMode()
+    const first = state.onHealingIntroDone()
+    await nextTick()
+    state.healingMode = false
+    await nextTick()
+    state.healingMode = true
+    await nextTick()
+    audio.pending[0]!.reject(new Error('previous healing blocked'))
+    await first
+    expect(mocks.toast.info).not.toHaveBeenCalled()
   })
 })
 

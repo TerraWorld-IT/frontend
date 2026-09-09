@@ -296,7 +296,7 @@
   },
   "home": {
     "bgmNoSource": "Music coming soon",
-    "bgmBlocked": "Music could not play. Turn the music button off and on to try again.",
+    "bgmBlocked": "Music could not play. Press the music button to try again.",
     "adCoinConfirm": "Watch ad",
     "adCoinDesc": "Watch an ad to earn 1 ruby!",
     "adCoinTitle": "AD Ad reward",

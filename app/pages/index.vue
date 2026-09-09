@@ -795,6 +795,11 @@ const bgmStatus = computed<'nosource' | 'off' | 'on' | 'blocked'>(() => {
   return bgm.playing.value ? 'on' : 'blocked'
 })
 let bgmBlockedNotified = false
+const bgmNoticeActive = ref<boolean>(true)
+let bgmNoticeGeneration = 0
+onBeforeUnmount(() => {
+  bgmNoticeActive.value = false
+})
 
 // ─── 좌표계 (MyTerra.tsx 그대로) ───
 const STAGE_W = 400
@@ -950,8 +955,9 @@ async function onHealingIntroDone() {
   if (introMode.value !== 'healing') return
   introMode.value = null
   healingMode.value = true
+  const generation = ++bgmNoticeGeneration
   await bgm.play()
-  if (healingMode.value && bgmStatus.value === 'blocked' && !bgmBlockedNotified) {
+  if (bgmNoticeActive.value && generation === bgmNoticeGeneration && healingMode.value && bgmStatus.value === 'blocked' && !bgmBlockedNotified) {
     bgmBlockedNotified = true
     toast.info(t('home.bgmBlocked'))
   }
@@ -961,15 +967,20 @@ async function onToggleBgm() {
     toast.info(t('home.bgmNoSource'))
     return
   }
-  await bgm.toggle()
-  if (healingMode.value && bgmStatus.value === 'blocked' && !bgmBlockedNotified) {
+  const generation = ++bgmNoticeGeneration
+  if (bgmStatus.value === 'blocked') await bgm.play()
+  else await bgm.toggle()
+  if (bgmNoticeActive.value && generation === bgmNoticeGeneration && healingMode.value && bgmStatus.value === 'blocked' && !bgmBlockedNotified) {
     bgmBlockedNotified = true
     toast.info(t('home.bgmBlocked'))
   }
 }
 // 힐링 모드 종료(X/ESC/뒤로가기) 시 BGM 정지 — 페이지 이탈 시 정지는 useBgm 이 unmount 에서 보장.
 watch(healingMode, (on) => {
-  if (!on) bgm.stop()
+  if (!on) {
+    bgmNoticeGeneration++
+    bgm.stop()
+  }
 })
 
 // ─── T4b 아코디언 (친구 목록 / 보유 재화) — 기본 열림, 사용자가 접으면 localStorage 기억 ───

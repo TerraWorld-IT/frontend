@@ -23,7 +23,16 @@ function buildConnectSrc(): string {
 function buildMediaSrc(): string {
   const sources = new Set<string>(["'self'"])
   const bgmUrl = process.env.NUXT_PUBLIC_BGM_URL
-  if (bgmUrl) sources.add(new URL(bgmUrl).origin)
+  if (bgmUrl && !bgmUrl.startsWith('/')) {
+    try {
+      const url = new URL(bgmUrl)
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('unsupported protocol')
+      sources.add(url.origin)
+    }
+    catch {
+      throw new Error(`NUXT_PUBLIC_BGM_URL 은 절대 URL 또는 루트 상대 경로여야 합니다: ${bgmUrl}`)
+    }
+  }
   return Array.from(sources).join(' ')
 }
 

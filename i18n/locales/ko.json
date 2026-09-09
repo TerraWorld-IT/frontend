@@ -296,7 +296,7 @@
   },
   "home": {
     "bgmNoSource": "음원 준비 중",
-    "bgmBlocked": "음악을 재생하지 못했어요. 음악 버튼을 껐다 켜서 다시 시도해 주세요.",
+    "bgmBlocked": "음악을 재생하지 못했어요. 음악 버튼을 눌러 다시 시도해 주세요.",
     "adCoinConfirm": "광고 보기",
     "adCoinDesc": "광고를 시청해서 루비 1개를 보상받아요!",
     "adCoinTitle": "AD 광고보상",
