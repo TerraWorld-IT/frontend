@@ -467,19 +467,27 @@ const loadFailed = ref<boolean>(false)
 let routinesLoaded: boolean = false
 let routinesInFlight: boolean = false
 let routinesGeneration: number = 0
+let routinesDisposed: boolean = false
 
-onBeforeUnmount(() => { routinesGeneration++ })
+onBeforeUnmount(() => {
+  routinesDisposed = true
+  routinesGeneration++
+})
 
 // 시트 열림 시 루틴 로드 — 실패해도 기존 투두 입력은 유지하고 명시 재시도를 제공한다.
 async function loadRoutines(): Promise<void> {
   if (routinesInFlight) return
   routinesInFlight = true
   const generation = ++routinesGeneration
+  let reloadDiscarded: boolean = false
   pending.value = !routinesLoaded
   loadFailed.value = false
   await sdk.listTodoRoutines({ client }).then(({ data, error }) => {
     // 조회보다 나중에 완료된 생성·삭제 결과와 해제된 시트는 덮어쓰지 않는다.
-    if (generation !== routinesGeneration) return
+    if (generation !== routinesGeneration) {
+      reloadDiscarded = true
+      return
+    }
     if (error) {
       loadFailed.value = true
       return
@@ -495,6 +503,8 @@ async function loadRoutines(): Promise<void> {
     routinesInFlight = false
     pending.value = false
   })
+  // 폐기된 조회마다 정리 후 한 번만 재조회하고, 해제된 시트에서는 요청하지 않는다.
+  if (reloadDiscarded && !routinesDisposed && !routinesInFlight) void loadRoutines()
 }
 
 async function createRoutine() {

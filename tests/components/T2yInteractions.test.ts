@@ -121,6 +121,32 @@ describe('WP2a 조회 상태', () => {
     expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(2)
   })
 
+  it('첫 조회 중 생성한 루틴과 기존 서버 루틴을 한 번 재조회해 목록과 프리필에 모두 반영한다', async () => {
+    const first = deferred()
+    const refresh = deferred()
+    const existing = { id: 'existing', label: '기존 루틴', repeatType: 'DAILY', createdAt: '2026-09-08' }
+    const created = { id: 'new', label: '새 루틴', repeatType: 'DAILY', createdAt: '2026-09-09' }
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(first.promise).mockReturnValueOnce(refresh.promise)
+    const w = await mountPage(TodoSheet, { open: false })
+    const s = state(w)
+    await w.setProps({ open: true })
+    mocks.sdk.createTodoRoutine!.mockResolvedValueOnce({ data: created })
+    s.routineLabel = created.label
+    await s.createRoutine()
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledOnce()
+    first.resolve({ data: { routines: [existing, created] } })
+    await flushPromises()
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(2)
+    expect(s.routines).toEqual([created])
+    refresh.resolve({ data: { routines: [existing, created] } })
+    await flushPromises()
+    expect(s.routines).toEqual([created, existing])
+    expect(s.todos.map((todo: { routineId: string }) => todo.routineId).sort()).toEqual(['existing', 'new'])
+    expect(s.pending).toBe(false)
+    expect(s.loadFailed).toBe(false)
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(2)
+  })
+
   it('생성·삭제보다 늦게 도착한 조회 결과가 최신 루틴과 프리필을 덮지 않는다', async () => {
     const w = await mountPage(TodoSheet, { open: false })
     const s = state(w)
@@ -133,8 +159,10 @@ describe('WP2a 조회 상태', () => {
     mocks.sdk.createTodoRoutine!.mockResolvedValueOnce({ data: created })
     s.routineLabel = created.label
     await s.createRoutine()
+    mocks.sdk.listTodoRoutines!.mockResolvedValueOnce({ data: { routines: [created] } })
     staleCreate.resolve({ data: { routines: [] } })
     await readingCreate
+    await flushPromises()
     expect(s.routines).toEqual([created])
     expect(s.todos).toHaveLength(1)
 
@@ -145,9 +173,47 @@ describe('WP2a 조회 상태', () => {
     s.clear()
     staleDelete.resolve({ data: { routines: [created] } })
     await readingDelete
+    await flushPromises()
     expect(s.routines).toEqual([])
     expect(s.todos).toEqual([])
     expect(s.loadFailed).toBe(false)
+  })
+
+  it('폐기 후 재조회에도 세대 검사를 적용하고 삭제 이후 목록을 한 번 더 확보한다', async () => {
+    const first = deferred()
+    const refresh = deferred()
+    const created = { id: 'new', label: '새 루틴', repeatType: 'DAILY', createdAt: '2026-09-09' }
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(first.promise).mockReturnValueOnce(refresh.promise)
+    const w = await mountPage(TodoSheet, { open: false })
+    const s = state(w)
+    await w.setProps({ open: true })
+    mocks.sdk.createTodoRoutine!.mockResolvedValueOnce({ data: created })
+    s.routineLabel = created.label
+    await s.createRoutine()
+    first.resolve({ data: { routines: [] } })
+    await flushPromises()
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(2)
+    await s.removeRoutine(created)
+    s.clear()
+    refresh.resolve({ data: { routines: [created] } })
+    await flushPromises()
+    expect(s.routines).toEqual([])
+    expect(s.todos).toEqual([])
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledTimes(3)
+  })
+
+  it('시트 해제로 폐기된 조회는 재조회하거나 프리필하지 않는다', async () => {
+    const first = deferred()
+    mocks.sdk.listTodoRoutines!.mockReturnValueOnce(first.promise)
+    const w = await mountPage(TodoSheet, { open: false })
+    const s = state(w)
+    await w.setProps({ open: true })
+    w.unmount()
+    first.resolve({ data: { routines: [{ id: 'old', label: '기존 루틴', repeatType: 'DAILY', createdAt: '2026-09-08' }] } })
+    await flushPromises()
+    expect(s.routines).toEqual([])
+    expect(s.todos).toEqual([])
+    expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledOnce()
   })
 
   it('단독 습관도 조회 중이거나 실패하면 제출하지 않고 복구 후 제출한다', async () => {
