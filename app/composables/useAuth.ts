@@ -85,11 +85,11 @@ async function requestToken(): Promise<JwtRefreshResult> {
   }
   catch (e) {
     const code = httpStatusOf(e)
-    // ARCH-006: 개발 환경에서 토큰 재발급 실패를 확인하기 위한 로그.
+    if (code === 401 || code === 403) return { status: 'unauthenticated' }
+    // ARCH-006: 예상된 미인증을 제외한 토큰 재발급 실패를 개발 환경에서 확인한다.
     // 프로덕션 빌드에서는 vite esbuild `drop: ['console']` 로 제거된다.
     // eslint-disable-next-line no-console
     console.error('[auth] token request failed', code, e)
-    if (code === 401 || code === 403) return { status: 'unauthenticated' }
     return { status: 'transient' }
   }
 }
