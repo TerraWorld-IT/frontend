@@ -36,6 +36,8 @@ Per PIPA Article 15: required/optional consent items + right to refuse + disadva
 
 ### 2.2 During use (automatically collected)
 
+> Of the items below, friend relationships, distance traveled, and exercise time are generated only when you use the corresponding features. Approximate location is processed by the analytics tool only with analytics consent.
+
 | Item | Consent | Disadvantage of refusal |
 | --- | --- | --- |
 | Activity record content (walk/read/run/doodle/custom) | **Required** | Core features unavailable |
@@ -44,6 +46,9 @@ Per PIPA Article 15: required/optional consent items + right to refuse + disadva
 | Advertising ID (Android GAID / iOS IDFA) | **Optional** | No ad personalization (general ads shown) |
 | FCM token (push) | **Optional** | No push notifications (attendance / wilt / friend activity) |
 | GA4 analytics data (pseudonymized/aggregated) | **Optional** | None (can opt out in **Profile > Consent management** + GA Opt-out add-on / device tracking limit / iOS ATT) |
+| Approximate location (city/region level estimated by the analytics tool from the connection IP address; not coordinates from device GPS, base stations, or Wi-Fi) | **Optional** (included in analytics consent) | None (stops together with GA4 when you opt out of analytics in Profile > Consent management) |
+| Friend relationships (in-service user IDs and nicknames connected through invitation codes; no access to the device address book or phone directory) | **Optional** (when using friend features) | None (not collected if you do not use invitations, the friend list, or visits) |
+| Distance traveled and exercise time (total distance traveled in km and activity time in minutes when saving a distance record; HealthKit and motion APIs are not used) | **Optional** (when using distance recording) | None (not collected if you do not use distance recording; distance recording is unavailable if location permission is denied) |
 
 ### 2.3 At payment (delegated to Play Billing / Apple IAP)
 
@@ -95,7 +100,7 @@ The Company delegates the following to third parties, who are prohibited from us
 
 | Delegatee | Delegated work | Retention/destruction |
 | --- | --- | --- |
-| Google LLC (GA4) | Service usage analytics (pseudonymized/aggregated) | Per GA4 property retention (2 or 14 months) |
+| Google LLC (GA4) | Service usage analytics (pseudonymized/aggregated) + approximate location estimation from the connection IP address (with consent) | Per GA4 property retention (2 or 14 months) |
 | Google LLC (Firebase FCM) | Push notification delivery | On token disposal / notification opt-out |
 | Cloudflare, Inc. | Photo/static asset storage (R2) · CDN · DDoS protection | Originals deleted immediately on withdrawal (backups destroyed within 30 days) |
 | Apple Inc. / Google LLC | IAP receipt verification (App Store / Play Billing) | Per payment-record retention |
@@ -106,7 +111,7 @@ The above delegatees/ad providers are located overseas, so personal data is tran
 
 | Recipient | Country | Items | Timing/method | Purpose | Retention | Refusal & disadvantage |
 | --- | --- | --- | --- | --- | --- | --- |
-| Google LLC | USA | Pseudonymized analytics / FCM token / advertising ID | Network transmission during use | Analytics, push, ads | Per each delegation/provision item | OS tracking limit · ATT / analytics refusal — some features/personalized ads limited |
+| Google LLC | USA | Pseudonymized analytics (including approximate location with consent) / FCM token / advertising ID | Network transmission during use | Analytics, push, ads | Per each delegation/provision item | OS tracking limit · ATT / analytics refusal — some features/personalized ads limited |
 | Cloudflare, Inc. | USA & global edge | Photos / static assets | Transmitted on upload/view | Storage, delivery, security | Deleted on withdrawal | Text records only if no photo attached |
 | Apple Inc. | USA | Payment receipt / transaction ID | Transmitted at payment | Payment verification | Per payment retention | No payment |
 
@@ -151,7 +156,15 @@ The Service uses the following tracking technologies (see [Terms Article 9-4](te
 
 ## Article 9-2 (Location Data)
 
-The Service does not collect location data via GPS, base stations, Wi-Fi, etc. If location-based features are introduced in the future, separate consent will be obtained under the Act on the Protection and Use of Location Information.
+The Service handles location in the following two ways.
+
+1. **Device location (GPS, etc.) — distance recording, not stored on the server**
+   Device location services (GPS, etc.) are accessed only when you start distance recording. Latitude and longitude coordinates are used only on the device to calculate distance traveled and are neither transmitted to nor stored on the server. The record retains only the calculated total distance traveled (km) and activity time (minutes). Denying location permission makes only distance recording unavailable and does not affect other features. The Service does not continuously track location in the background or store travel routes (trajectories).
+
+2. **Approximate location — analytics tool (GA4), optional**
+   Only if you consent to analytics collection, Google Analytics 4 may estimate approximate location at the city/region level from your connection IP address. This is not coordinates from device GPS, base stations, or Wi-Fi, and it is not transmitted in combination with your Service account identifier (analytics events do not include user IDs or coordinates). To refuse: withdraw analytics consent in Profile > Consent management in the app.
+
+If other location-based features, such as route guidance or nearby search, are introduced, separate consent will be obtained under the Act on the Protection and Use of Location Information.
 
 ## Article 10 (Notice of Changes)
 
