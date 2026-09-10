@@ -6,6 +6,7 @@ import type { ItemResponse } from '@terraworld-it/openapi-frontend'
 import { isAssetUrl, useItemAsset } from '~/composables/useItemAsset'
 import ItemsPage from '~/pages/admin/items.vue'
 import GrowSpiritVisual from '~/components/grow/GrowSpiritVisual.vue'
+import GrowStampBoard from '~/components/grow/GrowStampBoard.vue'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -65,6 +66,33 @@ async function mountAssets() {
   wrapper.unmount()
   return assets
 }
+
+describe('도장판 진행 바', () => {
+  // 이동 방식은 부분 진행률에서도 기존 너비 방식의 둥근 오른쪽 끝단을 보존한다.
+  it.each([
+    [0, 30, 'translateX(-100%)'],
+    [15, 30, 'translateX(-50%)'],
+    [30, 30, 'translateX(0%)'],
+    [45, 30, 'translateX(0%)'],
+    [-1, 30, 'translateX(-100%)'],
+    [Number.NaN, 30, 'translateX(-100%)'],
+    [15, Number.NaN, 'translateX(-100%)'],
+    [Number.POSITIVE_INFINITY, 30, 'translateX(-100%)'],
+    [15, 0, 'translateX(-100%)'],
+  ])('진행도 %s / 목표 %s는 %s로 렌더한다', async (progress, goal, transform) => {
+    const wrapper = await mountSuspended(GrowStampBoard, { props: { progress, goal, kindLabel: '정령' } })
+    try {
+      const bar = wrapper.get('.transition-transform')
+      expect((bar.element as HTMLElement).style.transform).toBe(transform)
+      expect(bar.classes()).toEqual(expect.arrayContaining(['w-full', 'rounded-full', 'duration-[600ms]', 'ease-out']))
+      expect(bar.classes()).not.toContain('origin-left')
+      expect(bar.element.parentElement!.classList.contains('overflow-hidden')).toBe(true)
+      expect(bar.element.parentElement!.classList.contains('rounded-full')).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})
 
 describe('아이템 공용 이미지 규칙', () => {
   it.each([true, false, undefined])('모션 축소 선호는 slug 애니메이션만 PNG로 바꾼다 (%s)', async (reduce) => {

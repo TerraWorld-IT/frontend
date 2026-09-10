@@ -34,8 +34,8 @@
     <div class="mt-[10px] h-[4px] rounded-full overflow-hidden" :class="skeleton ? 'bg-white/60' : 'bg-black/10'">
       <div
         v-if="!skeleton"
-        class="h-full w-full origin-left bg-apjek-sparkle transition-transform duration-[600ms] ease-out"
-        :style="{ transform: `scaleX(${pct})` }"
+        class="h-full w-full rounded-full bg-apjek-sparkle transition-transform duration-[600ms] ease-out"
+        :style="{ transform: `translateX(${-100 * (1 - pct)}%)` }"
       />
     </div>
 
@@ -76,7 +76,10 @@ const props = defineProps<{
   kindLabel: string
 }>()
 
-const pct = computed<number>(() => Math.max(0, Math.min(1, props.progress / Math.max(1, props.goal))))
+const pct = computed<number>(() => {
+  const ratio = props.progress / props.goal
+  return Number.isFinite(ratio) ? Math.max(0, Math.min(1, ratio)) : 0
+})
 
 const boardStyle = computed<Record<string, string>>(() => {
   const style: Record<string, string> = {}
