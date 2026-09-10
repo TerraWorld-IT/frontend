@@ -1,10 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import type { ItemResponse } from '@terraworld-it/openapi-frontend'
 import { isAssetUrl, useItemAsset } from '~/composables/useItemAsset'
 import ItemsPage from '~/pages/admin/items.vue'
+import GrowSpiritVisual from '~/components/grow/GrowSpiritVisual.vue'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 const mocks = vi.hoisted(() => ({
   sdk: {
@@ -61,6 +67,23 @@ async function mountAssets() {
 }
 
 describe('아이템 공용 이미지 규칙', () => {
+  it.each([true, false, undefined])('모션 축소 선호는 slug 애니메이션만 PNG로 바꾼다 (%s)', async (reduce) => {
+    if (reduce === undefined) vi.stubGlobal('matchMedia', undefined)
+    else vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ matches: query === '(prefers-reduced-motion: reduce)' && reduce }) as MediaQueryList)
+    const { resolveItemImage } = await mountAssets()
+    expect(resolveItemImage({ slug: 'x', assetUrl: '✨', layout: 'FIGURE', isAnimated: true })).toBe(reduce ? '/items/x.png' : '/items/x.gif')
+    expect(resolveItemImage({ slug: 'x', assetUrl: '✨', layout: 'FIGURE', isAnimated: false })).toBe('/items/x.png')
+    expect(resolveItemImage({ slug: 'x', assetUrl: 'https://cdn.example/x.gif', layout: 'FIGURE', isAnimated: true })).toBe('https://cdn.example/x.gif')
+    expect(resolveItemImage({ slug: 'x', assetUrl: '/custom/x.gif', layout: 'FIGURE', isAnimated: true })).toBe('/custom/x.gif')
+    expect(resolveItemImage({ slug: 'x', assetUrl: 'https://cdn.example/x.gif', layout: 'BACKGROUND', isAnimated: true })).toBe('/items/x.png')
+    expect(resolveItemImage({ slug: null, assetUrl: '✨', layout: 'FIGURE', isAnimated: true })).toBe('/items/placeholder.png')
+    const wrapper = await mountSuspended(GrowSpiritVisual, { props: { speciesCode: 'x', nameKo: '정령' } })
+    expect(wrapper.get('img').attributes('src')).toBe(reduce ? '/items/x.png' : '/items/x.gif')
+    await wrapper.setProps({ speciesCode: 'cat' })
+    expect(wrapper.get('img').attributes('src')).toBe('/spirits/stage2.png')
+    wrapper.unmount()
+  })
+
   // 변경 전 상점/홈 배경의 실제 출력값을 고정해 순서가 뒤집히는 회귀를 잡는다.
   it.each([
     ['절대 URL', 'https://cdn.example/plant.gif', 'plant', 'FOREGROUND', true, 'https://cdn.example/plant.gif'],
