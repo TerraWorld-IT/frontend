@@ -32,7 +32,7 @@ export function useItemAsset() {
   function resolveItemImage(item: Pick<ItemResponse, 'slug' | 'assetUrl' | 'layout' | 'isAnimated'>): string {
     if (item.layout === 'BACKGROUND') return item.slug ? itemAssetUrl(item.slug) : placeholderUrl
     if (isAssetUrl(item.assetUrl)) return item.assetUrl
-    return item.slug ? itemAssetUrl(item.slug, item.isAnimated ? 'gif' : 'png') : placeholderUrl
+    return item.slug ? itemAssetUrl(item.slug, item.isAnimated && !(typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'gif' : 'png') : placeholderUrl
   }
 
   /** <img @error> 핸들러 — 에셋 부재 시 placeholder 로 1회 폴백(무한루프 가드). */

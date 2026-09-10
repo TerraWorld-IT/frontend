@@ -90,6 +90,23 @@ describe('기록 완료 토스트 읽기 시간', () => {
 })
 
 describe('RecordCompleteToast', () => {
+  it('완료 조각은 1200ms 뒤에도 남고 최대 지연을 포함한 1360ms에 제거된다', async () => {
+    wrapper = await mountSuspended(RecordCompleteToast, {
+      props: { open: false, kind: 'dew', count: 1 },
+      global: { stubs: { RecordCompleteBurst: true } },
+    })
+    vi.useFakeTimers()
+    await wrapper.setProps({ open: true })
+    expect(document.body.querySelector('record-complete-burst-stub')).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(document.body.querySelector('record-complete-burst-stub')).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(159)
+    expect(document.body.querySelector('record-complete-burst-stub')).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(document.body.querySelector('record-complete-burst-stub')).toBeNull()
+    expect(wrapper.emitted('close')).toBeFalsy()
+  })
+
   it.each([
     ['dew', '이슬'], ['sun', '햇살'], ['bolt', '번개'], ['wind', '바람'],
   ] as const)('A-07 %s 완료 토스트는 기존 PNG를 표시하고 서버 지급 문구를 유지한다', async (kind, name) => {

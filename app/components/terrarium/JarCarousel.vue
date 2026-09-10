@@ -149,7 +149,7 @@ function onScroll(): void {
   index.value = Math.max(0, Math.min(slides.value.length - 1, Math.round(el.scrollLeft / el.clientWidth)))
 }
 
-function scrollTo(i: number, behavior: ScrollBehavior = 'smooth'): void {
+function scrollTo(i: number, behavior: ScrollBehavior = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'): void {
   const el = track.value
   if (!el) return
   if (typeof el.scrollTo === 'function') el.scrollTo({ left: i * el.clientWidth, behavior })

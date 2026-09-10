@@ -17,7 +17,7 @@
         aria-atomic="true"
       >
         <div class="relative">
-          <!-- 완료 파티클 (N-C1) — 1.2초 후 제거 -->
+          <!-- 완료 파티클 (N-C1) — 최대 지연을 포함한 1.36초 후 제거 -->
           <!-- 파일명이 디렉토리명(record)으로 시작하면 auto-import 명은 prefix 중복을 접는다
                (RecordRecordCompleteBurst 아님 — CLAUDE.md §12 함정) -->
           <RecordCompleteBurst v-if="burstVisible" />
@@ -106,7 +106,8 @@ watch(() => props.open, (open) => {
     return
   }
   burstVisible.value = true
-  burstTimer = setTimeout(() => { burstVisible.value = false }, 1200)
+  // 조각의 1.2초 애니메이션 + 최대 시작 지연 160ms가 모두 끝난 뒤 제거한다.
+  burstTimer = setTimeout(() => { burstVisible.value = false }, 1360)
   // 공용 토스트와 같이 포커스·hover 동안에는 읽기 시간을 차감하지 않는다.
   let remaining = 3500
   let previous = Date.now()

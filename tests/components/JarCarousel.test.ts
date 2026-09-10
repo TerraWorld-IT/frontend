@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import JarCarousel from '~/components/terrarium/JarCarousel.vue'
 import type { JarLevel } from '~/utils/tierLevels'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 // 홈 병 캐러셀 슬라이드 구성 — 항상 Lv.1/Lv.2/Lv.3 한 장씩, 활성 레벨만 라이브 스테이지(slot), 나머지는 카드.
 function level(overrides: Partial<JarLevel> & { level: number }): JarLevel {
@@ -45,6 +50,19 @@ function slideLevels(wrapper: Awaited<ReturnType<typeof mount>>): string[] {
 }
 
 describe('JarCarousel 슬라이드 구성', () => {
+  it.each([true, false, undefined])('도트 클릭은 모션 축소 선호에 맞는 스크롤을 요청한다 (%s)', async (reduce) => {
+    if (reduce === undefined) vi.stubGlobal('matchMedia', undefined)
+    else vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ matches: query === '(prefers-reduced-motion: reduce)' && reduce }) as MediaQueryList)
+    const wrapper = await mount(catalog(1, 1), 1)
+    const track = wrapper.get('[data-testid="jar-carousel"]').element as HTMLElement
+    Object.defineProperty(track, 'clientWidth', { value: 393, configurable: true })
+    const scroll = vi.fn()
+    track.scrollTo = scroll
+    await wrapper.get('button[aria-label="Lv.2 슬라이드"]').trigger('click')
+    expect(scroll).toHaveBeenCalledExactlyOnceWith({ left: 393, behavior: reduce ? 'instant' : 'smooth' })
+    wrapper.unmount()
+  })
+
   it('active=1 (Lv.2/3 잠김) — 라이브 Lv.1 + 잠금 카드 Lv.2/Lv.3', async () => {
     const wrapper = await mount(catalog(1, 1), 1)
     expect(slideLevels(wrapper)).toEqual(['live:1', 'card:2', 'card:3'])

@@ -216,7 +216,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       setTimeout(() => {
         const active = document.activeElement
         if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-          active.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          active.scrollIntoView({ block: 'nearest', behavior: typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
         }
       }, 300)
     })

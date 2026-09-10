@@ -15,7 +15,7 @@
   <TomatoVine v-else-if="speciesCode === 'tomato-vine'" class="animate-sway" />
   <img
     v-else
-    :src="itemAssetUrl(speciesCode, 'gif')"
+    :src="itemAssetUrl(speciesCode, reducedMotion ? 'png' : 'gif')"
     :alt="nameKo"
     class="w-[140px] h-[140px] object-contain animate-float"
     @error="onAssetError"
@@ -35,6 +35,7 @@ defineProps<{
 }>()
 
 const { itemAssetUrl, onAssetError } = useItemAsset()
+const reducedMotion: boolean = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 // 토마토 덩굴 SVG (TW2 TomatoVine — 164x172)
 function TomatoVine() {
