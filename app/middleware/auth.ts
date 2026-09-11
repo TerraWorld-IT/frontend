@@ -39,8 +39,15 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (isPublicRoute(to.path)) return
 
   // SSR: httpOnly 쿠키를 요청에서 읽을 수 있음 → 빠른 presence(존재) 확인.
+  // 프로덕션(HTTPS)에서는 better-auth 가 secure 쿠키에 `__Secure-` 접두를 붙여
+  // 쿠키명이 `__Secure-tw.session_token` 이 된다(dev/HTTP 는 `tw.session_token`). 접두 없는
+  // 이름만 확인하면 프로덕션에서 세션이 살아 있어도 미인증으로 오판해 보호 라우트 직접 진입·
+  // 새로고침이 로그인으로 튕긴다. presence 만 보는 가드라 두 이름 중 하나라도 있으면 통과시킨다
+  // — 실제 세션 검증은 API 호출 시 서버가 수행한다.
   if (import.meta.server) {
-    if (!useCookie('tw.session_token').value) return navigateTo('/auth/login')
+    const hasSession = useCookie('tw.session_token').value
+      || useCookie('__Secure-tw.session_token').value
+    if (!hasSession) return navigateTo('/auth/login')
     return
   }
 
