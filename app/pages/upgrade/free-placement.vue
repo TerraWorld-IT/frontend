@@ -1,7 +1,5 @@
 <!--
-  자유배치 권리(freePlacement entitlement) 안내 + 결제 플로우.
-  usePayment().startPurchase('free_placement_unlock') → 백엔드 IAP verify → entitlement 부여.
-  (실 결제 검증은 Play/App Store 상품 등록 + 키 주입 시 동작 — 코드 배선 완료.)
+  모든 사용자에게 무료 기본 지급되는 자유배치 기능 안내.
 -->
 <template>
   <!-- 페이지별 픽셀 상수(114px) 대신 형제 페이지와 같이 min-h-full 로 스크롤러 높이를 따른다. -->
@@ -17,17 +15,8 @@
     </ul>
 
     <div class="rounded-xl bg-riso-cream p-4 riso-shadow space-y-2">
-      <p class="text-sm font-medium text-riso-dark">{{ $t('upgrade.paymentOptions') }}</p>
-      <button
-        type="button"
-        class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] w-full px-4 py-2 bg-riso-sage text-white rounded-md text-sm disabled:opacity-60"
-        :disabled="loading"
-        @click="onPurchase"
-      >
-        {{ loading ? $t('upgrade.processing') : $t('upgrade.buyButton') }}
-      </button>
-      <p class="text-xs text-riso-dark/50">
-        {{ $t('upgrade.paymentNote') }}
+      <p class="text-sm font-medium text-riso-dark">
+        {{ $t('upgrade.freePlacementAlreadyAvailable') }}
       </p>
     </div>
 
@@ -39,17 +28,4 @@
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
-
-const { startPurchase, loading } = usePayment()
-const toast = useToast()
-const { t } = useI18n()
-
-async function onPurchase() {
-  // 상품 ID 단일 SoT = 백엔드 mapProductIdToEntitlementKey (free_placement_unlock → free_placement).
-  // (기존 'free-placement' 하이픈은 백엔드 매핑과 불일치 — 2026-06-04 fix)
-  const ok = await startPurchase('free_placement_unlock')
-  if (ok) toast.success(t('upgrade.purchaseSuccess'))
-  // 실결제 연동 완료 — 구 "Phase 4 통합 예정" 문구는 오도적 (audit B1-3). 실패 안내로 교체.
-  else toast.info(t('upgrade.purchaseFailedRetry'))
-}
 </script>
