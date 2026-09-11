@@ -1562,6 +1562,10 @@ watch(openModal, (next, prev) => {
 
 let removePauseListener: (() => void) | null = null
 let removeResumeListener: (() => void) | null = null
+// 새로고침·백그라운드 전환에서도 열린 일기 초안을 저장한다.
+function onDiaryDraftPageExit(event: Event) {
+  if (openModal.value === 'diary' && (event.type === 'pagehide' || document.hidden)) persistDiaryDraft()
+}
 // App.addListener() 는 비동기라, 등록이 resolve 되기 전에 이 컴포넌트가 이미 unmount 됐을 수
 // 있다(빠른 라우트 이탈). 그 경우 onBeforeUnmount 시점엔 remove 함수가 아직 null 이라 stale
 // listener 가 영구히 남는다(Codex Round 3 지적) — disposed 플래그로 늦게 도착한 등록도 즉시 정리.
@@ -1569,6 +1573,8 @@ let disposed = false
 
 onBeforeUnmount(() => {
   if (openModal.value === 'diary') persistDiaryDraft()
+  document.removeEventListener('visibilitychange', onDiaryDraftPageExit)
+  window.removeEventListener('pagehide', onDiaryDraftPageExit)
   settleRouteLeave(false)
   clearFocusTimer()
   photoRequestVersion.value += 1
@@ -1622,6 +1628,8 @@ function retryInitial() {
 }
 
 onMounted(() => {
+  document.addEventListener('visibilitychange', onDiaryDraftPageExit)
+  window.addEventListener('pagehide', onDiaryDraftPageExit)
   restoreDiaryDraft()
   void loadInitial()
   loadHabits()
