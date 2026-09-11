@@ -263,8 +263,21 @@ watch(() => props.open, (open, previous) => {
   if (open) reset()
   else if (previous) persistDraft()
 })
-onMounted(() => { if (props.open) reset() })
-onBeforeUnmount(() => { if (props.open) persistDraft() })
+// 새로고침·백그라운드 전환에서도 열린 습관 시트의 초안을 저장한다.
+function onDraftPageExit(event: Event) {
+  if (props.open && (event.type === 'pagehide' || document.hidden)) persistDraft()
+}
+
+onMounted(() => {
+  if (props.open) reset()
+  document.addEventListener('visibilitychange', onDraftPageExit)
+  window.addEventListener('pagehide', onDraftPageExit)
+})
+onBeforeUnmount(() => {
+  if (props.open) persistDraft()
+  document.removeEventListener('visibilitychange', onDraftPageExit)
+  window.removeEventListener('pagehide', onDraftPageExit)
+})
 
 function persistDraft() {
   if (!draftKey) return
