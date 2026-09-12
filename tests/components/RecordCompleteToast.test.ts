@@ -90,6 +90,21 @@ describe('기록 완료 토스트 읽기 시간', () => {
 })
 
 describe('RecordCompleteToast', () => {
+  it('두번째 기록은 보상 획득을 표시하지 않고 확인된 성장 증가만 표시한다', async () => {
+    wrapper = await mountSuspended(RecordCompleteToast, {
+      props: { open: true, kind: 'dew', count: 0, growthAdvanced: false },
+    })
+    const status = document.body.querySelector('[role="status"]')!
+    expect(status.textContent).toContain('기록 완료!')
+    expect(status.textContent).not.toContain('획득!')
+    expect(status.textContent).not.toContain('스탬프 +1')
+    await wrapper.setProps({ count: 1, growthAdvanced: true })
+    expect(status.textContent).toContain('이슬토큰 1개 획득!')
+    expect(status.textContent).toContain('키우기 스탬프 +1')
+    await wrapper.setProps({ growthAdvanced: false })
+    expect(status.textContent).not.toContain('스탬프 +1')
+  })
+
   it('완료 조각은 1200ms 뒤에도 남고 최대 지연을 포함한 1360ms에 제거된다', async () => {
     wrapper = await mountSuspended(RecordCompleteToast, {
       props: { open: false, kind: 'dew', count: 1 },
@@ -119,7 +134,8 @@ describe('RecordCompleteToast', () => {
     expect(status.querySelector('img')!.getAttribute('width')).toBe('24')
     expect(status.textContent).toContain(`${name}토큰 3개 획득!`)
     await wrapper.setProps({ count: null })
-    expect(status.textContent).toContain(`${name}토큰 획득!`)
+    expect(status.textContent).toContain('기록 완료!')
+    expect(status.textContent).not.toContain('획득!')
     await wrapper.setProps({ open: false })
     expect(document.body.querySelector('[role="status"]')).toBeNull()
   })

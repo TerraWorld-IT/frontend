@@ -300,7 +300,7 @@
       </div>
       <div class="px-5 pb-1 pt-2">
         <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
-        <div class="text-[12px] text-apjek-text-faint text-center mb-2">저장 시 햇살토큰 지급</div>
+        <div class="text-[12px] text-apjek-text-faint text-center mb-2">오늘 첫 일기 저장 시 햇살토큰 지급</div>
         <button
           type="button"
           class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-apjek-cta"
@@ -345,7 +345,7 @@
             >
           </div>
           <!-- 지급량은 서버가 결정 — Figma "+10" 은 실지급(BE)과 달라 수치 없이 표기 (§4-5 보류) -->
-          <div class="text-[12px] text-apjek-text-faint text-center">저장 시 번개토큰 지급</div>
+          <div class="text-[12px] text-apjek-text-faint text-center">오늘 첫 집중 기록 저장 시 번개토큰 지급</div>
           <button
             type="button"
             class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-[0.98] bg-apjek-cta"
@@ -444,7 +444,7 @@
           </div>
           <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
           <div class="text-[12px] text-apjek-text-faint text-center leading-[18px]">
-            시작 후 이동하면 거리가 자동으로 측정돼요<br>저장 시 바람토큰 지급
+            시작 후 이동하면 거리가 자동으로 측정돼요<br>오늘 첫 거리 기록 저장 시 바람토큰 지급
           </div>
           <button
             type="button"
@@ -525,6 +525,7 @@
       :open="completeToast !== null"
       :kind="completeToast?.kind ?? 'dew'"
       :count="completeToast?.count ?? null"
+      :growth-advanced="completeToast?.growthAdvanced ?? false"
       @close="completeToast = null"
     />
   </div>
@@ -537,6 +538,8 @@ import type {
   CreateRecordRequest,
   CreateRecordResponse,
   FriendInfo,
+  GrowthItem,
+  GrowthResponse,
   HabitCycleRewardResponse,
   HabitTrackerResponse,
   PhotoUploadResponse,
@@ -657,6 +660,7 @@ async function onCheckIn(tr: HabitTrackerResponse) {
   if (tr.status !== 'ACTIVE' || habitBusy.value) return
   habitBusy.value = true
   try {
+    const growthBefore = await readGrowthForFeedback()
     const { data: result, status, code } = await checkIn(tr.id)
     if (!result) {
       // 수락 전(PENDING) 체크인 — 친구 수락 후 기록 시작.
@@ -664,12 +668,13 @@ async function onCheckIn(tr: HabitTrackerResponse) {
       else toast.error('체크인에 실패했어요')
       return
     }
+    const growthAdvanced = await didGrowthAdvance(growthBefore)
     if (result.cycleCompleted) {
       // 7일째 — 카드는 완주 대기(COMPLETED_UNCLAIMED) 화면으로 전환. 보상은 [기록 완료하기]/[연장] 에서 지급.
-      toast.success('7일 완주! 기록을 완료하거나 1주일 연장해 보세요')
+      toast.success(growthAdvanced ? '7일 완주! 키우기 스탬프 +1 · 기록을 완료하거나 연장해 보세요' : '7일 완주! 기록을 완료하거나 1주일 연장해 보세요')
     }
     else {
-      toast.success('오늘 체크인 완료')
+      toast.success(growthAdvanced ? '오늘 체크인 완료 · 키우기 스탬프 +1' : '오늘 체크인 완료')
     }
   }
   catch (e) {
@@ -924,19 +929,41 @@ function closeModal() {
   openModal.value = null
 }
 
+// 보조 조회 실패가 이미 저장된 기록을 실패로 바꾸지 않도록 피드백만 생략한다.
+async function readGrowthForFeedback(): Promise<GrowthItem[] | null> {
+  try {
+    const { data, error } = await sdk.getGrowth({ client })
+    return error ? null : castData<GrowthResponse>(data)?.items ?? null
+  }
+  catch {
+    return null
+  }
+}
+
+async function didGrowthAdvance(before: GrowthItem[] | null): Promise<boolean> {
+  if (!before) return false
+  const after = await readGrowthForFeedback()
+  return after?.some(item => {
+    const previous = before.find(entry => entry.speciesCode === item.speciesCode)
+    return previous !== undefined
+      && item.stampCount === previous.stampCount + 1
+      && (item.cycleId === previous.cycleId || previous.cycleId === `${item.speciesCode}:0`)
+  }) ?? false
+}
+
 // 공통 기록 저장 — dailyType 기준 보상 라우팅.
 // 성공 시 서버가 실제 지급한 reward 를 함께 반환한다 — 완료 토스트가 이 값을 표시 (R4-FE).
 async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['dailyType']>, opts: {
   duration?: number | null
   note?: string | null
   photoUrl?: string | null
-}): Promise<{ ok: boolean; reward: RewardInfo | null }> {
+}): Promise<{ ok: boolean; reward: RewardInfo | null; growthAdvanced: boolean }> {
   const categoryId = categoryIdFor(dailyType)
   if (categoryId === null) {
     toast.error('카테고리를 불러오지 못했어요')
-    return { ok: false, reward: null }
+    return { ok: false, reward: null, growthAdvanced: false }
   }
-  if (submitting.value) return { ok: false, reward: null }
+  if (submitting.value) return { ok: false, reward: null, growthAdvanced: false }
   submitting.value = true
   try {
     const body: CreateRecordRequest = {
@@ -947,6 +974,7 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
       photoUrl: opts.photoUrl ?? null,
       partnerUserId: null,
     }
+    const growthBefore = await readGrowthForFeedback()
     const { data, error } = await sdk.createRecord({ client, body })
     if (error) throw new Error(errMsg(error, '기록 생성 실패'))
     const created = castData<CreateRecordResponse>(data)
@@ -964,36 +992,35 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
       // 생성은 이미 확정됐으므로 잔액 갱신 실패로 재전송을 유도하지 않는다.
       void userStore.fetchMe(true).catch(() => { toast.info('기록은 저장됐어요. 잔액은 잠시 후 갱신돼요') })
     }
-    return { ok: true, reward }
+    return { ok: true, reward, growthAdvanced: await didGrowthAdvance(growthBefore) }
   }
   catch (e) {
     toast.error((e as Error).message)
-    return { ok: false, reward: null }
+    return { ok: false, reward: null, growthAdvanced: false }
   }
   finally {
     submitting.value = false
   }
 }
 
-// 완료 카드 토스트 (R4) — 서버 응답 categoryTokens 를 동적 표시. 0/누락이면 수치 없이
-// "○○토큰 획득!" 로 표기해 실지급과 다른 거짓 숫자를 화면에 남기지 않는다. 탭 → /calendar.
+// 완료 카드 토스트 — 서버 보상 0/누락은 기록 완료만, 실제 성장 증가가 확인된 경우 스탬프 피드백. 탭 → /calendar.
 // TODO(C4 머지 후): useToast({title, description, icon, variant:'card'}) 로 대체.
-const completeToast = ref<{ kind: DailyTokenKind; count: number | null } | null>(null)
+const completeToast = ref<{ kind: DailyTokenKind; count: number | null; growthAdvanced: boolean } | null>(null)
 
-function showCompleteToast(kind: DailyTokenKind, reward: RewardInfo | null) {
+function showCompleteToast(kind: DailyTokenKind, reward: RewardInfo | null, growthAdvanced: boolean) {
   const n = reward?.categoryTokens
-  completeToast.value = { kind, count: typeof n === 'number' && n > 0 ? n : null }
+  completeToast.value = { kind, count: typeof n === 'number' ? n : null, growthAdvanced }
 }
 
 // ── 투두 시트 (R1b) — 항목/루틴 상태는 RecordTodoSheet 가 소유 ──
 const todoSheet = ref<{ clear: () => void } | null>(null)
 
 async function saveTodo(note: string) {
-  const { ok, reward } = await saveDailyRecord('PHOTO', { note })
+  const { ok, reward, growthAdvanced } = await saveDailyRecord('PHOTO', { note })
   if (ok) {
     todoSheet.value?.clear()
     closeModal()
-    showCompleteToast('dew', reward)
+    showCompleteToast('dew', reward, growthAdvanced)
   }
 }
 
@@ -1079,14 +1106,14 @@ async function saveDiary() {
     return
   }
   const note = diaryTitle.value.trim() ? `${diaryTitle.value.trim()}\n${text}` : text
-  const { ok, reward } = await saveDailyRecord('DIARY', { note, photoUrl: photoUrl.value || null })
+  const { ok, reward, growthAdvanced } = await saveDailyRecord('DIARY', { note, photoUrl: photoUrl.value || null })
   if (ok) {
     diaryTitle.value = ''
     diaryText.value = ''
     if (diaryDraftKey) clearDraft(diaryDraftKey)
     photoUrl.value = ''
     closeModal()
-    showCompleteToast('sun', reward)
+    showCompleteToast('sun', reward, growthAdvanced)
   }
 }
 
@@ -1168,11 +1195,11 @@ async function stopFocus() {
 async function saveFocus(durationSecs: number) {
   // 거리 기록과 동일 클래스: 60초 미만이면 반올림 0 → backend @Min(1) 400. 하한 1분.
   const minutes = Math.max(1, Math.round(durationSecs / 60))
-  const { ok, reward } = await saveDailyRecord('FOCUS', { duration: minutes, note: focusName.value })
+  const { ok, reward, growthAdvanced } = await saveDailyRecord('FOCUS', { duration: minutes, note: focusName.value })
   if (ok) {
     resetFocus()
     closeModal()
-    showCompleteToast('bolt', reward)
+    showCompleteToast('bolt', reward, growthAdvanced)
   }
 }
 
@@ -1536,7 +1563,7 @@ function abortNativeTracking() {
 
 async function saveDistance() {
   const km = (distance.value / 1000).toFixed(2)
-  const { ok, reward } = await saveDailyRecord('DISTANCE', {
+  const { ok, reward, growthAdvanced } = await saveDailyRecord('DISTANCE', {
     // 60초 미만 세션은 반올림이 0 이 되어 backend @Min(1) 검증에 걸린다
     // (2026-07-21 라이브 실측: 400 "duration: 1 이상이어야 합니다") — 하한 1분.
     duration: Math.max(1, Math.round(distElapsed.value / 60)),
@@ -1547,7 +1574,7 @@ async function saveDistance() {
     distName.value = ''
     resetDistance()
     closeModal()
-    showCompleteToast('wind', reward)
+    showCompleteToast('wind', reward, growthAdvanced)
   }
 }
 

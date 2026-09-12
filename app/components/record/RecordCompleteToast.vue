@@ -35,6 +35,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-[15px] font-bold text-apjek-text leading-[20px] truncate">{{ headline }}</p>
+              <p v-if="growthAdvanced" class="text-[12px] font-bold text-apjek-text leading-[16px] mt-[2px]">키우기 스탬프 +1</p>
               <p class="text-[12px] text-apjek-text-sub leading-[16px] mt-[2px]">
                 완료한 기록을 <span class="font-bold text-apjek-text">캘린더</span>에서 확인하세요.
               </p>
@@ -52,16 +53,17 @@ import type { CurrencyCode } from '~/utils/currency'
 
 /**
  * 일상 기록 완료 토스트. 표시/숨김은 부모가 소유(open), 탭 또는 자동 만료(3.5s)에 close 를 요청한다.
- * 보상 수치는 서버 reward.categoryTokens — 0/누락이면 수치 없이 "○○토큰 획득!" 로 표기해
- * 실지급과 다른 숫자를 남기지 않는다.
+ * 보상 수치는 서버 reward.categoryTokens — 0/누락이면 기록 완료만 표시한다.
+ * 성장 증가는 부모가 서버 진행도 전후 비교로 확인한 경우에만 표시한다.
  */
 export type DailyTokenKind = 'dew' | 'sun' | 'bolt' | 'wind'
 
 const props = defineProps<{
   open: boolean
   kind: DailyTokenKind
-  /** 서버가 지급한 토큰 수 (0/null 이면 수치 생략) */
+  /** 서버가 지급한 토큰 수 (0/null 이면 획득 문구 생략) */
   count: number | null
+  growthAdvanced?: boolean
 }>()
 
 const emit = defineEmits<{ close: [] }>()
@@ -79,7 +81,7 @@ const headline = computed<string>(() => {
   const n = props.count
   return typeof n === 'number' && n > 0
     ? `${tokenStyle.value.name}토큰 ${n}개 획득!`
-    : `${tokenStyle.value.name}토큰 획득!`
+    : '기록 완료!'
 })
 
 const root = ref<HTMLElement | null>(null)

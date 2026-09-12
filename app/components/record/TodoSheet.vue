@@ -238,7 +238,7 @@
         <div class="flex items-center justify-between text-[12px] text-apjek-text-faint pb-[8px]">
           <span>{{ checkedCount }}/{{ todos.length }} 완료</span>
           <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
-          <span>완료 시 이슬토큰 지급</span>
+          <span>오늘 첫 기록 완료 시 이슬토큰 지급</span>
         </div>
         <button
           type="button"
