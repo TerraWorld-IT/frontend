@@ -4,7 +4,7 @@
   + 병 캐러셀(현재 병 / Lv.2 / Lv.3 카드 + 도트) + [힐링 모드][관리 모드] 필 + 아코디언(친구 목록 → 보유 재화, 기본 열림).
   상단 메뉴의 랭킹/출석/알림은 페이지 이동 없이 홈 위 팝업(랭킹 팝업 / 출석 팝업 / 우측 알림 패널)으로 연다.
   실 데이터 배선은 기존 그대로: getMe / getTerrarium / listItems / listFreePlacements 병렬 로드,
-  하트(clickTerrariumHeart) / 광고보상(claimAdReward) / 출석(useAttendance) / 공유(html2canvas)
+  광고보상(claimAdReward) / 출석(useAttendance) / 공유(html2canvas)
   / 자유배치 드래그(updateFreePosition) / 티어(useTier) 실 API. scale/flip/zIndex 는 서버 영속.
   관리 모드 = 인트로 스플래시 → 상단 칩 3종 + 하단 고정 패널 + [저장하기]. 힐링 모드 = 인트로 → 풀블리드 + 상단 필바(BGM/X).
 -->
@@ -118,9 +118,9 @@
         <button
           type="button"
           data-testid="home-freecoin"
-          class="menu-item"
+          class="menu-item disabled:opacity-50 disabled:cursor-not-allowed"
           :aria-label="$t('home.ariaFreeCoin')"
-          v-if="adMenuVisible"
+          :disabled="adMenuDisabled"
           @click="onAdMenuClick"
         >
           <span class="menu-circle"><Icon name="lucide:gift" class="w-5 h-5" /></span>
@@ -212,7 +212,7 @@
             : 'relative flex justify-center items-center w-full overflow-hidden']"
           :style="healingMode
             ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
-            : { cursor: editMode ? 'default' : 'grab', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
+            : { cursor: 'default', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
           @pointerdown="onPinchPointer"
           @pointermove="onPinchPointer"
@@ -224,13 +224,14 @@
           <!-- 관리 모드에서는 transform 전환 애니메이션을 끈다 — 0.44→1 로 움직이는 200ms 동안 드래그/리사이즈
                좌표 환산(zoomLevel*stageFit)과 실제 렌더 배율이 어긋나 첫 입력이 잘못 저장될 수 있다. -->
           <div
+            ref="stageCanvasEl"
             :class="editMode ? 'relative shrink-0' : 'transition-transform duration-200 ease-out relative shrink-0'"
             :style="{
-              transform: `scale(${zoomLevel * stageFit * viewScale})`,
-              transformOrigin: 'top center',
+              transform: `translate(${zoomOffset.x}px, ${zoomOffset.y}px) scale(${zoomLevel * stageFit * viewScale})`,
+              transformOrigin: healingMode ? 'center center' : 'top center',
               width: '400px',
               height: '552px',
-              marginBottom: `${-552 * (1 - stageFit * viewScale)}px`,
+              marginBottom: healingMode ? '0px' : `${-552 * (1 - stageFit * viewScale)}px`,
             }"
           >
             <!-- 병 뒤 원형 글로우 — 설정된 배경(BACKGROUND 아이템)이 URL 에셋이면 글로우 원 안에 배경 레이어로 렌더(T13),
@@ -277,7 +278,6 @@
                   top: `${JAR.minY + 60}px`,
                   width: `${JAR.maxX - JAR.minX}px`,
                   height: `${JAR.maxY - JAR.minY - 60}px`,
-                  border: '2px dashed rgba(81,140,219,0.55)',
                   background: 'rgba(81,140,219,0.04)',
                 }"
               >
@@ -297,34 +297,42 @@
               v-for="placed in placedItems"
               :key="placed.placementId"
               class="absolute flex items-center justify-center select-none"
-              :class="animClass(placed)"
               :style="itemStyle(placed)"
               @pointerdown="(e) => onItemPointerDown(e, placed)"
               @click="onItemClick(placed)"
             >
-              <!-- 아이템 본체 -->
-              <div
-                class="relative flex items-center justify-center"
-                :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
-                :role="editMode ? 'button' : undefined"
-                :tabindex="editMode ? 0 : undefined"
-                :aria-label="editMode ? placed.name : undefined"
-                @keydown="(e) => onItemKeydown(e, placed)"
-              >
-                <img
-                  v-if="isAssetUrl(placed.image)"
-                  :src="placed.image"
-                  :alt="placed.name"
-                  class="w-24 h-24 object-contain pointer-events-none"
-                  draggable="false"
-                  @error="onAssetError"
+              <!-- 병 실루엣은 스테이지 좌표에 고정하고 편집 조작부는 마스크 밖에 둔다. -->
+              <div class="absolute pointer-events-none" :style="itemMaskStyle(placed)">
+                <div
+                  class="absolute flex items-center justify-center pointer-events-auto"
+                  :class="animClass(placed)"
+                  :style="{ left: `${placed.x - HALF}px`, top: `${placed.y - HALF}px`, width: `${BASE_SIZE}px`, height: `${BASE_SIZE}px`, transformOrigin: placed.rarity === 'rare' ? 'bottom center' : undefined }"
                 >
-                <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
-                <Icon
-                  v-if="placed.isAnimated && !editMode"
-                  name="lucide:sparkles"
-                  class="w-3 h-3 text-yellow-400 absolute -top-1 -right-1 pointer-events-none"
-                />
+                  <!-- 아이템 본체 -->
+                  <div
+                    class="relative flex items-center justify-center"
+                    :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
+                    :role="editMode ? 'button' : undefined"
+                    :tabindex="editMode ? 0 : undefined"
+                    :aria-label="editMode ? placed.name : undefined"
+                    @keydown="(e) => onItemKeydown(e, placed)"
+                  >
+                    <img
+                      v-if="isAssetUrl(placed.image)"
+                      :src="placed.image"
+                      :alt="placed.name"
+                      class="w-24 h-24 object-contain pointer-events-none"
+                      draggable="false"
+                      @error="onAssetError"
+                    >
+                    <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
+                    <Icon
+                      v-if="placed.isAnimated && !editMode"
+                      name="lucide:sparkles"
+                      class="w-3 h-3 text-yellow-400 absolute -top-1 -right-1 pointer-events-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               <!-- 편집 모드 선택 시 핸들/버튼 -->
@@ -394,35 +402,6 @@
                   />
                 </button>
               </template>
-            </div>
-
-            <!-- 하트 버튼 (편집모드 숨김 — 힐링 모드에선 유지) -->
-            <div v-show="!editMode" class="absolute right-0 top-1/2 -translate-y-1/2 z-[6000]">
-              <button
-                type="button"
-                data-testid="home-heart"
-                class="relative flex items-center justify-center transition-transform active:scale-90 hover:scale-110 disabled:opacity-50"
-                :style="{
-                  width: `${MIN_TOUCH_TARGET}px`,
-                  height: `${MIN_TOUCH_TARGET}px`,
-                  transform: `scale(${inverseStageScale})`,
-                  transformOrigin: 'right center',
-                }"
-                :disabled="heartBusy"
-                :aria-label="$t('home.ariaHeart')"
-                @click="onHeartClick"
-              >
-                <Icon name="lucide:heart" class="w-8 h-8 fill-[#f092f0] text-[#f092f0]" />
-                <span
-                  v-for="f in heartFloats"
-                  :key="f.id"
-                  class="heart-float absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none flex items-center gap-1 font-bold"
-                  style="color: #f092f0"
-                >
-                  <Icon name="lucide:star" class="w-4 h-4" style="color: #f092f0" />
-                  <span class="text-base">+0.1</span>
-                </span>
-              </button>
             </div>
           </div>
 
@@ -766,13 +745,12 @@
 </template>
 
 <script setup lang="ts">
-import { calculatePinchScale } from '~/utils/pinchZoom'
+import { calculatePinchOffset, calculatePinchScale } from '~/utils/pinchZoom'
 import { Capacitor } from '@capacitor/core'
 import { onBeforeRouteLeave } from 'vue-router'
 import type {
   AdRewardResponse,
   AttendanceBoardDay,
-  HeartResponse,
   InviteResponse,
   ItemResponse,
   NotificationUnreadCountResponse,
@@ -795,7 +773,7 @@ const homeSnapshot = useHomeSnapshotStore()
 const toast = useToast()
 const { itemAssetUrl, placeholderUrl, resolveItemImage, onAssetError } = useItemAsset()
 const { t } = useI18n()
-const { trackHeartClick, trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
+const { trackShareCreated, trackScreenshotSaved, trackAdRewardClaimed, trackFreePlacementSaved } = useGtagEvents()
 const { hapticImpact, share: nativeShare, shareToInstagram } = useNative()
 const config = useRuntimeConfig()
 const attendance = useAttendance()
@@ -869,6 +847,8 @@ const editMode = ref<boolean>(false)
 const selectedItemId = ref<number | null>(null)
 const capturingImage = ref<boolean>(false)
 const zoomLevel = ref<number>(1)
+const zoomOffset = ref({ x: 0, y: 0 })
+const stageCanvasEl = ref<HTMLElement | null>(null)
 // 이벤트 처리 중에만 쓰는 포인터 좌표로 렌더 상태를 추가하지 않는다.
 const pinchPointers = new Map<number, { x: number; y: number }>()
 // 자식의 암묵적 캡처가 이전되는 동안 발생한 상실 이벤트와 스테이지 상실을 구분한다.
@@ -905,19 +885,17 @@ const showAttendance = ref<boolean>(false)
 const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 const adClaiming = ref<boolean>(false)
-// 서버 렌더링과 웹은 메뉴를 유지하고, 마운트 후 iOS만 숨긴다.
-// 웹의 비가용 안내와 Android 광고 시청 흐름은 유지한다.
+// 첫 출시에는 모든 플랫폼에서 광고보상 진입점을 비활성으로 유지한다.
 const adAvailable = ref<boolean>(false)
-const adMenuVisible = ref<boolean>(true)
+const adMenuDisabled = true
 const adRemainingToday = ref<number | null>(null)
 onMounted(() => {
-  const { isNative: adNative, isAndroid: adAndroid, isIos } = useAdMob()
-  adMenuVisible.value = !isIos
+  const { isNative: adNative, isAndroid: adAndroid } = useAdMob()
   adAvailable.value = (adNative && adAndroid) || import.meta.dev
 })
 function onAdMenuClick() {
   if (adClaiming.value) return
-  if (!adMenuVisible.value) return
+  if (adMenuDisabled) return
   const pendingClaim = readPendingAdClaim('AD_REWARD', user.value?.userId)
   if (pendingClaim?.purpose === 'AD_REWARD') {
     void claimPendingAdReward()
@@ -939,7 +917,7 @@ const showExchange = ref<boolean>(false)
 // ─── T3b/T13 모드 진입 인트로 — 1.2초 스플래시 후 실제 모드 전환 ───
 const introMode = ref<'healing' | 'manage' | null>(null)
 
-// ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) (배치/시들기/하트 로직 무변경) ───
+// ─── T3b 힐링 모드 — 풀블리드 감상 오버레이 + 상단 필바(BGM/X) ───
 const healingMode = ref<boolean>(false)
 // 상단 세이프에어리어는 이 화면 배경 그라디언트의 시작색이, 하단은 하단 네비(서피스)가 채운다.
 // 힐링 모드는 풀블리드 오버레이라 열린 동안 그 그라디언트의 시작·끝색을 따른다.
@@ -959,11 +937,11 @@ const viewScale = computed<number>(() => (editMode.value || healingMode.value ? 
 // 크기에만 적용하고 중심 좌표는 스테이지 좌표에 남겨 드래그·리사이즈 환산식을 보존한다.
 const stageScale = computed<number>(() => Math.max(0.01, zoomLevel.value * stageFit.value * viewScale.value))
 const inverseStageScale = computed<number>(() => 1 / stageScale.value)
-// 보기 모드에서 휠로 바꾼 zoomLevel(0.5~2)이 관리/힐링 모드로 넘어가면 설계 기준 스테이지가 잘리거나
-// 반으로 줄고, 편집 중에는 휠이 막혀 되돌릴 수도 없다 — 모드 진입 시 줌을 1 로 되돌린다.
-watch([editMode, healingMode], ([edit, heal]) => {
+// 힐링 줌과 중점 이동은 모드 전환 시 초기화해 일반·관리 좌표계에 남기지 않는다.
+watch([editMode, healingMode], () => {
   resetPinchPointers()
-  if (edit || heal) zoomLevel.value = 1
+  zoomLevel.value = 1
+  zoomOffset.value = { x: 0, y: 0 }
 })
 // 병 뒤 원의 폭 비율 — 부모의 보기 축소를 보정해 줌 1에서 스테이지 폭의 87%를 유지한다.
 const backdropSize = computed<number>(() => 87 / viewScale.value)
@@ -1187,8 +1165,6 @@ const inviteInviterRuby = ref<number>(0)
 const inviteInviteeRuby = ref<number>(0)
 const inviteCreating = ref<boolean>(false)
 
-const heartBusy = ref<boolean>(false)
-const heartFloats = ref<{ id: number }[]>([])
 const placementBusy = ref<boolean>(false)
 
 // ─── Computed ───
@@ -1242,7 +1218,7 @@ function visualHalf(placed: PlacedFreeItem): number {
   return HALF * placed.scale
 }
 
-// 병 질감 오버레이 z — 배치 아이템(10 + zIndex) 전부의 바로 위. 시들기 오버레이·하트(z 6000)는 그 위.
+// 병 질감 오버레이 z — 배치 아이템(10 + zIndex) 전부의 바로 위. 시들기 오버레이(z 6000)는 그 위.
 const textureZ = computed<number>(() => 11 + placedItems.value.reduce((m, p) => Math.max(m, p.zIndex), 0))
 
 function animClass(placed: PlacedFreeItem): string {
@@ -1262,7 +1238,20 @@ function itemStyle(placed: PlacedFreeItem): Record<string, string> {
     touchAction: editMode.value ? 'none' : 'auto',
     overflow: 'visible',
     zIndex: String(10 + placed.zIndex),
-    ...(placed.rarity === 'rare' && !editMode.value ? { transformOrigin: 'bottom center' } : {}),
+  }
+}
+
+function itemMaskStyle(placed: PlacedFreeItem): Record<string, string> {
+  return {
+    left: `${HALF - placed.x}px`,
+    top: `${HALF - placed.y}px`,
+    width: '400px',
+    height: '552px',
+    maskImage: `url(/jar/lv${viewLevel.value}.webp)`,
+    maskSize: 'contain',
+    maskPosition: 'center',
+    maskRepeat: 'no-repeat',
+    maskMode: 'alpha',
   }
 }
 
@@ -1556,11 +1545,13 @@ async function onSaveManage() {
   }
 }
 
-// ─── 휠 줌 (비편집 시만 — 힐링 모드 포함) ───
+// ─── 힐링 모드 전용 휠 줌 ───
 function onWheel(e: WheelEvent) {
-  if (editMode.value) return
+  if (!healingMode.value || editMode.value) return
   e.preventDefault()
-  zoomLevel.value = clamp(zoomLevel.value + (e.deltaY > 0 ? -0.1 : 0.1), 0.5, 2)
+  const nextScale = clamp(zoomLevel.value + (e.deltaY > 0 ? -0.1 : 0.1), 0.5, 2)
+  zoomOffset.value = calculatePinchOffset(zoomLevel.value, nextScale, zoomOffset.value, { x: 0, y: 0 }, { x: 0, y: 0 })
+  zoomLevel.value = nextScale
 }
 
 // 핀치 종료·모드 전환·스테이지 교체 시 남아 있는 캡처까지 해제한다.
@@ -1578,7 +1569,7 @@ function resetPinchPointers(el: HTMLElement | null = stageEl.value) {
   }
 }
 
-// 보기·힐링 모드의 두 포인터만 추적한다. 편집 드래그/리사이즈는 기존 핸들러가 처리한다.
+// 힐링 모드의 두 포인터만 추적한다. 편집 드래그/리사이즈는 기존 핸들러가 처리한다.
 function onPinchPointer(e: PointerEvent) {
   if (e.type === 'gotpointercapture') {
     if (e.target === stageEl.value && pinchPointers.has(e.pointerId)) confirmedPinchCaptures.add(e.pointerId)
@@ -1593,7 +1584,7 @@ function onPinchPointer(e: PointerEvent) {
     resetPinchPointers()
     return
   }
-  if (editMode.value || e.pointerType !== 'touch') return
+  if (!healingMode.value || editMode.value || e.pointerType !== 'touch') return
   if (e.type === 'pointerdown') {
     // 버튼·링크 탭은 원래 클릭 대상으로 전달하고 핀치에 포함하지 않는다.
     if (e.target instanceof Element && e.target.closest('button,a')) return
@@ -1611,9 +1602,17 @@ function onPinchPointer(e: PointerEvent) {
   const previousDistance = first && second ? Math.hypot(first.x - second.x, first.y - second.y) : 0
   pinchPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
   const [nextFirst, nextSecond] = [...pinchPointers.values()]
-  if (!nextFirst || !nextSecond) return
+  if (!first || !second || !nextFirst || !nextSecond || !stageEl.value || !stageCanvasEl.value) return
   e.preventDefault()
-  zoomLevel.value = calculatePinchScale(zoomLevel.value, previousDistance, Math.hypot(nextFirst.x - nextSecond.x, nextFirst.y - nextSecond.y))
+  const nextScale = calculatePinchScale(zoomLevel.value, previousDistance, Math.hypot(nextFirst.x - nextSecond.x, nextFirst.y - nextSecond.y))
+  // offsetLeft/Top은 transform/transition의 영향을 받지 않는 원점이다.
+  const bounds = stageEl.value.getBoundingClientRect()
+  const centerX = bounds.left + stageCanvasEl.value.offsetLeft + stageCanvasEl.value.offsetWidth / 2
+  const centerY = bounds.top + stageCanvasEl.value.offsetTop + stageCanvasEl.value.offsetHeight / 2
+  zoomOffset.value = calculatePinchOffset(zoomLevel.value, nextScale, zoomOffset.value,
+    { x: (first.x + second.x) / 2 - centerX, y: (first.y + second.y) / 2 - centerY },
+    { x: (nextFirst.x + nextSecond.x) / 2 - centerX, y: (nextFirst.y + nextSecond.y) / 2 - centerY })
+  zoomLevel.value = nextScale
 }
 
 // ─── 아이템 선택 ───
@@ -1925,30 +1924,6 @@ async function reloadAfterPlacement() {
   if (snap) applySnapshot(snap)
 }
 
-// ─── 하트 (clickTerrariumHeart 실 API) ───
-async function onHeartClick() {
-  if (heartBusy.value) return
-  heartBusy.value = true
-  const floatId = Date.now()
-  heartFloats.value.push({ id: floatId })
-  setTimeout(() => { heartFloats.value = heartFloats.value.filter(f => f.id !== floatId) }, 600)
-  try {
-    const { data, error } = await sdk.clickTerrariumHeart({ client })
-    if (error) throw new Error(errMsg(error, 'heart failed'))
-    const heart = castData<HeartResponse>(data)
-    // `user` 는 스토어의 readonly 뷰 — 직접 setBalance 하면 프록시가 쓰기를 삼킨다.
-    if (heart) userStore.setCurrencyBalance('COIN', heart.updatedBasicCoins)
-    trackHeartClick()
-    void hapticImpact('Light')
-  }
-  catch (e) {
-    toast.error((e as Error).message)
-  }
-  finally {
-    heartBusy.value = false
-  }
-}
-
 // ─── 출석 (useAttendance 실 API) ───
 async function onAttendanceCheck() {
   if (attendanceLoading.value) return
@@ -1978,7 +1953,7 @@ async function claimPendingAdReward(): Promise<void> {
 }
 
 async function onClaimAdReward(recoverPending = false) {
-  if (adClaiming.value || !adMenuVisible.value) return
+  if (adClaiming.value || adMenuDisabled) return
   // 시한 초과 후 열린 팝업에서 재확인해도 새 광고보다 보류 복구를 우선한다.
   if (!recoverPending && readPendingAdClaim('AD_REWARD', user.value?.userId)?.purpose === 'AD_REWARD') {
     await claimPendingAdReward()
@@ -2477,16 +2452,6 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 }
 .mode-pill:active {
   transform: scale(0.95);
-}
-
-/* 하트 +1 float — X 중앙은 `-translate-x-1/2`(개별 translate 속성)가 맡으므로 transform 은 Y/scale 만
-   (Tailwind v4 함정: transform 에 X 를 넣으면 이중 적용돼 왼쪽으로 밀린다) */
-@keyframes heartFloatUp {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
-}
-.heart-float {
-  animation: heartFloatUp 0.6s ease-out forwards;
 }
 
 /* rare 흔들림 / isAnimated 부유 (framer-motion 근사) */

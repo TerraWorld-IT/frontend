@@ -3,3 +3,16 @@ export function calculatePinchScale(scale: number, previousDistance: number, dis
   if (!Number.isFinite(previousDistance) || !Number.isFinite(distance) || previousDistance <= 0 || distance <= 0) return scale
   return Math.max(0.5, Math.min(2, scale * distance / previousDistance))
 }
+
+interface Point { x: number; y: number }
+
+// 중점은 transform 원점 기준 화면 px이다. 배율(stageFit 포함) 비율만 적용하므로
+// 병의 설계 좌표와 무관하게 이전 중점 아래의 콘텐츠가 다음 중점 아래에 남는다.
+export function calculatePinchOffset(scale: number, nextScale: number, offset: Point, previousFocal: Point, nextFocal: Point): Point {
+  if (!Number.isFinite(scale) || !Number.isFinite(nextScale) || scale <= 0 || nextScale <= 0) return offset
+  const ratio = nextScale / scale
+  return {
+    x: nextFocal.x - (previousFocal.x - offset.x) * ratio,
+    y: nextFocal.y - (previousFocal.y - offset.y) * ratio,
+  }
+}
