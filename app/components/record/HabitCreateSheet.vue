@@ -176,7 +176,7 @@
       <button
         v-if="step !== 1"
         type="button"
-        class="w-full h-[44px] mt-2 rounded-full text-[14px] font-semibold border border-apjek-border-strong text-apjek-text"
+        class="w-full h-[44px] mt-1 rounded-full text-[14px] font-semibold border border-apjek-border-strong text-apjek-text"
         :disabled="busy"
         @click="goPrev"
       >이전</button>

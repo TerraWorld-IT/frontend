@@ -12,7 +12,7 @@
         :class="route.path === '/grow' ? 'bg-apjek-bg' : 'bg-white'"
         :style="{
           paddingTop: 'calc(1rem + var(--sat))',
-          paddingBottom: 'calc(98px + var(--sab))',
+          paddingBottom: 'calc(80px + var(--sab))',
           overflowY: route.path === '/shop' ? 'visible' : undefined,
         }"
       >
@@ -25,11 +25,11 @@
       <nav
         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-apjek-surface border-t border-apjek-border z-40"
         :style="{
-          height: 'calc(98px + var(--sab))',
+          height: 'calc(80px + var(--sab))',
           paddingBottom: 'var(--sab)',
         }"
       >
-        <div class="absolute top-[20px] h-[38px] flex items-center" style="left: max(10px, calc(var(--sal) - (100vw - 100%) / 2)); right: max(10px, calc(var(--sar) - (100vw - 100%) / 2))">
+        <div class="absolute top-[12px] h-[38px] flex items-center" style="left: max(10px, calc(var(--sal) - (100vw - 100%) / 2)); right: max(10px, calc(var(--sar) - (100vw - 100%) / 2))">
           <NuxtLink
             v-for="tab in tabs"
             :key="tab.to"

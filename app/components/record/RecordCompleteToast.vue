@@ -23,7 +23,7 @@
           <RecordCompleteBurst v-if="burstVisible" />
           <button
             type="button"
-            class="relative w-full rounded-[8px] border border-apjek-text bg-apjek-surface px-[14px] py-[12px] flex items-center gap-[12px] text-left transition-all active:scale-[0.98]"
+            class="relative w-full rounded-[8px] bg-apjek-surface px-[14px] py-[12px] flex items-center gap-[12px] text-left transition-all active:scale-[0.98]"
             @click="onTap"
           >
             <div

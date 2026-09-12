@@ -8,8 +8,8 @@
       시트 내부 버튼이 띄운 토스트가 시트 백드롭에 가려지던 문제(2026-07-20 audit C1-3).
 
       아프젝 Figma 2종 (2026-08-23 C4):
-      - card: 393×88 흰 카드 + 1px 외곽선 r8, 좌 아이콘 + 굵은 제목 + 회색 부제
-      - pill: 351×51 흰 필 + 핑크 외곽선(#FFA0D6) 텍스트 1줄
+      - card: 393×88 흰 카드 r8, 좌 아이콘 + 굵은 제목 + 회색 부제
+      - pill: 351×51 흰 필, 텍스트 1줄
       수평 중앙은 `inset-x-0 mx-auto` — Tailwind v4 의 -translate-x-1/2 는 개별 translate 라
       스와이프 transform 과 합성돼 이중 적용되므로 쓰지 않는다(frontend/CLAUDE.md 함정).
       높이 상한과 내부 스크롤은 컨테이너가 아니라 토스트 카드가 가진다 — 컨테이너에 overflow-y 를
@@ -33,8 +33,8 @@
           :class="[
             'select-none bg-apjek-surface text-apjek-text',
             toast.variant === 'card'
-              ? 'apjek-toast-card w-full min-h-[88px] rounded-[8px] border px-4 py-3 flex items-center gap-3'
-              : 'apjek-toast-pill w-full max-w-[351px] min-h-[51px] rounded-full border px-5 py-3 flex items-center justify-center gap-2',
+              ? 'apjek-toast-card w-full min-h-[88px] rounded-[8px] px-4 py-3 flex items-center gap-3'
+              : 'apjek-toast-pill w-full max-w-[351px] min-h-[51px] rounded-full px-5 py-3 flex items-center justify-center gap-2',
           ]"
          :style="[toastStyle(toast), { maxHeight: `calc(100dvh - var(--sat) - var(--sab) - ${slots.offline + (slots.record ? 64 + slots.record + 8 : 16) + 16}px)`, overflowY: 'auto' }]"
           @pointerdown="onPointerDown(toast.id, $event)"
@@ -91,10 +91,6 @@ import type { Toast } from '~/composables/useToast'
 
 const { toasts, dismiss, slots } = useToast()
 
-/** 핑크 외곽선(Figma #FFA0D6). error 타입만 붉은 계열로 구분한다. */
-const PILL_BORDER_PINK = '#FFA0D6'
-const BORDER_ERROR = '#FF8A80'
-
 function isIconName(icon: string): boolean {
   return icon.includes(':')
 }
@@ -110,10 +106,7 @@ const DISMISS_THRESHOLD_PX = 64
 const drag = ref<{ id: number, startX: number, dx: number } | null>(null)
 
 function toastStyle(toast: Toast): Record<string, string> {
-  const borderColor = toast.type === 'error'
-    ? BORDER_ERROR
-    : toast.variant === 'pill' ? PILL_BORDER_PINK : 'var(--color-apjek-text)'
-  const base: Record<string, string> = { touchAction: 'pan-y', borderColor }
+  const base: Record<string, string> = { touchAction: 'pan-y' }
   if (drag.value?.id !== toast.id) return base
   const dx = drag.value.dx
   return {

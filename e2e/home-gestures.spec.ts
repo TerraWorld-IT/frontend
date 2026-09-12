@@ -29,7 +29,6 @@ const responses: Record<string, unknown> = {
     tier: 'GLASS_JAR', activeTier: 'GLASS_JAR', highestUnlockedTier: 'GLASS_JAR',
     wilting: { stage: 0, daysSinceRecord: 0 }, freePlacements: [],
   },
-  '/terrarium/heart': { updatedBasicCoins: 1001 },
   '/social/friends': [1, 2, 3].map(index => ({ userId: `friend-${index}`, nickname: `친구 ${index}`, likeCount: 0, liked: false })),
   '/growth': { items: [] },
   '/rewards/attendance': {
@@ -79,7 +78,7 @@ async function openHome(context: BrowserContext, page: Page) {
 // 실제 페이지와 네이티브 터치 입력을 사용하고 API 응답만 로컬 픽스처로 대체한다.
 test.use({ viewport: { width: 430, height: 780 } })
 
-test('홈 하트, 세로 스크롤, 가로 스와이프와 두 손가락 줌', async ({ context, page, browser }) => {
+test('일반 모드에 하트가 없고 스크롤과 스와이프는 유지되며 휠과 핀치는 줌하지 않는다', async ({ context, page, browser }) => {
   test.setTimeout(90_000)
   const { pageErrors } = await openHome(context, page)
   const stage = page.locator('#my-terra-container')
@@ -100,12 +99,13 @@ test('홈 하트, 세로 스크롤, 가로 스와이프와 두 손가락 줌', a
   const action = await stage.evaluate(el => getComputedStyle(el).touchAction)
   expect(action).toBe('pan-x pan-y')
   process.stdout.write('stage ready\n')
-  const heartRequest = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/terrarium/heart') && request.method() === 'POST')
-  await page.getByTestId('home-heart').tap()
-  await heartRequest
-  process.stdout.write('heart done\n')
-  const capturesAfterHeart = await page.evaluate(() => window.gestureCaptures.length)
-  expect(capturesAfterHeart).toBe(0)
+  await expect(page.getByTestId('home-heart')).toHaveCount(0)
+  const canvas = stage.locator(':scope > div').first()
+  const transformBeforeWheel = await canvas.evaluate(el => getComputedStyle(el).transform)
+  await stage.hover()
+  await page.mouse.wheel(0, -100)
+  await page.waitForTimeout(300)
+  expect(await canvas.evaluate(el => getComputedStyle(el).transform)).toBe(transformBeforeWheel)
   const cdp = await context.newCDPSession(page)
   async function swipe(x: number, y: number, dx: number, dy: number) {
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] })
@@ -143,25 +143,30 @@ test('홈 하트, 세로 스크롤, 가로 스와이프와 두 손가락 줌', a
   expect(firstCaptureCount).toBe(0)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 140, y, id: 10 }, { x: 240, y, id: 11 }] })
   const twoCaptureCount = await page.evaluate(() => window.gestureCaptures.length)
-  expect(twoCaptureCount).toBe(2)
+  expect(twoCaptureCount).toBe(0)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 130, y, id: 10 }, { x: 250, y, id: 11 }] })
   await page.waitForTimeout(300)
   const scaleAfter = await stage.locator(':scope > div').first().evaluate(el => (el as HTMLElement).style.transform)
   process.stdout.write(JSON.stringify({ scaleBefore, scaleAfter }) + '\n')
-  expect(scaleAfter).not.toBe(scaleBefore)
+  expect(scaleAfter).toBe(scaleBefore)
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-  process.stdout.write(JSON.stringify({ browser: browser.version(), viewport: '430x780', touchAction: action, heartPost: true, capturesAfterHeart, beforeY, afterY, beforeX, afterX, capturesAfterSwipes, firstCaptureCount, twoCaptureCount, scaleBefore, scaleAfter, pageErrors }, null, 2) + '\n')
+  process.stdout.write(JSON.stringify({ browser: browser.version(), viewport: '430x780', touchAction: action, heartAbsent: true, transformBeforeWheel, beforeY, afterY, beforeX, afterX, capturesAfterSwipes, firstCaptureCount, twoCaptureCount, scaleBefore, scaleAfter, pageErrors }, null, 2) + '\n')
   expect(pageErrors).toEqual([])
 })
 
 
 // 첫 터치를 자식에서 먼저 이동시켜 암묵 캡처가 확정된 실제 브라우저 순서를 검증한다.
-test('자식 캡처 이전 후 첫 포인터 줌과 남은 포인터 캡처 해제', async ({ context, page }) => {
+test('힐링 모드에서 자식 캡처 이전 후 focal 핀치 줌과 캡처 해제 및 휠 줌', async ({ context, page }) => {
   test.setTimeout(90_000)
   const { pageErrors } = await openHome(context, page)
   const stage = page.locator('#my-terra-container')
   await expect(stage).toBeVisible({ timeout: 60_000 })
   await page.waitForTimeout(1000)
+  await page.getByTestId('home-healing').tap()
+  await expect(page.getByRole('dialog', { name: '힐링 모드', exact: true })).toBeVisible()
+  await expect(page.getByTestId('home-healing-close')).toBeVisible()
+  await page.waitForTimeout(400)
+  expect(await stage.evaluate(el => getComputedStyle(el).touchAction)).toBe('none')
   await stage.evaluate((el) => {
     window.gestureCaptures = []
     window.gestureReleases = []
@@ -198,10 +203,19 @@ test('자식 캡처 이전 후 첫 포인터 줌과 남은 포인터 캡처 해�
   expect(captureIds).toHaveLength(2)
   expect(captureIds[0]).toBe(implicit[0]!.id)
   const scaleBefore = await child.evaluate(el => (el as HTMLElement).style.transform)
+  const beforePinch = (await child.boundingBox())!
+  const focal = { x: x + 41, y }
+  const localFocal = { x: (focal.x - beforePinch.x) / beforePinch.width, y: (focal.y - beforePinch.y) / beforePinch.height }
   // 두 번째 포인터는 고정하고 캡처가 이전된 첫 번째 포인터만 움직인다.
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 9, y, id: 1 }, { x: x + 81, y, id: 2 }] })
   const scaleAfter = await child.evaluate(el => (el as HTMLElement).style.transform)
   expect(scaleAfter).not.toBe(scaleBefore)
+  await page.waitForTimeout(300)
+  const afterPinch = (await child.boundingBox())!
+  expect(afterPinch.width / beforePinch.width).toBeCloseTo(90 / 80, 2)
+  // 같은 병 위 지점이 이동한 두 손가락 중점을 따라야 한다. Vue 인스턴스 대신 화면 좌표로 검증한다.
+  expect(Math.abs(afterPinch.x + localFocal.x * afterPinch.width - (focal.x - 5))).toBeLessThan(1)
+  expect(Math.abs(afterPinch.y + localFocal.y * afterPinch.height - focal.y)).toBeLessThan(1)
   const transferEvents = await page.evaluate(() => window.gestureEvents)
   expect(transferEvents).toContainEqual({ type: 'lostpointercapture', id: captureIds[0], stage: false })
   expect(transferEvents).toContainEqual({ type: 'gotpointercapture', id: captureIds[0], stage: true })
@@ -211,6 +225,12 @@ test('자식 캡처 이전 후 첫 포인터 줌과 남은 포인터 캡처 해�
   expect(await page.evaluate(() => window.gestureReleases)).toEqual([captureIds[0]])
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
   expect(await page.evaluate(() => window.gestureReleases)).toEqual([captureIds[0]])
+  await page.mouse.move(x, y)
+  await page.mouse.wheel(0, -100)
+  await page.waitForTimeout(300)
+  expect((await child.boundingBox())!.width).toBeGreaterThan(afterPinch.width)
+  await page.getByTestId('home-healing-close').tap()
+  await expect(stage).not.toHaveAttribute('role', 'dialog')
   expect(pageErrors).toEqual([])
-  console.log(JSON.stringify({ captureIds, scaleBefore, scaleAfter, transferEvents, releases: await page.evaluate(() => window.gestureReleases), pageErrors }))
+  console.log(JSON.stringify({ captureIds, scaleBefore, scaleAfter, beforePinch, afterPinch, focal, transferEvents, releases: await page.evaluate(() => window.gestureReleases), pageErrors }))
 })
