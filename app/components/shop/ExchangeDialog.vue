@@ -106,7 +106,7 @@
                 :max="fromBalance"
                 inputmode="numeric"
                 aria-label="환전 수량"
-                class="relative z-[1] w-full h-11 bg-transparent text-center text-[16px] font-bold text-apjek-text [appearance:textfield]"
+                class="relative z-[1] w-full h-11 bg-transparent text-center text-[16px] font-bold text-apjek-text outline-none rounded-[12px] ring-inset focus-visible:ring-2 focus-visible:ring-apjek-blue/30 [appearance:textfield]"
               >
             </label>
             <button

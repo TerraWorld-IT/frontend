@@ -39,7 +39,7 @@
         </div>
 
         <div class="grid grid-cols-3 gap-2">
-          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block focus-within:ring-2 focus-within:ring-riso-sage">
+          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block ring-inset focus-within:ring-2 focus-within:ring-riso-sage">
             <span class="text-[10px] text-riso-dark/40">{{ $t('admin.categories.coinReward') }}</span>
             <input
               :disabled="saving !== null"
@@ -49,7 +49,7 @@
               class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
             >
           </label>
-          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block focus-within:ring-2 focus-within:ring-riso-sage">
+          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block ring-inset focus-within:ring-2 focus-within:ring-riso-sage">
             <span class="text-[10px] text-riso-dark/40">{{ $t('admin.categories.tokenReward') }}</span>
             <input
               :disabled="saving !== null"
@@ -59,7 +59,7 @@
               class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
             >
           </label>
-          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block focus-within:ring-2 focus-within:ring-riso-sage">
+          <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block ring-inset focus-within:ring-2 focus-within:ring-riso-sage">
             <span class="text-[10px] text-riso-dark/40">{{ $t('admin.categories.dailyLimit') }}</span>
             <input
               :disabled="saving !== null"

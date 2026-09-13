@@ -17,7 +17,7 @@ import FriendsPage from '~/pages/friends/index.vue'
 import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
 
 const mocks = vi.hoisted(() => ({
-  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'uploadPhoto', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward', 'issueAdRewardNonce', 'getGrowth', 'reviveGrowth', 'clickTerrariumHeart'].map(k => [k, vi.fn()])),
+  sdk: Object.fromEntries(['listCategories', 'listFriends', 'createRecord', 'listTodoRoutines', 'createTodoRoutine', 'deleteTodoRoutine', 'getRecordStatistics', 'listRecords', 'getNote', 'saveNote', 'deleteNote', 'deleteRecord', 'updateCategoryRewards', 'listAllItems', 'setItemActive', 'createItem', 'updateMe', 'getUnreadNotificationCount', 'updateFreePosition', 'updateTerrariumPlacements', 'getTerrarium', 'acceptInvite', 'claimAdReward', 'issueAdRewardNonce', 'getGrowth', 'reviveGrowth', 'clickTerrariumHeart'].map(k => [k, vi.fn()])),
   user: { me: { userId: 'u1', nickname: '테스트', currency: {}, ownedItems: [], entitlements: { freePlacement: true } }, fetchMe: vi.fn(), updateCurrency: vi.fn(), setCurrencyBalance: vi.fn() },
   items: { items: [], fetchAll: vi.fn(), invalidate: vi.fn() },
   home: { snapshot: { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }, fetch: vi.fn(), invalidate: vi.fn(), patchFreePlacement: vi.fn() },
@@ -652,15 +652,20 @@ describe('T2-Y 기록 요청과 입력 보존', () => {
     expect(s.openModal).toBeNull(); expect(s.diaryText).toBe('')
     expect(mocks.toast.error).not.toHaveBeenCalled()
   })
-  it('C05 업로드 중 저장을 거부하고 닫고 다시 연 작성에 늦은 사진을 넣지 않는다', async () => {
+  it('C05 사진 첨부 진입점 없이 일기를 저장하고 사진 필드를 전송하지 않는다', async () => {
     const w = await mountPage(RecordPage); const s = state(w)
-    const upload = deferred(); mocks.sdk.uploadPhoto!.mockReturnValueOnce(upload.promise)
-    s.openModal = 'diary'; s.diaryText = '내용'
-    const uploading = s.onFileSelected({ target: { files: [new File(['x'], 'x.png')] } })
-    await s.saveDiary(); expect(mocks.sdk.createRecord).not.toHaveBeenCalled()
-    s.closeModal(); s.openModal = 'diary'
-    upload.resolve({ data: { photoUrl: 'https://example.test/old.png' } }); await uploading
-    expect(s.photoUrl).toBe(''); expect(s.uploadingPhoto).toBe(false)
+    mocks.sdk.createRecord!.mockResolvedValue({ data: { record: {}, reward: null } })
+    s.openModal = 'diary'; s.diaryTitle = '제목'; s.diaryText = '내용'
+    await nextTick()
+    expect(w.find('input[type="file"]').exists()).toBe(false)
+    expect(w.text()).not.toMatch(/사진 첨부|사진 추가|업로드 중/)
+    await w.get('button.bg-apjek-cta').trigger('click')
+    await flushPromises()
+    expect(mocks.sdk.createRecord).toHaveBeenCalledTimes(1)
+    const body = mocks.sdk.createRecord!.mock.calls[0]![0].body
+    expect(body).toMatchObject({ dailyType: 'DIARY', note: '제목\n내용' })
+    expect(body).not.toHaveProperty('photoUrl')
+    expect(s.openModal).toBeNull()
   })
   it('C50 일기 저장 중 입력이 잠기고 중복 저장 요청이 없다', async () => {
     const w = await mountPage(RecordPage); const s = state(w); const save = deferred()

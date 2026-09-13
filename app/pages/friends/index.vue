@@ -79,7 +79,7 @@
         type="text"
         maxlength="8"
         placeholder="ABCD1234"
-        class="w-full h-12 px-4 rounded-xl bg-apjek-bg border border-apjek-border text-apjek-text font-mono tracking-[3px] text-center uppercase text-[18px] focus:outline-none focus:ring-2 focus:ring-apjek-blue"
+        class="w-full h-12 px-4 rounded-xl bg-apjek-bg border border-apjek-border text-apjek-text font-mono tracking-[3px] text-center uppercase text-[18px] focus:outline-none ring-inset focus:ring-2 focus:ring-apjek-blue"
         @input="onCodeInput"
         @keydown.enter="!$event.isComposing && onAcceptInvite()"
       >

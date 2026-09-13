@@ -44,10 +44,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       baseUrl: config.public.apiBaseUrl as string,
       credentials: 'include',
       fetch: async (request) => {
-        // 사진 업로드는 크기와 회선에 따라 오래 걸리므로 공통 데드라인에서 제외한다.
-        if (new URL(request.url).pathname === `${new URL(config.public.apiBaseUrl as string).pathname.replace(/\/$/, '')}/uploads/photo`) {
-          return fetch(request)
-        }
         const controller = new AbortController()
         function abort() {
           controller.abort(request.signal.reason)
@@ -83,7 +79,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const requestClones = new WeakMap<Request, Request>()
 
   // FE-12: body 가 없는 메서드는 clone 을 만들지 않는다. `Request.clone()` 은 body stream 을
-  // tee 하므로 multipart 업로드(사진 첨부)에서 요청 본문이 메모리에 2배로 잡혔다.
+  // tee 하므로 본문이 있는 요청은 메모리를 추가로 사용한다.
   // GET/HEAD 는 본문이 없어 401 재시도 시 원본 Request 에서 그대로 재구성할 수 있다.
   const BODYLESS_METHODS = new Set<string>(['GET', 'HEAD'])
 

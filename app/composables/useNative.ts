@@ -174,18 +174,6 @@ export function useNative() {
     await Haptics.notification({ type: NotificationType[type] })
   }
 
-  // --- Camera ---
-  async function takePhoto() {
-    if (!import.meta.client) return undefined // SSR guard
-    const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera')
-    return Camera.getPhoto({
-      quality: 90,
-      allowEditing: false,
-      resultType: CameraResultType.Uri,
-      source: CameraSource.Prompt,
-    })
-  }
-
   // --- Push Notifications ---
   function invalidatePushRegistration(userId: string) {
     pushRegistrationEpoch++
@@ -295,7 +283,6 @@ export function useNative() {
     shareToInstagram,
     hapticImpact,
     hapticNotification,
-    takePhoto,
     registerPush,
     invalidatePushRegistration,
     deactivateDevicesOnce,

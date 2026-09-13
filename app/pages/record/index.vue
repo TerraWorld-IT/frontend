@@ -117,7 +117,7 @@
               </button>
             </div>
 
-            <!-- 트래커 카드 (습관은 1개만 — 과거 데이터로 여러 개면 모두 표출) -->
+            <!-- 트래커 카드 (모드별 1개 — 과거 데이터로 여러 개면 모두 표출) -->
             <template v-else-if="visibleTrackers.length > 0">
               <RecordHabitTrackerCard
                 v-for="tr in visibleTrackers"
@@ -136,7 +136,7 @@
               />
             </template>
 
-            <!-- 빈 상태 — ⊠ + 안내 + [✏️ 시작하기] (다른 유형 습관이 활성이면 비활성 + 안내, 댓글 #29) -->
+            <!-- 빈 상태 — 선택한 모드에 습관이 없으면 다른 모드와 독립적으로 시작 가능 -->
             <div v-else class="w-full flex flex-col items-center gap-[10px] py-[18px]">
               <div class="size-[44px] rounded-[12px] border border-apjek-border-strong flex items-center justify-center text-apjek-text-faint" aria-hidden="true">
                 <Icon name="lucide:x" class="w-5 h-5" />
@@ -147,14 +147,14 @@
               <button
                 type="button"
                 class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-[40px] px-[18px] rounded-full bg-apjek-cta text-white text-[13px] font-semibold inline-flex items-center gap-[6px] transition-all active:scale-95 disabled:opacity-40"
-                :disabled="hasAnyHabit || initialLoading || loadError || !habitsLoaded || habitLoadError"
+                :disabled="hasModeHabit || initialLoading || loadError || !habitsLoaded || habitLoadError"
                 @click="openHabitCreate()"
               >
                 <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
                 시작하기
               </button>
-              <p v-if="hasAnyHabit" class="text-[11px] text-apjek-text-faint text-center">
-                습관 기록은 한 번에 1개만 진행할 수 있어요. 진행 중인 기록을 완료하거나 중단한 뒤 시작해 주세요.
+              <p v-if="hasModeHabit" class="text-[11px] text-apjek-text-faint text-center">
+                같은 모드의 습관은 한 번에 1개만 진행할 수 있어요. 진행 중인 기록을 완료하거나 중단한 뒤 시작해 주세요.
               </p>
             </div>
           </div>
@@ -252,51 +252,15 @@
           v-model="diaryTitle"
           :disabled="submitting"
           placeholder="제목 (선택)"
-          class="w-full text-[16px] font-bold border-b border-apjek-border pb-2 outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-transparent text-apjek-text placeholder:text-apjek-text-faint"
+          class="w-full text-[16px] font-bold border-b border-apjek-border pb-2 outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-transparent text-apjek-text placeholder:text-apjek-text-faint"
         >
         <textarea
           v-model="diaryText"
           :disabled="submitting"
           placeholder="오늘 하루를 기록해보세요."
           rows="9"
-          class="w-full flex-1 text-[14px] text-apjek-text leading-relaxed outline-none focus:ring-2 focus:ring-apjek-blue/30 resize-none bg-transparent placeholder:text-apjek-text-faint"
+          class="w-full flex-1 text-[14px] text-apjek-text leading-relaxed outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 resize-none bg-transparent placeholder:text-apjek-text-faint"
         />
-        <!-- 사진 첨부 (선택) — Figma 에 없으나 실기능 유지 (§4-8) -->
-        <div class="flex items-center justify-between pt-1">
-          <span class="text-[13px] font-semibold text-apjek-text-sub">사진 첨부 <span class="text-[11px] font-normal text-apjek-text-faint">(선택)</span></span>
-          <button
-            v-if="photoUrl"
-            type="button"
-            class="text-[12px] text-riso-poppy underline"
-            :disabled="submitting"
-            @click="onClearPhoto"
-          >
-            삭제
-          </button>
-        </div>
-        <button
-          v-if="!photoUrl"
-          type="button"
-          class="w-full h-11 rounded-[12px] border border-dashed border-apjek-border-strong text-[13px] font-medium text-apjek-text-sub flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-          :disabled="uploadingPhoto || submitting"
-          @click="diaryFileInput?.click()"
-        >
-          <Icon name="lucide:camera" class="w-4 h-4" />
-          <span>{{ uploadingPhoto ? '업로드 중...' : '사진 추가' }}</span>
-        </button>
-        <img
-          v-else
-          :src="photoUrl"
-          alt="첨부한 사진 미리보기"
-          class="w-full max-h-[200px] object-cover rounded-[12px] riso-shadow-sm"
-        >
-        <input
-          ref="diaryFileInput"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          class="hidden"
-          @change="onFileSelected"
-        >
       </div>
       <div class="px-5 pb-1 pt-2">
         <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
@@ -304,7 +268,7 @@
         <button
           type="button"
           class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-apjek-cta"
-          :disabled="submitting || uploadingPhoto"
+          :disabled="submitting"
           @click="saveDiary"
         >
           <Icon name="lucide:save" class="w-4 h-4" />저장하기
@@ -329,7 +293,7 @@
               v-model="focusName"
               placeholder="기록 이름 작성"
               maxlength="30"
-              class="w-full h-[48px] rounded-[12px] px-4 text-[14px] outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
+              class="w-full h-[48px] rounded-[12px] px-4 text-[14px] outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
             >
           </div>
           <div>
@@ -341,7 +305,7 @@
               min="1"
               max="180"
               placeholder="25"
-              class="w-full h-[48px] rounded-[12px] px-4 text-[14px] outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
+              class="w-full h-[48px] rounded-[12px] px-4 text-[14px] outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
             >
           </div>
           <!-- 지급량은 서버가 결정 — Figma "+10" 은 실지급(BE)과 달라 수치 없이 표기 (§4-5 보류) -->
@@ -439,7 +403,7 @@
               v-model="distName"
               placeholder="기록 이름 작성"
               maxlength="30"
-              class="w-full h-[48px] rounded-[12px] px-4 text-[14px] outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
+              class="w-full h-[48px] rounded-[12px] px-4 text-[14px] outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
             >
           </div>
           <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
@@ -502,6 +466,9 @@
     <RecordHabitCreateSheet
       ref="habitCreateSheet"
       :open="habitCreateOpen"
+      :initial-mode="mode"
+      :solo-unavailable="soloTrackers.length > 0"
+      :friend-unavailable="friendTrackers.length > 0"
       :friends="friends"
       :loading="initialLoading"
       :load-error="loadError"
@@ -542,7 +509,6 @@ import type {
   GrowthResponse,
   HabitCycleRewardResponse,
   HabitTrackerResponse,
-  PhotoUploadResponse,
   RewardInfo,
 } from '@terraworld-it/openapi-frontend'
 import { TOKEN_ICON_SRC } from '~/utils/currency'
@@ -596,8 +562,9 @@ const liveTrackers = computed<HabitTrackerResponse[]>(() =>
 const soloTrackers = computed<HabitTrackerResponse[]>(() => liveTrackers.value.filter(tr => !tr.friendLinked))
 const friendTrackers = computed<HabitTrackerResponse[]>(() => liveTrackers.value.filter(tr => !!tr.friendLinked))
 const visibleTrackers = computed<HabitTrackerResponse[]>(() => (mode.value === 'solo' ? soloTrackers.value : friendTrackers.value))
-// 습관은 1개만 (댓글 #29) — 어느 유형이든 진행 중이면 새 시작 불가.
+// 카드 접힘 여부는 전체 목록, 생성 가능 여부는 선택한 모드로 판정한다.
 const hasAnyHabit = computed<boolean>(() => liveTrackers.value.length > 0)
+const hasModeHabit = computed<boolean>(() => visibleTrackers.value.length > 0)
 
 function viewOf(tr: HabitTrackerResponse): HabitView {
   return deriveHabitView(tr)
@@ -618,8 +585,8 @@ function goToCalendar() {
 
 function openHabitCreate() {
   if (initialLoading.value || loadError.value || !habitsLoaded.value || habitLoadError.value) return
-  if (hasAnyHabit.value) {
-    toast.info('습관 기록은 한 번에 1개만 진행할 수 있어요')
+  if (hasModeHabit.value) {
+    toast.info('같은 모드의 습관은 한 번에 1개만 진행할 수 있어요')
     return
   }
   habitCreateOpen.value = true
@@ -633,8 +600,8 @@ async function onHabitCreate(payload: { title: string; friendUserId: string | nu
     const { data: tracker, status, code } = await createHabit(payload.title, payload.friendUserId)
     if (!tracker) {
       if (status === 409 && code === 'HABIT_LIMIT_EXCEEDED') {
-        // 활성 1개 제한 — 서버가 SoT. 로컬 목록이 비어 있었다면(다른 기기에서 생성 등) 다시 받아 카드를 보여 준다.
-        toast.error('이미 진행 중인 습관이 있어요')
+        // 모드별 활성 1개 제한 — 서버가 SoT. 다른 기기에서 생성한 경우에도 목록을 갱신한다.
+        toast.error('본인 또는 친구가 같은 모드의 습관을 이미 진행 중이에요')
         habitCreateOpen.value = false
         habitOpen.value = true
         await loadHabits()
@@ -921,8 +888,6 @@ function onSheetClose() {
 function closeModal() {
   if (submitting.value) return
   if (openModal.value === 'diary') persistDiaryDraft()
-  photoRequestVersion.value += 1
-  uploadingPhoto.value = false
   // todo/diary 시트의 input/textarea 가 포커스를 유지한 채 즉시 unmount 되면 키보드가 안
   // 닫힐 수 있음 (utils/keyboard.ts 참조).
   void dismissKeyboard()
@@ -956,7 +921,6 @@ async function didGrowthAdvance(before: GrowthItem[] | null): Promise<boolean> {
 async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['dailyType']>, opts: {
   duration?: number | null
   note?: string | null
-  photoUrl?: string | null
 }): Promise<{ ok: boolean; reward: RewardInfo | null; growthAdvanced: boolean }> {
   const categoryId = categoryIdFor(dailyType)
   if (categoryId === null) {
@@ -971,7 +935,6 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
       dailyType,
       duration: opts.duration ?? null,
       note: opts.note ?? null,
-      photoUrl: opts.photoUrl ?? null,
       partnerUserId: null,
     }
     const growthBefore = await readGrowthForFeedback()
@@ -1052,66 +1015,19 @@ function persistDiaryDraft() {
   else clearDraft(diaryDraftKey)
 }
 
-// 사진 첨부 — POST /uploads/photo 응답의 photoUrl 보관. 저장 시 record body 에 포함.
-// WebView 의 <input type=file> 는 네이티브 파일 피커(카메라/갤러리)를 띄우고 File 을 바로 준다.
-const photoUrl = ref<string>('')
-const uploadingPhoto = ref<boolean>(false)
-const photoRequestVersion = ref<number>(0)
-const diaryFileInput = ref<HTMLInputElement | null>(null)
-
-async function onFileSelected(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file || submitting.value || uploadingPhoto.value || openModal.value !== 'diary') return
-  const version = ++photoRequestVersion.value
-  uploadingPhoto.value = true
-  try {
-    // 인증 헤더는 plugins/openapi.ts 인터셉터가 자동 주입. multipart 직렬화는 SDK 담당.
-    const { data, error } = await sdk.uploadPhoto({ client, body: { file } })
-    if (version !== photoRequestVersion.value || openModal.value !== 'diary') return
-    if (error) throw new Error(errMsg(error, '업로드 실패'))
-    const typed = castData<PhotoUploadResponse>(data)
-    if (!typed?.photoUrl) throw new Error('photoUrl 누락')
-    // R2/CDN 미설정 시 백엔드(PhotoUploadService)가 base64 `data:` URL 을 반환한다. 이는 records
-    // .photo_url(VARCHAR 2048, V7)을 초과해 record 저장이 실패하므로(업로드는 성공한 뒤 저장만 깨짐)
-    // 첨부하지 않고 우아하게 degrade — 일기는 사진 없이 저장된다. R2 설정되면 실 CDN URL 이라 정상 첨부.
-    if (typed.photoUrl.startsWith('data:')) {
-      toast.info('사진 첨부는 서비스 준비 중이에요. 글은 그대로 저장할 수 있어요.')
-      return
-    }
-    photoUrl.value = typed.photoUrl
-    toast.success('사진을 첨부했어요')
-  }
-  catch (e) {
-    if (version === photoRequestVersion.value) toast.error(`사진 업로드에 실패했어요: ${(e as Error).message}`)
-  }
-  finally {
-    if (version === photoRequestVersion.value) {
-      uploadingPhoto.value = false
-      if (diaryFileInput.value) diaryFileInput.value.value = ''
-    }
-  }
-}
-
-function onClearPhoto() {
-  if (submitting.value) return
-  photoUrl.value = ''
-}
-
 async function saveDiary() {
-  if (submitting.value || uploadingPhoto.value) return
+  if (submitting.value) return
   const text = diaryText.value.trim()
   if (!text) {
     toast.error('일기 내용을 입력해주세요')
     return
   }
   const note = diaryTitle.value.trim() ? `${diaryTitle.value.trim()}\n${text}` : text
-  const { ok, reward, growthAdvanced } = await saveDailyRecord('DIARY', { note, photoUrl: photoUrl.value || null })
+  const { ok, reward, growthAdvanced } = await saveDailyRecord('DIARY', { note })
   if (ok) {
     diaryTitle.value = ''
     diaryText.value = ''
     if (diaryDraftKey) clearDraft(diaryDraftKey)
-    photoUrl.value = ''
     closeModal()
     showCompleteToast('sun', reward, growthAdvanced)
   }
@@ -1604,7 +1520,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('pagehide', onDiaryDraftPageExit)
   settleRouteLeave(false)
   clearFocusTimer()
-  photoRequestVersion.value += 1
   distSessionGen += 1 // pending 네이티브 start 무효화 — 이탈 후 서비스 기동 방지 (Codex R1 F3)
   bgEpoch += 1 // pending 복귀 보정(getCurrentPosition) 무효화 — 이탈 후 watch 재생성 방지 (Codex R3 #3)
   abortNativeTracking()

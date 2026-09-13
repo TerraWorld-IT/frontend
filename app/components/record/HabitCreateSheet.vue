@@ -30,6 +30,7 @@
             class="flex-1 h-[44px] rounded-full text-[14px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
             :class="mode === 'solo' ? 'bg-apjek-cta text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
             :aria-pressed="mode === 'solo'"
+            :disabled="soloUnavailable"
             @click="mode = 'solo'"
           >
             <Icon name="lucide:sparkles" class="w-4 h-4" />
@@ -40,12 +41,16 @@
             class="flex-1 h-[44px] rounded-full text-[14px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
             :class="mode === 'friend' ? 'bg-apjek-cta text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
             :aria-pressed="mode === 'friend'"
+            :disabled="friendUnavailable"
             @click="mode = 'friend'"
           >
             <Icon name="lucide:users" class="w-4 h-4" />
             친구와 함께 기록
           </button>
         </div>
+        <p v-if="modeUnavailable" class="text-[11px] text-apjek-text-faint text-center">
+          같은 모드의 습관은 한 번에 1개만 진행할 수 있어요.
+        </p>
       </template>
 
       <!-- ② 습관 이름 -->
@@ -69,7 +74,7 @@
             v-model="title"
             placeholder="예: 독서, 공부, 운동..."
             maxlength="30"
-            class="w-full h-[48px] rounded-[12px] px-[16px] text-[14px] outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
+            class="w-full h-[48px] rounded-[12px] px-[16px] text-[14px] outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
             @keydown.enter.exact="!$event.isComposing && ($event.preventDefault(), onPrimary())"
           >
         </div>
@@ -147,7 +152,7 @@
         type="button"
         class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
         :class="mode ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-        :disabled="!mode"
+        :disabled="!mode || modeUnavailable"
         @click="goStep2"
       >
         다음
@@ -158,7 +163,7 @@
         type="button"
         class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
         :class="canProceedName ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-        :disabled="!canProceedName || busy"
+        :disabled="!canProceedName || busy || modeUnavailable"
         @click="onPrimary"
       >
         {{ mode === 'friend' ? '다음' : '생성 하기' }}
@@ -168,7 +173,7 @@
         type="button"
         class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
         :class="selectedFriendId ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-        :disabled="!selectedFriendId || busy || loading || loadError"
+        :disabled="!selectedFriendId || busy || loading || loadError || modeUnavailable"
         @click="submit"
       >
         {{ busy ? '요청 보내는 중...' : '요청 보내기' }}
@@ -200,6 +205,9 @@ import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 const props = defineProps<{
   open: boolean
   friends: FriendInfo[]
+  initialMode?: 'solo' | 'friend'
+  soloUnavailable?: boolean
+  friendUnavailable?: boolean
   /** 부모의 초기 자료 조회 상태를 빈 친구 목록과 구분한다. */
   loading?: boolean
   loadError?: boolean
@@ -218,6 +226,7 @@ const step = ref<1 | 2 | 3>(1)
 const mode = ref<Mode | null>(null)
 const title = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
+const modeUnavailable = computed<boolean>(() => mode.value === 'friend' ? !!props.friendUnavailable : mode.value === 'solo' && !!props.soloUnavailable)
 const userStore = useUserStore()
 const session = authClient.useSession()
 const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
@@ -241,7 +250,7 @@ const canProceedName = computed<boolean>(() => title.value.trim().length > 0)
 
 function reset() {
   step.value = 1
-  mode.value = null
+  mode.value = props.initialMode ?? null
   const userId = draftUserId.value
   draftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}` : null
   const draft = draftKey ? readDraft<unknown>(draftKey) : null
@@ -306,11 +315,12 @@ function goPrev() {
 }
 
 function goStep2() {
-  if (!mode.value) return
+  if (!mode.value || modeUnavailable.value) return
   step.value = 2
 }
 
 function onPrimary() {
+  if (modeUnavailable.value) return
   if (props.loading || props.loadError) return
   if (!canProceedName.value || props.busy) return
   if (mode.value === 'friend') {
@@ -327,6 +337,7 @@ function toggleFriend(userId: string) {
 }
 
 function submit() {
+  if (modeUnavailable.value) return
   if (!selectedFriendId.value || props.busy || props.loading || props.loadError) return
   emit('submit', { title: title.value.trim(), friendUserId: selectedFriendId.value })
 }

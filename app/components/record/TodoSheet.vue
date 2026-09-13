@@ -46,7 +46,7 @@
           :disabled="submitting"
           :placeholder="`새 항목 추가 (최대 ${TODO_LIMIT}개)`"
           maxlength="50"
-          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none focus-visible:ring-2 focus-visible:ring-apjek-blue/30 placeholder:text-apjek-blue-deep"
+          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none ring-inset focus-visible:ring-2 focus-visible:ring-apjek-blue/30 placeholder:text-apjek-blue-deep"
           @keydown.enter="!$event.isComposing && ($event.preventDefault(), onAdd())"
         >
         <button
@@ -181,7 +181,7 @@
             v-model="routineLabel"
             placeholder="새 루틴 이름 작성"
             maxlength="50"
-            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none focus-visible:ring-2 focus-visible:ring-apjek-blue/30"
+            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none ring-inset focus-visible:ring-2 focus-visible:ring-apjek-blue/30"
             @keydown.enter="!$event.isComposing && ($event.preventDefault(), createRoutine())"
           >
           <button

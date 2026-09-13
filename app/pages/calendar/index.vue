@@ -253,7 +253,7 @@
                 :disabled="noteSaving"
                 rows="3"
                 :placeholder="$t('calendar.memoPlaceholder')"
-                class="w-full rounded-[12px] border border-apjek-border bg-apjek-bg px-4 py-3 text-apjek-text placeholder:text-apjek-text-faint focus:outline-none focus:ring-2 focus:ring-apjek-blue/40 resize-none text-sm"
+                class="w-full rounded-[12px] border border-apjek-border bg-apjek-bg px-4 py-3 text-apjek-text placeholder:text-apjek-text-faint focus:outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/40 resize-none text-sm"
               />
               <div class="flex gap-2">
                 <button

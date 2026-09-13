@@ -18,6 +18,37 @@ afterEach(() => {
 })
 
 describe('HabitCreateSheet', () => {
+  it('친구 탭에서 열면 친구 모드를 유지하고 solo 진행 중에도 친구 요청을 제출한다', async () => {
+    const wrapper = await mountSuspended(HabitCreateSheet, {
+      props: { open: true, initialMode: 'friend', soloUnavailable: true, friends: [{ userId: 'friend-a', nickname: '친구 A' }] },
+      global: { stubs: { CommonBottomSheet: { template: '<section><slot/><slot name="footer"/></section>' } } },
+    })
+    wrappers.push(wrapper)
+    const solo = wrapper.findAll('button').find(button => button.text().includes('나의 습관'))!
+    expect(solo.attributes('disabled')).toBeDefined()
+    expect(wrapper.findAll('button').find(button => button.text().includes('친구와'))!.attributes('aria-pressed')).toBe('true')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    await wrapper.get('input').setValue('함께 독서')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === '요청하기')!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === '요청 보내기')!.trigger('click')
+    expect(wrapper.emitted('submit')).toEqual([[{ title: '함께 독서', friendUserId: 'friend-a' }]])
+  })
+
+  it('열린 시트에서도 선택 모드가 사용 중으로 바뀌면 제출을 차단한다', async () => {
+    const wrapper = await mountSuspended(HabitCreateSheet, {
+      props: { open: true, initialMode: 'solo', friends: [] },
+      global: { stubs: { CommonBottomSheet: { template: '<section><slot/><slot name="footer"/></section>' } } },
+    })
+    wrappers.push(wrapper)
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    await wrapper.get('input').setValue('독서')
+    await wrapper.setProps({ soloUnavailable: true })
+    await wrapper.get('input').trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    expect(wrapper.findAll('button').find(button => button.text() === '생성 하기')!.attributes('disabled')).toBeDefined()
+  })
+
   it('이탈할 때만 이름을 저장하고 재오픈 복원 및 생성 성공 삭제를 지원한다', async () => {
     const key = `${STORAGE_KEYS.DRAFT_HABIT_TITLE}habit-user`
     const wrapper = await mountSuspended(HabitCreateSheet, {

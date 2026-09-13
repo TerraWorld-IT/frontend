@@ -22,7 +22,7 @@
         rows="5"
         maxlength="100"
         placeholder="메시지를 입력하세요"
-        class="w-full rounded-[12px] p-[14px] text-[14px] resize-none outline-none focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
+        class="w-full rounded-[12px] p-[14px] text-[14px] resize-none outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-apjek-bg text-apjek-text"
       />
       <div class="text-right text-[11px] text-apjek-text-faint -mt-[8px]">{{ message.length }}/100</div>
     </div>

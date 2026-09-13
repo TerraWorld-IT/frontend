@@ -76,22 +76,6 @@ describe('useOpenApi', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('사진 업로드 경로는 15초를 넘겨도 취소하지 않는다', async () => {
-    const client = await createApiClient()
-    let request!: Request
-    let resolve!: (response: Response) => void
-    vi.stubGlobal('fetch', vi.fn((input: Request) => {
-      request = input
-      return new Promise<Response>((yes) => { resolve = yes })
-    }))
-    vi.useFakeTimers()
-    const pending = client.post({ url: '/uploads/photo', body: 'photo' })
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(request.signal.aborted).toBe(false)
-    resolve(Response.json({ url: '/photo.jpg' }))
-    expect((await pending).data).toEqual({ url: '/photo.jpg' })
-  })
-
   it('헤더 수신 뒤 본문이 멈춰도 데드라인이 요청을 취소한다', async () => {
     const client = await createApiClient()
     let signal!: AbortSignal
