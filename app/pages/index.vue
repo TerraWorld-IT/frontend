@@ -759,6 +759,8 @@
 <script setup lang="ts">
 import { calculatePinchOffset, calculatePinchScale } from '~/utils/pinchZoom'
 import { Capacitor } from '@capacitor/core'
+import { captureTerraStage, invalidateTerraCapture } from '~/lib/captureTerraStage'
+import { saveWidgetCanvas, widgetAvailable, widgetEpoch } from '~/lib/terraWidget'
 import { onBeforeRouteLeave } from 'vue-router'
 import type {
   AdRewardResponse,
@@ -2205,32 +2207,7 @@ async function onImageSave() {
     return
   }
   try {
-    const html2canvas = (await import('html2canvas')).default
-    // withTimeout: 캡처가 영구 pending 이면(라이브 실측 2026-07-21 — 토스트/에러 없이 무반응)
-    // capturingImage 가 true 로 고착되어 이후 모든 저장 시도가 조용히 무시됐다. 10초 데드라인으로
-    // 반드시 catch/finally 에 도달시켜 오류를 표면화하고 busy 를 해제한다.
-    // onclone: 스테이지는 stageFit scale 로 축소 렌더 — 원복해 설계 해상도로 캡처
-    // (인스타 스토리 공유 경로와 동일 처리, 미적용 시 축소/오프셋 캡처).
-    const canvas = await withTimeout(
-      html2canvas(target, {
-        backgroundColor: '#FFF8EB',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        // withTimeout 은 race 만 끊고 html2canvas 자체는 취소 못 한다 —
-        // 내부 이미지 로드 대기(hang 의 전형 원인)를 외부 데드라인보다 짧게 잘라
-        // 원본 promise 도 스스로 종료되게 한다.
-        imageTimeout: 8_000,
-        onclone: (doc) => {
-          const cloned = doc.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
-          if (cloned) {
-            cloned.style.transform = 'scale(1)'
-            cloned.style.marginBottom = '0px'
-          }
-        },
-      }),
-      10_000,
-    )
+    const canvas = await captureTerraStage(target)
     const filename = `terraworld-${Date.now()}.png`
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
     if (!blob) {
@@ -2277,25 +2254,7 @@ async function onInstagramStoryShare() {
   }
   capturingImage.value = true
   try {
-    const html2canvas = (await import('html2canvas')).default
-    // 이미지 저장 경로와 동일한 10초 데드라인 — 캡처 영구 pending 시 busy 고착 방지.
-    const canvas = await withTimeout(
-      html2canvas(stage, {
-        backgroundColor: null, // 투명 스티커 — JPEG 변환 금지(투명도 소실)
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        imageTimeout: 8_000, // 이미지 저장 경로와 동일 — hang 원인(이미지 로드 대기) 자체 차단
-        onclone: (doc) => {
-          const cloned = doc.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
-          if (cloned) {
-            cloned.style.transform = 'scale(1)'
-            cloned.style.marginBottom = '0px'
-          }
-        },
-      }),
-      10_000,
-    )
+    const canvas = await captureTerraStage(stage, null)
     const dataUrl = canvas.toDataURL('image/png')
     const { shareToInstagramStory } = await import('~/lib/instagramStories')
     const result = await shareToInstagramStory(dataUrl, String(config.public.metaAppId || ''))
@@ -2400,6 +2359,34 @@ async function onUnlockManage() {
 }
 
 // ─── mount ───
+// Only persist a committed, rendered home scene. Debounce reloads; cancel stale capture results.
+onMounted(() => {
+  if (!widgetAvailable()) return
+  const stop = watch(
+    [() => homeSnapshot.snapshot, () => user.value?.userId, allItems, () => tier.catalog.value, editMode, pending],
+    (_value, _old, onCleanup) => {
+      let cancelled = false
+      const previousTarget = document.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
+      if (previousTarget) invalidateTerraCapture(previousTarget)
+      const capturedEpoch = widgetEpoch()
+      const timer = setTimeout(async () => {
+        if (cancelled || homeDisposed || editMode.value || pending.value || !user.value) return
+        await nextTick()
+        const target = document.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
+        if (!target) return
+        try {
+          const canvas = await captureTerraStage(target)
+          if (!cancelled && !homeDisposed && !editMode.value) await saveWidgetCanvas(canvas, capturedEpoch)
+        }
+        catch { /* A widget capture failure must not interrupt home or sharing. */ }
+      }, 1_000)
+      onCleanup(() => { cancelled = true; clearTimeout(timer) })
+    },
+    { immediate: true, flush: 'post', deep: true },
+  )
+  onBeforeUnmount(stop)
+})
+
 onMounted(async () => {
   if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
     showOnboarding.value = true
