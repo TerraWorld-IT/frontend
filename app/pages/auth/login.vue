@@ -20,16 +20,6 @@
       <div class="w-9 h-9 rounded-full border-[3px] border-[#c3aed6]/30 border-t-[#8a9bc4] animate-spin" />
     </div>
 
-    <!-- 배경 장식 -->
-    <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute top-16 left-12 text-5xl opacity-20 rotate-12">🌵</div>
-      <div class="absolute top-32 right-16 max-[359px]:right-20 text-4xl opacity-20 -rotate-6">🌸</div>
-      <div class="absolute bottom-24 left-20 text-4xl opacity-20 rotate-6">🐱</div>
-      <div class="absolute bottom-16 right-12 text-5xl opacity-20 -rotate-12">🌈</div>
-      <div class="absolute top-1/2 left-6 text-3xl opacity-15">🍄</div>
-      <div class="absolute top-1/4 right-6 text-3xl opacity-15">🐶</div>
-    </div>
-
     <!--
       h-dvh(고정 높이) 컨테이너 안에서 실제 로그인/가입 폼만 자체 스크롤 영역으로 분리.
       가입 모드(닉네임+생년월일+동의 5종)는 작은 화면에서 뷰포트보다 콘텐츠가 길어질 수 있는데,
@@ -53,7 +43,7 @@
     <div class="w-full max-w-sm mx-4 relative z-10 my-auto">
       <!-- 로고 영역 -->
       <div class="text-center mb-8">
-        <div class="text-6xl mb-3">🌍</div>
+        <div class="text-6xl mb-3"><Icon name="lucide:globe" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
         <h1 class="text-3xl font-bold tracking-tight" style="color: #5b6fa6">
           TERRAWORLD
         </h1>

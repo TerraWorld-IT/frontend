@@ -25,7 +25,7 @@
             @pointerdown="onStepPointerDown"
           >
             <div class="text-center space-y-3">
-              <span class="text-6xl block">{{ currentStep.icon }}</span>
+              <span class="text-6xl block"><Icon :name="currentStep.icon" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
               <h3 class="font-bold text-xl text-apjek-text">{{ currentStep.title }}</h3>
               <p class="text-sm text-apjek-text-sub leading-relaxed">{{ currentStep.desc }}</p>
             </div>
@@ -101,31 +101,31 @@ const step = ref<number>(0)
 
 const steps = computed(() => [
   {
-    icon: '📝',
+    icon: 'lucide:notebook-pen',
     title: t('onboarding.step1.title'),
     desc: t('onboarding.step1.desc'),
     bg: 'var(--color-apjek-dew-bg)',
   },
   {
-    icon: '🪙',
+    icon: 'lucide:coins',
     title: t('onboarding.step2.title'),
     desc: t('onboarding.step2.desc'),
     bg: 'var(--color-apjek-sun-bg)',
   },
   {
-    icon: '🛍️',
+    icon: 'lucide:shopping-bag',
     title: t('onboarding.step3.title'),
     desc: t('onboarding.step3.desc'),
     bg: 'var(--color-apjek-sparkle-bg)',
   },
   {
-    icon: '🫧',
+    icon: 'lucide:sprout',
     title: t('onboarding.step4.title'),
     desc: t('onboarding.step4.desc'),
     bg: 'var(--color-apjek-bolt-bg)',
   },
   {
-    icon: '💌',
+    icon: 'lucide:mail',
     title: t('onboarding.step5.title'),
     desc: t('onboarding.step5.desc'),
     bg: 'var(--color-apjek-wind-bg)',

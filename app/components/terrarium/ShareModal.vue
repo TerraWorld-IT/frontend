@@ -14,7 +14,7 @@
         class="w-full apjek-card flex items-center gap-3 p-4 transition-all active:scale-[0.98]"
         :disabled="busy" @click="emit('sns')"
       >
-        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true">🔗</div>
+        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true"><Icon name="lucide:link" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
         <div class="text-left flex-1 min-w-0">
           <div class="text-sm font-bold text-apjek-text">SNS 공유하기</div>
           <div class="text-xs text-apjek-text-faint">친구에게 나의 테라 사진을 공유해요</div>
@@ -29,7 +29,7 @@
         :disabled="busy"
         @click="emit('save')"
       >
-        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true">🖼️</div>
+        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true"><Icon name="lucide:image" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
         <div class="text-left flex-1 min-w-0">
           <div class="text-sm font-bold text-apjek-text">이미지 저장하기</div>
           <div class="text-xs text-apjek-text-faint">나의 테라를 이미지로 저장해요</div>
@@ -44,7 +44,7 @@
         :disabled="inviteCreating"
         @click="emit('invite')"
       >
-        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true">🔗</div>
+        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-lg" style="background: var(--color-apjek-blue-soft)" aria-hidden="true"><Icon name="lucide:link" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
         <div class="text-left flex-1 min-w-0">
           <div class="text-sm font-bold text-apjek-text">초대코드 복사하기</div>
           <div class="text-xs text-apjek-text-faint">코드를 복사해서 친구를 초대해요</div>

@@ -18,16 +18,6 @@
         <div class="size-[34px] rounded-full bg-apjek-border animate-pulse" />
       </div>
 
-      <div class="apjek-card p-5" data-layout-anchor="calendar-stats">
-        <div class="mb-4 flex h-6 items-center justify-between">
-          <div class="h-5 w-28 rounded-lg bg-apjek-border animate-pulse" />
-          <div class="h-4 w-14 rounded-lg bg-apjek-border animate-pulse" />
-        </div>
-        <div class="grid grid-cols-3 gap-3">
-          <div v-for="n in 3" :key="n" class="h-20 rounded-[12px] bg-apjek-border animate-pulse" />
-        </div>
-      </div>
-
       <div class="apjek-card p-5 relative" :aria-busy="monthLoading" data-layout-anchor="calendar-grid">
         <div class="mb-5 flex items-center justify-between">
           <div class="size-11 -m-1 flex items-center justify-center">
@@ -87,59 +77,6 @@
             <Icon name="lucide:x" class="w-4 h-4 text-apjek-text" />
           </span>
         </button>
-      </div>
-
-      <!-- 활동 통계 (FE 실 통계 — 아프젝 디자인엔 없으나 실기능 보존, 팔레트만 정합) -->
-      <div class="apjek-card p-5" data-layout-anchor="calendar-stats">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold flex items-center gap-2 text-apjek-text">
-            <Icon name="lucide:trending-up" class="w-5 h-5" />
-            {{ $t('calendar.activityStats') }}
-          </h3>
-          <button
-            type="button"
-            class="py-[14.5px] -my-[14.5px] text-xs font-medium text-apjek-blue hover:text-apjek-text transition-colors"
-            @click="showDetailedStats = !showDetailedStats"
-          >
-            {{ showDetailedStats ? $t('calendar.collapse') : $t('calendar.viewDetail') }}
-          </button>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-          <div class="p-4 rounded-[12px] text-center bg-apjek-blue-soft">
-            <div class="text-[24px] font-bold text-apjek-text leading-[32px]">{{ stats?.todayRecords ?? 0 }}</div>
-            <div class="text-[12px] text-apjek-text-sub font-medium leading-[16px]">{{ $t('calendar.today') }}</div>
-          </div>
-          <div class="p-4 rounded-[12px] text-center bg-apjek-blue-soft">
-            <div class="text-[24px] font-bold text-apjek-text leading-[32px]">{{ stats?.thisWeekRecords ?? 0 }}</div>
-            <div class="text-[12px] text-apjek-text-sub font-medium leading-[16px]">{{ $t('calendar.thisWeek') }}</div>
-          </div>
-          <div class="p-4 rounded-[12px] text-center bg-apjek-blue-soft">
-            <div class="text-[24px] font-bold text-apjek-text leading-[32px]">{{ stats?.totalRecords ?? 0 }}</div>
-            <div class="text-[12px] text-apjek-text-sub font-medium leading-[16px]">{{ $t('calendar.total') }}</div>
-          </div>
-        </div>
-
-        <div v-if="showDetailedStats && stats && stats.byCategory.length > 0" class="space-y-3 mt-5 pt-5 border-t border-apjek-border">
-          <div class="text-sm font-bold mb-3 text-apjek-text">{{ $t('calendar.byCategory') }}</div>
-          <div v-for="cat in stats.byCategory" :key="cat.categoryId" class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-[12px] flex items-center justify-center text-lg bg-apjek-blue-soft">
-              {{ cat.emoji ?? '🏷️' }}
-            </div>
-            <div class="flex-1">
-              <div class="flex justify-between text-sm mb-1.5">
-                <span class="font-semibold text-apjek-text">{{ cat.categoryName }}</span>
-                <span class="font-bold text-apjek-text">{{ $t('calendar.countTimes', { n: cat.count }) }}</span>
-              </div>
-              <div class="h-2 bg-apjek-bg rounded-full overflow-hidden">
-                <div
-                  class="h-full rounded-full transition-all bg-apjek-blue"
-                  :style="{ width: `${stats.totalRecords > 0 ? (cat.count / stats.totalRecords) * 100 : 0}%` }"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- 달력 — 아프젝: 라운드 원형 네비 + 라운드 사각 날짜 셀 (fig-calendar) -->
@@ -205,8 +142,8 @@
                 class="text-xs leading-none size-[22px] rounded-full flex items-center justify-center"
                 :class="isToday(day) ? 'bg-apjek-cta text-white' : ''"
               >{{ day }}</span>
-              <!-- 도장 — TODO(자산): 디자이너 도장 이미지(댓글 #23)로 교체. 현재 🌸 플레이스홀더 -->
-              <span v-if="hasRecords(day)" class="text-[11px] leading-none" aria-hidden="true">🌸</span>
+              <!-- 도장 에셋 제공 전 기록 여부를 점으로 표시한다. -->
+              <span v-if="hasRecords(day)" class="size-[4px] rounded-full bg-current" aria-hidden="true" />
               <span v-if="noteMap[dateKey(day)]" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-apjek-blue" />
             </button>
           </div>
@@ -236,7 +173,7 @@
               >
                 <div class="flex items-center gap-3">
                   <div class="w-6 h-6 flex items-center justify-center text-xl shrink-0">
-                    {{ recordDisplayIcon(record) }}
+                    <IconsCurrencyIcon v-if="recordDisplayIcon(record)" :code="recordDisplayIcon(record)!" :size="24" /><Icon v-else name="lucide:tag" class="w-6 h-6" aria-hidden="true" />
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="font-semibold text-sm text-apjek-text">{{ recordDisplayLabel(record) }}</div>
@@ -367,7 +304,6 @@
 <script setup lang="ts">
 import type {
   RecordResponse,
-  StatisticsResponse,
   NoteResponse,
   PagedRecordResponse,
 } from '@terraworld-it/openapi-frontend'
@@ -406,8 +342,6 @@ const viewMonth = ref<number>(now.getMonth()) // 0-indexed
 const monthRecords = shallowRef<RecordResponse[]>([])
 // noteMap: YYYY-MM-DD -> note text (cached after fetch)
 const noteMap = ref<Record<string, string>>({})
-// Statistics
-const stats = ref<StatisticsResponse | null>(null)
 
 // Selected date state
 const selectedDate = ref<Date | null>(null)
@@ -471,8 +405,6 @@ function onSheetClose() {
 }
 const deletingId = ref<number | null>(null)
 const deleteTarget = ref<RecordResponse | null>(null)
-
-const showDetailedStats = ref<boolean>(false)
 
 // Computed calendar info
 const currentYear = computed<number>(() => viewYear.value)
@@ -574,12 +506,7 @@ async function load() {
     void userStore.fetchMe().catch(() => { /* 초안 키 확보용 보조 조회는 실패해도 페이지 로딩을 막지 않는다. */ })
   }
   try {
-    const [statsRes, records] = await Promise.all([
-      sdk.getRecordStatistics({ client }),
-      fetchMonthRecords(viewYear.value, viewMonth.value + 1),
-    ])
-    if (statsRes.error) throw new Error(errMsg(statsRes.error, 'getRecordStatistics failed'))
-    stats.value = castData<StatisticsResponse>(statsRes.data) ?? null
+    const records = await fetchMonthRecords(viewYear.value, viewMonth.value + 1)
     if (gen === monthLoadGen) monthRecords.value = records
   }
   catch (e) {

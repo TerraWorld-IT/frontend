@@ -38,7 +38,7 @@
         class="bg-white rounded-2xl p-4 border border-riso-walnut/10 flex items-center gap-3"
       >
         <div class="w-12 h-12 bg-riso-cream rounded-xl flex items-center justify-center text-2xl">
-          {{ row.item.assetUrl }}
+          <img :src="resolveItemImage(row.item)" :alt="row.item.name" class="w-12 h-12 object-contain" @error="onAssetError">
         </div>
         <div class="flex-1 min-w-0">
           <p class="font-medium text-sm text-riso-dark truncate">{{ row.item.name }}</p>
@@ -113,7 +113,7 @@
             type="text"
             required
             maxlength="500"
-            placeholder="🌵"
+            placeholder=""
             class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
           >
         </label>
@@ -206,6 +206,7 @@ interface ItemRow {
 definePageMeta({ layout: 'default', middleware: ['auth', 'admin'] })
 
 const { sdk, client } = useOpenApi()
+const { resolveItemImage, onAssetError } = useItemAsset()
 const { t } = useI18n()
 const toast = useToast()
 

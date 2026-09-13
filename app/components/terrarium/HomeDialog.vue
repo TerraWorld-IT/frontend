@@ -1,6 +1,6 @@
 <!--
   홈 전용 중앙 다이얼로그 셸 (아프젝 v2 홈 팝업 공통 — 공유하기/초대코드/해금 팝업이 공유).
-  - Figma 모달 규격 근사: 393 폭, r24 흰 카드, 헤더 [이모지 아이콘 + 제목] + 연파랑 원형 X.
+  - Figma 모달 규격 근사: 393 폭, r24 흰 카드, 헤더 [lucide 아이콘 + 제목] + 연파랑 원형 X.
   - bespoke 오버레이 규약: role="dialog" aria-modal + useDialogFocusTrap(focus trap + ESC +
     배경 스크롤 잠금) + Android 하드웨어 뒤로가기(useBackButtonStack). 상태는 부모가 소유(open prop).
   - CommonModal 은 confirm/cancel CTA 가 고정이라 버튼 없는 팝업·3상태 CTA 팝업에 맞지 않아 분리.
@@ -23,7 +23,7 @@
           <div class="rounded-3xl px-5 pt-5 pb-6 shadow-2xl flex flex-col " style="background: var(--color-apjek-surface); max-height: min(88dvh, calc(100dvh - var(--sat) - var(--sab) - 32px))">
             <div class="flex items-center justify-between mb-4 shrink-0">
               <div class="flex items-center gap-2 min-w-0">
-                <span v-if="icon" class="text-lg leading-none shrink-0" aria-hidden="true">{{ icon }}</span>
+                <span v-if="icon" class="text-lg leading-none shrink-0" aria-hidden="true"><Icon :name="icon" class="w-[1em] h-[1em]" /></span>
                 <h3 class="font-bold text-[17px] text-apjek-text truncate">{{ title }}</h3>
               </div>
               <button
@@ -53,7 +53,7 @@ const props = withDefaults(defineProps<{
   open: boolean
   /** 헤더 제목 */
   title: string
-  /** 헤더 앞 이모지 아이콘(선택) */
+  /** 헤더 앞 lucide 아이콘(선택) */
   icon?: string
   /** aria-label(기본 title) */
   ariaLabel?: string

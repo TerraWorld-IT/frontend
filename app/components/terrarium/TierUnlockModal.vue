@@ -61,7 +61,7 @@
   <TerrariumHomeDialog
     :open="open && !!success"
     title="해금 성공!"
-    icon="🎉"
+    icon="lucide:party-popper"
     aria-label="해금 성공"
     @close="emit('close')"
   >
@@ -85,7 +85,7 @@
         style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
         data-testid="tier-unlock-manage"
         @click="emit('manage')"
-      >✏️ 관리 모드 바로가기</button>
+      ><Icon name="lucide:pencil" class="w-[1em] h-[1em]" aria-hidden="true" /> 관리 모드 바로가기</button>
     </div>
   </TerrariumHomeDialog>
 </template>

@@ -42,7 +42,7 @@
         class="bg-white rounded-2xl p-5 border border-riso-walnut/10 riso-shadow-sm hover:-translate-y-0.5 transition-all active:scale-[0.98] space-y-3"
       >
         <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" :style="{ backgroundColor: menu.bg }">
-          {{ menu.icon }}
+          <Icon :name="menu.icon" class="w-[1em] h-[1em]" aria-hidden="true" />
         </div>
         <div>
           <p class="font-bold text-sm text-riso-dark">{{ menu.label }}</p>
@@ -77,8 +77,8 @@ const stats = computed(() => [
 ])
 
 const menus = computed(() => [
-  { path: '/admin/items', icon: '🎨', label: t('admin.index.items'), desc: t('admin.index.itemsDesc'), bg: '#E8A0BF22' },
-  { path: '/admin/categories', icon: '📂', label: t('admin.index.categories'), desc: t('admin.index.categoriesDesc'), bg: '#7B9E6B22' },
+  { path: '/admin/items', icon: 'lucide:palette', label: t('admin.index.items'), desc: t('admin.index.itemsDesc'), bg: '#E8A0BF22' },
+  { path: '/admin/categories', icon: 'lucide:folder', label: t('admin.index.categories'), desc: t('admin.index.categoriesDesc'), bg: '#7B9E6B22' },
   // H2 (code-review R1): 구 admin 환전 화면 제거 — 편집 대상(token_exchange_rates)이 실 환전(exchange_rates, 7화폐)과
   //   무관해 no-op(오도). 실 환전 비율/수수료/일일캡은 백엔드 exchange_rates SoT(V28 시드 관리).
 ])

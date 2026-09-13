@@ -8,14 +8,14 @@
   등록명: TerrariumRankingModal.
 -->
 <template>
-  <TerrariumHomeDialog :open="open" title="랭킹" icon="🏆" aria-label="랭킹" @close="emit('close')">
+  <TerrariumHomeDialog :open="open" title="랭킹" icon="lucide:trophy" aria-label="랭킹" @close="emit('close')">
     <!-- 내 순위 카드 -->
     <div
       class="rounded-2xl px-4 py-3 mb-3 flex items-center gap-3"
       style="background: var(--color-apjek-blue-soft)"
       data-testid="ranking-my-card"
     >
-      <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0" style="background: var(--color-apjek-surface)" aria-hidden="true">🌍</div>
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0" style="background: var(--color-apjek-surface)" aria-hidden="true">{{ (myNickname || '?').trim().charAt(0).toUpperCase() || '?' }}</div>
       <div class="min-w-0">
         <p class="text-[15px] font-extrabold text-apjek-text truncate" data-testid="ranking-my-rank">{{ myRankLabel }}</p>
         <p class="text-xs text-apjek-text-sub">나의 보유 아이템 수 : {{ myScore }}</p>
@@ -41,7 +41,7 @@
           : { background: 'var(--color-apjek-surface)', color: 'var(--color-apjek-text-sub)', border: '1px solid var(--color-apjek-border-strong)' }"
         @click="scope = seg.scope"
       >
-        <span aria-hidden="true">{{ seg.icon }}</span>{{ seg.label }}
+        <span aria-hidden="true"><Icon :name="seg.icon" class="w-[1em] h-[1em]" /></span>{{ seg.label }}
       </button>
     </div>
 
@@ -65,7 +65,7 @@
           :style="entry.isSelf ? { borderColor: 'var(--color-apjek-blue)' } : {}"
           :data-testid="`ranking-row-${entry.rank}`"
         >
-          <span class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style="background: var(--color-apjek-bg)" aria-hidden="true">🌍</span>
+          <span class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style="background: var(--color-apjek-bg)" aria-hidden="true">{{ (entry.nickname || '?').trim().charAt(0).toUpperCase() || '?' }}</span>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-bold text-apjek-text truncate">#{{ entry.rank }} {{ entry.nickname }}<span v-if="entry.isSelf" class="ml-1 text-[10px] font-semibold text-apjek-text-faint">(나)</span></p>
             <p class="text-xs text-apjek-text-sub">보유 아이템 수 : {{ entry.score }}</p>
@@ -93,8 +93,8 @@ const { sdk, client } = useOpenApi()
 const { trackRankingViewed } = useGtagEvents()
 
 const segments: { scope: RankingScope, icon: string, label: string }[] = [
-  { scope: 'all', icon: '🏆', label: '전체 랭킹' },
-  { scope: 'friends', icon: '👥', label: '친구 랭킹' },
+  { scope: 'all', icon: 'lucide:trophy', label: '전체 랭킹' },
+  { scope: 'friends', icon: 'lucide:users', label: '친구 랭킹' },
 ]
 
 const scope = ref<RankingScope>('all')

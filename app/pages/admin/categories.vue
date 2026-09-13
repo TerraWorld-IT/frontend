@@ -30,7 +30,7 @@
       >
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" :style="{ backgroundColor: row.cat.color + '22' }">
-            {{ row.cat.emoji ?? '🏷️' }}
+            <IconsCurrencyIcon v-if="CATEGORY_ICONS[row.cat.name]" :code="CATEGORY_ICONS[row.cat.name]!" :size="24" /><Icon v-else name="lucide:tag" class="w-6 h-6" aria-hidden="true" />
           </div>
           <div class="flex-1">
             <p class="font-bold text-sm text-riso-dark">{{ row.cat.name }}</p>

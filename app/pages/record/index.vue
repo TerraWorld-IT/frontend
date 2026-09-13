@@ -242,7 +242,7 @@
     <CommonBottomSheet :open="openModal === 'diary'" ariaLabel="일기 기록" @close="closeModal()">
       <template #header>
         <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border mr-9">
-          <span class="text-[18px]">☀️</span>
+          <IconsCurrencyIcon code="SUN" :size="18" />
           <span class="font-bold text-[16px] text-apjek-text">일기 기록</span>
         </div>
       </template>
@@ -316,7 +316,7 @@
     <CommonBottomSheet :open="openModal === 'focus'" ariaLabel="집중 기록" @close="onSheetClose()">
       <template #header>
         <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border mr-9">
-          <span class="text-[18px]">⚡</span>
+          <IconsCurrencyIcon code="BOLT" :size="18" />
           <span class="font-bold text-[16px] text-apjek-text">집중 기록</span>
         </div>
       </template>
@@ -423,7 +423,7 @@
     <CommonBottomSheet :open="openModal === 'distance'" ariaLabel="거리 기록" @close="onSheetClose()">
       <template #header>
         <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border mr-9">
-          <span class="text-[18px]">🌀</span>
+          <IconsCurrencyIcon code="WIND" :size="18" />
           <span class="font-bold text-[16px] text-apjek-text">거리 기록</span>
         </div>
       </template>
@@ -734,7 +734,7 @@ async function applyCycleReward(reward: HabitCycleRewardResponse): Promise<void>
     return
   }
   userStore.updateCurrency(reward.updatedCurrency)
-  toast.success(`7일 완주! 반짝이 ${reward.sparkleGranted}개 획득 ⭐`)
+  toast.success(`7일 완주! 반짝이 ${reward.sparkleGranted}개 획득`)
 }
 
 async function onCompleteHabit(tr: HabitTrackerResponse) {

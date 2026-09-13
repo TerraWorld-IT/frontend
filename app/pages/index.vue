@@ -175,7 +175,7 @@
           }"
           @click="manageTab = chip.tab"
         >
-          <span v-if="chip.icon" aria-hidden="true">{{ chip.icon }}</span>{{ chip.label }}
+          <span v-if="chip.icon" aria-hidden="true"><Icon :name="chip.icon" class="w-[1em] h-[1em]" /></span>{{ chip.label }}
         </button>
       </div>
 
@@ -325,7 +325,7 @@
                       draggable="false"
                       @error="onAssetError"
                     >
-                    <div v-else class="text-4xl pointer-events-none">{{ placed.image }}</div>
+                    <div v-else class="text-4xl pointer-events-none"><Icon name="lucide:image" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
                     <Icon
                       v-if="placed.isAnimated && !editMode"
                       name="lucide:sparkles"
@@ -477,7 +477,7 @@
                 :key="friend.userId"
                 class="rounded-xl bg-gray-50 flex items-center gap-3 p-3"
               >
-                <div class="size-9 rounded-full flex items-center justify-center text-lg shrink-0" style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)">🌍</div>
+                <div class="size-9 rounded-full flex items-center justify-center text-lg shrink-0" style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)">{{ (friend.nickname || '?').trim().charAt(0).toUpperCase() || '?' }}</div>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-semibold text-apjek-text truncate">{{ friend.nickname }}</p>
                   <p class="text-[10px] text-apjek-text-faint tracking-[0.1px]">TERRAWORLD 유저</p>
@@ -573,7 +573,7 @@
   <TerrariumModeIntro
     :open="introMode === 'healing'"
     :level="viewLevel"
-    icon="🌱"
+    icon="lucide:sprout"
     title="힐링 모드"
     description="나의 테라를 천천히 감상해보세요"
     @done="onHealingIntroDone"
@@ -581,7 +581,7 @@
   <TerrariumModeIntro
     :open="introMode === 'manage'"
     :level="viewLevel"
-    icon="✏️"
+    icon="lucide:pencil"
     title="관리 모드"
     description="아이템으로 테라리움을 꾸미고 레벨과 아이템을 관리해요"
     @done="onManageIntroDone"
@@ -1372,9 +1372,9 @@ function clamp(v: number, min: number, max: number): number {
 // ─── T13 관리 모드 — 인트로 → 칩 3종 + 하단 고정 패널 + [저장하기] ───
 const manageTab = ref<ManageTab>('items')
 const manageChips: { tab: ManageTab, label: string, icon: string }[] = [
-  { tab: 'items', label: '아이템 배치', icon: '🌱' },
+  { tab: 'items', label: '아이템 배치', icon: 'lucide:sprout' },
   { tab: 'spirits', label: '정령', icon: '' },
-  { tab: 'backgrounds', label: '배경 설정', icon: '✏️' },
+  { tab: 'backgrounds', label: '배경 설정', icon: 'lucide:pencil' },
 ]
 const saving = ref<boolean>(false)
 // 편집 후 서버 저장이 아직 확정되지 않은 배치(드래그 종료 즉시 저장이 실패했거나 진행 중) —
@@ -1488,7 +1488,7 @@ function onManageEmptyCta() {
 // 배치 초과 안내 — Figma 393×88 카드형 토스트 "🚫 배치 가능한 아이템 수를 초과 했습니다 / 배치 가능한 아이템 : N개"
 function toastSlotExceeded() {
   toast.error('배치 가능한 아이템 수를 초과 했습니다', {
-    icon: '🚫',
+    icon: 'lucide:ban',
     description: `배치 가능한 아이템 : ${maxSlots.value}개`,
     variant: 'card',
   })
@@ -2228,7 +2228,7 @@ async function onImageSave() {
     if (!ok) return
     // 시스템 공유 성공에 맞춰 안내한다. 갤러리 직접 저장은 별도 기능이다.
     toast.success('이미지 공유·저장 요청 완료', {
-      icon: '🖼️',
+      icon: 'lucide:image',
       description: '시스템 공유 또는 다운로드로 이미지를 전달했어요',
       variant: 'card',
     })

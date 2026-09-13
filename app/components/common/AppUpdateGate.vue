@@ -19,7 +19,7 @@
     >
       <!-- 첫 자식 mt-auto + 마지막 자식 mb-auto = safe centering(짧으면 중앙, 넘치면 위부터 스크롤).
            `justify-content: safe center` 는 미지원 브라우저에서 선언 자체가 무시돼 정렬이 사라진다. -->
-      <div class="text-5xl shrink-0 mt-auto">🌱</div>
+      <div class="text-5xl shrink-0 mt-auto"><Icon name="lucide:sprout" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
       <div class="space-y-2 shrink-0">
         <h2 class="text-lg font-bold text-riso-dark">새 버전이 나왔어요</h2>
         <p class="text-sm text-riso-dark/70 leading-relaxed">

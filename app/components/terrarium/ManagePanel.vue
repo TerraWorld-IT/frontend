@@ -64,7 +64,7 @@
                     draggable="false"
                     @error="onAssetError"
                   >
-                  <span v-else class="text-3xl" aria-hidden="true">{{ tile.assetUrl }}</span>
+                  <span v-else class="text-3xl" aria-hidden="true"><Icon name="lucide:image" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
                   <span
                     v-if="tile.checked"
                     class="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-white"

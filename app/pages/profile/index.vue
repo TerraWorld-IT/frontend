@@ -101,7 +101,7 @@
               class="size-[64px] rounded-full flex items-center justify-center text-[30px] shrink-0"
               style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
             >
-              🌍
+              {{ friendInitial(nickname) }}
             </div>
             <div class="flex-1 min-w-0">
               <p class="font-bold text-[18px] text-apjek-text tracking-[-0.44px] leading-[28px] truncate">{{ nickname }}</p>

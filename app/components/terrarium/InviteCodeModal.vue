@@ -6,7 +6,7 @@
   등록명: TerrariumInviteCodeModal.
 -->
 <template>
-  <TerrariumHomeDialog :open="open" title="나의 초대코드" icon="🔗" aria-label="나의 초대코드" @close="emit('close')">
+  <TerrariumHomeDialog :open="open" title="나의 초대코드" icon="lucide:link" aria-label="나의 초대코드" @close="emit('close')">
     <p class="text-center text-sm font-semibold text-apjek-text mb-1">친구가 내 코드로 가입하면 보상을 받아요</p>
     <!-- 보상 수치 — 초대자/수락자 비대칭(서버 설정값) -->
     <p class="text-center text-xs text-apjek-text-sub mb-3" data-testid="invite-reward">나 : 루비 +{{ inviterRuby }} , 친구 : 루비 +{{ inviteeRuby }}</p>
@@ -23,7 +23,7 @@
         style="background: var(--color-apjek-blue-soft); color: var(--color-apjek-blue-deep)"
         @click="emit('copy')"
       >
-        <span aria-hidden="true">🔗</span>코드 복사
+        <span aria-hidden="true"><Icon name="lucide:link" class="w-[1em] h-[1em]" aria-hidden="true" /></span>코드 복사
       </button>
       <button
         type="button"

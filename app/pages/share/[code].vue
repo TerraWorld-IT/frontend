@@ -18,7 +18,6 @@
 
     <!-- Error -->
     <div v-else-if="error" class="text-center space-y-4 my-auto">
-      <p class="text-6xl">🫧</p>
       <p class="text-riso-dark font-bold text-lg">{{ $t(error.statusCode === 404 || error.statusCode === 410 ? 'share.notFound' : 'error.generic.title') }}</p>
       <p class="text-sm text-riso-dark/40">{{ $t(error.statusCode === 404 ? 'share.notFoundDesc' : error.statusCode === 410 ? 'share.expiredDesc' : 'error.generic.desc') }}</p>
       <div class="h-[40px]">

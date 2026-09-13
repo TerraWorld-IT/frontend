@@ -4,7 +4,7 @@
   <CommonBottomSheet :open="open" ariaLabel="습관 기록 생성" fixed-height @close="onClose">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
-        <span class="text-[18px]">🌸</span>
+        <span class="text-[18px]"><Icon name="lucide:flower" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
         <span class="font-bold text-[16px] text-apjek-text">습관 기록 생성</span>
       </div>
     </template>
@@ -120,7 +120,7 @@
               style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)"
               aria-hidden="true"
             >
-              🌍
+              {{ (f.nickname || '?').trim().charAt(0).toUpperCase() || '?' }}
             </div>
             <p class="text-[13px] font-semibold text-apjek-text truncate w-full text-center">{{ f.nickname }}</p>
             <button

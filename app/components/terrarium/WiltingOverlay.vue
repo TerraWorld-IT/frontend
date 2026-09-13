@@ -12,7 +12,7 @@
       class="px-3 py-1.5 rounded-full bg-white/85 backdrop-blur-sm riso-shadow-sm text-xs font-medium text-riso-dark"
     >
       <span class="mr-1">
-        {{ stageIcon }}
+        <Icon v-if="stageIcon" :name="stageIcon" class="w-[1em] h-[1em]" aria-hidden="true" />
       </span>
       {{ visual.message }}
     </div>
@@ -41,9 +41,9 @@ const { visual } = useWilting(stateRef)
 
 const stageIcon = computed(() => {
   switch (visual.value.stage) {
-    case 1: return '💧'
-    case 2: return '🥀'
-    case 3: return '⚠️'
+    case 1: return 'lucide:droplet'
+    case 2: return 'lucide:flower'
+    case 3: return 'lucide:triangle-alert'
     default: return ''
   }
 })

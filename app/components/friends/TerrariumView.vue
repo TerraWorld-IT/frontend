@@ -59,7 +59,7 @@
             draggable="false"
             @error="onAssetError"
           >
-          <div v-else class="text-4xl">{{ item.image }}</div>
+          <div v-else class="text-4xl"><Icon name="lucide:image" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
           <Icon
             v-if="item.isAnimated"
             name="lucide:sparkles"

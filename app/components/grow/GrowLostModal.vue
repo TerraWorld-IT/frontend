@@ -30,7 +30,7 @@
           </button>
 
           <div class="flex items-start gap-[10px] pr-[36px]">
-            <span class="text-[24px] leading-none mt-[2px]" aria-hidden="true">😢</span>
+            <span class="text-[24px] leading-none mt-[2px]" aria-hidden="true"><Icon name="lucide:frown" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
             <div class="min-w-0">
               <h3 id="grow-lost-title" class="text-[18px] font-bold text-apjek-text tracking-[-0.4px] leading-[26px]">
                 기록이 끊겨서 정령이 떠났어요

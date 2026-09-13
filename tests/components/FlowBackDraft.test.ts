@@ -270,7 +270,7 @@ describe('PR-A 이탈 초안', () => {
     }
   })
 
-  it.each(['reject', 'error', 'pending'])('프로필 보조 조회가 %s여도 캘린더 통계를 반영하고 로딩을 해제한다', async (result) => {
+  it.each(['reject', 'error', 'pending'])('프로필 보조 조회가 %s여도 캘린더 기록을 반영하고 로딩을 해제한다', async (result) => {
     profile.value = null
     const { useUserStore } = await vi.importActual<typeof import('~/stores/user')>('~/stores/user')
     const user = useUserStore(createPinia())
@@ -279,11 +279,12 @@ describe('PR-A 이탈 초안', () => {
     if (result === 'reject') mocks.sdk.getMe!.mockRejectedValueOnce(new Error('getMe failed'))
     else if (result === 'error') mocks.sdk.getMe!.mockResolvedValueOnce({ error: { message: 'getMe failed' } })
     else mocks.sdk.getMe!.mockReturnValueOnce(new Promise(done => { resolve = done }))
-    const statistics = { totalRecords: 7, byCategory: [] }
-    mocks.sdk.getRecordStatistics!.mockResolvedValueOnce({ data: statistics })
+    const records = [{ id: 7, recordedDate: '2026-09-13', dailyType: 'PHOTO', categoryName: '산책' }]
+    mocks.sdk.listRecords!.mockResolvedValueOnce({ data: { content: records, totalPages: 1 } })
     const s = state(await mountPage(CalendarPage))
     expect(mocks.sdk.getMe).toHaveBeenCalledOnce()
-    expect(s.stats).toEqual(statistics)
+    expect(s.monthRecords).toEqual(records)
+    expect(mocks.sdk.getRecordStatistics).not.toHaveBeenCalled()
     expect(s.fetchError).toBeNull()
     expect(s.pending).toBe(false)
     expect(mocks.toast.error).not.toHaveBeenCalled()

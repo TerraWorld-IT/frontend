@@ -71,7 +71,7 @@
           data-testid="grow-spirit-anchor"
           aria-hidden="true"
         >
-          <span class="text-[34px] opacity-60">✨</span>
+          <span class="text-[34px] opacity-60"><Icon name="lucide:sparkles" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
         </div>
         <!-- 진행/완료 상태의 실제 정령. stage1 의 기존 0.85 비율도 안쪽에서 유지한다. -->
         <div
@@ -170,7 +170,7 @@
           >
             <template v-if="isLost(c)">
               <div class="w-[120px] h-[120px] rounded-full border-2 border-dashed border-white/50 flex items-center justify-center" aria-hidden="true">
-                <span class="text-[34px] opacity-60">✨</span>
+                <span class="text-[34px] opacity-60"><Icon name="lucide:sparkles" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
               </div>
               <p class="mt-[22px] text-[18px] font-bold text-white tracking-[-0.4px]">내일 새로운 정령이 찾아와요</p>
               <p class="mt-[4px] text-[12px] text-white/75 tracking-[-0.2px]">기록이 끊겨서 정령이 떠났어요</p>
@@ -358,7 +358,7 @@ function showCompletionToast(c: GrowthItem): void {
   completedToastCycles.add(c.cycleId)
   toast.success(`${c.goal}개 달성! 정령을 획득했어요`, {
     description: '획득한 정령을 나의 테라에 배치할 수 있어요',
-    icon: '🎉',
+    icon: 'lucide:party-popper',
     variant: 'card',
   })
 }

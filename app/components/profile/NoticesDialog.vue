@@ -60,7 +60,7 @@
               <button type="button" class="h-11 px-4" @click="loadNotices">다시 시도</button>
             </div>
             <div v-else-if="notices.length === 0" class="h-full flex flex-col items-center justify-center gap-2 text-apjek-text-faint py-10">
-              <span class="text-[32px]" aria-hidden="true">📭</span>
+              <span class="text-[32px]" aria-hidden="true"><Icon name="lucide:inbox" class="w-[1em] h-[1em]" aria-hidden="true" /></span>
               <p class="text-[13px]">공지사항이 없어요</p>
             </div>
             <ul v-else class="flex flex-col divide-y divide-apjek-border">

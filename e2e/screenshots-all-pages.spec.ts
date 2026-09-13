@@ -551,17 +551,14 @@ test.describe('UX 흐름', () => {
     }
   })
 
-  test('flow-13-자세히보기-expanded', async ({ page }) => {
-    // calendar 활동 통계 자세히보기 toggle 후 카테고리 별 progress 보임
+  test('flow-13-캘린더-통계-제거', async ({ page }) => {
+    // Figma에 없는 통계를 제거한 뒤 날짜 그리드가 바로 이어진다.
     await signUpAndLogin(page)
     await page.goto('/calendar')
     await page.waitForLoadState('networkidle').catch(() => {})
-    const detailBtn = page.locator('button', { hasText: /자세히보기/ }).first()
-    if (await detailBtn.isVisible().catch(() => false)) {
-      await detailBtn.click()
-      await page.waitForTimeout(500)
-    }
-    await shot(page, 'flow-13-calendar-stats-expanded')
+    await expect(page.locator('[data-layout-anchor="calendar-stats"]')).toHaveCount(0)
+    await expect(page.locator('[data-layout-anchor="calendar-grid"]')).toBeVisible()
+    await shot(page, 'flow-13-calendar-without-stats')
   })
 
   test('flow-14-친구코드-발급', async ({ page }) => {

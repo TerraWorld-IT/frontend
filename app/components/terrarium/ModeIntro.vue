@@ -1,6 +1,6 @@
 <!--
   모드 진입 인트로 스플래시 (아프젝 T3b 힐링 / T13 관리 — 댓글 #39 진입 가이드).
-  풀스크린 연파랑 그라디언트 위에 [이모지 + 제목] / 설명 / 병 일러스트를 1.2초 보여준 뒤 done emit.
+  풀스크린 연파랑 그라디언트 위에 [lucide 아이콘 + 제목] / 설명 / 병 일러스트를 1.2초 보여준 뒤 done emit.
   배경은 토큰(blue/bg/surface) 혼합이라 .dark 에서도 글자 토큰과 대비가 유지된다(고정 #cfe0f6 계열 금지).
   부모는 done 을 받아 실제 모드(healingMode / editMode)를 켠다. 열린 채 unmount 되면 타이머 정리.
   등록명: TerrariumModeIntro.
@@ -19,7 +19,7 @@
              미지원 브라우저에서 선언이 통째로 무시돼 중앙 정렬이 사라진다. -->
         <div class="shrink-0 mt-auto flex flex-col items-center gap-2 text-center">
           <p class="text-[26px] font-extrabold text-apjek-text tracking-[-0.5px]">
-            <span aria-hidden="true">{{ icon }}</span> {{ title }}
+            <span aria-hidden="true"><Icon :name="icon" class="w-[1em] h-[1em]" /></span> {{ title }}
           </p>
           <p class="text-sm text-apjek-text-sub leading-relaxed">{{ description }}</p>
         </div>

@@ -24,7 +24,7 @@
             style="padding-top: calc(1rem + var(--sat))"
           >
             <h3 class="font-bold text-[17px] text-apjek-text flex items-center gap-2">
-              <span aria-hidden="true">🔔</span>알림
+              <span aria-hidden="true"><Icon name="lucide:bell" class="w-[1em] h-[1em]" aria-hidden="true" /></span>알림
             </h3>
             <button
               type="button"

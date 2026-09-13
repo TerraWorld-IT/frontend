@@ -46,7 +46,7 @@
     <div class="flex-1 px-4 pt-4 pb-8">
       <!-- 에러 -->
       <div v-if="fetchError" class="flex flex-col items-center justify-center py-20 gap-3 text-apjek-text-faint">
-        <div class="text-5xl mb-1">⚠️</div>
+        <div class="text-5xl mb-1"><Icon name="lucide:triangle-alert" class="w-[1em] h-[1em]" aria-hidden="true" /></div>
         <p class="text-sm font-medium text-riso-poppy">아이템을 불러오지 못했어요</p>
         <!-- raw error.message 는 사용자에게 노출하지 않는다 (audit C4-3) — curated 문구로 대체 -->
         <p class="text-xs text-apjek-text-faint">잠시 후 다시 시도해 주세요</p>
@@ -86,7 +86,7 @@
         v-else-if="filteredItems.length === 0"
         class="flex flex-col items-center justify-center py-20 text-apjek-text-faint"
       >
-        <div class="text-5xl mb-3">{{ shopCat === 'ruby' ? '💎' : '🌿' }}</div>
+        <div class="text-5xl mb-3"><IconsCurrencyIcon v-if="shopCat === 'ruby'" code="RUBY" :size="48" /><Icon v-else name="lucide:leaf" class="w-12 h-12" aria-hidden="true" /></div>
         <p class="text-sm font-medium">
           {{ emptyMessage }}
         </p>
@@ -258,7 +258,7 @@ const filteredItems = computed<ItemResponse[]>(() => {
 
 const emptyMessage = computed<string>(() => {
   if (shopCat.value === 'ruby') return '루비샵을 준비 중이에요'
-  if (shopCat.value === 'background') return '배경 아이템 준비중이에요 🚀'
+  if (shopCat.value === 'background') return '배경 아이템 준비중이에요'
   return '판매 중인 아이템이 없어요'
 })
 

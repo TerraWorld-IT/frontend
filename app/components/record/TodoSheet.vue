@@ -4,7 +4,7 @@
   <CommonBottomSheet :open="open" ariaLabel="투두리스트 기록" fixed-height @close="emit('close')">
     <template #header>
       <div class="flex items-center gap-2 px-5 py-3 border-b border-apjek-border shrink-0 mr-9">
-        <span class="text-[18px]">💧</span>
+        <IconsCurrencyIcon code="DEW" :size="18" />
         <span class="font-bold text-[16px] text-apjek-text">투두리스트 기록</span>
       </div>
       <!-- 세그먼트 — 선택=검정 채움 -->

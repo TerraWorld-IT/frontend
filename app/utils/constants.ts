@@ -1,11 +1,12 @@
 import type { RecordResponse } from '@terraworld-it/openapi-frontend'
+import type { CurrencyCode } from '~/utils/currency'
 
-/** 카테고리 아이콘 맵 (이모지 → 추후 @iconify 전환 가능) */
-export const CATEGORY_ICONS: Record<string, string> = {
-  산책: '🚶',
-  독서: '📖',
-  러닝: '🏃',
-  낙서: '🎨',
+/** 카테고리별 기존 토큰 이미지에 사용하는 재화 코드. */
+export const CATEGORY_ICONS: Record<string, CurrencyCode> = {
+  산책: 'DEW',
+  독서: 'SUN',
+  러닝: 'BOLT',
+  낙서: 'WIND',
 }
 
 /** 카테고리 컬러 맵 */
@@ -44,24 +45,24 @@ export const DAILY_TYPE_LABELS: Record<DailyType, string> = {
   DISTANCE: '거리',
 }
 
-export const DAILY_TYPE_ICONS: Record<DailyType, string> = {
-  PHOTO: '✅',
-  DIARY: '📔',
-  FOCUS: '⏱️',
-  DISTANCE: '🏃',
+export const DAILY_TYPE_ICONS: Record<DailyType, CurrencyCode> = {
+  PHOTO: 'DEW',
+  DIARY: 'SUN',
+  FOCUS: 'BOLT',
+  DISTANCE: 'WIND',
 }
 
 /**
  * 여러 기록 화면에서 반복 구현되던 "dailyType 있으면 그 라벨/아이콘 우선,
- * 없으면 categoryName/categoryEmoji" 표시 규칙을 단일 헬퍼로 고정한다.
+ * 없으면 categoryName/카테고리 토큰" 표시 규칙을 단일 헬퍼로 고정한다.
  * 최근 기록 목록 제거 뒤에도 캘린더 기록 표시는 이 규칙을 그대로 사용한다.
  */
 export function recordDisplayLabel(record: Pick<RecordResponse, 'dailyType' | 'categoryName'>): string {
   return (record.dailyType && DAILY_TYPE_LABELS[record.dailyType]) || record.categoryName
 }
 
-export function recordDisplayIcon(record: Pick<RecordResponse, 'dailyType' | 'categoryEmoji'>): string {
-  return (record.dailyType && DAILY_TYPE_ICONS[record.dailyType]) || record.categoryEmoji || '🏷️'
+export function recordDisplayIcon(record: Pick<RecordResponse, 'dailyType' | 'categoryName'>): CurrencyCode | undefined {
+  return (record.dailyType && DAILY_TYPE_ICONS[record.dailyType]) || CATEGORY_ICONS[record.categoryName]
 }
 
 /** 희귀도 라벨 */
@@ -73,7 +74,7 @@ export const RARITY_LABELS: Record<string, { label: string; class: string }> = {
 
 /** 재화 타입 라벨 */
 export const CURRENCY_LABELS: Record<string, string> = {
-  BASIC_COIN: '🪙 코인',
+  BASIC_COIN: '코인',
   CATEGORY_TOKEN: '토큰',
 }
 
