@@ -37,6 +37,49 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // 푸시 등록 재시도 훅 — 아래 Push 블록에서 실제 구현으로 대체되고 resume 리스너가 호출.
   let retryPushRegistration: () => void = () => {}
 
+  // --- Network (구형 셸/웹은 OfflineBanner의 navigator.onLine 폴백) ---
+  const nativeConnected = useState<boolean | null>('native-network-connected', () => null)
+  let refreshNetworkStatus: () => void = () => {}
+  // 네이티브 응답을 기다리느라 Nuxt 마운트를 지연하지 않는다.
+  void (async () => {
+    try {
+      if (!Capacitor.isPluginAvailable('Network')) return
+      const { Network } = await import('@capacitor/network')
+      let disposed = false
+      let revision = 0
+      let listener: Awaited<ReturnType<typeof Network.addListener>> | undefined
+      const dispose = () => {
+        disposed = true
+        nativeConnected.value = null
+        refreshNetworkStatus = () => {}
+        void listener?.remove().catch(() => {})
+      }
+      nuxtApp.vueApp.onUnmount(dispose)
+      if (import.meta.hot) import.meta.hot.dispose(dispose)
+      listener = await Network.addListener('networkStatusChange', ({ connected }) => {
+        if (disposed) return
+        revision++
+        nativeConnected.value = connected
+      })
+      if (disposed) {
+        await listener.remove()
+        return
+      }
+      refreshNetworkStatus = () => {
+        const requestRevision = ++revision
+        void Network.getStatus().then(({ connected }) => {
+          // 조회 중 들어온 더 최신 이벤트/복귀 조회를 이전 응답으로 덮지 않는다.
+          if (!disposed && revision === requestRevision) nativeConnected.value = connected
+        }).catch(() => {
+          if (!disposed && revision === requestRevision) nativeConnected.value = null
+        })
+      }
+      refreshNetworkStatus()
+    } catch {
+      nativeConnected.value = null
+    }
+  })()
+
   // --- Status Bar ---
   // 초기 스타일/배경색은 plugins/colorMode.client.ts 의 watch(immediate:true) 가 담당
   // (Codex Round 2 지적 — 여기서 Android 전용으로 Light/cream 을 무조건 설정하면, 두 플러그인의
@@ -249,6 +292,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // 오래 백그라운드에 있다가 돌아오면 JWT(5분 TTL)가 만료된 채일 수 있다. resume 시 즉시
   // best-effort 로 갱신(실패해도 openapi.ts 의 401 인터셉터가 최종 폴백).
   App.addListener('resume', () => {
+    refreshNetworkStatus()
     useAuth().loadJwt().catch(() => {})
     // 푸시 등록이 일시 실패로 미완이면 복귀 시점에 재시도 (latch 가 성공/denied 를 걸러줌).
     retryPushRegistration()

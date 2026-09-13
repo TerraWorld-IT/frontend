@@ -1024,13 +1024,16 @@ onMounted(() => {
 watch(friendsOpen, open => writeAccordionPref(ACCORDION_KEYS.friends, open))
 watch(walletOpen, open => writeAccordionPref(ACCORDION_KEYS.wallet, open))
 
-// 친구 목록 — 아코디언 첫 오픈 시 1회 lazy load (기본 열림이라 마운트 직후 로드된다).
+// 친구 목록 — 핵심 데이터 렌더 이후, 아코디언 첫 오픈 시 1회 lazy load.
 // T15 방문 모달이 좋아요 수를 쓰므로 friends 페이지의 FriendItem 과 같은 shape 로 받는다.
 interface HomeFriend { userId: string, nickname: string, likeCount: number, liked?: boolean }
 const homeFriends = ref<HomeFriend[]>([])
 const homeFriendsLoading = ref<boolean>(false)
 const homeFriendsError = ref<boolean>(false)
 let homeFriendsLoaded = false
+const homeSecondaryReady = ref<boolean>(false)
+let homeDisposed = false
+onBeforeUnmount(() => { homeDisposed = true })
 async function loadHomeFriends() {
   if (homeFriendsLoaded || homeFriendsLoading.value) return
   homeFriendsLoading.value = true
@@ -1050,9 +1053,9 @@ async function loadHomeFriends() {
   }
 }
 // 클라이언트에서만 로드 — SSR 에서 호출하면 JWT 없이 실패해 "불러오지 못했어요" 가 그대로 하이드레이션된다.
-watch(friendsOpen, (open) => {
-  if (open && import.meta.client) void loadHomeFriends()
-}, { immediate: true })
+watch([friendsOpen, homeSecondaryReady], ([open, ready]) => {
+  if (open && ready && !homeDisposed && import.meta.client) void loadHomeFriends()
+})
 
 // ─── T15 친구 방문 모달 — friends 페이지와 동일 핸들러(visitFriendTerrarium / toggleFriendLike) ───
 const visitModalOpen = ref<boolean>(false)
@@ -1117,9 +1120,9 @@ const notifyUnread = ref<number>(0)
 function onNotifyClick() {
   showNotifications.value = true
 }
-// 미읽음 수는 홈 마운트 시 1회만 조회 — 백엔드 컨트롤러 구현 중이라 실서버 404 가능.
+// 미읽음 수는 홈 핵심 데이터 렌더 이후 1회만 조회.
 // 실패하면 뱃지만 숨기고 재시도하지 않는다(알림이 안 떠도 홈은 깨지지 않아야 한다).
-onMounted(async () => {
+async function loadUnreadNotificationCount() {
   try {
     const { data, error } = await sdk.getUnreadNotificationCount({ client })
     if (error) return
@@ -1128,7 +1131,7 @@ onMounted(async () => {
   catch {
     // 조용한 실패 — 뱃지 숨김 유지
   }
-})
+}
 
 // Android 하드웨어 뒤로가기 — CommonModal 을 거치지 않는 이 페이지의 bespoke 오버레이(Teleport
 // v-if 패널)들은 각자 back-stack 에 직접 등록해야 뒤로가기가 라우트 이동/앱종료 대신 오버레이부터
@@ -2408,6 +2411,11 @@ onMounted(async () => {
     if (r.status === 'rejected') console.error(`[home] 초기 로드 실패(${['load', 'attendance', 'tier'][i]})`, r.reason)
   })
   consumeHomeEntryQuery()
+  // user/items/terrarium 및 tier의 DOM 반영 후 비크리티컬 요청을 발사한다.
+  await nextTick()
+  if (homeDisposed) return
+  homeSecondaryReady.value = true
+  void loadUnreadNotificationCount()
 })
 
 // middleware/auth.ts 는 named middleware라 pageMeta 에 명시해야 실행된다. 이게 빠져있어서

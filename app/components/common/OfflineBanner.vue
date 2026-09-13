@@ -21,18 +21,21 @@
 </template>
 
 <script setup lang="ts">
-const isOffline = ref<boolean>(false)
+// null이면 플러그인 미지원/초기화 전 — 기존 브라우저 신호를 그대로 사용한다.
+const nativeConnected = useState<boolean | null>('native-network-connected', () => null)
+const browserOffline = ref<boolean>(false)
+const isOffline = computed(() => nativeConnected.value === null ? browserOffline.value : !nativeConnected.value)
 const root = ref<HTMLElement | null>(null)
 const { slots } = useToast()
 const { height } = useElementBounding(root)
 watch([height, isOffline], () => { slots.value.offline = isOffline.value ? height.value : 0 }, { flush: 'post' })
 
-function onOnline() { isOffline.value = false }
-function onOffline() { isOffline.value = true }
+function onOnline() { browserOffline.value = false }
+function onOffline() { browserOffline.value = true }
 
 onMounted(() => {
   if (!import.meta.client) return
-  isOffline.value = !navigator.onLine
+  browserOffline.value = !navigator.onLine
   window.addEventListener('online', onOnline)
   window.addEventListener('offline', onOffline)
 })
