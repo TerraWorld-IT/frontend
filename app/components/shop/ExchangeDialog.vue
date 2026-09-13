@@ -1,8 +1,7 @@
 <template>
   <!-- 재화 환전 다이얼로그 (아프젝 리스킨 + from 재화 선택 확장 — S2)
        기존 상점 페이지의 루비→코인 고정 다이얼로그를 분리·확장한 것.
-       backend directed exchange(POST /exchange {from,to,amount})가 토큰4종→COIN pair 를
-       이미 지원하므로(V28 시드) from 만 선택형으로 열고 to 는 COIN 고정.
+       활동토큰4종→COIN 및 COIN→활동토큰4종 방향을 선택한다.
        GET /exchange/rates 의 서버 환율표를 실행 전에 조회해 선택 pair 조건을 표시한다. -->
   <Teleport to="body">
     <Transition name="fade">
@@ -36,7 +35,7 @@
               </span>
             </button>
           </div>
-          <p class="text-[12px] text-apjek-text-sub mb-4">보유한 재화를 기본 코인으로 바꿔요</p>
+          <p class="text-[12px] text-apjek-text-sub mb-4">보유한 재화를 코인이나 활동 토큰으로 바꿔요</p>
 
           <!-- from 재화 선택 칩 (보유 잔액 병기) -->
           <div class="flex flex-wrap gap-2 mb-4" role="radiogroup" aria-label="환전할 재화 선택">
@@ -55,7 +54,23 @@
             </button>
           </div>
 
-          <!-- 방향 요약: 선택 재화 → 기본 코인 -->
+          <div v-if="fromCode === 'COIN'" class="flex flex-wrap gap-2 mb-4" role="radiogroup" aria-label="받을 재화 선택">
+            <button
+              v-for="meta in toMetas"
+              :key="meta.code"
+              type="button"
+              role="radio"
+              :aria-checked="toCode === meta.code"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-chip text-[12px]"
+              :class="toCode === meta.code ? 'apjek-chip-active' : ''"
+              @click="toCode = meta.code"
+            >
+              <IconsCurrencyIcon :code="meta.code" :size="14" color="currentColor" />
+              {{ meta.labelKo }}
+            </button>
+          </div>
+
+          <!-- 방향 요약 -->
           <div class="flex items-stretch gap-3 mb-4">
             <div class="flex-1 apjek-card flex flex-col items-center justify-center gap-1 py-4 px-3 text-apjek-text">
               <IconsCurrencyIcon :code="fromCode" :size="28" color="currentColor" />
@@ -68,9 +83,9 @@
               </div>
             </div>
             <div class="flex-1 apjek-card flex flex-col items-center justify-center gap-1 py-4 px-3 text-apjek-text">
-              <IconsCurrencyIcon code="COIN" :size="28" color="currentColor" />
-              <div class="text-[12px] font-semibold leading-tight">기본 코인</div>
-              <div class="text-[10px] text-apjek-text-faint">보유 {{ coinBalance }}개</div>
+              <IconsCurrencyIcon :code="toCode" :size="28" color="currentColor" />
+              <div class="text-[12px] font-semibold leading-tight">{{ toLabel }}</div>
+              <div class="text-[10px] text-apjek-text-faint">보유 {{ balance(toCode) }}개</div>
             </div>
           </div>
 
@@ -132,7 +147,7 @@
             :disabled="!canSubmit"
             @click="onExchange"
           >
-            {{ exchanging ? '환전 중...' : '코인으로 환전하기' }}
+            {{ exchanging ? '환전 중...' : toCode === 'COIN' ? '코인으로 환전하기' : `${toLabel} 받기` }}
           </button>
         </div>
       </div>
@@ -159,13 +174,16 @@ const userStore = useUserStore()
 const toast = useToast()
 const { trackTokenExchanged } = useGtagEvents()
 
-// COIN 도착 pair 가 시드된 from 재화 — 활동 토큰 4종 + 루비 (표시 순서 고정)
-const FROM_CODES: CurrencyCode[] = ['DEW', 'SUN', 'BOLT', 'WIND', 'RUBY']
+// 기존 표시 순서 유지 + COIN 출발 방향 추가. 실행 가능 여부는 서버 환율표로 판정한다.
+const ACTIVITY_CODES: CurrencyCode[] = ['DEW', 'SUN', 'BOLT', 'WIND']
+const FROM_CODES: CurrencyCode[] = [...ACTIVITY_CODES, 'RUBY', 'COIN']
 const fromMetas = FROM_CODES.map(code =>
   CURRENCY_META.find(m => m.code === code) ?? { code, labelKo: code, icon: '' },
 )
 
 const fromCode = ref<CurrencyCode>('DEW')
+const toCode = ref<CurrencyCode>('COIN')
+const toMetas = fromMetas.filter(meta => ACTIVITY_CODES.includes(meta.code))
 const amount = ref<number>(1)
 const exchanging = ref<boolean>(false)
 const exchangeRates = ref<ExchangeRateResponse[]>([])
@@ -212,10 +230,13 @@ function balance(code: CurrencyCode): number {
 }
 
 const fromBalance = computed<number>(() => balance(fromCode.value))
-const coinBalance = computed<number>(() => balance('COIN'))
+function receivedCurrencyLabel(code: string): string {
+  return code === 'COIN' ? '기본 코인' : CURRENCY_META.find(meta => meta.code === code)?.labelKo ?? code
+}
+const toLabel = computed<string>(() => receivedCurrencyLabel(toCode.value))
 const fromLabel = computed<string>(() => fromMetas.find(m => m.code === fromCode.value)?.labelKo ?? fromCode.value)
 const selectedRate = computed<ExchangeRateResponse | null>(() =>
-  exchangeRates.value.find(rate => rate.from === fromCode.value && rate.to === 'COIN') ?? null,
+  exchangeRates.value.find(rate => rate.from === fromCode.value && rate.to === toCode.value) ?? null,
 )
 
 // v-model.number 는 빈 입력 시 문자열('')을 남길 수 있어 정수 검증까지 통과해야 활성화
@@ -229,6 +250,7 @@ const canSubmit = computed<boolean>(() =>
 
 function selectFrom(code: CurrencyCode) {
   fromCode.value = code
+  toCode.value = code === 'COIN' ? 'DEW' : 'COIN'
   // 재화 변경 시 수량을 새 잔액 안으로 클램프 (0 잔액이면 1 유지 — CTA disabled 가 방어)
   const next = Number.isInteger(amount.value) ? amount.value : 1
   amount.value = Math.min(Math.max(1, next), Math.max(1, balanceOf(currency.value, code)))
@@ -269,14 +291,14 @@ async function loadExchangeRates(): Promise<void> {
   }
 }
 
-// --- 환전 (from 선택 → COIN, directed exchange) ---
+// --- 환전 (선택 pair, directed exchange) ---
 async function onExchange() {
   if (!canSubmit.value) return
   exchanging.value = true
   try {
     const { data, error } = await sdk.exchange({
       client,
-      body: { from: fromCode.value, to: 'COIN', amount: amount.value },
+      body: { from: fromCode.value, to: toCode.value, amount: amount.value },
     })
     if (error) throw error
     const ex = castData<ExchangeResult>(data)
@@ -284,7 +306,8 @@ async function onExchange() {
       userStore.updateCurrency(ex.updatedCurrency)
       trackTokenExchanged({ fromType: ex.from, toType: ex.to, amount: ex.fromAmount })
       // 사후 확정 표시 — 실제 지급량(toAmount)은 백엔드 환율 SoT 기준
-      toast.success(`기본 코인 ${ex.toAmount}개를 받았습니다! (환율 ${ex.rate})`)
+      const receivedLabel = receivedCurrencyLabel(ex.to)
+      toast.success(`${receivedLabel} ${ex.toAmount}개를 받았습니다! (환율 ${ex.rate})`)
       amount.value = 1
       close()
     }
