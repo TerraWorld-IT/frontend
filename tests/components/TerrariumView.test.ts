@@ -18,7 +18,7 @@ function terrarium(itemImage: string, free: boolean): TerrariumResponse {
   }
 }
 
-describe('친구 배치 이미지 fallback과 이모지 보존', () => {
+describe('친구 배치 이미지 fallback과 공통 아이콘', () => {
   it.each([false, true])('실제 img error → placeholder, 반복 실패는 루프 없음 (자유배치=%s)', async (free) => {
     const wrapper = await mountSuspended(TerrariumView, {
       props: { terrarium: terrarium('https://cdn.example/missing.png', free) },
@@ -33,12 +33,14 @@ describe('친구 배치 이미지 fallback과 이모지 보존', () => {
     wrapper.unmount()
   })
 
-  it.each([false, true])('slug가 있어도 이모지는 텍스트로 유지한다 (자유배치=%s)', async (free) => {
+  it.each([false, true])('slug가 있어도 비 URL 이모지는 공통 이미지 아이콘으로 표시한다 (자유배치=%s)', async (free) => {
     const wrapper = await mountSuspended(TerrariumView, {
       props: { terrarium: terrarium('🌵', free) }, shallow: true,
     })
     expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.text()).toContain('🌵')
+    expect(wrapper.text()).not.toContain('🌵')
+    const placeholder = wrapper.get('nuxt-icon-stub[name="lucide:image"]')
+    expect(placeholder.attributes('aria-hidden')).toBe('true')
     wrapper.unmount()
   })
 })
@@ -65,7 +67,9 @@ describe('친구·공유 배경 렌더', () => {
     data.background.assetUrl = assetUrl
     const wrapper = await mountSuspended(TerrariumView, { props: { terrarium: data }, shallow: true })
     expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.text()).toContain('🌵')
+    expect(wrapper.text()).not.toContain('🌵')
+    const placeholder = wrapper.get('nuxt-icon-stub[name="lucide:image"]')
+    expect(placeholder.attributes('aria-hidden')).toBe('true')
     wrapper.unmount()
   })
 })

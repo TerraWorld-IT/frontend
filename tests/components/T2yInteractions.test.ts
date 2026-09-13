@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
   routeLeave: vi.fn(),
   showRewardedAd: vi.fn(),
   adAndroid: false,
+  adIos: false,
+  adNative: false,
   issueServerNonce: vi.fn(),
   awaitNonceVerified: vi.fn(),
   backHandlers: [] as Array<() => void>,
@@ -49,7 +51,7 @@ mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true),
 mockNuxtImport('useAttendance', () => () => ({ state: ref(null), loading: ref(false), error: ref<string | null>(null), refresh: vi.fn(), checkIn: vi.fn() }))
 mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
 mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), playing: ref<boolean>(false), hasSource: false, play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
-mockNuxtImport('useAdMob', () => () => ({ isNative: false, isAndroid: mocks.adAndroid, isIos: false, issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd }))
+mockNuxtImport('useAdMob', () => () => ({ isNative: mocks.adNative, isAndroid: mocks.adAndroid, isIos: mocks.adIos, issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd }))
 
 const wrappers: VueWrapper[] = []
 // 실제 SFC setup을 마운트하고 외부 I/O와 자식 셸만 대체한다. 로직 복제/소스 문자열 실행은 하지 않는다.
@@ -73,6 +75,19 @@ function deferred<T = any>() {
   let reject!: (reason: Error) => void
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
+}
+
+// 첫 출시 홈 광고는 UI와 직접 핸들러 모두 외부 작업을 시작하지 않는다.
+function expectNoHomeAdWork(s: Record<string, any>) {
+  expect(s.adClaiming).toBe(false)
+  expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+  expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+  expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+  expect(mocks.sdk.issueAdRewardNonce).not.toHaveBeenCalled()
+  expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+  expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
+  expect(mocks.toast.success).not.toHaveBeenCalled()
+  expect(mocks.toast.error).not.toHaveBeenCalled()
 }
 
 describe('WP2a 조회 상태', () => {
@@ -340,6 +355,8 @@ beforeEach(() => {
   mocks.shareFile.mockReset().mockResolvedValue(true)
   mocks.capture.mockReset().mockResolvedValue({ toBlob: (callback: (blob: Blob) => void) => callback(new Blob(['png'], { type: 'image/png' })) })
   mocks.adAndroid = false
+  mocks.adIos = false
+  mocks.adNative = false
   mocks.showRewardedAd.mockReset().mockResolvedValue(true)
   mocks.issueServerNonce.mockReset().mockImplementation(async (purpose) => ({ nonce: 'n1', purpose, status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() }))
   mocks.awaitNonceVerified.mockReset().mockResolvedValue({ nonce: 'n1', status: 'VERIFIED' })
@@ -355,7 +372,7 @@ afterEach(() => {
 
 describe('WP4a 보류 복구 델타', () => {
   beforeEach(() => { mocks.adAndroid = true })
-  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 보류는 다른 purpose 시청 후 청구 실패에도 유지된다', async (purpose) => {
+  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 보류는 성장 광고 청구 실패 또는 홈 광고 진입 차단에도 유지된다', async (purpose) => {
     const claim = { nonce: 'previous', purpose, expiresAt: new Date(Date.now() + 600000).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) }
     writePendingAdClaim(purpose, 'u1', claim)
     const s = state(await mountPage(purpose === 'AD_REWARD' ? GrowPage : HomePage))
@@ -364,52 +381,46 @@ describe('WP4a 보류 복구 델타', () => {
       mocks.sdk.reviveGrowth!.mockRejectedValueOnce(new Error('응답 유실'))
       await s.onRevive('AD')
       expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(1)
+      expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+      expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')?.nonce).toBe('n1')
     }
     else {
-      mocks.sdk.claimAdReward!.mockRejectedValue(new Error('응답 유실'))
       await s.onClaimAdReward()
-      expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(2)
+      expectNoHomeAdWork(s)
+      expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
     }
-    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
     expect(readPendingAdClaim(purpose, 'u1')).toEqual(claim)
-    expect(readPendingAdClaim(purpose === 'AD_REWARD' ? 'GROWTH_REVIVE' : 'AD_REWARD', 'u1')?.nonce).toBe('n1')
   })
 
-  it.each([true, false])('홈 nonce 불일치는 재동기화 후 보류와 팝업을 정리한다: 보류=%s', async (recovering) => {
+  it.each([true, false])('홈 광고 차단은 보류=%s에서도 검증·잔액 동기화·팝업 변경을 시작하지 않는다', async (recovering) => {
     const s = state(await mountPage(HomePage))
-    if (recovering) writePendingAdClaim('AD_REWARD', 'u1', { nonce: 'n1', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    const claim = { nonce: 'n1', purpose: 'AD_REWARD' as const, expiresAt: new Date(Date.now() + 600000).toISOString() }
+    if (recovering) writePendingAdClaim('AD_REWARD', 'u1', claim)
     mocks.awaitNonceVerified.mockResolvedValueOnce(null)
     mocks.user.fetchMe.mockClear()
-    const balance = deferred()
-    mocks.user.fetchMe.mockReturnValueOnce(balance.promise)
     s.showFreeCoinDialog = true
-    const result = s.onClaimAdReward()
-    await flushPromises()
-    expect(mocks.user.fetchMe).toHaveBeenCalledWith(true)
-    expect(readPendingAdClaim('AD_REWARD', 'u1')).not.toBeNull()
+    await s.onClaimAdReward(recovering)
+    expectNoHomeAdWork(s)
+    expect(mocks.user.fetchMe).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toEqual(recovering ? claim : null)
     expect(s.showFreeCoinDialog).toBe(true)
-    balance.resolve(); await result
-    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
-    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
-    expect(s.showFreeCoinDialog).toBe(false)
-    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(recovering ? 0 : 1)
-    expect(mocks.toast.info).toHaveBeenCalledWith('이전 광고 요청을 확인할 수 없어 잔액을 다시 확인했어요')
+    expect(mocks.toast.info).not.toHaveBeenCalled()
   })
 
-  it('홈 잔액 재조회 실패는 보류와 팝업을 유지한다', async () => {
+  it('홈 잔액 조회가 실패할 환경에서도 광고 차단은 보류와 팝업을 유지하고 조회하지 않는다', async () => {
     const s = state(await mountPage(HomePage))
-    writePendingAdClaim('AD_REWARD', 'u1', { nonce: 'n1', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    const claim = { nonce: 'n1', purpose: 'AD_REWARD' as const, expiresAt: new Date(Date.now() + 600000).toISOString() }
+    writePendingAdClaim('AD_REWARD', 'u1', claim)
     s.showFreeCoinDialog = true
-    mocks.awaitNonceVerified.mockResolvedValueOnce(null)
-    mocks.user.fetchMe.mockRejectedValueOnce(new Error('잔액 실패'))
+    mocks.user.fetchMe.mockClear().mockRejectedValueOnce(new Error('잔액 실패'))
     await s.onClaimAdReward()
-    expect(readPendingAdClaim('AD_REWARD', 'u1')).not.toBeNull()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toEqual(claim)
     expect(s.showFreeCoinDialog).toBe(true)
-    expect(s.adClaiming).toBe(false)
-    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(mocks.user.fetchMe).not.toHaveBeenCalled()
+    expectNoHomeAdWork(s)
   })
 
-  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 로컬 만료도 재조회 후 정리하며 광고나 청구를 시작하지 않는다', async (purpose) => {
+  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 로컬 만료는 홈 진입 차단 시 보존하고 성장 복구 시 재조회 후 정리한다', async (purpose) => {
     const s = state(await mountPage(purpose === 'AD_REWARD' ? HomePage : GrowPage))
     writePendingAdClaim(purpose, 'u1', { nonce: 'expired', purpose, expiresAt: new Date(Date.now() - 1).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) })
     mocks.user.fetchMe.mockClear()
@@ -421,8 +432,16 @@ describe('WP4a 보류 복구 델타', () => {
       s.lostModalSpecies = 'SPIRIT_A'
       await s.onRevive('AD')
     }
-    expect(mocks.user.fetchMe).toHaveBeenCalledWith(true)
-    expect(readPendingAdClaim(purpose, 'u1')).toBeNull()
+    if (purpose === 'AD_REWARD') {
+      expect(mocks.user.fetchMe).not.toHaveBeenCalled()
+      expect(readPendingAdClaim(purpose, 'u1')?.nonce).toBe('expired')
+      expect(s.showFreeCoinDialog).toBe(false)
+      expectNoHomeAdWork(s)
+    }
+    else {
+      expect(mocks.user.fetchMe).toHaveBeenCalledWith(true)
+      expect(readPendingAdClaim(purpose, 'u1')).toBeNull()
+    }
     expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
     expect(mocks.showRewardedAd).not.toHaveBeenCalled()
     expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
@@ -465,49 +484,33 @@ describe('WP4a 보류 복구 델타', () => {
     expect(s.reviving).toBe(false)
   })
 
-  it('실제 폴링은 홈 60초 abort 후 GET을 추가하지 않고 보류를 유지한다', async () => {
+  it('홈 광고 차단은 실제 폴링 구현을 연결해도 60초 뒤 GET이나 보류 청구를 시작하지 않는다', async () => {
     const s = state(await mountPage(HomePage))
     const actual = await vi.importActual<typeof import('~/composables/useAdMob')>('~/composables/useAdMob')
     mocks.awaitNonceVerified.mockImplementation(actual.useAdMob().awaitNonceVerified)
+    const claim = { nonce: 'previous', purpose: 'AD_REWARD' as const, expiresAt: new Date(Date.now() + 600000).toISOString() }
+    writePendingAdClaim('AD_REWARD', 'u1', claim)
     vi.useFakeTimers()
-    const ad = deferred<boolean>()
-    mocks.showRewardedAd.mockReturnValueOnce(ad.promise)
-    const first = s.onClaimAdReward()
-    await vi.advanceTimersByTimeAsync(59500)
-    ad.resolve(true)
-    await vi.advanceTimersByTimeAsync(0)
-    expect(mocks.sdk.issueAdRewardNonce).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(500); await first
-    expect(s.adClaiming).toBe(false)
-    await vi.advanceTimersByTimeAsync(5000)
-    expect(mocks.sdk.issueAdRewardNonce).toHaveBeenCalledTimes(1)
-    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
-    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    await s.onClaimAdReward(true)
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS + 5000)
+    expectNoHomeAdWork(s)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toEqual(claim)
   })
 
-  it('abort 후 이전 폴링의 늦은 null은 새 재청구의 보류와 잠금을 변경하지 않는다', async () => {
+  it('홈 광고 반복 진입과 복구 호출은 시한 전후에도 기존 보류와 잠금을 변경하지 않는다', async () => {
     const s = state(await mountPage(HomePage))
+    const claim = { nonce: 'previous', purpose: 'AD_REWARD' as const, expiresAt: new Date(Date.now() + 600000).toISOString() }
+    writePendingAdClaim('AD_REWARD', 'u1', claim)
     vi.useFakeTimers()
-    const polling = deferred()
-    mocks.awaitNonceVerified.mockReturnValueOnce(polling.promise)
-    const first = s.onClaimAdReward()
-    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS); await first
-    expect(mocks.awaitNonceVerified.mock.calls[0]![2].signal.aborted).toBe(true)
-    const post = deferred()
-    mocks.sdk.claimAdReward!.mockReturnValueOnce(post.promise)
-    const second = s.onClaimAdReward()
-    await vi.advanceTimersByTimeAsync(0)
-    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(1)
-    polling.resolve(null)
-    await vi.advanceTimersByTimeAsync(0)
-    expect(s.adClaiming).toBe(true)
-    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
-    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS); await second
-    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
-    post.resolve({ error: { code: 'NONCE_ALREADY_CONSUMED' } })
-    await vi.advanceTimersByTimeAsync(0)
-    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+    await s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    await Promise.all([s.onClaimAdReward(), s.onClaimAdReward(true), s.claimPendingAdReward()])
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    expectNoHomeAdWork(s)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toEqual(claim)
+    expect(s.showFreeCoinDialog).toBe(false)
   })
+
 })
 
 describe('WP2a-B 홈 피드백', () => {
@@ -559,86 +562,68 @@ describe('WP2a-B 홈 피드백', () => {
     expect(mocks.sdk.updateFreePosition).not.toHaveBeenCalled()
   })
 
-  it.each(['cancel', 'error'] as const)('B-16 광고 준비 중 재진입을 거부하고 %s 후 잠금을 해제한다', async (outcome) => {
+  it.each(['cancel', 'error'] as const)('B-16 광고 결과가 %s인 SDK라도 준비·재진입을 시작하지 않는다', async (outcome) => {
     const s = state(await mountPage(HomePage))
-    const ad = deferred<boolean>()
-    mocks.showRewardedAd.mockReset().mockReturnValueOnce(ad.promise)
+    mocks.showRewardedAd.mockImplementation(async () => {
+      if (outcome === 'error') throw new Error('광고 오류')
+      return false
+    })
     s.showFreeCoinDialog = true
-    const claiming = s.onClaimAdReward()
-    await nextTick()
-    expect(s.adClaiming).toBe(true)
+    await Promise.all([s.onClaimAdReward(), s.onClaimAdReward()])
+    expectNoHomeAdWork(s)
     expect(s.showFreeCoinDialog).toBe(true)
-    await s.onClaimAdReward()
-    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
     s.showFreeCoinDialog = false
     s.adAvailable = true
     s.onAdMenuClick()
     expect(s.showFreeCoinDialog).toBe(false)
-    s.showFreeCoinDialog = true
-    if (outcome === 'cancel') ad.resolve(false)
-    else ad.reject(new Error('광고 오류'))
-    await claiming
-    expect(s.adClaiming).toBe(false)
-    expect(s.showFreeCoinDialog).toBe(true)
   })
 
-  it('B-16 준비가 끝나지 않아도 시한 뒤 재진입하고 늦은 광고 완료로 청구하지 않는다', async () => {
+  it('B-16 광고 준비가 응답하지 않아도 차단된 진입은 busy나 시한 타이머를 만들지 않는다', async () => {
     const w = await mountPage(HomePage); const s = state(w)
     vi.useFakeTimers()
-    const ad = deferred<boolean>(); const nextAd = deferred<boolean>()
-    mocks.showRewardedAd.mockReset().mockReturnValueOnce(ad.promise).mockReturnValueOnce(nextAd.promise)
+    mocks.showRewardedAd.mockImplementation(() => new Promise<boolean>(() => undefined))
     s.showFreeCoinDialog = true
-    const claiming = s.onClaimAdReward()
+    await s.onClaimAdReward()
     await nextTick()
     const dialog = w.get('[data-testid="home-ad-body"]').element.closest('common-modal-stub')!
-    expect(dialog.getAttribute('busy')).toBe('true')
-    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS - 1)
-    expect(s.adClaiming).toBe(true)
-    await vi.advanceTimersByTimeAsync(1)
-    await claiming; await nextTick()
-    expect(s.adClaiming).toBe(false)
     expect(dialog.getAttribute('busy')).toBe('false')
-    expect(mocks.toast.error).toHaveBeenCalledWith('광고 보상 실패')
-    const reentry = s.onClaimAdReward()
-    // 서버 nonce 발급의 비동기 경계를 기다리되 기존 호출 횟수와 시한 단정은 유지한다.
-    await nextTick()
-    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(2)
-    ad.resolve(true); await flushPromises()
-    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
-    expect(s.adClaiming).toBe(true)
-    expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
-    expect(mocks.toast.success).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    await s.onClaimAdReward()
+    expectNoHomeAdWork(s)
     expect(s.showFreeCoinDialog).toBe(true)
-    nextAd.resolve(false); await reentry
-    expect(s.adClaiming).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each(['success', 'network-error', 'retry'] as const)('B-16 보상 요청 %s 도 전체 시한을 따르고 늦은 응답을 반영하지 않는다', async (outcome) => {
+  it.each(['success', 'network-error', 'retry'] as const)('B-16 보상 서버가 %s를 반환할 환경에도 청구·재시도·잔액 반영을 하지 않는다', async (outcome) => {
     const s = state(await mountPage(HomePage))
     vi.useFakeTimers()
-    const claim = deferred()
-    mocks.showRewardedAd.mockReset().mockImplementationOnce(async () => {
-      await new Promise<void>(resolve => setTimeout(resolve, 1000))
-      return true
-    })
-    if (outcome === 'retry') mocks.sdk.claimAdReward!.mockRejectedValueOnce(new Error('네트워크 오류'))
-    mocks.sdk.claimAdReward!.mockReturnValueOnce(claim.promise)
+    if (outcome === 'network-error') mocks.sdk.claimAdReward!.mockRejectedValue(new Error('네트워크 오류'))
+    else if (outcome === 'retry') mocks.sdk.claimAdReward!.mockRejectedValueOnce(new Error('재시도 대상')).mockResolvedValue({ data: { updatedCurrency: { ruby: 1 } } })
+    else mocks.sdk.claimAdReward!.mockResolvedValue({ data: { updatedCurrency: { ruby: 1 } } })
     s.showFreeCoinDialog = true
-    const claiming = s.onClaimAdReward()
-    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS - 1)
-    expect(s.adClaiming).toBe(true)
-    await vi.advanceTimersByTimeAsync(1); await claiming
-    expect(s.adClaiming).toBe(false)
-    expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith('광고 보상 실패')
-    if (outcome === 'network-error') claim.reject(new Error('늦은 네트워크 오류'))
-    else claim.resolve({ data: { updatedCurrency: { ruby: 1 }, reward: { specialCoins: 1 } } })
-    await flushPromises()
-    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(outcome === 'retry' ? 2 : 1)
-    expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
-    expect(mocks.toast.success).not.toHaveBeenCalled()
-    expect(mocks.toast.error).toHaveBeenCalledTimes(1)
+    await s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    await s.onClaimAdReward(true)
+    expectNoHomeAdWork(s)
     expect(s.showFreeCoinDialog).toBe(true)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
   })
+
+  it.each(['web', 'android', 'ios'] as const)('B-16 %s에서 광고보상 버튼은 비활성이며 클릭과 직접 호출 모두 팝업·광고를 열지 않는다', async (platform) => {
+    mocks.adNative = platform !== 'web'
+    mocks.adAndroid = platform === 'android'
+    mocks.adIos = platform === 'ios'
+    const w = await mountPage(HomePage); const s = state(w)
+    const button = w.get('[data-testid="home-freecoin"]')
+    expect((button.element as HTMLButtonElement).disabled).toBe(true)
+    await button.trigger('click')
+    s.onAdMenuClick()
+    await s.onClaimAdReward()
+    expect(s.showFreeCoinDialog).toBe(false)
+    expectNoHomeAdWork(s)
+  })
+
 })
 
 describe('T2-Y 기록 요청과 입력 보존', () => {
@@ -934,6 +919,8 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
   // happy-dom에는 실제 포인터 캡처가 없어 캡처 소유권만 모사하고 이벤트는 DOM으로 전달한다.
   async function mountPinchStage() {
     const w = await mountPage(HomePage)
+    state(w).healingMode = true
+    await nextTick()
     const stage = w.get('#my-terra-container')
     const captures = new Set<number>()
     const capture = vi.fn((id: number) => captures.add(id))
@@ -979,7 +966,7 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
     const { s, stage, release } = await mountPinchStage()
     await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0 })
     await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100 })
-    s[mode] = true
+    s[mode] = mode === 'editMode'
     await nextTick()
     expect(release.mock.calls).toEqual([[1], [2]])
     expect(s.pinchPointers.size).toBe(0)
@@ -989,18 +976,21 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
     await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0 })
     await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100 })
     release.mockImplementationOnce(() => { throw new Error('inactive pointer') })
-    s.healingMode = true
+    s.healingMode = false
     await nextTick()
     expect(release.mock.calls).toEqual([[1], [2]])
     expect(s.pinchPointers.size).toBe(0)
   })
 
-  it('A-03 터치 두 포인터만 줌하고 취소·편집 전환 시 이전 포인터를 버린다', async () => {
+  it('A-03 힐링 터치 두 포인터만 줌하고 취소·편집 전환 시 이전 포인터를 버린다', async () => {
     const w = await mountPage(HomePage); const s = state(w)
     const stage = w.get('#my-terra-container')
     Object.defineProperty(stage.element, 'setPointerCapture', { value: vi.fn(), configurable: true })
     expect(stage.classes()).toContain('touch-pan-x')
     expect(stage.classes()).toContain('touch-pan-y')
+    s.healingMode = true
+    await nextTick()
+    expect(stage.classes()).toContain('touch-none')
     await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 })
     await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 20, clientY: 0 })
     expect(s.zoomLevel).toBe(1)
@@ -1027,26 +1017,66 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
     await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 30, clientY: 0 })
     expect(s.zoomLevel).toBe(1)
   })
-  it('하트 자식의 단일 터치는 캡처 없이 API 클릭에 도달하고 링크는 핀치에 포함하지 않는다', async () => {
-    const w = await mountPage(HomePage); const s = state(w)
-    const stage = w.get('#my-terra-container')
-    Object.defineProperty(stage.element, 'setPointerCapture', { value: vi.fn(), configurable: true })
-    const heart = w.get('[data-testid="home-heart"]')
-    await heart.get('nuxt-icon-stub').trigger('pointerdown', { pointerId: 1, pointerType: 'touch' })
+  it('자기 테라 하트는 없고 힐링 모드 버튼·링크의 자식 터치는 핀치에 포함하지 않는다', async () => {
+    const { w, s, stage, capture } = await mountPinchStage()
+    expect(w.find('[data-testid="home-heart"]').exists()).toBe(false)
+    const button = w.get('[data-testid="home-healing-close"]')
+    await button.get('nuxt-icon-stub').trigger('pointerdown', { pointerId: 1, pointerType: 'touch' })
     await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100, clientY: 0 })
-    expect(stage.element.setPointerCapture).not.toHaveBeenCalled()
-    await heart.trigger('pointerup', { pointerId: 1, pointerType: 'touch' })
-    await heart.trigger('click'); await flushPromises()
-    expect(mocks.sdk.clickTerrariumHeart).toHaveBeenCalledTimes(1)
     const link = document.createElement('a')
     const child = document.createElement('span')
     link.append(child); stage.element.append(link)
     child.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 3, pointerType: 'touch', clientX: 200 }))
-    expect(stage.element.setPointerCapture).not.toHaveBeenCalled()
+    expect(capture).not.toHaveBeenCalled()
+    expect([...s.pinchPointers.keys()]).toEqual([2])
     expect(s.zoomLevel).toBe(1)
-    s.healingMode = true; await nextTick()
-    expect(stage.classes()).toContain('touch-none')
+    await button.trigger('click')
+    expect(s.healingMode).toBe(false)
+    expect(w.find('[data-testid="home-heart"]').exists()).toBe(false)
+    expect(mocks.sdk.clickTerrariumHeart).not.toHaveBeenCalled()
   })
+
+  it('일반 모드 휠·두 손가락 입력은 줌·이동·캡처를 만들지 않는다', async () => {
+    const { s, stage, capture } = await mountPinchStage()
+    s.healingMode = false
+    await nextTick()
+    await stage.trigger('wheel', { deltaY: -100 })
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 100, clientY: 0 })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 200, clientY: 0 })
+    expect(s.zoomLevel).toBe(1)
+    expect(s.zoomOffset).toEqual({ x: 0, y: 0 })
+    expect(s.pinchPointers.size).toBe(0)
+    expect(capture).not.toHaveBeenCalled()
+    expect(stage.classes()).toContain('touch-pan-x')
+    expect(stage.classes()).toContain('touch-pan-y')
+  })
+
+  it('힐링 핀치는 이전 중점의 콘텐츠를 새 중점에 유지하고 종료하면 배율·오프셋을 초기화한다', async () => {
+    const { s, stage } = await mountPinchStage()
+    const canvas = stage.get(':scope > div').element
+    Object.defineProperties(canvas, {
+      offsetLeft: { value: 20, configurable: true }, offsetTop: { value: 30, configurable: true },
+      offsetWidth: { value: 400, configurable: true }, offsetHeight: { value: 552, configurable: true },
+    })
+    vi.spyOn(stage.element, 'getBoundingClientRect').mockReturnValue({ left: 10, top: 40 } as DOMRect)
+    // 실제 원점=(230,346), 이전 중점=(330,346), 새 중점=(355,346).
+    await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 280, clientY: 346 })
+    await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 380, clientY: 346 })
+    await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 430, clientY: 346 })
+    expect(s.zoomLevel).toBe(1.5)
+    expect(s.zoomOffset).toEqual({ x: -25, y: 0 })
+    expect(230 + 100 * s.zoomLevel + s.zoomOffset.x).toBe(355)
+    await stage.trigger('wheel', { deltaY: -100 })
+    expect(s.zoomLevel).toBeCloseTo(1.6)
+    expect(s.zoomOffset.x).toBeCloseTo(-25 * 1.6 / 1.5)
+    s.healingMode = false
+    await nextTick()
+    expect(s.zoomLevel).toBe(1)
+    expect(s.zoomOffset).toEqual({ x: 0, y: 0 })
+    expect(s.pinchPointers.size).toBe(0)
+  })
+
   it('C18/C48 SNS action은 캡처 PNG를 공유하고 갤러리 완료를 주장하지 않는다', async () => {
     const w = await mountPage(HomePage); const s = state(w)
     // 캡처 대상은 실제 마운트한 스테이지 DOM이다.

@@ -105,11 +105,16 @@ describe('홈 배치 키보드 조작', () => {
     for (const body of wrapper.findAll('[role="button"]')) {
       expect(body.findAll(focusable)).toHaveLength(0)
     }
-    const placement = item.element.parentElement!
     const actions = wrapper.findAll('[data-testid^="home-item-action-"]')
     const corners = wrapper.findAll('[data-testid^="home-resize-"]')
     expect(actions).toHaveLength(4)
     expect(corners).toHaveLength(4)
+    // 본체는 병 마스크 안에, 편집 조작부는 마스크 밖의 같은 배치 컨테이너에 둔다.
+    const placement = actions[0]!.element.parentElement!
+    expect(placement.contains(item.element)).toBe(true)
+    const mask = item.element.parentElement!.parentElement!
+    expect(mask.parentElement).toBe(placement)
+    for (const button of [...actions, ...corners]) expect(mask.contains(button.element)).toBe(false)
     expect([...placement.querySelectorAll(focusable)]).toEqual([
       item.element, ...actions.map(button => button.element), ...corners.map(button => button.element),
     ])
