@@ -13,7 +13,7 @@
        (main 의 pt 는 calc(1rem + safe-area) — -mt-4 는 1rem 몫만 상쇄해 세이프에어리어는 유지)
        관리 모드에선 하단 고정 패널 높이만큼 여백을 더해 병이 패널 뒤로 숨지 않게 한다. -->
   <div
-    class="flex flex-col gap-5 min-h-full -mx-5 -mt-4 px-5 pt-4"
+    class="riso-grain flex flex-col gap-5 min-h-full -mx-5 -mt-4 px-5 pt-4"
     :class="editMode ? 'pb-[300px]' : 'pb-6'"
     style="background: linear-gradient(180deg, var(--color-apjek-blue-soft) 0%, var(--color-apjek-surface) 55%)"
     data-testid="home-page"
@@ -256,6 +256,18 @@
                  편집 모드에선 핸들·드래그 시야를 가리지 않도록 뺀다. -->
             <TerrariumJarArt :level="viewLevel" layer="base" />
             <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" :style="{ zIndex: textureZ }" />
+
+            <!-- 병 좌표 안에서만 부유하는 장식: 기존 줌을 따르고 입력은 아래 레이어로 통과한다. -->
+            <div
+              v-if="!editMode"
+              class="jar-fireflies absolute inset-0 pointer-events-none"
+              :class="{ 'jar-fireflies-healing': healingMode }"
+              :style="{ zIndex: textureZ + 1 }"
+              aria-hidden="true"
+              data-testid="home-jar-fireflies"
+            >
+              <span v-for="firefly in 6" :key="firefly" class="jar-firefly" />
+            </div>
 
             <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
             <TerrariumWiltingOverlay
@@ -2406,6 +2418,34 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 </script>
 
 <style scoped>
+/* 작은 발광점 6개만 transform/opacity로 이동한다. 글로우는 정적인 소형 그림자다. */
+.jar-fireflies { opacity: 0.55; }
+.jar-fireflies-healing { opacity: 0.85; }
+.jar-firefly {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: #fff6ad;
+  box-shadow: 0 0 3px 1px #c6b55e, 0 0 8px 3px rgba(240, 224, 119, 0.55);
+  animation: fireflyFloat 9s ease-in-out infinite;
+}
+.jar-firefly:nth-child(1) { left: 32%; top: 43%; animation-delay: -2s; }
+.jar-firefly:nth-child(2) { left: 59%; top: 35%; animation-delay: -6s; animation-duration: 11s; }
+.jar-firefly:nth-child(3) { left: 43%; top: 59%; animation-delay: -4s; animation-duration: 10s; }
+.jar-firefly:nth-child(4) { left: 65%; top: 56%; animation-delay: -8s; animation-duration: 12s; }
+.jar-firefly:nth-child(5) { left: 37%; top: 68%; animation-delay: -5s; animation-duration: 13s; }
+.jar-firefly:nth-child(6) { left: 53%; top: 47%; animation-delay: -1s; }
+@keyframes fireflyFloat {
+  0%, 100% { transform: translate(-5px, 6px); opacity: 0.2; }
+  35% { transform: translate(7px, -10px); opacity: 0.95; }
+  70% { transform: translate(-8px, -18px); opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jar-firefly { animation: none; opacity: 0.5; }
+}
+
 /* 상단 메뉴바 아이템 — 연블루 원 + 블루 아이콘 + 미니 라벨 (아프젝 T7) */
 .menu-item {
   display: flex;
