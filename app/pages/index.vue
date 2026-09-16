@@ -258,7 +258,7 @@
 
             <!-- 유리병 — 디자이너 Lv.1/2/3 병 이미지(표시 중 병 레벨). 질감 오버레이는 아이템 위에 겹친다.
                  편집 모드(Figma 156:394 도 질감 유지)에선 핸들·드래그가 가려지지 않도록 아이템(z≥10) 아래로 내린다. -->
-            <TerrariumJarArt :level="viewLevel" layer="base" />
+            <TerrariumJarArt :level="viewLevel" layer="base" :variant="jarVariant" />
             <TerrariumJarArt :level="viewLevel" layer="texture" :style="{ zIndex: editMode ? 9 : textureZ }" />
 
             <!-- 병 좌표 안에서만 부유하는 장식: 기존 줌을 따르고 입력은 아래 레이어로 통과한다. -->
@@ -579,6 +579,7 @@
   <TerrariumModeIntro
     :open="introMode === 'healing'"
     :level="viewLevel"
+    :variant="jarVariant"
     icon="lucide:sprout"
     title="힐링 모드"
     description="나의 테라를 천천히 감상해보세요"
@@ -587,6 +588,7 @@
   <TerrariumModeIntro
     :open="introMode === 'manage'"
     :level="viewLevel"
+    :variant="jarVariant"
     icon="lucide:pencil"
     title="관리 모드"
     :description="'아이템으로 테라리움을 꾸미고\n레벨과 아이템을 관리해요'"
@@ -769,6 +771,7 @@ import type { ManageTab, ManageTile } from '~/components/terrarium/ManagePanel.v
 import type { TierUnlockSuccess } from '~/components/terrarium/TierUnlockModal.vue'
 import type { JarLevel } from '~/utils/tierLevels'
 import { hasHomeEntryQuery, parseHomeEntryQuery, stripHomeEntryQuery } from '~/utils/homeEntry'
+import { jarVariantFromAssetUrl } from '~/utils/jarVariants'
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
@@ -2164,9 +2167,11 @@ const currentBackgroundItem = computed<ItemResponse | null>(() => {
   if (!assetUrl) return null
   return ownedBackgrounds.value.find(item => item.assetUrl === assetUrl) ?? null
 })
+// 병 색 변형 배경(utils/jarVariants — bg-pink 등)은 병 본체 에셋을 바꾸고, 뒤 글로우 레이어는 그리지 않는다.
+const jarVariant = computed<string | null>(() => jarVariantFromAssetUrl(currentBackgroundAssetUrl.value))
 const backgroundImageUrl = computed<string | null>(() => {
   const item = currentBackgroundItem.value
-  if (!item) return null
+  if (!item || jarVariant.value) return null
   return resolveItemImage(item)
 })
 
