@@ -1,24 +1,22 @@
 <template>
-  <!-- 펼친 습관 카드 — Figma: 하단이 핑크 그라디언트 + 식물 실루엣(디자이너 "바탕_기록탭_습관기록") -->
-  <div
-    class="w-full rounded-[16px] border border-apjek-border bg-apjek-surface overflow-hidden"
-    style="background: url(/bg/habit-card.webp) center bottom / 100% auto no-repeat var(--color-apjek-surface)"
-  >
-    <div class="p-[16px] pb-[8px]">
-      <!-- 제목 + 우측 X (중단 / 요청 대기면 요청 취소 — R9, 댓글 #37) -->
-      <div class="flex items-center justify-between w-full">
-        <p class="text-[15px] font-bold text-apjek-text tracking-[-0.15px] min-w-0 truncate">
+  <!-- 펼친 습관 트래커 — Figma(90:13586)는 중첩 카드가 아니라 바깥 습관 카드 안에 평면으로 놓인다.
+       핑크 수풀 배경(디자이너 "바탕_기록탭_습관기록")은 바깥 카드(pages/record)가 그린다. -->
+  <div class="w-full">
+    <div>
+      <!-- 제목 + 우측 X (중단 / 요청 대기면 요청 취소 — R9, 댓글 #37). X 는 28px 연블루 원 -->
+      <div class="flex items-start justify-between w-full">
+        <p class="text-[14px] font-bold text-apjek-text tracking-[-0.15px] leading-[20px] min-w-0 truncate">
           {{ tracker.title }}
         </p>
         <button
           v-if="view !== 'cycleDone' && view !== 'pendingReceived'"
           type="button"
-          class="group size-11 -m-2 flex items-center justify-center shrink-0"
+          class="group size-11 -m-2 -mt-[10px] flex items-center justify-center shrink-0"
           :aria-label="view === 'pending' ? '요청 취소' : '기록 중단'"
           @click="view === 'pending' ? (cancelOpen = true) : (stopOpen = true)"
         >
-          <span class="size-7 rounded-full bg-apjek-bg flex items-center justify-center transition group-active:scale-95">
-            <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+          <span class="size-7 rounded-full bg-apjek-blue/30 flex items-center justify-center transition group-active:scale-95">
+            <Icon name="lucide:x" class="w-4 h-4 text-apjek-blue-deep" />
           </span>
         </button>
       </div>
@@ -33,13 +31,14 @@
 
       <!-- 트래커 본체 — 요청 대기면 흐림 + 비활성 -->
       <div :class="view === 'pending' || view === 'pendingReceived' ? 'opacity-40 pointer-events-none select-none' : ''">
-        <!-- 7일 원형 — 미체크 연파랑 외곽선+숫자 / 오늘 점선 / 체크 파랑 ✓. 원 클릭 = 오늘 체크인 (댓글 #29) -->
-        <div class="flex items-center justify-between gap-[6px] pt-[16px] pb-[4px]">
+        <!-- 7일 원형 36px, 간격 12 중앙 — 미체크 연파랑 채움+외곽선+숫자 / 오늘 점선 / 체크 파랑 ✓.
+             원 클릭 = 오늘 체크인 (댓글 #29). 숫자색은 AA 를 위해 blue-deep 유지. -->
+        <div class="flex items-center justify-center gap-[12px] pt-[20px]">
           <button
             v-for="day in DAYS"
             :key="day"
             type="button"
-            class="relative after:absolute after:-inset-[5px] after:content-[''] size-[38px] rounded-full flex items-center justify-center text-[13px] font-bold transition-all active:scale-95 disabled:cursor-default"
+            class="relative after:absolute after:-inset-[6px] after:content-[''] size-[36px] rounded-full flex items-center justify-center text-[12px] font-bold transition-all active:scale-95 disabled:cursor-default"
             :class="circleClass(day)"
             :disabled="!canCheckIn"
             :aria-label="dayAria(day)"
@@ -50,20 +49,20 @@
           </button>
         </div>
 
-        <!-- 진행 텍스트 + 파랑 그라디언트 진행바 -->
-        <div class="w-full pt-[14px] pb-[6px]">
-          <div class="flex items-center justify-between mb-[6px]">
-            <span class="text-[11px] tracking-[0.117px] text-apjek-blue-deep font-semibold">
+        <!-- 진행 텍스트(10px 블루) + 연블루→핑크 그라디언트 진행바 (Figma 90:13668) -->
+        <div class="w-full pt-[24px] pb-[20px]">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] leading-[15px] tracking-[0.117px] text-apjek-blue-deep">
               진행 {{ doneCount }}/{{ tracker.cycleLengthDays }}일
             </span>
-            <span class="text-[11px] tracking-[0.117px] text-apjek-text-sub">
+            <span class="text-[10px] leading-[15px] tracking-[0.117px] text-apjek-blue-deep">
               7일 달성 시 반짝이+{{ rewardSparkle }} 획득
             </span>
           </div>
-          <div class="h-[6px] w-full rounded-full overflow-hidden bg-apjek-blue-soft">
+          <div class="h-[6px] w-full mt-[6px] rounded-full overflow-hidden bg-apjek-blue/15">
             <div
               class="h-full rounded-full transition-all duration-500"
-              style="background: linear-gradient(90deg, var(--color-apjek-blue-deep), var(--color-apjek-dew))"
+              style="background: linear-gradient(90deg, #97a8f1, #ffa0d6)"
               :style="{ width: `${Math.min(100, (doneCount / tracker.cycleLengthDays) * 100)}%` }"
             />
           </div>
@@ -204,13 +203,6 @@
       </div>
     </div>
 
-    <!-- 하단 핑크 그라디언트 수풀 영역 — TODO(자산): 디자이너 일러스트로 교체(현재 CSS 그라디언트 플레이스홀더) -->
-    <div
-      class="h-[44px] w-full"
-      style="background: linear-gradient(180deg, rgba(255,214,238,0) 0%, var(--color-apjek-sparkle-bg) 100%)"
-      aria-hidden="true"
-    />
-
     <!-- 중단 확인 팝업 — "기록 중단하기 / 중단한 기록은 복구할 수 없습니다." -->
     <RecordConfirmDialog
       :open="stopOpen"
@@ -298,10 +290,11 @@ function isToday(day: number): boolean {
   return props.view !== 'cycleDone' && !checkedToday.value && !isDone(day) && day === doneCount.value + 1
 }
 
+// Figma 90:13634/13639 — 미체크·오늘 모두 연블루(15%) 채움, 오늘만 점선 진블루 외곽선
 function circleClass(day: number): string {
   if (isDone(day)) return 'bg-apjek-blue text-white border-2 border-apjek-blue'
-  if (isToday(day)) return 'border-2 border-dashed border-apjek-blue text-apjek-blue bg-apjek-surface'
-  return 'border-2 border-apjek-blue-soft text-apjek-blue-deep bg-apjek-surface'
+  if (isToday(day)) return 'border-2 border-dashed border-apjek-blue text-apjek-blue-deep bg-apjek-blue/15'
+  return 'border-2 border-apjek-blue/40 text-apjek-blue-deep bg-apjek-blue/15'
 }
 
 function dayAria(day: number): string {

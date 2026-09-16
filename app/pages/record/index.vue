@@ -29,8 +29,11 @@
       <!-- 습관 카드 — 파랑 2px(40%) 테두리 + 라운드 20, 좌측 🌸 60px 타일 + "1주일 연속 기록 / +반짝이".
            카드 본체는 클릭 불가(댓글 #5/#6) — 우측 버튼만 동작: 습관 없음=[✏️ 시작하기](생성 시트),
            있음=^ 접기/펼침 토글 (R6b). 치수는 Figma 176:2280 "1주일" 프레임. -->
+      <!-- 트래커가 보이면 카드 자체가 핑크 수풀 배경(Figma 90:13586: 카드 502px 고정, 하단이 일러스트) -->
       <div
         class="rounded-[20px] border-2 border-apjek-blue/40 bg-apjek-surface px-[22px] py-[18px]"
+        :class="showTrackerBackdrop ? 'min-h-[502px]' : ''"
+        :style="showTrackerBackdrop ? { background: 'url(/bg/habit-card.webp) center bottom / 100% auto no-repeat var(--color-apjek-surface)' } : undefined"
         data-layout-anchor="record-habit-card"
         :aria-busy="!habitsLoaded"
       >
@@ -569,6 +572,9 @@ const visibleTrackers = computed<HabitTrackerResponse[]>(() => (mode.value === '
 // 카드 접힘 여부는 전체 목록, 생성 가능 여부는 선택한 모드로 판정한다.
 const hasAnyHabit = computed<boolean>(() => liveTrackers.value.length > 0)
 const hasModeHabit = computed<boolean>(() => visibleTrackers.value.length > 0)
+// 펼친 카드에 트래커가 보이면 바깥 카드가 핑크 수풀 배경 + 502px 최소 높이를 가진다 (Figma 90:13586)
+const showTrackerBackdrop = computed<boolean>(() =>
+  habitOpen.value && habitsLoaded.value && !habitLoadError.value && visibleTrackers.value.length > 0)
 
 function viewOf(tr: HabitTrackerResponse): HabitView {
   return deriveHabitView(tr)
