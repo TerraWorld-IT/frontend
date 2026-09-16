@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-full space-y-[28px] pb-4" data-testid="record-page">
-    <!-- 헤더 — 아프젝: 타이틀 + 우상단 검정 필 [📅 캘린더] (R6b) -->
-    <div class="flex items-center justify-between py-[10px]">
+  <div class="min-h-full space-y-[30px] pb-4" data-testid="record-page">
+    <!-- 헤더 — 아프젝: 타이틀 + 우상단 검정 필 [📅 캘린더] (R6b). 헤더 64px + 섹션 간격 30px (Figma 176:2258) -->
+    <div class="flex items-center justify-between py-[16px]">
       <h1 class="font-bold text-[28px] text-apjek-text tracking-[-0.9px] leading-[32px]">
         기록하기
       </h1>
@@ -16,7 +16,7 @@
     </div>
 
     <!-- ─── 습관 기록 ─── -->
-    <div class="space-y-[14px]">
+    <div class="space-y-[30px]">
       <div>
         <h2 class="apjek-section-title text-[18px] leading-[28px]">
           습관 기록
@@ -26,25 +26,25 @@
         </p>
       </div>
 
-      <!-- 습관 카드 — 파랑 1px 테두리, 좌측 🌸 타일 + "1주일 연속 기록 / +반짝이".
+      <!-- 습관 카드 — 파랑 2px(40%) 테두리 + 라운드 20, 좌측 🌸 60px 타일 + "1주일 연속 기록 / +반짝이".
            카드 본체는 클릭 불가(댓글 #5/#6) — 우측 버튼만 동작: 습관 없음=[✏️ 시작하기](생성 시트),
-           있음=^ 접기/펼침 토글 (R6b). -->
+           있음=^ 접기/펼침 토글 (R6b). 치수는 Figma 176:2280 "1주일" 프레임. -->
       <div
-        class="rounded-[16px] border border-apjek-blue bg-apjek-surface p-[16px]"
+        class="rounded-[20px] border-2 border-apjek-blue/40 bg-apjek-surface px-[22px] py-[18px]"
         data-layout-anchor="record-habit-card"
         :aria-busy="!habitsLoaded"
       >
-        <div class="flex items-center gap-[14px]">
+        <div class="flex items-center gap-[16px]">
           <img
             src="/icons/token/sparkle.png"
             alt=""
-            class="size-[56px] shrink-0 select-none"
+            class="size-[60px] shrink-0 select-none"
             aria-hidden="true"
             draggable="false"
           >
           <div class="flex-1 min-w-0">
-            <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px]">1주일 연속 기록</p>
-            <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-sparkle">+반짝이</p>
+            <p class="text-[18px] font-bold text-apjek-text tracking-[-0.44px] leading-[28px]">1주일 연속 기록</p>
+            <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-text-faint">+반짝이</p>
           </div>
           <!-- 데이터 전에는 카드 셸을 그대로 두고 우측 액션 자리만 예약한다. -->
           <div
@@ -67,25 +67,26 @@
             <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
             시작하기
           </button>
+          <!-- 접기/펼침 — Figma 는 테두리 없는 맨 셰브론(15×8). 탭 영역은 after 로 44px 확보 -->
           <button
             v-else
             type="button"
-            class="relative after:absolute after:-inset-[5px] after:content-[''] size-[34px] rounded-full border border-apjek-border-strong bg-apjek-surface flex items-center justify-center shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:-inset-[10px] after:content-[''] size-[24px] rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95"
             :aria-expanded="habitOpen"
             :aria-label="habitOpen ? '습관 카드 접기' : '습관 카드 펼치기'"
             @click="habitOpen = !habitOpen"
           >
-            <Icon :name="habitOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="w-4 h-4 text-apjek-text" />
+            <Icon :name="habitOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'" class="w-5 h-5 text-apjek-text" />
           </button>
         </div>
 
         <template v-if="habitOpen">
-          <!-- 카드 안 토글 [✦ 나의 습관 기록][👥 친구와 함께 기록] — 선택=검정 채움 (R7) -->
-          <div class="flex gap-[8px] mt-[16px]">
+          <!-- 카드 안 토글 [✦ 나의 습관 기록][👥 친구와 함께 기록] — 선택=검정 채움+그림자, 높이 48 (R7, Figma 176:2509) -->
+          <div class="flex gap-[10px] mt-[20px]">
             <button
               type="button"
-              class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] flex-1 h-[40px] rounded-full text-[13px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
-              :class="mode === 'solo' ? 'bg-apjek-cta text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
+              class="flex-1 h-[48px] rounded-full text-[14px] font-semibold tracking-[-0.3px] inline-flex items-center justify-center gap-[8px] transition-all active:scale-[0.97]"
+              :class="mode === 'solo' ? 'bg-apjek-cta text-white shadow-[0_4px_3px_rgba(0,0,0,0.1),0_10px_7.5px_rgba(0,0,0,0.1)]' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
               :aria-pressed="mode === 'solo'"
               @click="setMode('solo')"
             >
@@ -94,8 +95,8 @@
             </button>
             <button
               type="button"
-              class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] flex-1 h-[40px] rounded-full text-[13px] font-semibold inline-flex items-center justify-center gap-[6px] transition-all active:scale-[0.97]"
-              :class="mode === 'friend' ? 'bg-apjek-cta text-white' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
+              class="flex-1 h-[48px] rounded-full text-[14px] font-semibold tracking-[-0.3px] inline-flex items-center justify-center gap-[8px] transition-all active:scale-[0.97]"
+              :class="mode === 'friend' ? 'bg-apjek-cta text-white shadow-[0_4px_3px_rgba(0,0,0,0.1),0_10px_7.5px_rgba(0,0,0,0.1)]' : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"
               :aria-pressed="mode === 'friend'"
               @click="setMode('friend')"
             >
@@ -104,7 +105,7 @@
             </button>
           </div>
 
-          <div class="flex flex-col items-stretch w-full gap-[12px] mt-[16px]">
+          <div class="flex flex-col items-stretch w-full gap-[12px] mt-[10px]">
             <!-- 로드 실패 -->
             <div v-if="habitsLoaded && habitLoadError" class="w-full text-center text-[13px] text-riso-poppy py-[24px]">
               습관을 불러오지 못했어요. 잠시 후 다시 시도해 주세요
@@ -136,24 +137,26 @@
               />
             </template>
 
-            <!-- 빈 상태 — 선택한 모드에 습관이 없으면 다른 모드와 독립적으로 시작 가능 -->
-            <div v-else class="w-full flex flex-col items-center gap-[10px] py-[18px]">
-              <div class="size-[44px] rounded-[12px] border border-apjek-border-strong flex items-center justify-center text-apjek-text-faint" aria-hidden="true">
-                <Icon name="lucide:x" class="w-5 h-5" />
-              </div>
-              <p class="text-[13px] text-apjek-text-sub">
+            <!-- 빈 상태 — 선택한 모드에 습관이 없으면 다른 모드와 독립적으로 시작 가능.
+                 Figma 176:6191/176:6195: 88px no-sim 아이콘 + 안내문, 위아래 70px 여백, 풀폭 48px 검정 [✏️ 시작하기].
+                 아이콘 벡터는 Figma 내보내기(material-symbols:no-sim-outline) 원본 — 컬렉션 미설치라 인라인. -->
+            <div v-else class="w-full flex flex-col items-center pt-[70px]">
+              <svg class="size-[88px] text-apjek-text-faint opacity-60" viewBox="0 0 88 88" fill="none" aria-hidden="true">
+                <path d="M73.3333 62.975L66 55.6417V14.6667H39.7833L32.45 22L27.1333 16.8667L36.6667 7.33333H66C68.0167 7.33333 69.7437 8.052 71.181 9.48933C72.6183 10.9267 73.3358 12.6524 73.3333 14.6667V62.975ZM75.1667 85.4333L22 32.2667V73.3333H66V65.9083L73.3333 73.2417V73.3333C73.3333 75.35 72.6159 77.077 71.181 78.5143C69.7461 79.9517 68.0191 80.6691 66 80.6667H22C19.9833 80.6667 18.2576 79.9492 16.8227 78.5143C15.3878 77.0794 14.6691 75.3524 14.6667 73.3333V29.3333L16.8667 27.1333L2.56667 12.8333L7.79167 7.7L80.3 80.2083L75.1667 85.4333Z" fill="currentColor" />
+              </svg>
+              <p class="text-[14px] text-apjek-text-sub leading-[23px] tracking-[-0.15px] text-center mt-[20px]">
                 {{ mode === 'solo' ? '나의 습관 기록이 없습니다' : '친구와 함께 기록이 없습니다' }}
               </p>
               <button
                 type="button"
-                class="relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-[''] h-[40px] px-[18px] rounded-full bg-apjek-cta text-white text-[13px] font-semibold inline-flex items-center gap-[6px] transition-all active:scale-95 disabled:opacity-40"
+                class="w-full h-[48px] mt-[78px] rounded-full bg-apjek-cta text-white text-[16px] font-semibold tracking-[-0.3px] inline-flex items-center justify-center gap-[8px] transition-all active:scale-[0.98] disabled:opacity-40"
                 :disabled="hasModeHabit || initialLoading || loadError || !habitsLoaded || habitLoadError"
                 @click="openHabitCreate()"
               >
-                <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
+                <Icon name="lucide:pencil" class="w-[18px] h-[18px]" />
                 시작하기
               </button>
-              <p v-if="hasModeHabit" class="text-[11px] text-apjek-text-faint text-center">
+              <p v-if="hasModeHabit" class="text-[11px] text-apjek-text-faint text-center mt-[10px]">
                 같은 모드의 습관은 한 번에 1개만 진행할 수 있어요. 진행 중인 기록을 완료하거나 중단한 뒤 시작해 주세요.
               </p>
             </div>
@@ -163,7 +166,7 @@
     </div>
 
     <!-- ─── 일상 기록 ─── -->
-    <div class="space-y-[14px]" data-layout-anchor="record-daily-section">
+    <div class="space-y-[30px]" data-layout-anchor="record-daily-section">
       <div>
         <h2 class="apjek-section-title text-[18px] leading-[28px]">
           일상 기록
@@ -173,40 +176,41 @@
         </p>
       </div>
 
-      <!-- 4행 리스트 카드 — 파스텔 타일 아이콘 + 기록명 + "+토큰명" + 우측 [✏️ 기록하기] 필 버튼.
-           행 본체는 비클릭, 버튼만 시트를 연다 (R6b, 댓글 #5/#6). -->
-      <div class="flex flex-col gap-[12px]">
+      <!-- 4행 리스트 카드 — 60px 타일 아이콘 + 기록명(18px) + "+토큰명"(회색) + 우측 작은 회색 칩 [✏️ 기록하기].
+           행 본체는 비클릭, 버튼만 시트를 연다 (R6b, 댓글 #5/#6). 치수는 Figma 176:2382. -->
+      <div class="flex flex-col gap-[10px]">
         <div
           v-for="card in DAILY_CARDS"
           :key="card.modal"
-          class="apjek-card p-[16px] flex items-center gap-[14px] w-full"
+          class="apjek-card rounded-[20px] p-[21px] flex items-center gap-[16px] w-full"
         >
           <!-- 타일 아이콘 — Figma 토큰 아이콘 PNG(이슬/햇살/번개/바람) 그대로. 파스텔 배경은 이미지에 포함. -->
           <img
             :src="card.icon"
             alt=""
-            class="size-[56px] shrink-0 select-none"
+            class="size-[60px] shrink-0 select-none"
             aria-hidden="true"
             draggable="false"
           >
 
           <div class="flex-1 min-w-0">
-            <p class="text-[16px] font-bold text-apjek-text tracking-[-0.3px] leading-[22px] truncate">
+            <p class="text-[18px] font-bold text-apjek-text tracking-[-0.44px] leading-[28px] truncate">
               {{ card.title }}
             </p>
-            <p class="text-[12px] leading-[16px] mt-[2px]" :style="{ color: card.accent }">
+            <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-text-faint">
               +{{ card.token }}
             </p>
           </div>
 
+          <!-- 칩은 22px — 탭 영역은 after 로 44px 확보 (hit-area 규칙) -->
           <button
             type="button"
-            class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:-inset-x-[6px] after:-inset-y-[11px] after:content-[''] h-[22px] px-[8px] rounded-[16px] bg-apjek-text-faint/10 text-[12px] font-semibold text-apjek-text inline-flex items-center gap-[4px] shrink-0 transition-all active:scale-95"
             :aria-label="`${card.title} 기록하기`"
             :disabled="initialLoading || loadError"
             @click="openModal = card.modal"
           >
-            <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
+            <Icon name="lucide:pencil" class="w-3 h-3" />
             기록하기
           </button>
         </div>
@@ -836,11 +840,12 @@ const categories = ref<CategoryResponse[]>([])
 // FE-10: 교체-대입 전용 리스트(로드/생성 모두 새 배열 재할당) — deep reactivity 불필요.
 
 // 아프젝 리스트 카드 — 파스텔 타일 배경 + 토큰 글리프/서브텍스트 색 (tailwind.css 토큰 참조)
-const DAILY_CARDS: { title: string; token: string; accent: string; icon: string; modal: DailyModal }[] = [
-  { title: '투두리스트 기록', token: '이슬토큰', accent: 'var(--color-apjek-dew)', icon: TOKEN_ICON_SRC.DEW, modal: 'todo' },
-  { title: '일기 기록', token: '햇살토큰', accent: 'var(--color-apjek-sun)', icon: TOKEN_ICON_SRC.SUN, modal: 'diary' },
-  { title: '집중 기록', token: '번개토큰', accent: 'var(--color-apjek-bolt)', icon: TOKEN_ICON_SRC.BOLT, modal: 'focus' },
-  { title: '거리 기록', token: '바람토큰', accent: 'var(--color-apjek-wind)', icon: TOKEN_ICON_SRC.WIND, modal: 'distance' },
+// "+토큰명" 은 Figma(176:2382) 대로 회색 — 토큰별 액센트 색은 쓰지 않는다.
+const DAILY_CARDS: { title: string; token: string; icon: string; modal: DailyModal }[] = [
+  { title: '투두리스트 기록', token: '이슬토큰', icon: TOKEN_ICON_SRC.DEW, modal: 'todo' },
+  { title: '일기 기록', token: '햇살토큰', icon: TOKEN_ICON_SRC.SUN, modal: 'diary' },
+  { title: '집중 기록', token: '번개토큰', icon: TOKEN_ICON_SRC.BOLT, modal: 'focus' },
+  { title: '거리 기록', token: '바람토큰', icon: TOKEN_ICON_SRC.WIND, modal: 'distance' },
 ]
 
 // dailyType → categoryId 매핑. 시스템 카테고리 이름으로 안정 매칭(admin 편집/row-order
