@@ -25,7 +25,7 @@
         </div>
         <!-- 병 일러스트 — 홈에 표시 중인 병(레벨)을 축소 렌더. 홈과 같은 유리 질감(texture) 레이어를 겹친다. -->
         <div class="relative shrink-0 mb-auto mode-intro-jar" style="height: min(304px, max(0px, calc(100dvh - var(--sat) - var(--sab) - 200px))); aspect-ratio: 220 / 304; max-width: 100%" aria-hidden="true">
-          <TerrariumJarArt :level="level" layer="base" />
+          <TerrariumJarArt :level="level" layer="base" :variant="variant" />
           <TerrariumJarArt :level="level" layer="texture" />
         </div>
       </div>
@@ -44,9 +44,12 @@ const props = withDefaults(defineProps<{
   durationMs?: number
   /** 그릴 병 레벨(홈 표시 중 병) */
   level?: number
+  /** 병 색 변형(utils/jarVariants) — 홈에 설정된 배경을 그대로 따른다 */
+  variant?: string | null
 }>(), {
   durationMs: 1200,
   level: 1,
+  variant: null,
 })
 
 const emit = defineEmits<{ done: [] }>()

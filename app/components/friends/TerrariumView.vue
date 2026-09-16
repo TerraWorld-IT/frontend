@@ -24,9 +24,10 @@
         marginBottom: `${-552 * (1 - stageFit)}px`,
       }"
     >
-      <!-- 배경은 병 아트 아래에 렌더하고 URL이 아닌 값은 기존 서피스를 유지한다. -->
+      <!-- 배경은 병 아트 아래에 렌더하고 URL이 아닌 값은 기존 서피스를 유지한다.
+           병 색 변형 배경(bg-pink 등)은 병 본체가 바뀌므로 뒤 레이어를 그리지 않는다. -->
       <img
-        v-if="isAssetUrl(terrarium.background?.assetUrl)"
+        v-if="!jarVariant && isAssetUrl(terrarium.background?.assetUrl)"
         :src="terrarium.background.assetUrl"
         alt=""
         class="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -35,7 +36,7 @@
       >
 
       <!-- 유리병 — 홈과 동일한 병 아트(친구가 표시 중인 티어의 레벨). 질감 오버레이는 아이템 위. -->
-      <TerrariumJarArt :level="jarLevel" layer="base" />
+      <TerrariumJarArt :level="jarLevel" layer="base" :variant="jarVariant" />
       <TerrariumJarArt :level="jarLevel" layer="texture" style="z-index: 5000" />
 
       <!-- 배치된 아이템들 (읽기 전용) -->
@@ -74,6 +75,7 @@
 <script setup lang="ts">
 import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
 import { levelOfTier } from '~/utils/tierLevels'
+import { jarVariantFromAssetUrl } from '~/utils/jarVariants'
 
 const { onAssetError } = useItemAsset()
 
@@ -86,6 +88,8 @@ const props = defineProps<{
 const BASE_SIZE = 96
 const HALF = BASE_SIZE / 2
 const jarLevel = computed<number>(() => levelOfTier(props.terrarium.activeTier ?? props.terrarium.tier))
+// 병 색 변형 배경(bg-pink 등)이면 병 본체 에셋을 바꾸고 뒤 배경 레이어는 생략한다 — 홈과 동일 규약.
+const jarVariant = computed<string | null>(() => jarVariantFromAssetUrl(props.terrarium.background?.assetUrl))
 // 홈의 비자유배치 폴백 좌표 — EDIT 영역 안 8지점. 슬롯 기반 응답의 결정적 배치에 재사용.
 const DEFAULT_POSITIONS = [
   { x: 110, y: 300 }, { x: 215, y: 290 }, { x: 315, y: 305 }, { x: 120, y: 410 },

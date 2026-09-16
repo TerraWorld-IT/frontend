@@ -16,3 +16,9 @@ backend V41 시드의 slug 와 1:1 — `tillandsia-ionantha`(이오난사) `roun
 `pilea-peperomioides`(필레아 페페) `dischidia`(콩란) `red-star`(레드스타) `nandina`(남천) `pteris`(프테리스)
 `stephania`(스테파니아). 원본은 400~520px 투명 PNG(디자이너 Drive `I_식물_*.png`), 이름만 slug 로 바꿔 그대로 둔다.
 정령(`cat-spirit`)은 `/spirits/stage2.png` 를 asset_url 로 직접 가리킨다(이 폴더 규약 밖).
+
+## 배경 아이템 — 병 색 변형 (2026-09-16, 디자이너 Drive `병N_배경_핑크.png`)
+
+배경 아이템 `bg-pink`(backend V47) 는 병 뒤 그림이 아니라 **병 본체의 핑크 색 변형**이다. 프론트 규약(`utils/jarVariants.ts`):
+slug `bg-<variant>` 에 대응하는 병 에셋 `public/jar/lv{1,2,3}-<variant>.webp`(800x1105, 원본 1000x1381 PNG 를 webp q90 변환).
+이 폴더의 `bg-pink.png` 는 상점·관리 패널 썸네일(병1 핑크 400x552). 새 색 변형이 오면 `JAR_VARIANT_BACKGROUNDS` 에 한 줄 추가 + 병 webp 3장 + 썸네일 1장.
