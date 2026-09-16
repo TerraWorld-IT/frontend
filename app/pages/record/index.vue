@@ -259,7 +259,7 @@
           v-model="diaryTitle"
           :disabled="submitting"
           placeholder="제목 (선택)"
-          class="w-full text-[16px] font-bold border-b border-apjek-border pb-2 outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 bg-transparent text-apjek-text placeholder:text-apjek-text-faint"
+          class="w-full text-[16px] font-bold border-b border-apjek-border pb-2 outline-none focus:border-apjek-blue bg-transparent text-apjek-text placeholder:text-apjek-text-faint"
         >
         <textarea
           v-model="diaryText"

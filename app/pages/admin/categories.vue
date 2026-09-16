@@ -46,7 +46,7 @@
               v-model.number="row.form.baseCoinReward"
               type="number"
               min="0"
-              class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
+              class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded focus:ring-2 focus:ring-riso-sage/40"
             >
           </label>
           <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block ring-inset focus-within:ring-2 focus-within:ring-riso-sage">
@@ -56,7 +56,7 @@
               v-model.number="row.form.baseTokenReward"
               type="number"
               min="0"
-              class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
+              class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded focus:ring-2 focus:ring-riso-sage/40"
             >
           </label>
           <label class="bg-riso-cream/50 rounded-xl p-2.5 text-center block ring-inset focus-within:ring-2 focus-within:ring-riso-sage">
@@ -66,7 +66,7 @@
               v-model.number="row.form.dailyLimit"
               type="number"
               min="0"
-              class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded"
+              class="w-full mt-1 bg-transparent text-center font-bold text-sm text-riso-dark outline-none focus:bg-white rounded focus:ring-2 focus:ring-riso-sage/40"
             >
           </label>
         </div>

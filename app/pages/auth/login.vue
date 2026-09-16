@@ -529,4 +529,8 @@ async function onSubmit() {
 .tw-field::placeholder {
   color: #4a67b5;
 }
+/* 전역 :focus-visible outline 은 텍스트 필드에서 끄므로(tailwind.css) 보더 강조로 포커스를 표시한다 */
+.tw-field:focus {
+  border-color: rgba(151, 168, 241, 0.9);
+}
 </style>

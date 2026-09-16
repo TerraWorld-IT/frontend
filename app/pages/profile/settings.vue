@@ -179,7 +179,7 @@
         type="password"
         autocomplete="current-password"
         :disabled="deletingAccount"
-        class="w-full bg-apjek-surface rounded-[12px] p-[13px] border border-apjek-border"
+        class="w-full bg-apjek-surface rounded-[12px] p-[13px] border border-apjek-border outline-none focus:border-apjek-blue"
         @keydown.enter.prevent="onDeleteAccount"
       >
     </CommonModal>

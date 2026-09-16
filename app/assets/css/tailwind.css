@@ -57,6 +57,15 @@ html::after { bottom: 0; height: var(--sab); background: var(--apjek-scrim-botto
   outline: 2px solid var(--color-apjek-blue-deep);
   outline-offset: 2px;
 }
+/* 텍스트 필드는 자체 ring/보더로 포커스를 표시한다. 위 규칙은 unlayered 라 utilities 레이어의
+   `outline-none` 이 이기지 못해, 모든 input 에 전역 outline(offset 2px) 과 inset ring 이 두 겹으로
+   그려졌고 래퍼 안에 놓인 input 은 outline 사각형이 래퍼 밖으로 삐져나와 깨져 보였다(투두 시트 실사례).
+   체크박스·라디오는 자체 표시가 없으므로 전역 outline 을 유지한다. */
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
 
 /* ============================================
    TerraWorld — Riso-paint Design System (Tailwind v4)
