@@ -94,7 +94,7 @@ frontend/
 │   │   ├── icons/                  # CurrencyIcon, JamjarSvg, Jar1, PpJamjar (SVG 컴포넌트)
 │   │   │   └── jar1/               #   Jar1.vue 가 쓰는 path 데이터 (jar1Paths.ts, feedSvg.ts)
 │   │   ├── record/                 # CategoryGrid, RecordForm, RecordCard, PartnerSelect (joint record)
-│   │   └── terrarium/              # WiltingOverlay (홈에서 사용)
+│   │   └── terrarium/              # JarArt, JarCarousel, ManagePanel, ModeIntro, HomeAccordion 등 홈 구성요소 (WiltingOverlay 는 2026-09-16 제거)
 │   │                               #   (TerrariumCanvas/Bottle/Slot/ItemSelectDialog + PixiJS 파티클 4종은
 │   │                               #    orphan /terrarium 페이지 제거와 함께 삭제됨 — 2026-07-15, git 히스토리에서 복원 가능)
 │   ├── composables/

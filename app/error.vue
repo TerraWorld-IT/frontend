@@ -17,7 +17,8 @@
       <h1 class="text-2xl font-bold leading-tight">
         {{ title }}
       </h1>
-      <p class="text-sm text-apjek-text-sub mt-1">
+      <!-- 영문 부제는 Figma(온보딩 섹션 에러 3종) 대로 빨강 -->
+      <p class="text-sm text-riso-red mt-1">
         {{ subtitle }}
       </p>
 
@@ -32,15 +33,17 @@
         draggable="false"
       >
 
-      <!-- 본문 카피 -->
-      <p class="text-sm text-apjek-text-sub leading-relaxed whitespace-pre-line">
-        {{ description }}
+      <!-- 본문 카피 — Figma: 첫 문장은 굵은 본문색, 나머지는 보조색 한 줄 -->
+      <p class="leading-relaxed">
+        <span class="block text-[15px] font-bold text-apjek-text">{{ descriptionLead }}</span>
+        <span v-if="descriptionRest" class="block text-sm text-apjek-text-sub mt-1">{{ descriptionRest }}</span>
       </p>
 
       <div class="w-full flex flex-col gap-3 items-center mt-8">
+        <!-- CTA 는 Figma 대로 내용 폭 검정 필 -->
         <button
           type="button"
-          class="apjek-cta w-full max-w-[320px] py-3.5"
+          class="apjek-cta px-8 py-3.5"
           :disabled="isOffline"
           @click="handlePrimary"
         >
@@ -148,6 +151,14 @@ const description = computed<string>(() => {
     default: return t('error.generic.desc')
   }
 })
+
+// 첫 문장(마침표·물음표·느낌표 뒤 공백 기준)을 강조 줄로, 나머지를 보조 줄로 나눈다. 한 문장이면 강조 줄만.
+const descriptionParts = computed<[string, string]>(() => {
+  const m = /^(.*?[.!?])\s+(.+)$/s.exec(description.value.trim())
+  return m ? [m[1]!, m[2]!] : [description.value, '']
+})
+const descriptionLead = computed<string>(() => descriptionParts.value[0])
+const descriptionRest = computed<string>(() => descriptionParts.value[1])
 
 const primaryLabel = computed<string>(() => {
   // 오프라인이어도 라벨은 재시도 문구를 유지한다(버튼은 disabled, 안내는 아래 보조 텍스트).
