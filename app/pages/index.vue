@@ -273,16 +273,6 @@
               <span v-for="firefly in 6" :key="firefly" class="jar-firefly" />
             </div>
 
-            <!-- 시들기 CTA (낙서장 기능 유지, 시각 최소) -->
-            <TerrariumWiltingOverlay
-              v-if="terrarium?.wilting && terrarium.wilting.stage > 0"
-              :state="terrarium.wilting"
-              class="z-[6000]"
-              :style="{
-                transform: `scale(${inverseStageScale})`,
-                transformOrigin: 'bottom center',
-              }"
-            />
 
             <!-- 편집모드 안내 영역 -->
             <Transition name="edit-fade">
@@ -1346,7 +1336,14 @@ function applySnapshot(snap: NonNullable<typeof homeSnapshot.snapshot>) {
     return {
       placementId: it.placementId,
       itemId: it.itemId,
-      image: it.itemImage,
+      // 서버 itemImage 가 URL 이 아니면(이모지·빈 값) 카탈로그 slug PNG 규약으로 해석한다 — 병 안에 거대한
+      // 아이콘 플레이스홀더가 뜨지 않게. 에셋 부재는 <img @error> 가 placeholder.png 로 받는다.
+      image: resolveItemImage({
+        slug: cat?.slug ?? null,
+        assetUrl: it.itemImage,
+        layout: (cat?.layout ?? it.itemLayout) as ItemResponse['layout'],
+        isAnimated: Boolean(cat?.isAnimated),
+      }),
       name: it.itemName,
       isAnimated: Boolean(cat?.isAnimated),
       // 로드 clamp 도메인 = 컨테이너 전체(0~400/0~552) — 서버 저장값(0~1) 을 손상 없이 표시.
