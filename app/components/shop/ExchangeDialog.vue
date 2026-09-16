@@ -97,8 +97,9 @@
               aria-label="수량 줄이기"
               @click="step(-1)"
             >−</button>
-            <label class="relative flex-1 min-w-0 h-11 -my-0.5">
-              <span class="absolute inset-x-0 inset-y-0.5 rounded-[12px] border border-apjek-border-strong bg-apjek-surface" aria-hidden="true" />
+            <label class="group relative flex-1 min-w-0 h-11 -my-0.5">
+              <!-- 포커스 링은 시각 박스(span)에 그린다 — input(44px)과 박스(40px) 높이가 달라 input 에 그리면 어긋난다 -->
+              <span class="absolute inset-x-0 inset-y-0.5 rounded-[12px] border border-apjek-border-strong bg-apjek-surface ring-inset group-focus-within:ring-2 group-focus-within:ring-apjek-blue/40" aria-hidden="true" />
               <input
                 v-model.number="amount"
                 type="number"
@@ -106,7 +107,7 @@
                 :max="fromBalance"
                 inputmode="numeric"
                 aria-label="환전 수량"
-                class="relative z-[1] w-full h-11 bg-transparent text-center text-[16px] font-bold text-apjek-text outline-none rounded-[12px] ring-inset focus-visible:ring-2 focus-visible:ring-apjek-blue/30 [appearance:textfield]"
+                class="relative z-[1] w-full h-11 bg-transparent text-center text-[16px] font-bold text-apjek-text outline-none [appearance:textfield]"
               >
             </label>
             <button

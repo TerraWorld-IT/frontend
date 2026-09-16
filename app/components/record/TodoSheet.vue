@@ -39,14 +39,15 @@
       <!-- 새 항목 추가 행 (연파랑) — 상한이면 빨강 ⊖ 안내 -->
       <div
         v-if="todos.length < TODO_LIMIT"
-        class="flex items-center gap-[10px] rounded-[12px] px-[12px] h-[48px] bg-apjek-blue-soft"
+        class="flex items-center gap-[10px] rounded-[12px] px-[12px] h-[48px] bg-apjek-blue-soft ring-inset focus-within:ring-2 focus-within:ring-apjek-blue/40"
       >
+        <!-- 포커스 링은 둥근 래퍼(focus-within)가 그린다 — 사각 input 에 그리면 래퍼와 어긋난다 -->
         <input
           v-model="newText"
           :disabled="submitting"
           :placeholder="`새 항목 추가 (최대 ${TODO_LIMIT}개)`"
           maxlength="50"
-          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none ring-inset focus-visible:ring-2 focus-visible:ring-apjek-blue/30 placeholder:text-apjek-blue-deep"
+          class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none placeholder:text-apjek-blue-deep"
           @keydown.enter="!$event.isComposing && ($event.preventDefault(), onAdd())"
         >
         <button
@@ -176,12 +177,12 @@
         </div>
 
         <!-- 이름 입력 + ⊕ (이름 전 비활성 — 댓글 #61) -->
-        <div class="flex items-center gap-[8px] rounded-[12px] px-[12px] h-[44px] bg-apjek-surface">
+        <div class="flex items-center gap-[8px] rounded-[12px] px-[12px] h-[44px] bg-apjek-surface ring-inset focus-within:ring-2 focus-within:ring-apjek-blue/40">
           <input
             v-model="routineLabel"
             placeholder="새 루틴 이름 작성"
             maxlength="50"
-            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none ring-inset focus-visible:ring-2 focus-visible:ring-apjek-blue/30"
+            class="flex-1 min-w-0 h-11 bg-transparent text-[14px] text-apjek-text outline-none"
             @keydown.enter="!$event.isComposing && ($event.preventDefault(), createRoutine())"
           >
           <button

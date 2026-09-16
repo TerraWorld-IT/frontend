@@ -86,7 +86,7 @@
             type="text"
             required
             maxlength="100"
-            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40"
           >
         </label>
 
@@ -97,7 +97,7 @@
             type="text"
             maxlength="50"
             :placeholder="$t('admin.items.fieldSlug')"
-            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40"
           >
         </label>
 
@@ -114,14 +114,14 @@
             required
             maxlength="500"
             placeholder=""
-            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40"
           >
         </label>
 
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldPriceType') }}</span>
-            <select :disabled="creating" v-model="form.priceType" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <select :disabled="creating" v-model="form.priceType" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40">
               <option v-for="opt in priceTypeOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </label>
@@ -132,7 +132,7 @@
               type="number"
               min="0"
               required
-              class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+              class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40"
             >
           </label>
         </div>
@@ -143,20 +143,20 @@
             :disabled="creating" v-model.number="form.tokenPrice"
             type="number"
             min="0"
-            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40"
           >
         </label>
 
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldRarity') }}</span>
-            <select :disabled="creating" v-model="form.rarity" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <select :disabled="creating" v-model="form.rarity" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40">
               <option v-for="opt in rarityOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </label>
           <label class="block">
             <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldLayout') }}</span>
-            <select :disabled="creating" v-model="form.layout" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+            <select :disabled="creating" v-model="form.layout" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40">
               <option v-for="opt in layoutOptions" :key="opt" :value="opt">{{ opt }}</option>
             </select>
           </label>
@@ -164,7 +164,7 @@
 
         <label class="block">
           <span class="text-xs text-riso-dark/50">{{ $t('admin.items.fieldCategory') }}</span>
-          <select :disabled="creating" v-model="form.categoryId" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white">
+          <select :disabled="creating" v-model="form.categoryId" class="mt-1 w-full h-10 px-2 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40">
             <option :value="null">{{ $t('admin.items.categoryNone') }}</option>
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
@@ -175,7 +175,7 @@
           <input
             :disabled="creating" v-model="form.description"
             type="text"
-            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white"
+            class="mt-1 w-full h-10 px-3 rounded-xl border border-riso-walnut/20 text-sm bg-white outline-none focus:ring-2 focus:ring-riso-sage/40"
           >
         </label>
 
