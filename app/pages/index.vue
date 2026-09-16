@@ -148,18 +148,21 @@
       <!-- ─── T11 타이틀 "나의 테라" (댓글 #1 크기 조정 24px/800) ─── -->
       <h1 v-if="!editMode" class="text-center text-[24px] font-extrabold text-apjek-text tracking-[-0.5px]" data-layout-anchor="home-title">나의 테라</h1>
 
-      <!-- ─── T13 관리 모드 상단 칩 3종 [🌱 아이템 배치][정령][✏️ 배경 설정] (선택 칩 파랑 채움) ─── -->
-      <div v-else class="flex justify-center gap-2 flex-wrap" role="tablist" aria-label="관리 모드 탭">
+      <!-- ─── T13 관리 모드 상단 칩 3종 [🌱 아이템 배치][정령][✏️ 배경 설정] — Figma 156:394/169:13660:
+           연블루 필 컨테이너 안에 칩 3개, 선택 칩 = 밝은 배경 + 블루 글자, 비선택 칩 = 블루 채움 + 흰 글자 ─── -->
+      <div v-else class="flex justify-center">
+      <div class="inline-flex items-center gap-2 p-2 rounded-full max-w-full" style="background: var(--color-apjek-blue-soft)" role="tablist" aria-label="관리 모드 탭">
         <button
           v-for="chip in manageChips"
           :key="chip.tab"
           type="button"
           role="tab"
           :data-testid="`home-manage-${chip.tab}`"
-          class="h-10 flex items-center gap-1.5 px-4 rounded-full transition-all active:scale-95 text-xs font-semibold whitespace-nowrap"
+          class="h-12 flex items-center gap-1.5 rounded-full transition-all active:scale-95 text-[15px] font-bold whitespace-nowrap"
+          :class="chip.icon ? 'px-5' : 'px-3.5'"
           :style="manageTab === chip.tab
-            ? { background: 'var(--color-apjek-blue)', color: '#ffffff' }
-            : { background: 'var(--color-apjek-surface)', color: 'var(--color-apjek-text-sub)', border: '1px solid var(--color-apjek-border-strong)' }"
+            ? { background: 'color-mix(in srgb, var(--color-apjek-surface) 70%, var(--color-apjek-blue-soft))', color: 'var(--color-apjek-blue-deep)' }
+            : { background: 'var(--color-apjek-blue)', color: '#ffffff' }"
           :aria-selected="manageTab === chip.tab"
           :id="`home-manage-tab-${chip.tab}`" aria-controls="home-manage-panel"
           :tabindex="manageTab === chip.tab ? 0 : -1"
@@ -177,6 +180,7 @@
         >
           <span v-if="chip.icon" aria-hidden="true"><Icon :name="chip.icon" class="w-[1em] h-[1em]" /></span>{{ chip.label }}
         </button>
+      </div>
       </div>
 
       <!-- ─── T14 병 캐러셀: Lv.1/2/3 레벨당 한 장 — 활성 병 레벨은 스테이지(slot), 나머지는 전환/해금 카드 ─── -->
@@ -252,10 +256,10 @@
               >
             </div>
 
-            <!-- 유리병 — 디자이너 Lv.1/2/3 병 이미지(표시 중 병 레벨). 질감 오버레이는 아이템 위에 겹치되
-                 편집 모드에선 핸들·드래그 시야를 가리지 않도록 뺀다. -->
+            <!-- 유리병 — 디자이너 Lv.1/2/3 병 이미지(표시 중 병 레벨). 질감 오버레이는 아이템 위에 겹친다.
+                 편집 모드(Figma 156:394 도 질감 유지)에선 핸들·드래그가 가려지지 않도록 아이템(z≥10) 아래로 내린다. -->
             <TerrariumJarArt :level="viewLevel" layer="base" />
-            <TerrariumJarArt v-if="!editMode" :level="viewLevel" layer="texture" :style="{ zIndex: textureZ }" />
+            <TerrariumJarArt :level="viewLevel" layer="texture" :style="{ zIndex: editMode ? 9 : textureZ }" />
 
             <!-- 병 좌표 안에서만 부유하는 장식: 기존 줌을 따르고 입력은 아래 레이어로 통과한다. -->
             <div
@@ -595,7 +599,7 @@
     :level="viewLevel"
     icon="lucide:pencil"
     title="관리 모드"
-    description="아이템으로 테라리움을 꾸미고 레벨과 아이템을 관리해요"
+    :description="'아이템으로 테라리움을 꾸미고\n레벨과 아이템을 관리해요'"
     @done="onManageIntroDone"
   />
 

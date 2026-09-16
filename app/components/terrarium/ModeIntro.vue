@@ -17,15 +17,16 @@
       >
         <!-- 첫 자식 mt-auto + 마지막 자식 mb-auto = safe centering. `justify-content: safe center` 는
              미지원 브라우저에서 선언이 통째로 무시돼 중앙 정렬이 사라진다. -->
+        <!-- Figma 105:18264 — 아이콘은 제목 위에 따로, 설명은 두 줄(\n 허용) -->
         <div class="shrink-0 mt-auto flex flex-col items-center gap-2 text-center">
-          <p class="text-[26px] font-extrabold text-apjek-text tracking-[-0.5px]">
-            <span aria-hidden="true"><Icon :name="icon" class="w-[1em] h-[1em]" /></span> {{ title }}
-          </p>
-          <p class="text-sm text-apjek-text-sub leading-relaxed">{{ description }}</p>
+          <span class="text-apjek-text" aria-hidden="true"><Icon :name="icon" class="w-7 h-7" /></span>
+          <p class="text-[26px] font-extrabold text-apjek-text tracking-[-0.5px] leading-[32px]">{{ title }}</p>
+          <p class="text-sm text-apjek-text-sub leading-relaxed whitespace-pre-line">{{ description }}</p>
         </div>
-        <!-- 병 일러스트 — 홈에 표시 중인 병(레벨)을 축소 렌더 -->
-        <div class="relative shrink-0 mb-auto mode-intro-jar" style="height: min(304px, max(0px, calc(100dvh - var(--sat) - var(--sab) - 160px))); aspect-ratio: 220 / 304; max-width: 100%" aria-hidden="true">
-          <TerrariumJarArt :level="level" />
+        <!-- 병 일러스트 — 홈에 표시 중인 병(레벨)을 축소 렌더. 홈과 같은 유리 질감(texture) 레이어를 겹친다. -->
+        <div class="relative shrink-0 mb-auto mode-intro-jar" style="height: min(304px, max(0px, calc(100dvh - var(--sat) - var(--sab) - 200px))); aspect-ratio: 220 / 304; max-width: 100%" aria-hidden="true">
+          <TerrariumJarArt :level="level" layer="base" />
+          <TerrariumJarArt :level="level" layer="texture" />
         </div>
       </div>
     </Transition>
