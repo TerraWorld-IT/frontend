@@ -13,7 +13,7 @@
     <div class="flex justify-center mb-3" aria-hidden="true"><IconsCurrencyIcon code="RUBY" :size="48" /></div>
     <div class="rounded-2xl py-5 px-4 text-center mb-4" style="background: #f4f9c9">
       <p class="text-[11px] font-medium mb-1" style="color: #8a8f66">나의 초대코드</p>
-      <p class="text-2xl font-extrabold tracking-[0.06em]" style="color: #111111" data-testid="invite-code-display">{{ displayCode }}</p>
+      <p class="text-2xl font-extrabold tracking-[0.06em] [overflow-wrap:anywhere]" style="color: #111111" data-testid="invite-code-display">{{ displayCode }}</p>
     </div>
     <div class="grid grid-cols-2 gap-2">
       <button

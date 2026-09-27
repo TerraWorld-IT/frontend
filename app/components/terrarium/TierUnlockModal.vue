@@ -35,21 +35,21 @@
       <button
         v-if="!target.prevUnlocked"
         type="button"
-        class="apjek-cta w-full py-3"
+        class="apjek-cta w-full py-3 text-center whitespace-normal [overflow-wrap:anywhere]"
         disabled
         data-testid="tier-unlock-cta"
       >이전 레벨을 먼저 해금해 주세요</button>
       <button
         v-else-if="rubyBalance < target.rubyCost"
         type="button"
-        class="apjek-cta w-full py-3"
+        class="apjek-cta w-full py-3 text-center whitespace-normal [overflow-wrap:anywhere]"
         disabled
         data-testid="tier-unlock-cta"
-      ><Icon name="lucide:gem" class="w-4 h-4" aria-hidden="true" />루비 {{ target.rubyCost }}개 사용 | 루비가 부족합니다</button>
+      ><Icon name="lucide:gem" class="w-4 h-4 shrink-0" aria-hidden="true" />루비 {{ target.rubyCost }}개 사용 | 루비가 부족합니다</button>
       <button
         v-else
         type="button"
-        class="apjek-cta w-full py-3"
+        class="apjek-cta w-full py-3 text-center whitespace-normal [overflow-wrap:anywhere]"
         :disabled="busy"
         data-testid="tier-unlock-cta"
         @click="emit('unlock', target)"

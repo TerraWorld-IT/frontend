@@ -1,7 +1,9 @@
 // useToast — 아프젝 2종 토스트(card/pill) 확장 + 기존 success/error/info(message) 호환 계약.
 // nuxt 환경(vitest.config.ts)이라 useState 기반 composable 을 테스트 안에서 직접 호출할 수 있다.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useToast } from '~/composables/useToast'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { toastReadingDuration, useToast } from '~/composables/useToast'
+import Toast from '~/components/common/Toast.vue'
 
 function clearAll() {
   const { toasts, dismiss } = useToast()
@@ -10,6 +12,44 @@ function clearAll() {
 }
 
 describe('useToast contract', () => {
+  it('자동 표시 시간은 문구 길이에 따라 늘고 기본값과 상한을 지킨다', () => {
+    expect(toastReadingDuration('짧은 안내')).toBe(3000)
+    expect(toastReadingDuration('가'.repeat(51))).toBe(3100)
+    expect(toastReadingDuration('가'.repeat(500))).toBe(10000)
+    expect(toastReadingDuration('짧은 기록', 3500)).toBe(3500)
+  })
+
+  it('긴 카드 문구의 기본 표시 시간이 늘어난다', () => {
+    const toast = useToast()
+    toast.show({ title: '긴 안내', description: '가'.repeat(80) })
+    vi.advanceTimersByTime(3000)
+    expect(toast.toasts.value).toHaveLength(1)
+    vi.advanceTimersByTime(5000)
+    expect(toast.toasts.value).toHaveLength(0)
+  })
+
+  it('카드 제목과 본문은 말줄임 없이 줄바꿈된다', async () => {
+    vi.useRealTimers()
+    const wrapper = await mountSuspended(Toast)
+    try {
+      vi.useFakeTimers()
+      useToast().show({ title: '긴 제목'.repeat(20), description: '긴 본문'.repeat(20) })
+      await wrapper.vm.$nextTick()
+      const paragraphs = document.body.querySelectorAll('[data-toast-id] p')
+      expect(paragraphs).toHaveLength(2)
+      const toastCard = document.body.querySelector<HTMLElement>('[data-toast-id]')!
+      expect(toastCard.style.overflowY).toBe('auto')
+      expect(paragraphs[0]!.parentElement!.className).toContain('my-auto')
+      for (const paragraph of paragraphs) {
+        expect(paragraph.className).toContain('[overflow-wrap:anywhere]')
+        expect(paragraph.className).not.toContain('truncate')
+        expect(paragraph.className).not.toContain('line-clamp')
+      }
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   beforeEach(() => {
     vi.useFakeTimers()
     clearAll()

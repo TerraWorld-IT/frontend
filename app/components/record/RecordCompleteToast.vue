@@ -34,9 +34,9 @@
               <IconsCurrencyIcon :code="kind.toUpperCase() as CurrencyCode" :size="24" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-[15px] font-bold text-apjek-text leading-[20px] truncate">{{ headline }}</p>
+              <p class="text-[15px] font-bold text-apjek-text leading-[20px] break-words [overflow-wrap:anywhere]">{{ headline }}</p>
               <p v-if="growthAdvanced" class="text-[12px] font-bold text-apjek-text leading-[16px] mt-[2px]">키우기 스탬프 +1</p>
-              <p class="text-[12px] text-apjek-text-sub leading-[16px] mt-[2px]">
+              <p class="text-[12px] text-apjek-text-sub leading-[16px] mt-[2px] break-words [overflow-wrap:anywhere]">
                 완료한 기록을 <span class="font-bold text-apjek-text">캘린더</span>에서 확인하세요.
               </p>
             </div>
@@ -50,9 +50,10 @@
 
 <script setup lang="ts">
 import type { CurrencyCode } from '~/utils/currency'
+import { toastReadingDuration } from '~/composables/useToast'
 
 /**
- * 일상 기록 완료 토스트. 표시/숨김은 부모가 소유(open), 탭 또는 자동 만료(3.5s)에 close 를 요청한다.
+ * 일상 기록 완료 토스트. 표시/숨김은 부모가 소유(open), 탭 또는 읽기 시간 만료에 close 를 요청한다.
  * 보상 수치는 서버 reward.categoryTokens — 0/누락이면 기록 완료만 표시한다.
  * 성장 증가는 부모가 서버 진행도 전후 비교로 확인한 경우에만 표시한다.
  */
@@ -111,7 +112,7 @@ watch(() => props.open, (open) => {
   // 조각의 1.2초 애니메이션 + 최대 시작 지연 160ms가 모두 끝난 뒤 제거한다.
   burstTimer = setTimeout(() => { burstVisible.value = false }, 1360)
   // 공용 토스트와 같이 포커스·hover 동안에는 읽기 시간을 차감하지 않는다.
-  let remaining = 3500
+  let remaining = toastReadingDuration(`${headline.value} 완료한 기록을 캘린더에서 확인하세요.${props.growthAdvanced ? ' 키우기 스탬프 +1' : ''}`, 3500)
   let previous = Date.now()
   hideTimer = setInterval(() => {
     const now = Date.now()

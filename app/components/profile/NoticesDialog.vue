@@ -70,7 +70,7 @@
                 class="flex items-start justify-between gap-[12px] py-[14px]"
                 data-testid="notice-row"
               >
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1 [overflow-wrap:anywhere]">
                   <p class="text-[14px] font-bold text-apjek-text tracking-[-0.2px] leading-[20px]">{{ n.title }}</p>
                   <p class="mt-[2px] text-[12px] text-apjek-text-sub tracking-[-0.2px] leading-[17px] whitespace-pre-line">{{ n.body }}</p>
                 </div>
