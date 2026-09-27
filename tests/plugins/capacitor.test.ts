@@ -2,27 +2,55 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import capacitorPlugin from '~/plugins/capacitor.client'
+import { App } from '@capacitor/app'
 import { Keyboard } from '@capacitor/keyboard'
 
 afterEach(() => {
+  vi.clearAllMocks()
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   document.body.classList.remove('keyboard-open')
   document.body.innerHTML = ''
+  isLoggedIn = ref<boolean>(false)
 })
 
-const mocks = vi.hoisted(() => ({ native: false, recover: vi.fn().mockResolvedValue(undefined), pushListener: vi.fn(), trackPushRegistrationFailed: vi.fn() }))
-const isLoggedIn = ref<boolean>(false)
+const mocks = vi.hoisted(() => ({ native: false, recover: vi.fn().mockResolvedValue(undefined), pushListener: vi.fn(), trackPushRegistrationFailed: vi.fn(), toastInfo: vi.fn() }))
+let isLoggedIn = ref<boolean>(false)
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => 'android' } }))
-vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn() } }))
+vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(), exitApp: vi.fn() } }))
 vi.mock('@capacitor/push-notifications', () => ({ PushNotifications: { addListener: mocks.pushListener } }))
 vi.mock('@capacitor/keyboard', () => ({ Keyboard: { addListener: vi.fn() } }))
 mockNuxtImport('useAuth', () => () => ({ isLoggedIn, loadJwt: async () => null }))
 mockNuxtImport('useBackButtonStack', () => () => ({ popTopBackHandler: () => false }))
+mockNuxtImport('useToast', () => () => ({ info: mocks.toastInfo }))
 mockNuxtImport('useGtagEvents', () => () => ({ trackPushRegistrationFailed: mocks.trackPushRegistrationFailed }))
 mockNuxtImport('recoverPendingPurchases', () => mocks.recover)
+
+describe('Capacitor 뒤로가기 종료 확인', () => {
+  it('루트 화면에서 첫 입력은 번역된 안내를 표시하고 2초 안의 두 번째 입력에서 종료한다', async () => {
+    mocks.native = true
+    mocks.pushListener.mockImplementation(() => { throw new Error('push unavailable') })
+    vi.mocked(App.addListener).mockClear()
+    vi.mocked(App.exitApp).mockClear()
+    mocks.toastInfo.mockClear()
+    const translate = vi.spyOn(useNuxtApp().$i18n, 't')
+    await capacitorPlugin({} as never)
+    const backButton = vi.mocked(App.addListener).mock.calls.find(([event]) => event === 'backButton')![1]
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+
+    backButton({ canGoBack: false })
+    expect(translate).toHaveBeenCalledExactlyOnceWith('common.pressBackAgainToExit')
+    expect(mocks.toastInfo).toHaveBeenCalledExactlyOnceWith('한 번 더 누르면 종료됩니다')
+    expect(App.exitApp).not.toHaveBeenCalled()
+
+    now.mockReturnValue(11_000)
+    backButton({ canGoBack: false })
+    expect(mocks.toastInfo).toHaveBeenCalledTimes(1)
+    expect(App.exitApp).toHaveBeenCalledOnce()
+  })
+})
 
 describe('Capacitor 구매 복구 초기화', () => {
   it('Push 초기화 예외 후에도 로그인 시 미완료 IAP를 복구한다', async () => {

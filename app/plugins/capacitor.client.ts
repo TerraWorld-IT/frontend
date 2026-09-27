@@ -114,6 +114,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   // --- Back Button (Android) ---
   const { popTopBackHandler } = useBackButtonStack()
+  const { $i18n } = useNuxtApp()
   let lastExitPressAt = 0
   const EXIT_CONFIRM_WINDOW_MS = 2000
 
@@ -127,17 +128,14 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     }
 
     // 2) 더 이상 뒤로 갈 라우트가 없음 — 실수로 즉시 종료되지 않도록 2초 내 재입력 확인.
-    // useI18n()/useToast() 는 리스너 콜백 안에서 호출 — 플러그인 setup 시점(모듈 등록 순서에
-    // i18n 초기화가 아직 안 끝났을 수 있음)이 아니라 실제 사용자가 뒤로가기를 누른 시점(앱
-    // 초기화가 이미 끝난 뒤)에만 평가되도록 지연시켜 순서 의존성을 없앤다.
+    // 번역은 컴포넌트 setup 밖에서도 접근 가능한 Nuxt 앱의 i18n 인스턴스로 조회한다.
     const now = Date.now()
     if (now - lastExitPressAt < EXIT_CONFIRM_WINDOW_MS) {
       App.exitApp()
       return
     }
     lastExitPressAt = now
-    const { t } = useI18n()
-    useToast().info(t('common.pressBackAgainToExit'))
+    useToast().info($i18n.t('common.pressBackAgainToExit'))
   })
 
   // --- Push Notification Listeners ---
