@@ -14,6 +14,48 @@ afterEach(async () => {
  * These tests validate the composable contract/shape.
  */
 describe('useAuth contract', () => {
+  it.each(['login', 'signup', 'logout'] as const)('인증 %s 요청이 멈추면 15초 안에 취소하고 다시 요청할 수 있다', async (action) => {
+    const { authClient } = await import('~/lib/auth-client')
+    const signals: AbortSignal[] = []
+    const fetch = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      signals.push(init!.signal!)
+      return new Promise<Response>(() => {})
+    })
+    vi.stubGlobal('fetch', fetch)
+    vi.useFakeTimers()
+    const call = () => action === 'login'
+      ? authClient.signIn.email({ email: 'test@example.com', password: 'password123' })
+      : action === 'signup'
+        ? authClient.signUp.email({ email: 'test@example.com', password: 'password123', name: '테스트' })
+        : authClient.signOut()
+    let settled = false
+    const pending = call().then(() => { settled = true }, () => { settled = true })
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(settled).toBe(true)
+    expect(signals).toHaveLength(1)
+    expect(signals[0]?.aborted).toBe(true)
+    await pending
+    fetch.mockResolvedValueOnce(Response.json({}))
+    await expect(call()).resolves.toBeDefined()
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('응답 헤더 뒤 본문이 멈춰도 인증 요청을 취소한다', async () => {
+    const { authClient } = await import('~/lib/auth-client')
+    let signal: AbortSignal | undefined
+    vi.stubGlobal('fetch', vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      signal = init?.signal ?? undefined
+      return Promise.resolve(new Response(new ReadableStream(), { headers: { 'content-type': 'application/json' } }))
+    }))
+    vi.useFakeTimers()
+    let settled = false
+    const pending = authClient.signOut().then(() => { settled = true }, () => { settled = true })
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(settled).toBe(true)
+    expect(signal?.aborted).toBe(true)
+    await pending
+  })
+
   it.each([
     [401, { statusCode: 401 }, 'unauthenticated', 1],
     [403, { response: { status: 403 } }, 'unauthenticated', 1],

@@ -122,6 +122,20 @@ async function mountSettings() {
 }
 
 describe('계정 설정', () => {
+  it('세션 준비 전에는 동의 토글을 잠그고 change 호출에도 저장하지 않는다', async () => {
+    mocks.session!.value = { data: null }
+    const w = await mountSettings()
+    const consent = w.get('[data-testid="consent-marketing"]')
+    expect(consent.attributes('disabled')).toBeDefined()
+    consent.element.dispatchEvent(new Event('change', { bubbles: true }))
+    await flushPromises()
+    expect(mocks.updateUser).not.toHaveBeenCalled()
+
+    mocks.session!.value = { data: { user: { id: 'user-a', pushConsent: false, adConsent: false } } }
+    await flushPromises()
+    expect(w.get('[data-testid="consent-marketing"]').attributes('disabled')).toBeUndefined()
+  })
+
   it('JWT 발급 전 isLoggedIn이 false여도 세션 사용자가 있으면 삭제 버튼만 표시한다', async () => {
     mocks.isLoggedIn!.value = false
     const w = await mountSettings()

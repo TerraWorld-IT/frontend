@@ -61,7 +61,7 @@
           {{ mode === 'login' ? $t('auth.login') : $t('auth.signup') }}
         </h2>
 
-        <form class="flex flex-col gap-3" @submit.prevent="onSubmit">
+        <form class="flex flex-col gap-3" @keydown.capture="onFormKeydown" @submit.prevent="onSubmit">
           <!-- 닉네임 (가입 전용) -->
           <div v-if="mode === 'signup'">
             <label for="auth-nickname" class="text-xs font-medium mb-1 block" style="color: #4f659c">
@@ -327,6 +327,10 @@ const password = ref<string>('')
 const nickname = ref<string>('')
 const birthDate = ref<string>('')
 const submitting = ref<boolean>(false)
+
+function onFormKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && (event.isComposing || event.keyCode === 229)) event.preventDefault()
+}
 // better-auth 에러는 필드 단위 세분화가 없어(예: "잘못된 이메일 또는 비밀번호") 어느 input 이
 // 원인인지 구분 못 함 — 로그인/가입 공통 원인 필드(email/password)를 invalid 로 표시하고
 // 첫 필드로 focus 이동해 스크린리더/키보드 사용자가 토스트 메시지 읽고 수동으로 탭백 안 해도
@@ -507,7 +511,9 @@ async function onSubmit() {
     }
   }
   catch (e) {
-    toast.error((e as Error).message)
+    toast.error((e as Error).message === 'withTimeout: deadline exceeded'
+      ? t(mode.value === 'login' ? 'auth.loginFailed' : 'auth.signupFailed')
+      : (e as Error).message)
     formError.value = true
     await nextTick()
     emailInput.value?.focus()
