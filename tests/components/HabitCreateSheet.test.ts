@@ -71,6 +71,35 @@ describe('HabitCreateSheet', () => {
     expect(localStorage.getItem(key)).toBeNull()
   })
 
+  it('유형과 친구 선택을 계정별로 복원하고 자동 요청하지 않는다', async () => {
+    const key = `${STORAGE_KEYS.DRAFT_HABIT_TITLE}habit-user`
+    const selectionKey = `${STORAGE_KEYS.DRAFT_HABIT_SELECTION}habit-user`
+    const wrapper = await mountSuspended(HabitCreateSheet, {
+      props: { open: true, friends: [{ userId: 'friend-a', nickname: '친구 A' }] },
+      global: { stubs: { CommonBottomSheet: { props: ['open'], template: '<section v-if="open"><slot/><slot name="footer"/></section>' } } },
+    })
+    wrappers.push(wrapper)
+    await wrapper.findAll('button').find(button => button.text().includes('친구와'))!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    await wrapper.get('input').setValue('함께 걷기')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    await wrapper.findAll('button').find(button => button.text() === '요청하기')!.trigger('click')
+    await wrapper.setProps({ open: false })
+    expect(readDraft(key)).toBe('함께 걷기')
+    expect(readDraft(selectionKey)).toEqual({ mode: 'friend', selectedFriendId: 'friend-a' })
+    expect(readDraft(`${STORAGE_KEYS.DRAFT_HABIT_TITLE}another-user`)).toBeNull()
+    expect(readDraft(`${STORAGE_KEYS.DRAFT_HABIT_SELECTION}another-user`)).toBeNull()
+    await wrapper.setProps({ open: true })
+    expect(wrapper.findAll('button').find(button => button.text().includes('친구와'))!.attributes('aria-pressed')).toBe('true')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    expect(wrapper.get('input').element.value).toBe('함께 걷기')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    expect(wrapper.findAll('button').filter(button => button.text() === '선택됨')).toHaveLength(1)
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    await wrapper.setProps({ friends: [] })
+    expect(wrapper.findAll('button').find(button => button.text() === '요청 보내기')!.attributes('disabled')).toBeDefined()
+  })
+
   it('A-02 선택한 친구를 DOM 맨 앞으로 옮기고 해제하면 원래 순서를 복원한다', async () => {
     const friends = [
       { userId: 'friend-a', nickname: '친구 A' },
