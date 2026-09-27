@@ -90,6 +90,15 @@ describe('기록 완료 토스트 읽기 시간', () => {
 })
 
 describe('RecordCompleteToast', () => {
+  it('긴 보상 수치도 제목을 자르지 않고 줄바꿈한다', async () => {
+    wrapper = await mountSuspended(RecordCompleteToast, {
+      props: { open: true, kind: 'dew', count: 123456789012345 },
+    })
+    const title = document.body.querySelector('[role="status"] p')!
+    expect(title.className).toContain('[overflow-wrap:anywhere]')
+    expect(title.className).not.toContain('truncate')
+  })
+
   it('두번째 기록은 보상 획득을 표시하지 않고 확인된 성장 증가만 표시한다', async () => {
     wrapper = await mountSuspended(RecordCompleteToast, {
       props: { open: true, kind: 'dew', count: 0, growthAdvanced: false },

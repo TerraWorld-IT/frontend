@@ -50,6 +50,9 @@ describe('TierUnlockModal', () => {
     const btn = cta()
     expect(btn!.disabled).toBe(true)
     expect(btn!.textContent).toContain('루비 30개 사용 | 루비가 부족합니다')
+    expect(btn!.className).toContain('whitespace-normal')
+    expect(btn!.className).toContain('[overflow-wrap:anywhere]')
+    expect(btn!.className).not.toContain('h-[')
   })
 
   it('이전 레벨 미해금이면 루비가 있어도 비활성 "이전 레벨을 먼저 해금해 주세요"', async () => {

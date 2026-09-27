@@ -3,14 +3,14 @@ export type ToastType = 'success' | 'error' | 'info'
 /**
  * 토스트 스타일(아프젝 Figma 2종).
  * - card: 393×88 흰 카드 + 1px 외곽선 r8, 좌 아이콘 + 굵은 제목 + 회색 부제 (상단 중앙)
- * - pill: 351×51 흰 필 + 핑크 외곽선, 텍스트 1줄 (상단)
+ * - pill: 351×51 최소 높이의 흰 필 + 핑크 외곽선 (상단)
  */
 export type ToastVariant = 'card' | 'pill'
 
 export interface Toast {
   id: number
   type: ToastType
-  /** 제목(card) 또는 본문 1줄(pill). 기존 `message` 필드명은 호환을 위해 유지한다. */
+  /** 제목(card) 또는 본문(pill). 기존 `message` 필드명은 호환을 위해 유지한다. */
   message: string
   variant: ToastVariant
   description?: string
@@ -27,7 +27,7 @@ export interface ToastOptions {
   /** 기본값: description 또는 icon 이 있으면 card, 없으면 pill */
   variant?: ToastVariant
   type?: ToastType
-  /** 자동 닫힘(ms). 기본 3000 */
+  /** 자동 닫힘(ms). 미지정 시 기본 3000부터 문구 길이에 따라 증가 */
   duration?: number
   actionLabel?: string
   onAction?: () => void
@@ -37,6 +37,11 @@ export interface ToastOptions {
 export type ToastExtra = Omit<ToastOptions, 'title' | 'type'>
 
 const DEFAULT_DURATION_MS = 3000
+const MAX_DURATION_MS = 10000
+
+export function toastReadingDuration(text: string, baseDurationMs = DEFAULT_DURATION_MS): number {
+  return Math.min(MAX_DURATION_MS, baseDurationMs + Math.max(0, [...text].length - 50) * 100)
+}
 
 /**
  * 토스트 알림 composable.
@@ -72,7 +77,7 @@ export function useToast() {
     })
     if (import.meta.client) {
       // 첫 알림만 표시하고 대기 중인 알림의 읽기 시간은 차감하지 않는다.
-      let remaining = options.duration ?? DEFAULT_DURATION_MS
+      let remaining = options.duration ?? toastReadingDuration(`${message} ${description ?? ''}`)
       let previous = Date.now()
       const timer = setInterval(() => {
         const now = Date.now()

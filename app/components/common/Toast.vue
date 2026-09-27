@@ -9,7 +9,7 @@
 
       아프젝 Figma 2종 (2026-08-23 C4):
       - card: 393×88 흰 카드 r8, 좌 아이콘 + 굵은 제목 + 회색 부제
-      - pill: 351×51 흰 필, 텍스트 1줄
+      - pill: 351×51 최소 높이의 흰 필
       수평 중앙은 `inset-x-0 mx-auto` — Tailwind v4 의 -translate-x-1/2 는 개별 translate 라
       스와이프 transform 과 합성돼 이중 적용되므로 쓰지 않는다(frontend/CLAUDE.md 함정).
       높이 상한과 내부 스크롤은 컨테이너가 아니라 토스트 카드가 가진다 — 컨테이너에 overflow-y 를
@@ -36,7 +36,7 @@
               ? 'apjek-toast-card w-full min-h-[88px] rounded-[8px] px-4 py-3 flex items-center gap-3'
               : 'apjek-toast-pill w-full max-w-[351px] min-h-[51px] rounded-full px-5 py-3 flex items-center justify-center gap-2',
           ]"
-         :style="[toastStyle(toast), { maxHeight: `calc(100dvh - var(--sat) - var(--sab) - ${slots.offline + (slots.record ? 64 + slots.record + 8 : 16) + 16}px)`, overflowY: 'auto' }]"
+          :style="[toastStyle(toast), { maxHeight: `calc(100dvh - var(--sat) - var(--sab) - ${slots.offline + (slots.record ? 64 + slots.record + 8 : 16) + 16}px)`, overflowY: 'auto' }]"
           @pointerdown="onPointerDown(toast.id, $event)"
           @pointermove="onPointerMove(toast.id, $event)"
           @pointerup="onPointerUp(toast.id, $event)"
@@ -54,17 +54,17 @@
             <template v-else>{{ toast.icon }}</template>
           </span>
 
-          <div class="min-w-0 flex-1" :class="toast.variant === 'pill' && 'text-center'">
+          <div class="min-w-0 flex-1 my-auto" :class="toast.variant === 'pill' && 'text-center'">
             <p
               :class="toast.variant === 'card'
-                ? 'text-[15px] font-bold leading-snug truncate'
-                : 'text-sm font-semibold leading-snug truncate'"
+                ? 'text-[15px] font-bold leading-snug break-words [overflow-wrap:anywhere]'
+                : 'text-sm font-semibold leading-snug break-words [overflow-wrap:anywhere]'"
             >
               {{ toast.message }}
             </p>
             <p
               v-if="toast.variant === 'card' && toast.description"
-              class="text-xs text-apjek-text-sub mt-0.5 line-clamp-2"
+              class="text-xs text-apjek-text-sub mt-0.5 break-words [overflow-wrap:anywhere]"
             >
               {{ toast.description }}
             </p>
