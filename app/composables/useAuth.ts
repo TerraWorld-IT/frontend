@@ -186,6 +186,12 @@ export function useAuth() {
       // 반환 에러도 호출부의 오류 안내로 전달해 성공 안내와 로그인 화면 이동을 막는다.
       if (error) throw new Error(error.message || '로그아웃에 실패했어요. 다시 시도해 주세요.')
     }
+    catch (error) {
+      if ((error as Error).message === 'withTimeout: deadline exceeded') {
+        throw new Error('로그아웃에 실패했어요. 다시 시도해 주세요.')
+      }
+      throw error
+    }
     finally {
       clearJwt()
     }

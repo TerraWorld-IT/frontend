@@ -39,7 +39,7 @@
               type="checkbox"
               :data-testid="`consent-${item.key}`"
               :checked="item.value"
-              :disabled="consentSaving || (item.key === 'push' && pushOffPending)"
+              :disabled="!hasMountedSession || consentSaving || (item.key === 'push' && pushOffPending)"
               class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
               @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
             >
@@ -339,7 +339,7 @@ onMounted(() => {
 
 async function onConsentToggle(key: string, checked: boolean) {
   const item = consentToggles.value.find(c => c.key === key)
-  if (!item || consentSaving.value || deletingAccount.value || loggingOut.value) return
+  if (!hasMountedSession.value || !item || consentSaving.value || deletingAccount.value || loggingOut.value) return
   if (key === 'push') {
     if (!isAndroidNative.value) return
     await onPushConsentToggle(checked)
@@ -355,7 +355,9 @@ async function onConsentToggle(key: string, checked: boolean) {
     toast.success(t('profile.consentSaved'))
   }
   catch (e) {
-    toast.error((e as Error).message)
+    toast.error((e as Error).message === 'withTimeout: deadline exceeded'
+      ? t('profile.consentSaveFail')
+      : (e as Error).message)
   }
   finally {
     consentSaving.value = false

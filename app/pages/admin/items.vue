@@ -76,7 +76,7 @@
 
     <!-- Create dialog -->
     <CommonModal :model-value="showCreateDialog" :confirm-disabled="creating || toggling !== null" @cancel="closeCreate" @confirm="submitCreate">
-      <form class="space-y-3" @submit.prevent="submitCreate">
+      <form class="space-y-3" @keydown.capture="onFormKeydown" @submit.prevent="submitCreate">
         <h3 class="font-bold text-lg text-riso-dark">{{ $t('admin.items.createTitle') }}</h3>
 
         <label class="block">
@@ -215,6 +215,10 @@ const loadError = ref<boolean>(false)
 const showCreateDialog = ref<boolean>(false)
 const toggling = ref<number | null>(null)
 const creating = ref<boolean>(false)
+
+function onFormKeydown(event: KeyboardEvent) {
+  if (event.key === 'Enter' && (event.isComposing || event.keyCode === 229)) event.preventDefault()
+}
 const rows = ref<ItemRow[]>([])
 const categories = ref<CategoryResponse[]>([])
 
