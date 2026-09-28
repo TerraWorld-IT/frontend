@@ -284,40 +284,85 @@ describe('WP2a 조회 상태', () => {
     expect(mocks.sdk.listTodoRoutines).toHaveBeenCalledOnce()
   })
 
-  it('단독 습관도 조회 중이거나 실패하면 제출하지 않고 복구 후 제출한다', async () => {
+  it('친구 조회 중·실패에도 단독 습관은 제출하고 페어 습관은 복구 후 제출한다', async () => {
     const w = await mountPage(HabitCreateSheet, { open: true, friends: [], loading: true })
     const s = state(w)
     s.mode = 'solo'
     s.step = 2
     s.title = '매일 걷기'
     s.onPrimary()
-    expect(w.emitted('submit')).toBeUndefined()
+    expect(w.emitted('submit')).toEqual([[{ title: '매일 걷기', friendUserId: null }]])
     await w.setProps({ loading: false, loadError: true })
     s.onPrimary()
-    expect(w.emitted('submit')).toBeUndefined()
-    await w.setProps({ loadError: false })
-    s.onPrimary()
-    expect(w.emitted('submit')).toEqual([[{ title: '매일 걷기', friendUserId: null }]])
+    expect(w.emitted('submit')).toHaveLength(2)
+
+    const pair = await mountPage(HabitCreateSheet, {
+      open: true, friends: [{ userId: 'friend-1' }], loading: true,
+    })
+    const pairState = state(pair)
+    pairState.mode = 'friend'
+    pairState.step = 2
+    pairState.title = '함께 걷기'
+    pairState.onPrimary()
+    expect(pairState.step).toBe(2)
+    pairState.step = 3
+    pairState.selectedFriendId = 'friend-1'
+    pairState.submit()
+    expect(pair.emitted('submit')).toBeUndefined()
+    await pair.setProps({ loading: false, loadError: true })
+    pairState.submit()
+    expect(pair.emitted('submit')).toBeUndefined()
+    await pair.setProps({ loadError: false })
+    pairState.submit()
+    expect(pair.emitted('submit')).toEqual([[{ title: '함께 걷기', friendUserId: 'friend-1' }]])
   })
 
-  it('B-12 초기 자료 조회와 실패 중에는 입력 진입을 막고 재시도 성공 후 해제한다', async () => {
+  it('B-12 친구 조회 실패는 일상 기록·단독 습관을 열어 두고 페어 습관만 재시도 후 해제한다', async () => {
     const pending = deferred()
     mocks.sdk.listFriends!.mockReturnValueOnce(pending.promise)
     const w = await mountPage(RecordPage)
     const s = state(w)
     const entry = w.findAll('button').find(button => button.attributes('aria-label')?.includes('기록하기'))!
     expect(entry.attributes('disabled')).toBeDefined()
-    s.openHabitCreate()
-    expect(s.habitCreateOpen).toBe(false)
     pending.resolve({ error: { message: 'unavailable' } })
     await flushPromises()
-    expect(entry.attributes('disabled')).toBeDefined()
+    expect(entry.attributes('disabled')).toBeUndefined()
     expect(w.text()).toContain('기록 정보를 불러오지 못했어요')
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(true)
+    s.habitCreateOpen = false
+    s.mode = 'friend'
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(false)
     s.retryInitial()
     await flushPromises()
     expect(entry.attributes('disabled')).toBeUndefined()
     s.openHabitCreate()
     expect(s.habitCreateOpen).toBe(true)
+  })
+
+  it('B-12 카테고리 조회 중·실패에는 기록 진입을 막고 재시도 후 해제한다', async () => {
+    const pending = deferred()
+    mocks.sdk.listCategories!.mockReturnValueOnce(pending.promise)
+    const w = await mountPage(RecordPage)
+    const entry = w.findAll('button').find(button => button.attributes('aria-label')?.includes('기록하기'))!
+    expect(entry.attributes('disabled')).toBeDefined()
+    pending.resolve({ error: { message: 'unavailable' } })
+    await flushPromises()
+    expect(entry.attributes('disabled')).toBeDefined()
+    state(w).retryInitial()
+    await flushPromises()
+    expect(entry.attributes('disabled')).toBeUndefined()
+  })
+
+  it('B-12 카테고리가 준비되면 친구 조회가 대기 중이어도 일상 기록을 연다', async () => {
+    const pending = deferred()
+    mocks.sdk.listFriends!.mockReturnValueOnce(pending.promise)
+    const w = await mountPage(RecordPage)
+    const entry = w.findAll('button').find(button => button.attributes('aria-label')?.includes('기록하기'))!
+    expect(entry.attributes('disabled')).toBeUndefined()
+    pending.resolve({ data: [] })
+    await flushPromises()
   })
 
   it('B-12 친구 조회 실패를 빈 목록과 구분하고 부모에게 재시도를 요청한다', async () => {
