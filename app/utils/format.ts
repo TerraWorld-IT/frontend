@@ -29,9 +29,9 @@ export function formatRelative(date: string | Date): string {
   return `${days}일 전`
 }
 
-/** 숫자 포맷: 1,234 */
-export function formatNumber(n: number): string {
-  return n.toLocaleString('ko-KR')
+/** 재화 수량 포맷: 소수 절사 후 천 단위 구분, 유효하지 않은 값은 0 */
+export function formatNumber(n: number | null | undefined): string {
+  return (typeof n === 'number' && Number.isFinite(n) ? Math.floor(n) : 0).toLocaleString('ko-KR')
 }
 
 /** 짧은 숫자: 1.2K, 3.4M */

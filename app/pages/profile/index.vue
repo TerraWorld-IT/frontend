@@ -213,7 +213,7 @@
               <IconsCurrencyIcon :code="c.code" :size="40" />
               <div class="min-w-0 w-full text-center min-[360px]:w-auto min-[360px]:text-left">
                 <p class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap min-[360px]:truncate">{{ c.label }}</p>
-                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums whitespace-nowrap min-[360px]:truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
+                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums break-all">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</p>
               </div>
             </div>
           </div>
@@ -227,7 +227,7 @@
             >
               <IconsCurrencyIcon :code="tkn.code" :size="40" />
               <span class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap">{{ tkn.label }}</span>
-              <span class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums max-w-full truncate">{{ formatBalance(balanceOf(user?.currency, tkn.code)) }}</span>
+              <span class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums max-w-full break-all text-center">{{ formatNumber(balanceOf(user?.currency, tkn.code)) }}</span>
             </div>
           </div>
         </div>
@@ -460,6 +460,7 @@ import type { FriendInfo, TerrariumResponse, UserMeResponse } from '@terraworld-
 // `useUserStore` 는 auto-import 가 걸리지 않는다 (frontend/CLAUDE.md § 함정) — 명시 import.
 import { useUserStore } from '~/stores/user'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
+import { formatNumber } from '~/utils/format'
 
 // 더보기(M5b) — Figma(2026-08-21) 카드 5개: 나의 프로필 / 친구목록 / 보유 재화 / 문의 및 알림 / 계정.
 // 공지사항은 정적 notices.json(§4-6), 알림은 홈과 같은 NotificationsCenter(M8), 고객센터는 메일(M6).
@@ -667,11 +668,6 @@ const tokenCells: Array<{ code: CurrencyCode; label: string }> = [
   { code: 'BOLT', label: '번개토큰' },
   { code: 'WIND', label: '바람토큰' },
 ]
-
-// balances.amount 는 정수 계약 — 다른 화면과 통일해 정수로 표시.
-function formatBalance(amount: number): string {
-  return Math.floor(amount).toLocaleString()
-}
 
 // 동의 항목 관리 로직은 /profile/settings 로 이전 (2026-07-21). 로그아웃은 아프젝 리디자인
 // §계정 카드로 재진입 (settings 페이지의 동일 기능은 유지 — 두 동선 모두 signOutAndClear 경유).

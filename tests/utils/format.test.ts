@@ -22,6 +22,21 @@ describe('format utils', () => {
     it('handles zero', () => {
       expect(formatNumber(0)).toBe('0')
     })
+
+    it.each([
+      [999, '999'],
+      [1000, '1,000'],
+      [9999999, '9,999,999'],
+      [-1000, '-1,000'],
+      [undefined, '0'],
+    ])('formats a currency amount of %s as %s', (amount, expected) => {
+      expect(formatNumber(amount)).toBe(expected)
+    })
+
+    it('discards fractional currency units and guards invalid values', () => {
+      expect(formatNumber(1234.9)).toBe('1,234')
+      expect(formatNumber(Number.NaN)).toBe('0')
+    })
   })
 
   describe('formatCompact', () => {

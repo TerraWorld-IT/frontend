@@ -128,16 +128,16 @@
           </div>
 
           <!-- 가격 — Figma: 아이콘 좌측 + 토큰명/수량 2줄 (MIXED 는 재화별 반복) -->
-          <div class="flex items-start justify-center gap-[12px] mt-2 mb-3">
+          <div class="flex w-full flex-wrap items-start justify-center gap-x-[12px] gap-y-[4px] mt-2 mb-3">
             <div
               v-for="part in priceParts(item)"
               :key="part.label"
-              class="flex items-center gap-[6px]"
+              class="flex max-w-full min-w-0 items-center gap-[6px]"
             >
               <IconsCurrencyIcon v-if="part.code" :code="part.code" :size="20" />
-              <div class="flex flex-col items-start gap-[2px]">
+              <div class="flex min-w-0 flex-col items-start gap-[2px]">
                 <span class="text-[10px] text-apjek-text-sub leading-[14px] whitespace-nowrap">{{ part.label }}</span>
-                <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums">{{ part.amount }}</span>
+                <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums break-all">{{ formatNumber(part.amount) }}</span>
               </div>
             </div>
           </div>
@@ -172,6 +172,7 @@ import type {
   PurchaseResponse,
 } from '@terraworld-it/openapi-frontend'
 import { balanceOf } from '~/utils/currency'
+import { formatNumber } from '~/utils/format'
 import { isPurchasable, priceParts, sortOwnedLast, tokenCodeForItem } from '~/utils/shop'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
