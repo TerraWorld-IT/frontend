@@ -31,17 +31,17 @@
            있음=^ 접기/펼침 토글 (R6b). 치수는 Figma 176:2280 "1주일" 프레임. -->
       <!-- 트래커가 보이면 카드 자체가 핑크 수풀 배경(Figma 90:13586: 카드 502px 고정, 하단이 일러스트) -->
       <div
-        class="rounded-[20px] border-2 border-apjek-blue/40 bg-apjek-surface px-[22px] py-[18px]"
+        class="rounded-[20px] border-2 border-apjek-blue/40 bg-apjek-surface px-[22px] py-[18px] max-[359px]:px-[12px]"
         :class="showTrackerBackdrop ? 'min-h-[502px]' : ''"
         :style="showTrackerBackdrop ? { background: 'url(/bg/habit-card.webp) center bottom / 100% auto no-repeat var(--color-apjek-surface)' } : undefined"
         data-layout-anchor="record-habit-card"
         :aria-busy="!habitsLoaded"
       >
-        <div class="flex items-center gap-[16px]">
+        <div class="flex items-center gap-[16px] max-[359px]:gap-[8px]">
           <img
             src="/icons/token/sparkle.png"
             alt=""
-            class="size-[60px] shrink-0 select-none"
+            class="size-[60px] max-[359px]:size-[40px] shrink-0 select-none"
             aria-hidden="true"
             draggable="false"
           >
@@ -64,7 +64,7 @@
             v-else-if="!hasAnyHabit"
             type="button"
             :disabled="habitLoadError || (mode === 'friend' && (friendLoading || friendLoadError))"
-            class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] max-[359px]:px-[8px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] max-[359px]:gap-[3px] shrink-0 whitespace-nowrap transition-all active:scale-95"
             @click="openHabitCreate()"
           >
             <Icon name="lucide:pencil" class="w-3.5 h-3.5" />
@@ -185,19 +185,19 @@
         <div
           v-for="card in DAILY_CARDS"
           :key="card.modal"
-          class="apjek-card rounded-[20px] p-[21px] flex items-center gap-[16px] w-full"
+          class="apjek-card rounded-[20px] p-[21px] max-[359px]:p-[12px] flex items-center gap-[16px] max-[359px]:gap-[8px] w-full"
         >
           <!-- 타일 아이콘 — Figma 토큰 아이콘 PNG(이슬/햇살/번개/바람) 그대로. 파스텔 배경은 이미지에 포함. -->
           <img
             :src="card.icon"
             alt=""
-            class="size-[60px] shrink-0 select-none"
+            class="size-[60px] max-[359px]:size-[40px] shrink-0 select-none"
             aria-hidden="true"
             draggable="false"
           >
 
           <div class="flex-1 min-w-0">
-            <p class="text-[18px] font-bold text-apjek-text tracking-[-0.44px] leading-[28px] truncate">
+            <p class="text-[18px] font-bold text-apjek-text tracking-[-0.44px] leading-[28px] min-[360px]:truncate">
               {{ card.title }}
             </p>
             <p class="text-[12px] leading-[16px] mt-[2px] text-apjek-text-faint">
@@ -208,7 +208,7 @@
           <!-- 칩은 22px — 탭 영역은 after 로 44px 확보 (hit-area 규칙) -->
           <button
             type="button"
-            class="relative after:absolute after:-inset-x-[6px] after:-inset-y-[11px] after:content-[''] h-[22px] px-[8px] rounded-[16px] bg-apjek-text-faint/10 text-[12px] font-semibold text-apjek-text inline-flex items-center gap-[4px] shrink-0 transition-all active:scale-95"
+            class="relative after:absolute after:-inset-x-[6px] after:-inset-y-[11px] after:content-[''] h-[22px] px-[8px] max-[359px]:px-[5px] rounded-[16px] bg-apjek-text-faint/10 text-[12px] font-semibold text-apjek-text inline-flex items-center gap-[4px] max-[359px]:gap-[2px] shrink-0 whitespace-nowrap transition-all active:scale-95"
             :aria-label="`${card.title} 기록하기`"
             :disabled="initialLoading || loadError"
             @click="openModal = card.modal"
