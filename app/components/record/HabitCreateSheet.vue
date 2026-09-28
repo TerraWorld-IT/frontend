@@ -162,8 +162,8 @@
         v-else-if="step === 2"
         type="button"
         class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
-        :class="canProceedName ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-        :disabled="!canProceedName || busy || modeUnavailable"
+        :class="nameStepDisabled ? 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default' : 'bg-apjek-blue text-white'"
+        :disabled="nameStepDisabled"
         @click="onPrimary"
       >
         {{ mode === 'friend' ? '다음' : '생성 하기' }}
@@ -250,6 +250,8 @@ const nameGuideText = computed<string>(() => mode.value === 'friend'
   : '1주일 동안 실천할 습관 이름을 적어 주세요.\n완료 또는 중단 전에 이름을 수정할 수 없습니다.')
 
 const canProceedName = computed<boolean>(() => title.value.trim().length > 0)
+const nameStepDisabled = computed<boolean>(() => !canProceedName.value || !!props.busy || modeUnavailable.value
+  || (mode.value === 'friend' && (!!props.loading || !!props.loadError)))
 
 function reset() {
   step.value = 1
@@ -344,9 +346,7 @@ function goStep2() {
 }
 
 function onPrimary() {
-  if (modeUnavailable.value) return
-  if (mode.value === 'friend' && (props.loading || props.loadError)) return
-  if (!canProceedName.value || props.busy) return
+  if (nameStepDisabled.value) return
   if (mode.value === 'friend') {
     void dismissKeyboard()
     step.value = 3
