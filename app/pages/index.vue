@@ -66,7 +66,25 @@
         <div class="h-[42px] w-[128px] rounded-full bg-apjek-border animate-pulse" />
       </div>
       <div class="apjek-card h-[266px] animate-pulse" data-layout-anchor="home-friends" />
-      <div class="apjek-card h-[242px] animate-pulse" data-layout-anchor="home-wallet" />
+      <div class="apjek-card h-[242px] max-[359px]:h-[284px] animate-pulse" data-layout-anchor="home-wallet">
+        <div class="hidden max-[359px]:flex flex-col gap-2 px-4 py-4" aria-hidden="true">
+          <div class="h-5 w-24 rounded bg-apjek-border" />
+          <div class="h-10 rounded-full bg-apjek-border" />
+          <div class="grid grid-cols-4 gap-2">
+            <div v-for="n in 4" :key="n" class="flex flex-col items-center gap-1">
+              <div class="size-9 rounded-full bg-apjek-border" />
+              <div class="h-3 w-10 rounded bg-apjek-border" />
+              <div class="h-4 w-8 rounded bg-apjek-border" />
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div v-for="n in 3" :key="n" class="flex flex-col items-center gap-2">
+              <div class="size-9 rounded-full bg-apjek-border" />
+              <div class="h-8 w-10 rounded bg-apjek-border" />
+            </div>
+          </div>
+        </div>
+      </div>
       <span class="sr-only">로딩 중</span>
     </div>
 

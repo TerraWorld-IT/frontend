@@ -180,7 +180,8 @@ async function measure(page: Page) {
       .map(element => ({ ...element, severe: element.hitArea.width < 44 || element.hitArea.height < 44 }))
     // 내비게이션의 아이콘과 라벨은 서로 다른 행이므로 라벨 span의 텍스트만 검사한다.
     // CSS nowrap 여부에 의존하지 않아 그 규칙이 깨져도 회귀를 검출한다.
-    const wrap = all.filter(element => element.matches('nav a > span:last-child,[role=tab],.apjek-chip,.apjek-cta'))
+    const wrap = all.filter(element => element.matches('nav a > span:last-child,[role=tab],.apjek-chip,.apjek-cta')
+      && !element.matches('[data-testid="tier-unlock-cta"]'))
       .flatMap((element) => {
         const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
         const rows: number[] = []
@@ -196,6 +197,25 @@ async function measure(page: Page) {
           }
         }
         return rows.length > 1 ? [{ ...describe(element), rects, rows }] : []
+      })
+    // 해금 버튼은 여러 줄을 허용하되 실제 텍스트가 버튼 경계 안에 있어야 한다.
+    const ctaClip = all.filter(element => element.matches('[data-testid="tier-unlock-cta"]'))
+      .flatMap((element) => {
+        const button = element as HTMLElement
+        const bounds = button.getBoundingClientRect()
+        const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+        const textRects: DOMRect[] = []
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent?.trim() || node.parentElement?.closest('svg,[aria-hidden=true],.iconify')) continue
+          const range = document.createRange()
+          range.selectNodeContents(node)
+          textRects.push(...range.getClientRects())
+        }
+        const outside = textRects.some(rect => rect.left < bounds.left - 0.5 || rect.right > bounds.right + 0.5
+          || rect.top < bounds.top - 0.5 || rect.bottom > bounds.bottom + 0.5)
+        return button.scrollWidth > button.clientWidth || outside
+          ? [{ ...describe(button), scrollWidth: button.scrollWidth, clientWidth: button.clientWidth, outside }]
+          : []
       })
     const clip = all.filter(element => element instanceof HTMLElement && getComputedStyle(element).overflowX === 'hidden'
       && element.scrollWidth > element.clientWidth && [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
@@ -214,7 +234,7 @@ async function measure(page: Page) {
     const root = document.scrollingElement!
     return {
       overflow: { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, violated: root.scrollWidth > root.clientWidth },
-      wrap, dialogPanels: dialogs.map(describe), toastPanels: toastRoots.map(describe), hitTargets, small, clip,
+      wrap, ctaClip, dialogPanels: dialogs.map(describe), toastPanels: toastRoots.map(describe), hitTargets, small, clip,
       insets: ['--sat', '--sab', '--sal', '--sar'].map(key => getComputedStyle(document.documentElement).getPropertyValue(key)),
     }
   })
@@ -390,6 +410,7 @@ test('밀집 화면 매트릭스와 상태의 기하를 검사하고 후보를 �
         await testInfo.attach(`clip-candidates-${name}`, { body: JSON.stringify(geometry.clip, null, 2), contentType: 'application/json' })
         expect.soft(geometry.overflow.violated, `${name}: 문서 가로 오버플로`).toBe(false)
         expect.soft(geometry.wrap, `${name}: 단일행 요소의 줄바꿈`).toEqual([])
+        expect.soft(geometry.ctaClip, `${name}: 해금 버튼 텍스트 잘림`).toEqual([])
         expect.soft(geometry.overlaps, `${name}: 다이얼로그·토스트 교차`).toEqual([])
         if (name === 'home__393__light') {
           const label = page.locator('nav a > span:last-child').filter({ hasText: '키우기' })
