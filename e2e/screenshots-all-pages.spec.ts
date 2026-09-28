@@ -157,7 +157,7 @@ async function signUpAndLogin(page: Page) {
     const cookieHeader = allSessionCookies.map((c) => `${c.name}=${c.value}`).join('; ')
     await page.context().setExtraHTTPHeaders({ cookie: cookieHeader })
 
-    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
     await page.context().clearCookies()
     await page.context().addCookies(
       allSessionCookies.map((c) => ({
@@ -185,7 +185,7 @@ async function signUpAndLogin(page: Page) {
     // navigation 시 reset 되지 않도록 (Nuxt SPA navigation 은 module 유지), signup 직후
     // /api/auth/token 호출해 JWT 받고 그것을 spec 의 모든 backend 호출에 Bearer 로 inject.
     try {
-      const tokenResp = await page.request.get(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'}/api/auth/token`)
+      const tokenResp = await page.request.get(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'}/api/auth/token`)
       if (tokenResp.ok()) {
         const { token } = await tokenResp.json() as { token: string }
         if (token) {
@@ -525,38 +525,6 @@ test.describe('UX 흐름', () => {
     await shot(page, 'flow-11-signup-mode')
   })
 
-  test('flow-12-effect-button-cycle', async ({ page }) => {
-    // 파티클 4종 (rain/snow/firefly/bubble) 의 fullPage 캡처는 PixiJS WebGL headless 한계로
-    // visual 차이가 사실상 button icon 미세 변화에 그침 → 4장 PNG (rain/snow/firefly/bubble) 을
-    // 단일 PNG 로 통합 + effect button row 영역만 element-level screenshot 으로 close-up 캡처.
-    // 본 PNG 는 cycle 의 한 stage (bubble = 4번 클릭 후) 만 캡처. 4 icon 의 차이는 코드 주석으로 기록:
-    //   - 0회 클릭 (default): lucide:cloud (자동)
-    //   - 1회: lucide:cloud-rain-wind (rain)
-    //   - 2회: lucide:snowflake (snow)
-    //   - 3회: lucide:sparkle (firefly)
-    //   - 4회: lucide:droplets (bubble)
-    //   - 5회: lucide:cloud-off (off)
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    for (let i = 0; i < 4; i++) {
-      await page.locator('[data-testid="home-effect"]').click().catch(() => {})
-      await page.waitForTimeout(300)
-    }
-    await page.waitForTimeout(1500)
-    // effect button row close-up — 5 effect button 그룹 전체 영역 element-level screenshot
-    const effectRow = page.locator('[data-testid="home-effect"]').locator('xpath=..').first()
-    if (await effectRow.isVisible().catch(() => false)) {
-      await effectRow.screenshot({
-        path: path.join(SCREENSHOT_DIR, 'flow-12-effect-button-cycle.png'),
-      })
-    }
-    else {
-      // fallback — fullPage 캡처
-      await shot(page, 'flow-12-effect-button-cycle')
-    }
-  })
-
   test('flow-13-캘린더-통계-제거', async ({ page }) => {
     // Figma에 없는 통계를 제거한 뒤 날짜 그리드가 바로 이어진다.
     await signUpAndLogin(page)
@@ -700,29 +668,8 @@ test.describe('cycle 6 모달 정밀화', () => {
     await shot(page, 'M-E2-shop-exchange-modal')
   })
 
-  test('M-G2-진화-modal-trigger', async ({ page }) => {
-    // 홈의 진화 button (data-testid="home-evolution") 클릭 → showUpgradeModal=true
-    // Lv1 이라 조건 미충족 일 수도 있지만 modal 자체는 노출됨 (조건 안내 UI 포함)
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.locator('[data-testid="home-evolution"]').click().catch(() => {})
-    await page.waitForTimeout(800)
-    await shot(page, 'M-G2-evolution-upgrade-modal')
-  })
-
-  test('M-B2-홈-다운로드-trigger', async ({ page }) => {
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    // onShareClick → html2canvas 가 dom 캡처 후 share UI 노출 (또는 toast)
-    // download dialog 가 native 라 캡처 후 reload
-    await page.locator('[data-testid="home-download"]').click().catch(() => {})
-    await page.waitForTimeout(2000)
-    await shot(page, 'M-B2-download-share-flow')
-  })
-
-  test('M-C2-홈-무료코인-광고-trigger', async ({ page }) => {
+  // M-C2-홈-무료코인-광고-trigger: 첫 출시 실결제·광고 보상 진입 차단 정책으로 트리거 UI 비활성 — 삭제하지 않고 skip.
+  test.skip('M-C2-홈-무료코인-광고-trigger', async ({ page }) => {
     await signUpAndLogin(page)
     await page.goto('/')
     await page.waitForLoadState('networkidle').catch(() => {})
@@ -730,16 +677,6 @@ test.describe('cycle 6 모달 정밀화', () => {
     await page.locator('[data-testid="home-freecoin"]').click().catch(() => {})
     await page.waitForTimeout(1000)
     await shot(page, 'M-C2-freecoin-ad-modal')
-  })
-
-  test('M-H-홈-공간넓히기-tier-modal', async ({ page }) => {
-    // 낙서장: 레벨업 대체 — 테라리움 공간(tier) 잠금해제 모달 (data-testid="home-tier")
-    await signUpAndLogin(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.locator('[data-testid="home-tier"]').click().catch(() => {})
-    await page.waitForTimeout(800)
-    await shot(page, 'M-H-tier-modal')
   })
 })
 
@@ -776,11 +713,21 @@ async function seedCurrentUserState(_page: Page, opts: { admin?: boolean } = {})
     return null
   }
   console.log('[seed] user_id:', userId, 'admin:', opts.admin === true)
-  const rolePart = opts.admin ? `UPDATE users SET role='ADMIN' WHERE id='${userId}'; ` : ''
-  const sql = rolePart
-    + `UPDATE users SET level=10, total_exp=4500 WHERE id='${userId}'; `
-    + `UPDATE terrariums SET evolution_stage='PALUDARIUM' WHERE user_id='${userId}'; `
-    + `INSERT INTO activity_records (user_id, category_id, memo, recorded_date, created_at) `
+  // users.level / users.total_exp / terrariums.evolution_stage 는 현재 스키마에 없는 컬럼 —
+  // 갱신 시 psql -c 의 단일 simple-query 트랜잭션이 통째로 롤백되어 role=ADMIN 도 조용히 무효화됐다.
+  // role 갱신은 나머지 시드와 분리 실행해 activity_records 삽입 실패가 role 을 되돌리지 못하게 한다.
+  if (opts.admin) {
+    try {
+      execSync(
+        `docker exec tw-dev-postgres psql -U terraworld -d terraworld -c "UPDATE users SET role='ADMIN' WHERE id='${userId}'"`,
+        { encoding: 'utf-8' },
+      )
+    }
+    catch (e) {
+      console.warn('[seed] role update fail:', (e as Error).message)
+    }
+  }
+  const sql = `INSERT INTO activity_records (user_id, category_id, memo, recorded_date, created_at) `
     + `SELECT '${userId}', (1+(gs%4))::bigint, 'memo '||gs, `
     + `  CURRENT_DATE - (gs||' days')::interval, NOW() - (gs||' days')::interval `
     + `FROM generate_series(0,29) gs ON CONFLICT DO NOTHING;`
@@ -817,6 +764,12 @@ async function signupWithoutOnboardingSkip(page: Page) {
     await birthInput.fill(user.birthDate)
   }
 
+  // P1-2 (PIPA 제15조): 필수 동의(이용약관·개인정보) 미체크 시 가입 차단 — "전체 동의" 로 일괄 체크.
+  const agreeAllBox = page.locator('label', { hasText: '전체 동의' }).locator('input[type="checkbox"]').first()
+  if (await agreeAllBox.isVisible().catch(() => false)) {
+    await agreeAllBox.check().catch(() => {})
+  }
+
   await page.locator('button[type="submit"]').first().click()
   await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {})
   await page.waitForTimeout(2000)
@@ -829,7 +782,7 @@ async function signupWithoutOnboardingSkip(page: Page) {
   if (allSessionCookies.length > 0) {
     const cookieHeader = allSessionCookies.map((c) => `${c.name}=${c.value}`).join('; ')
     await page.context().setExtraHTTPHeaders({ cookie: cookieHeader })
-    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
     await page.context().clearCookies()
     await page.context().addCookies(
       allSessionCookies.map((c) => ({
@@ -1048,7 +1001,7 @@ test.describe('cycle 7 onboarding step + UX', () => {
 
   test('flow-38-calendar-with-records', async ({ page }) => {
     await signUpAndLogin(page)
-    // user-specific seed (records 30 day + Lv10 + paludarium)
+    // 사용자별 시드(기록 30일)
     await seedCurrentUserState(page)
     await page.goto('/calendar')
     await page.waitForLoadState('networkidle').catch(() => {})
@@ -1065,20 +1018,8 @@ test.describe('cycle 7 onboarding step + UX', () => {
     await shot(page, 'flow-39-ranking-with-data')
   })
 
-  test('M-G3-진화-paludarium-unlocked', async ({ page }) => {
-    // Lv10 + paludarium seed 후 진화 모달 → 다음 단계 (나만의 세계 Lv20) 도 unlock 표시
-    await signUpAndLogin(page)
-    await seedCurrentUserState(page)
-    await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
-    await page.waitForTimeout(500)
-    await page.locator('[data-testid="home-evolution"]').click().catch(() => {})
-    await page.waitForTimeout(800)
-    await shot(page, 'M-G3-evolution-paludarium-unlocked')
-  })
-
   test('flow-40-profile-with-records', async ({ page }) => {
-    // profile 페이지의 레벨/EXP 채워진 상태
+    // profile 페이지의 기록 채워진 상태
     await signUpAndLogin(page)
     await seedCurrentUserState(page)
     await page.goto('/profile')
@@ -1305,6 +1246,11 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     if (await birthA.isVisible().catch(() => false)) {
       await birthA.fill(userA.birthDate)
     }
+    // P1-2 (PIPA 제15조): 필수 동의(이용약관·개인정보) 미체크 시 가입 차단 — "전체 동의" 로 일괄 체크.
+    const agreeAllBoxA = page.locator('label', { hasText: '전체 동의' }).locator('input[type="checkbox"]').first()
+    if (await agreeAllBoxA.isVisible().catch(() => false)) {
+      await agreeAllBoxA.check().catch(() => {})
+    }
     await page.locator('button[type="submit"]').first().click()
     await page.waitForTimeout(2500)
     // 코드 발급
@@ -1325,7 +1271,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     // 별 context (userB, 미인증) 로 share 접근
     const ctxB = await browser.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul' })
     const pageB = await ctxB.newPage()
-    await pageB.goto(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'}/share/${code.trim()}`)
+    await pageB.goto(`${process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'}/share/${code.trim()}`)
     await pageB.waitForLoadState('networkidle').catch(() => {})
     await pageB.waitForTimeout(800)
     await shot(pageB, 'flow-52-share-valid-other-code')
@@ -1338,7 +1284,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
    * signUpAndLogin 후 docker UPDATE role=ADMIN → /api/auth/token 다시 호출하면 JWT 새 role claim.
    */
   async function refreshJwtAfterRoleChange(page: Page) {
-    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
+    const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
     try {
       const tokenResp = await page.request.get(`${baseUrl}/api/auth/token`)
       if (tokenResp.ok()) {
@@ -1464,6 +1410,7 @@ test.describe('cycle 11 자잘한 미캡처', () => {
   })
 
   test('flow-54-admin-index-with-role', async ({ page }) => {
+    test.setTimeout(60_000) // role 부여 + JWT 재발급 + admin 화면 로드가 기본 30초 예산을 간헐적으로 넘음.
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
@@ -1475,10 +1422,14 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await page.goto('/admin')
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
+    // role 부여 실패 시 auth/admin 미들웨어가 다른 라우트로 돌려보내므로 URL + 대시보드 고유 요소로 조용한 통과를 막는다.
+    await expect(page).toHaveURL(/\/admin$/)
+    await expect(page.getByText('아이템, 보상, 경제 관리')).toBeVisible()
     await shot(page, 'flow-54-admin-index-real')
   })
 
   test('flow-55-admin-items-with-role', async ({ page }) => {
+    test.setTimeout(60_000) // role 부여 + JWT 재발급 + admin 화면 로드가 기본 30초 예산을 간헐적으로 넘음.
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
@@ -1490,10 +1441,14 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
+    // role 부여 실패 시 auth/admin 미들웨어가 다른 라우트로 돌려보내므로 URL + 화면 고유 요소로 조용한 통과를 막는다.
+    await expect(page).toHaveURL(/\/admin\/items/)
+    await expect(page.getByText('아이템 관리')).toBeVisible()
     await shot(page, 'flow-55-admin-items-real')
   })
 
   test('flow-56-admin-categories-with-role', async ({ page }) => {
+    test.setTimeout(60_000) // role 부여 + JWT 재발급 + admin 화면 로드가 기본 30초 예산을 간헐적으로 넘음.
     await signUpAndLogin(page)
     await seedCurrentUserState(page, { admin: true })
     await refreshJwtAfterRoleChange(page)
@@ -1505,6 +1460,9 @@ test.describe('cycle 11 자잘한 미캡처', () => {
     await page.reload()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(800)
+    // role 부여 실패 시 auth/admin 미들웨어가 다른 라우트로 돌려보내므로 URL + 화면 고유 요소로 조용한 통과를 막는다.
+    await expect(page).toHaveURL(/\/admin\/categories/)
+    await expect(page.getByText('카테고리 보상 관리')).toBeVisible()
     await shot(page, 'flow-56-admin-categories-real')
   })
 

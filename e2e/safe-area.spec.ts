@@ -412,12 +412,14 @@ test('AC7 real dev routes Pixel 5 inset 47/34 captures', async ({ browser }) => 
         await page.waitForTimeout(60)
         // 라우트 순회에서는 "스크림 색 == 바로 아래 페이지 배경" 까지 본다(F3 자기충족 제거).
         // 스크롤 상단에서만 비교한다(스크롤 뒤에는 콘텐츠가 스크림 아래를 지나가는 것이 정상).
-        // 제외 2건 — /auth/login 하단: 배경이 135° 대각 그라디언트라 단색 스크림과 정합 불가.
+        // 제외 3건 — /auth/login 하단: 배경이 135° 대각 그라디언트라 단색 스크림과 정합 불가.
         //            /grow 상단: 세이프에어리어 바로 아래가 히어로 비트맵 첫 행이라 단색과 비교 불가
         //            (스크림 자리에 깔리는 색은 그 div 의 바탕색 #f5f9fc 이며 그것과는 일치한다).
+        //            / 상단: 루트가 풀블리드 세로 그라디언트(index.vue:18, 0%→55%)라 세이프에어리어
+        //            바로 아래 행은 이미 그라디언트가 번진 색 — --apjek-scrim 의 0% stop 원색과는 못 맞춘다.
         const png = await scrim(page, [47, 34, 0, 0], name !== 'top'
           ? []
-          : path === '/auth/login' ? ['top'] : path === '/grow' ? ['bottom'] : ['top', 'bottom'])
+          : path === '/auth/login' ? ['top'] : (path === '/grow' || path === '/') ? ['bottom'] : ['top', 'bottom'])
         if (path === '/shop') expect((await box(page, '.sticky')).y).toBeGreaterThanOrEqual(47)
         const file = `${path === '/' ? 'home' : path.slice(1).replaceAll('/', '-')}-${name}.png`
         if (captures) await writeFile(join(captures, file), png)
