@@ -332,10 +332,15 @@ const DAYS = computed<string[]>(() => [
 const pending = ref<boolean>(true)
 const fetchError = ref<Error | null>(null)
 
-// Calendar state
-const now = new Date()
-const viewYear = ref<number>(now.getFullYear())
-const viewMonth = ref<number>(now.getMonth()) // 0-indexed
+// Calendar state — SSR 이 판단한 연·월을 useState 로 hydration 까지 그대로 넘긴다.
+// 서버·기기 시계/시간대가 다른 월 경계(서버 UTC vs 기기 KST 자정 근처 등)에 각자 new Date()
+// 를 쓰면 SSR 스켈레톤 주 수와 클라이언트 첫 렌더가 달라져 hydration mismatch 가 난다.
+const ssrView = useState<{ year: number, month: number }>('calendar.ssrView', () => {
+  const now = new Date()
+  return { year: now.getFullYear(), month: now.getMonth() }
+})
+const viewYear = ref<number>(ssrView.value.year)
+const viewMonth = ref<number>(ssrView.value.month) // 0-indexed
 
 // Records for current view month
 // FE-10: 교체-대입 전용 리스트(로드/삭제 모두 `.value =` 재할당) — deep reactivity 불필요.
@@ -714,7 +719,15 @@ async function removeRecord(record: RecordResponse) {
   }
 }
 
-onMounted(load)
+// 첫 렌더까지는 SSR 이 넘긴 연·월을 그대로 쓰고(hydration mismatch 방지), 마운트 뒤 곧바로
+// 기기 시계 기준 연·월로 맞춘 다음 그 달 기록을 불러온다. useState 값은 클라이언트 내
+// 이동으로 다시 들어와도 갱신하지 않으므로(과거 방문 값이 남을 수 있음) 항상 기기 시계로 재확정한다.
+onMounted(() => {
+  const deviceNow = new Date()
+  viewYear.value = deviceNow.getFullYear()
+  viewMonth.value = deviceNow.getMonth()
+  load()
+})
 </script>
 
 <style scoped>
