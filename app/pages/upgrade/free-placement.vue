@@ -8,12 +8,6 @@
     <p class="text-sm text-riso-dark/70">
       {{ $t('upgrade.freePlacementDesc') }}
     </p>
-    <ul class="space-y-2 text-sm text-riso-dark/80">
-      <li>• {{ $t('upgrade.feature1') }}</li>
-      <li>• {{ $t('upgrade.feature2') }}</li>
-      <li>• {{ $t('upgrade.feature3') }}</li>
-    </ul>
-
     <div class="rounded-xl bg-riso-cream p-4 riso-shadow space-y-2">
       <p class="text-sm font-medium text-riso-dark">
         {{ $t('upgrade.freePlacementAlreadyAvailable') }}

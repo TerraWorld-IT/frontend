@@ -287,14 +287,6 @@
                   background: 'rgba(81,140,219,0.04)',
                 }"
               >
-                <!-- 빈 병 첫 편집 안내 — 배치 아이템이 없으면 다음 행동(하단 패널 타일 탭)을 알려준다. -->
-                <p
-                  v-if="placedItems.length === 0 && manageTab === 'items'"
-                  class="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-[13px] font-semibold rounded-xl px-3 py-2 mx-auto w-fit"
-                  style="color: var(--color-apjek-blue-deep); background: rgba(255,255,255,0.82)"
-                >
-                  아래 '보유 아이템 목록'에서<br>첫 아이템을 배치해 보세요
-                </p>
               </div>
             </Transition>
 

@@ -811,6 +811,18 @@ describe('T2-Y 날짜와 관리자 요청 직렬화', () => {
 })
 
 describe('T2-Y 홈 배치', () => {
+  it('빈 관리 모드의 병에는 첫 아이템 안내를 표시하지 않는다', async () => {
+    const w = await mountPage(HomePage)
+    const s = state(w)
+    s.editMode = true
+    s.manageTab = 'items'
+    await nextTick()
+    expect(w.text()).not.toContain('첫 아이템을 배치해 보세요')
+    const panel = w.findComponent({ name: 'TerrariumManagePanel' })
+    expect(panel.props('open')).toBe(true)
+    expect(panel.props('emptyCtaLabel')).toBe('상점 가기')
+  })
+
   it('C16/C17 저장 payload는 제출 스냅샷이고 드래그 저장은 관리 UI를 잠그지 않는다', async () => {
     const s = state(await mountPage(HomePage)); const save = deferred(); mocks.sdk.updateFreePosition!.mockReturnValueOnce(save.promise)
     s.editMode = true; s.placedItems = [{ placementId: 1, itemId: 1, x: 100, y: 300, scale: 1, flipped: false, zIndex: 0 }]
