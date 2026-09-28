@@ -172,8 +172,8 @@
         v-else
         type="button"
         class="w-full h-[48px] rounded-full text-[14px] font-semibold transition-all active:scale-[0.98]"
-        :class="selectedFriendId ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
-        :disabled="!selectedFriendId || busy || loading || loadError || modeUnavailable"
+        :class="selectedFriendAvailable ? 'bg-apjek-blue text-white' : 'bg-apjek-blue-soft text-apjek-blue-deep/60 cursor-default'"
+        :disabled="!selectedFriendAvailable || busy || loading || loadError || modeUnavailable"
         @click="submit"
       >
         {{ busy ? '요청 보내는 중...' : '요청 보내기' }}
@@ -226,11 +226,14 @@ const step = ref<1 | 2 | 3>(1)
 const mode = ref<Mode | null>(null)
 const title = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
+const selectedFriendAvailable = computed<boolean>(() => props.friends.some(friend => friend.userId === selectedFriendId.value))
 const modeUnavailable = computed<boolean>(() => mode.value === 'friend' ? !!props.friendUnavailable : mode.value === 'solo' && !!props.soloUnavailable)
 const userStore = useUserStore()
 const session = authClient.useSession()
 const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
 let draftKey: string | null = null
+let selectionDraftKey: string | null = null
+type HabitSelectionDraft = { mode: Mode | null; selectedFriendId: string | null }
 
 // 선택한 친구를 DOM 맨 앞으로 옮겨 표시 순서와 키보드 탐색 순서를 맞춘다.
 const displayFriends = computed<FriendInfo[]>(() => [
@@ -253,21 +256,34 @@ function reset() {
   mode.value = props.initialMode ?? null
   const userId = draftUserId.value
   draftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}` : null
+  selectionDraftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_SELECTION}${userId}` : null
   const draft = draftKey ? readDraft<unknown>(draftKey) : null
+  const selection = selectionDraftKey ? readDraft<unknown>(selectionDraftKey) : null
   title.value = typeof draft === 'string' ? draft : ''
-  selectedFriendId.value = null
+  if (isHabitSelectionDraft(selection)) {
+    mode.value = selection.mode
+    selectedFriendId.value = selection.selectedFriendId
+  }
+  else selectedFriendId.value = null
+}
+
+function isHabitSelectionDraft(value: unknown): value is HabitSelectionDraft {
+  if (!value || typeof value !== 'object') return false
+  const draft = value as Record<string, unknown>
+  return (draft.mode === null || draft.mode === 'solo' || draft.mode === 'friend')
+    && (draft.selectedFriendId === null || typeof draft.selectedFriendId === 'string')
 }
 
 // 부모 초기 조회로 ID가 늦게 확보돼도 현재 이름을 덮어쓰지 않는다.
 watch(draftUserId, (userId, previous) => {
-  if (!props.open || !userId || previous) return
-  draftKey = `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}`
-  if (title.value) return
-  const draft = readDraft<unknown>(draftKey)
-  if (typeof draft === 'string') title.value = draft
+  if (!props.open) return
+  if (previous) persistDraft()
+  draftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_TITLE}${userId}` : null
+  selectionDraftKey = userId ? `${STORAGE_KEYS.DRAFT_HABIT_SELECTION}${userId}` : null
+  if (previous || (!title.value && !selectedFriendId.value)) reset()
 })
 
-// 이름만 복원하며 유형·친구 선택·단계는 새로 시작한다.
+// 입력값은 복원하지만 단계는 첫 단계에서 다시 시작하며 요청을 자동 전송하지 않는다.
 watch(() => props.open, (open, previous) => {
   if (open) reset()
   else if (previous) persistDraft()
@@ -289,14 +305,22 @@ onBeforeUnmount(() => {
 })
 
 function persistDraft() {
-  if (!draftKey) return
-  if (title.value.trim()) writeDraft(draftKey, title.value)
-  else clearDraft(draftKey)
+  if (draftKey) {
+    if (title.value.trim()) writeDraft(draftKey, title.value)
+    else clearDraft(draftKey)
+  }
+  if (selectionDraftKey) {
+    if (mode.value || selectedFriendId.value) writeDraft(selectionDraftKey, { mode: mode.value, selectedFriendId: selectedFriendId.value })
+    else clearDraft(selectionDraftKey)
+  }
 }
 
 function clear() {
   title.value = ''
+  selectedFriendId.value = null
+  mode.value = null
   if (draftKey) clearDraft(draftKey)
+  if (selectionDraftKey) clearDraft(selectionDraftKey)
 }
 
 function onClose() {
@@ -321,7 +345,7 @@ function goStep2() {
 
 function onPrimary() {
   if (modeUnavailable.value) return
-  if (props.loading || props.loadError) return
+  if (mode.value === 'friend' && (props.loading || props.loadError)) return
   if (!canProceedName.value || props.busy) return
   if (mode.value === 'friend') {
     void dismissKeyboard()
@@ -338,7 +362,8 @@ function toggleFriend(userId: string) {
 
 function submit() {
   if (modeUnavailable.value) return
-  if (!selectedFriendId.value || props.busy || props.loading || props.loadError) return
+  if (!selectedFriendId.value || !selectedFriendAvailable.value
+    || props.busy || props.loading || props.loadError) return
   emit('submit', { title: title.value.trim(), friendUserId: selectedFriendId.value })
 }
 </script>

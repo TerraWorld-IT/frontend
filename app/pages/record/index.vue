@@ -63,7 +63,7 @@
           <button
             v-else-if="!hasAnyHabit"
             type="button"
-            :disabled="initialLoading || loadError || habitLoadError"
+            :disabled="habitLoadError || (mode === 'friend' && (friendLoading || friendLoadError))"
             class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             @click="openHabitCreate()"
           >
@@ -153,7 +153,7 @@
               <button
                 type="button"
                 class="w-full h-[48px] mt-[78px] rounded-full bg-apjek-cta text-white text-[16px] font-semibold tracking-[-0.3px] inline-flex items-center justify-center gap-[8px] transition-all active:scale-[0.98] disabled:opacity-40"
-                :disabled="hasModeHabit || initialLoading || loadError || !habitsLoaded || habitLoadError"
+                :disabled="hasModeHabit || !habitsLoaded || habitLoadError || (mode === 'friend' && (friendLoading || friendLoadError))"
                 @click="openHabitCreate()"
               >
                 <Icon name="lucide:pencil" class="w-[18px] h-[18px]" />
@@ -221,13 +221,13 @@
 
       <!-- 최근 기록 목록은 Figma(8/21) 기록탭에 없다 — 캘린더 페이지가 기록 조회를 맡는다.
            카테고리·친구 목록 로드 실패만 재시도 카드로 알린다(HTTP 에러 침묵 방지, audit C4-1). -->
-      <div v-if="loadError" class="apjek-card p-5 text-center">
+      <div v-if="loadError || friendLoadError" class="apjek-card p-5 text-center">
         <p class="text-[13px] text-apjek-text-sub mb-3">기록 정보를 불러오지 못했어요</p>
         <button
           type="button"
           class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
           @click="retryInitial()"
-          :disabled="initialLoading"
+          :disabled="initialLoading || friendLoading"
         >다시 시도</button>
       </div>
     </div>
@@ -477,8 +477,8 @@
       :solo-unavailable="soloTrackers.length > 0"
       :friend-unavailable="friendTrackers.length > 0"
       :friends="friends"
-      :loading="initialLoading"
-      :load-error="loadError"
+      :loading="friendLoading"
+      :load-error="friendLoadError"
       :busy="creatingHabit"
       @close="habitCreateOpen = false"
       @submit="onHabitCreate"
@@ -594,7 +594,7 @@ function goToCalendar() {
 }
 
 function openHabitCreate() {
-  if (initialLoading.value || loadError.value || !habitsLoaded.value || habitLoadError.value) return
+  if (!habitsLoaded.value || habitLoadError.value || (mode.value === 'friend' && (friendLoading.value || friendLoadError.value))) return
   if (hasModeHabit.value) {
     toast.info('같은 모드의 습관은 한 번에 1개만 진행할 수 있어요')
     return
@@ -899,6 +899,8 @@ function onSheetClose() {
 function closeModal() {
   if (submitting.value) return
   if (openModal.value === 'diary') persistDiaryDraft()
+  if (openModal.value === 'focus' && focusPhase.value === 'setup') persistFocusDraft()
+  if (openModal.value === 'distance' && distPhase.value === 'idle') persistDistanceDraft()
   // todo/diary 시트의 input/textarea 가 포커스를 유지한 채 즉시 unmount 되면 키보드가 안
   // 닫힐 수 있음 (utils/keyboard.ts 참조).
   void dismissKeyboard()
@@ -1048,14 +1050,40 @@ async function saveDiary() {
 type FocusPhase = 'setup' | 'running' | 'done' | 'stopped'
 const focusPhase = ref<FocusPhase>('setup')
 const focusName = ref<string>('')
-const focusMinutes = ref<string>('25')
+const focusMinutes = ref<string | number>('25')
 const focusRemaining = ref<number>(0)
 const focusElapsed = ref<number>(0)
 const focusDeadline = ref<number>(0)
 const focusDiscardOpen = ref<boolean>(false)
 let focusTimer: ReturnType<typeof setInterval> | null = null
+let focusDraftKey: string | null = null
 
-const focusTotalSecs = computed<number>(() => (Number.parseInt(focusMinutes.value) || 0) * 60)
+function restoreFocusDraft() {
+  const userId = draftUserId.value
+  focusDraftKey = userId ? `${STORAGE_KEYS.DRAFT_FOCUS}${userId}` : null
+  const draft = focusDraftKey ? readDraft<Record<string, unknown>>(focusDraftKey) : null
+  focusName.value = typeof draft?.name === 'string' ? draft.name : ''
+  const rawMinutes = draft?.minutes
+  const minutes = typeof rawMinutes === 'string' || typeof rawMinutes === 'number' ? Number(rawMinutes) : NaN
+  focusMinutes.value = Number.isInteger(minutes) && minutes >= 1 && minutes <= 180 ? String(minutes) : '25'
+}
+
+function persistFocusDraft() {
+  if (!focusDraftKey) return
+  if (focusName.value.trim() || String(focusMinutes.value) !== '25') {
+    writeDraft(focusDraftKey, { name: focusName.value, minutes: focusMinutes.value })
+  }
+  else clearDraft(focusDraftKey)
+}
+
+watch(draftUserId, (userId, previous) => {
+  if (openModal.value === 'focus' && focusPhase.value === 'setup' && previous) persistFocusDraft()
+  focusDraftKey = userId ? `${STORAGE_KEYS.DRAFT_FOCUS}${userId}` : null
+  if (openModal.value !== 'focus' || focusPhase.value !== 'setup') return
+  if (previous || (focusName.value === '' && String(focusMinutes.value) === '25')) restoreFocusDraft()
+})
+
+const focusTotalSecs = computed<number>(() => (Number.parseInt(String(focusMinutes.value)) || 0) * 60)
 const focusProgress = computed<number>(() =>
   focusTotalSecs.value > 0 ? ((focusTotalSecs.value - focusRemaining.value) / focusTotalSecs.value) * 100 : 0,
 )
@@ -1093,6 +1121,7 @@ function startFocus() {
   // 설정 단계의 이름/시간 input 이 포커스를 유지한 채 phase 전환으로 즉시 사라지면
   // 키보드가 안 닫힐 수 있음 (utils/keyboard.ts 참조).
   void dismissKeyboard()
+  if (focusDraftKey) clearDraft(focusDraftKey)
   focusRemaining.value = secs
   focusElapsed.value = 0
   focusPhase.value = 'running'
@@ -1132,6 +1161,27 @@ async function saveFocus(durationSecs: number) {
 
 // 거리 기록 이름 (R8) — note 에 "{이름} · {km}km" 로 포함
 const distName = ref<string>('')
+let distanceDraftKey: string | null = null
+
+function restoreDistanceDraft() {
+  const userId = draftUserId.value
+  distanceDraftKey = userId ? `${STORAGE_KEYS.DRAFT_DISTANCE}${userId}` : null
+  const draft = distanceDraftKey ? readDraft<unknown>(distanceDraftKey) : null
+  distName.value = typeof draft === 'string' ? draft : ''
+}
+
+function persistDistanceDraft() {
+  if (!distanceDraftKey) return
+  if (distName.value.trim()) writeDraft(distanceDraftKey, distName.value)
+  else clearDraft(distanceDraftKey)
+}
+
+watch(draftUserId, (userId, previous) => {
+  if (openModal.value === 'distance' && distPhase.value === 'idle' && previous) persistDistanceDraft()
+  distanceDraftKey = userId ? `${STORAGE_KEYS.DRAFT_DISTANCE}${userId}` : null
+  if (openModal.value !== 'distance' || distPhase.value !== 'idle') return
+  if (previous || !distName.value) restoreDistanceDraft()
+})
 
 // ── 거리 모달 (Geolocation) ──
 type DistPhase = 'idle' | 'tracking' | 'done'
@@ -1177,6 +1227,8 @@ async function confirmDistanceDiscard() {
 onBeforeRouteLeave(() => {
   if (submitting.value || creatingHabit.value) return false
   if (openModal.value === 'diary') persistDiaryDraft()
+  if (openModal.value === 'focus' && focusPhase.value === 'setup') persistFocusDraft()
+  if (openModal.value === 'distance' && distPhase.value === 'idle') persistDistanceDraft()
   if (habitCreateOpen.value) habitCreateSheet.value?.persistDraft?.()
   settleRouteLeave(false)
   if ((openModal.value === 'focus' && focusPhase.value !== 'setup')
@@ -1299,6 +1351,7 @@ async function startDistance() {
     distError.value = '이 기기에서 위치 서비스를 지원하지 않습니다'
     return
   }
+  if (distanceDraftKey) clearDraft(distanceDraftKey)
   distPhase.value = 'tracking'
   distance.value = 0
   distPrev = null
@@ -1510,15 +1563,22 @@ async function saveDistance() {
 watch(openModal, (next, prev) => {
   if (prev === 'diary' && next !== 'diary') persistDiaryDraft()
   if (next === 'diary') restoreDiaryDraft()
+  if (prev === 'focus' && next !== 'focus' && focusPhase.value === 'setup') persistFocusDraft()
+  if (prev === 'distance' && next !== 'distance' && distPhase.value === 'idle') persistDistanceDraft()
   if (prev === 'focus' && next !== 'focus') resetFocus()
   if (prev === 'distance' && next !== 'distance') resetDistance()
+  if (next === 'focus') restoreFocusDraft()
+  if (next === 'distance') restoreDistanceDraft()
 }, { flush: 'sync' })
 
 let removePauseListener: (() => void) | null = null
 let removeResumeListener: (() => void) | null = null
-// 새로고침·백그라운드 전환에서도 열린 일기 초안을 저장한다.
-function onDiaryDraftPageExit(event: Event) {
-  if (openModal.value === 'diary' && (event.type === 'pagehide' || document.hidden)) persistDiaryDraft()
+// 새로고침·백그라운드 전환에서도 열린 일상 기록의 시작 전 초안을 저장한다.
+function onRecordDraftPageExit(event: Event) {
+  if (event.type !== 'pagehide' && !document.hidden) return
+  if (openModal.value === 'diary') persistDiaryDraft()
+  if (openModal.value === 'focus' && focusPhase.value === 'setup') persistFocusDraft()
+  if (openModal.value === 'distance' && distPhase.value === 'idle') persistDistanceDraft()
 }
 // App.addListener() 는 비동기라, 등록이 resolve 되기 전에 이 컴포넌트가 이미 unmount 됐을 수
 // 있다(빠른 라우트 이탈). 그 경우 onBeforeUnmount 시점엔 remove 함수가 아직 null 이라 stale
@@ -1527,8 +1587,10 @@ let disposed = false
 
 onBeforeUnmount(() => {
   if (openModal.value === 'diary') persistDiaryDraft()
-  document.removeEventListener('visibilitychange', onDiaryDraftPageExit)
-  window.removeEventListener('pagehide', onDiaryDraftPageExit)
+  if (openModal.value === 'focus' && focusPhase.value === 'setup') persistFocusDraft()
+  if (openModal.value === 'distance' && distPhase.value === 'idle') persistDistanceDraft()
+  document.removeEventListener('visibilitychange', onRecordDraftPageExit)
+  window.removeEventListener('pagehide', onRecordDraftPageExit)
   settleRouteLeave(false)
   clearFocusTimer()
   distSessionGen += 1 // pending 네이티브 start 무효화 — 이탈 후 서비스 기동 방지 (Codex R1 F3)
@@ -1542,47 +1604,47 @@ onBeforeUnmount(() => {
 
 // ─── 초기 로드 ───
 const loadError = ref<boolean>(false)
+const friendLoadError = ref<boolean>(false)
 const initialLoading = ref<boolean>(true)
+const friendLoading = ref<boolean>(true)
 
 async function loadInitial() {
   initialLoading.value = true
+  friendLoading.value = true
   loadError.value = false
+  friendLoadError.value = false
   if (!session.value?.data?.user?.id) {
     void userStore.fetchMe().catch(() => { /* 초안 키 확보용 보조 조회는 실패해도 페이지 로딩을 막지 않는다. */ })
   }
-  try {
-    const [catRes, friRes] = await Promise.all([
-      sdk.listCategories({ client }),
-      sdk.listFriends({ client }),
-    ])
-    if (!catRes.error) {
-      categories.value = castData<CategoryListResponse>(catRes.data)?.categories ?? []
-    }
-    if (!friRes.error) {
-      friends.value = (castData<FriendInfo[]>(friRes.data) ?? []) as FriendInfo[]
-    }
-    // HTTP 에러(res.error)는 throw 하지 않아 조용히 빈 목록으로 위장되던 문제(audit C4-1) —
-    // 하나라도 실패하면 에러 상태로 승격해 재시도 UI 를 보인다.
-    if (catRes.error || friRes.error) {
-      loadError.value = true
-    }
-  }
-  catch {
+  const categoryRequest = Promise.resolve().then(() => sdk.listCategories({ client })).then((catRes) => {
+    categories.value = catRes && !catRes.error ? castData<CategoryListResponse>(catRes.data)?.categories ?? [] : []
+    loadError.value = !catRes || !!catRes.error || categories.value.length === 0
+  }).catch(() => {
+    categories.value = []
     loadError.value = true
-  }
-  finally {
+  }).finally(() => {
     initialLoading.value = false
-  }
+  })
+  const friendRequest = Promise.resolve().then(() => sdk.listFriends({ client })).then((friendRes) => {
+    friends.value = friendRes && !friendRes.error ? (castData<FriendInfo[]>(friendRes.data) ?? []) as FriendInfo[] : []
+    friendLoadError.value = !friendRes || !!friendRes.error
+  }).catch(() => {
+    friends.value = []
+    friendLoadError.value = true
+  }).finally(() => {
+    friendLoading.value = false
+  })
+  await Promise.all([categoryRequest, friendRequest])
 }
 
 function retryInitial() {
-  if (initialLoading.value) return
+  if (initialLoading.value || friendLoading.value) return
   void loadInitial()
 }
 
 onMounted(() => {
-  document.addEventListener('visibilitychange', onDiaryDraftPageExit)
-  window.addEventListener('pagehide', onDiaryDraftPageExit)
+  document.addEventListener('visibilitychange', onRecordDraftPageExit)
+  window.addEventListener('pagehide', onRecordDraftPageExit)
   restoreDiaryDraft()
   void loadInitial()
   loadHabits()

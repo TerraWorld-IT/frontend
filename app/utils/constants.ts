@@ -98,5 +98,8 @@ export const STORAGE_KEYS = {
   DRAFT_DIARY: 'tw-draft-diary.',
   DRAFT_NOTE_PREFIX: 'tw-draft-note.',
   DRAFT_HABIT_TITLE: 'tw-draft-habit-title.',
+  DRAFT_HABIT_SELECTION: 'tw-draft-habit-selection.',
+  DRAFT_FOCUS: 'tw-draft-focus.',
+  DRAFT_DISTANCE: 'tw-draft-distance.',
   DRAFT_SIGNUP: 'tw-draft-signup',
 } as const
