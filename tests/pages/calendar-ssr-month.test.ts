@@ -35,6 +35,29 @@ function seedServerView(value: { year: number, month: number }) {
   ssrView.value = value
 }
 
+// 순수 createSSRApp(CalendarPage) 는 i18n 등 Nuxt 플러그인이 없어 setup 의 useI18n 이 던진다.
+// 그 예외가 setupComponent 의 isSSR 플래그 리셋(app/pages/calendar/index.vue 밖, Vue 내부)을
+// 건너뛰게 해 이후 테스트의 onMounted 를 영구히 무력화하는 부작용까지 낸다 — 그래서 여기선
+// 실제 Nuxt 앱(mountSuspended 가 쓰는 것과 같은 vueApp)의 provide/컴포넌트 컨텍스트를
+// 그대로 재사용해(플러그인 재설치 없이) 같은 페이지 테스트들과 같은 @nuxt/test-utils 경로를 탄다.
+function ssrRenderCalendarPage(): Promise<string> {
+  const nuxtApp = useNuxtApp()
+  const vueApp = nuxtApp.vueApp
+  const app = createSSRApp(CalendarPage)
+  app._context.provides = vueApp._context.provides
+  app._context.components = vueApp._context.components
+  app._context.directives = vueApp._context.directives
+  app.config.globalProperties = vueApp.config.globalProperties
+  // vue-i18n 의 useI18n() 은 inject 가 아니라 app.__VUE_I18N_SYMBOL__(app.use 가 심는 마커)로
+  // 설치 여부를 먼저 검사한다 — mountSuspended 가 쓰는 patchInstanceAppContext 와 같은 방식으로
+  // vueApp 이 가진 마커 프로퍼티를 그대로 옮겨온다.
+  for (const [key, value] of Object.entries(vueApp)) {
+    if (key in app) continue
+    ;(app as unknown as Record<string, unknown>)[key] = value
+  }
+  return nuxtApp.runWithContext(() => renderToString(app))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   session.value = { data: { user: { id: 'cal-user' } } }
@@ -55,8 +78,7 @@ describe('캘린더 SSR·기기 월 불일치', () => {
     vi.useFakeTimers()
     vi.setSystemTime(DEVICE_NOW)
     seedServerView(SERVER_VIEW)
-    const nuxtApp = useNuxtApp()
-    const html = await nuxtApp.runWithContext(() => renderToString(createSSRApp(CalendarPage)))
+    const html = await ssrRenderCalendarPage()
     const skeletonCells = html.match(/data-testid="calendar-skeleton-cell"/g) ?? []
     // 2026-09 은 5주(35칸) — 기기 달인 2026-08(6주/42칸)과 다름을 이 수치 차이로 확인한다.
     expect(skeletonCells.length).toBe(35)

@@ -59,7 +59,10 @@
         </button>
       </div>
 
-      <!-- 최초 로드: 대표 상품 6개(3행)의 실제 카드 래퍼와 290px 행 높이를 예약한다. -->
+      <!-- 최초 로드: 대표 상품 6개(3행)의 실제 카드 래퍼와 268px 행 높이를 예약한다.
+           가격이 아이콘+세로 2줄(라벨/금액) 가로 배치로 바뀐 뒤(#57) 실제 가격 블록은
+           라벨+금액 두 줄(32px)만큼만 차지한다 — 옛 세로 3단(아이콘/라벨/금액, 54px) 자리를
+           그대로 두면 로드 카드보다 22px 더 예약돼 skeleton→loaded 전환 때 높이가 줄어든다. -->
       <div
         v-else-if="pending"
         class="grid grid-cols-2 gap-3"
@@ -70,12 +73,12 @@
         aria-busy="true"
         aria-label="로딩 중"
       >
-        <div v-for="n in 6" :key="n" class="apjek-card flex h-[290px] flex-col items-center p-3" data-testid="shop-skeleton-card">
+        <div v-for="n in 6" :key="n" class="apjek-card flex h-[268px] flex-col items-center p-3" data-testid="shop-skeleton-card">
           <div class="mb-2 h-5 w-3/4 rounded-lg bg-apjek-border animate-pulse" />
           <div class="h-[130px] w-full flex items-center justify-center">
             <div class="size-[112px] rounded-[36px] bg-apjek-border animate-pulse" />
           </div>
-          <div class="mt-2 mb-3 h-[54px] w-14 rounded-lg bg-apjek-border animate-pulse" />
+          <div class="mt-2 mb-3 h-[32px] w-14 rounded-lg bg-apjek-border animate-pulse" />
           <div class="h-8 w-full rounded-full bg-apjek-border animate-pulse" />
         </div>
         <span class="sr-only">로딩 중</span>
