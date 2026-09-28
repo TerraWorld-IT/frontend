@@ -46,7 +46,7 @@
           @click="onSparkleInfo"
         >
           <img src="/icons/token/sparkle.png" alt="" class="w-6 h-6 shrink-0 select-none" aria-hidden="true" draggable="false">
-          <span class="text-[12px] font-semibold text-apjek-text whitespace-nowrap">보유 반짝이 : {{ sparkle }}</span>
+          <span class="text-[12px] font-semibold text-apjek-text whitespace-nowrap">보유 반짝이 : {{ formatNumber(sparkle) }}</span>
         </button>
       </div>
 
@@ -278,6 +278,7 @@
 <script setup lang="ts">
 import { h } from 'vue'
 import { useUserStore } from '~/stores/user'
+import { formatNumber } from '~/utils/format'
 import { readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim } from '~/composables/useAdMob'
 import type { GrowthItem, GrowthResponse, GrowthReviveRequest } from '@terraworld-it/openapi-frontend'
 import {

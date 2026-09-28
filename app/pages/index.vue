@@ -531,7 +531,7 @@
               >
                 <IconsCurrencyIcon :code="c.code" :size="36" />
                 <span class="text-[11px] text-apjek-text-sub whitespace-nowrap">{{ c.labelKo }}토큰</span>
-                <span class="text-[13px] font-bold text-apjek-text tabular-nums max-w-full truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</span>
+                <span class="text-[13px] font-bold text-apjek-text tabular-nums max-w-full break-all text-center" :title="formatNumber(balanceOf(user?.currency, c.code))">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</span>
               </div>
             </div>
             <!-- 코인류 3종 (코인/반짝이/루비) — 아이콘 좌측 + 라벨/값 -->
@@ -539,12 +539,12 @@
               <div
                 v-for="c in mainCurrencies"
                 :key="c.code"
-                class="flex items-center gap-2 min-w-0"
+                class="flex flex-col items-center gap-2 min-w-0 min-[360px]:flex-row"
               >
                 <IconsCurrencyIcon :code="c.code" :size="36" />
-                <div class="min-w-0">
+                <div class="min-w-0 max-w-full text-center min-[360px]:text-left">
                   <p class="text-[11px] text-apjek-text-sub leading-[14px] truncate">{{ c.labelKo }}</p>
-                  <p class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums truncate">{{ formatBalance(balanceOf(user?.currency, c.code)) }}</p>
+                  <p class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums break-all" :title="formatNumber(balanceOf(user?.currency, c.code))">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</p>
                 </div>
               </div>
             </div>
@@ -775,6 +775,7 @@ import { jarVariantFromAssetUrl } from '~/utils/jarVariants'
 import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
+import { formatNumber } from '~/utils/format'
 import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 
 const { sdk, client } = useOpenApi()
@@ -1107,11 +1108,6 @@ async function onToggleLike(friend: HomeFriend) {
 const mainCurrencies = CURRENCY_META.filter(c => c.code === 'COIN' || c.code === 'SPARKLE' || c.code === 'RUBY')
 const tokenCurrencies = CURRENCY_META.filter(c => c.code === 'DEW' || c.code === 'SUN' || c.code === 'BOLT' || c.code === 'WIND')
 const rubyBalance = computed<number>(() => balanceOf(user.value?.currency, 'RUBY'))
-
-// 잔액 표시 포맷 — profile 페이지와 동일 규약(소수 절사 + 천단위 구분).
-function formatBalance(amount: number): string {
-  return Math.floor(amount).toLocaleString()
-}
 
 // ─── T1b 알림 — 우측 슬라이드 패널 + 미읽음 마젠타 점 뱃지 ───
 const showNotifications = ref<boolean>(false)
