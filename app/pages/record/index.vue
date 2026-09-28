@@ -63,7 +63,7 @@
           <button
             v-else-if="!hasAnyHabit"
             type="button"
-            :disabled="initialLoading || habitLoadError || (mode === 'friend' && friendLoadError)"
+            :disabled="habitLoadError || (mode === 'friend' && (friendLoading || friendLoadError))"
             class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] h-[34px] px-[12px] rounded-full border border-apjek-border-strong bg-apjek-surface text-[13px] font-semibold text-apjek-text inline-flex items-center gap-[6px] shrink-0 transition-all active:scale-95"
             @click="openHabitCreate()"
           >
@@ -153,7 +153,7 @@
               <button
                 type="button"
                 class="w-full h-[48px] mt-[78px] rounded-full bg-apjek-cta text-white text-[16px] font-semibold tracking-[-0.3px] inline-flex items-center justify-center gap-[8px] transition-all active:scale-[0.98] disabled:opacity-40"
-                :disabled="hasModeHabit || initialLoading || !habitsLoaded || habitLoadError || (mode === 'friend' && friendLoadError)"
+                :disabled="hasModeHabit || !habitsLoaded || habitLoadError || (mode === 'friend' && (friendLoading || friendLoadError))"
                 @click="openHabitCreate()"
               >
                 <Icon name="lucide:pencil" class="w-[18px] h-[18px]" />
@@ -227,7 +227,7 @@
           type="button"
           class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] px-5 py-2 rounded-full bg-apjek-cta text-white text-[13px] font-bold"
           @click="retryInitial()"
-          :disabled="initialLoading"
+          :disabled="initialLoading || friendLoading"
         >다시 시도</button>
       </div>
     </div>
@@ -477,7 +477,7 @@
       :solo-unavailable="soloTrackers.length > 0"
       :friend-unavailable="friendTrackers.length > 0"
       :friends="friends"
-      :loading="initialLoading"
+      :loading="friendLoading"
       :load-error="friendLoadError"
       :busy="creatingHabit"
       @close="habitCreateOpen = false"
@@ -594,7 +594,7 @@ function goToCalendar() {
 }
 
 function openHabitCreate() {
-  if (initialLoading.value || !habitsLoaded.value || habitLoadError.value || (mode.value === 'friend' && friendLoadError.value)) return
+  if (!habitsLoaded.value || habitLoadError.value || (mode.value === 'friend' && (friendLoading.value || friendLoadError.value))) return
   if (hasModeHabit.value) {
     toast.info('같은 모드의 습관은 한 번에 1개만 진행할 수 있어요')
     return
@@ -1606,37 +1606,39 @@ onBeforeUnmount(() => {
 const loadError = ref<boolean>(false)
 const friendLoadError = ref<boolean>(false)
 const initialLoading = ref<boolean>(true)
+const friendLoading = ref<boolean>(true)
 
 async function loadInitial() {
   initialLoading.value = true
+  friendLoading.value = true
   loadError.value = false
   friendLoadError.value = false
   if (!session.value?.data?.user?.id) {
     void userStore.fetchMe().catch(() => { /* 초안 키 확보용 보조 조회는 실패해도 페이지 로딩을 막지 않는다. */ })
   }
-  try {
-    const [catResult, friendResult] = await Promise.allSettled([
-      sdk.listCategories({ client }),
-      sdk.listFriends({ client }),
-    ])
-    const catRes = catResult.status === 'fulfilled' ? catResult.value : null
-    const friendRes = friendResult.status === 'fulfilled' ? friendResult.value : null
+  const categoryRequest = Promise.resolve().then(() => sdk.listCategories({ client })).then((catRes) => {
     categories.value = catRes && !catRes.error ? castData<CategoryListResponse>(catRes.data)?.categories ?? [] : []
-    friends.value = friendRes && !friendRes.error ? (castData<FriendInfo[]>(friendRes.data) ?? []) as FriendInfo[] : []
     loadError.value = !catRes || !!catRes.error || categories.value.length === 0
-    friendLoadError.value = !friendRes || !!friendRes.error
-  }
-  catch {
+  }).catch(() => {
+    categories.value = []
     loadError.value = true
-    friendLoadError.value = true
-  }
-  finally {
+  }).finally(() => {
     initialLoading.value = false
-  }
+  })
+  const friendRequest = Promise.resolve().then(() => sdk.listFriends({ client })).then((friendRes) => {
+    friends.value = friendRes && !friendRes.error ? (castData<FriendInfo[]>(friendRes.data) ?? []) as FriendInfo[] : []
+    friendLoadError.value = !friendRes || !!friendRes.error
+  }).catch(() => {
+    friends.value = []
+    friendLoadError.value = true
+  }).finally(() => {
+    friendLoading.value = false
+  })
+  await Promise.all([categoryRequest, friendRequest])
 }
 
 function retryInitial() {
-  if (initialLoading.value) return
+  if (initialLoading.value || friendLoading.value) return
   void loadInitial()
 }
 

@@ -323,7 +323,14 @@ describe('WP2a 조회 상태', () => {
     const w = await mountPage(RecordPage)
     const s = state(w)
     const entry = w.findAll('button').find(button => button.attributes('aria-label')?.includes('기록하기'))!
-    expect(entry.attributes('disabled')).toBeDefined()
+    expect(entry.attributes('disabled')).toBeUndefined()
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(true)
+    s.habitCreateOpen = false
+    s.mode = 'friend'
+    s.openHabitCreate()
+    expect(s.habitCreateOpen).toBe(false)
+    s.mode = 'solo'
     pending.resolve({ error: { message: 'unavailable' } })
     await flushPromises()
     expect(entry.attributes('disabled')).toBeUndefined()
