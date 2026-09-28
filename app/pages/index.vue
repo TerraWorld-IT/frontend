@@ -151,15 +151,15 @@
       <!-- ─── T13 관리 모드 상단 칩 3종 [🌱 아이템 배치][정령][✏️ 배경 설정] — Figma 156:394/169:13660:
            연블루 필 컨테이너 안에 칩 3개, 선택 칩 = 밝은 배경 + 블루 글자, 비선택 칩 = 블루 채움 + 흰 글자 ─── -->
       <div v-else class="flex justify-center">
-      <div class="inline-flex items-center gap-2 p-2 rounded-full max-w-full" style="background: var(--color-apjek-blue-soft)" role="tablist" aria-label="관리 모드 탭">
+      <div class="inline-flex items-center gap-2 max-[359px]:gap-1 p-2 max-[359px]:p-1 rounded-full max-w-full" style="background: var(--color-apjek-blue-soft)" role="tablist" aria-label="관리 모드 탭">
         <button
           v-for="chip in manageChips"
           :key="chip.tab"
           type="button"
           role="tab"
           :data-testid="`home-manage-${chip.tab}`"
-          class="h-12 flex items-center gap-1.5 rounded-full transition-all active:scale-95 text-[15px] font-bold whitespace-nowrap"
-          :class="chip.icon ? 'px-5' : 'px-3.5'"
+          class="h-12 flex items-center gap-1.5 max-[359px]:gap-1 rounded-full transition-all active:scale-95 text-[15px] font-bold whitespace-nowrap"
+          :class="chip.icon ? 'px-5 max-[359px]:px-2' : 'px-3.5 max-[359px]:px-2'"
           :style="manageTab === chip.tab
             ? { background: 'color-mix(in srgb, var(--color-apjek-surface) 70%, var(--color-apjek-blue-soft))', color: 'var(--color-apjek-blue-deep)' }
             : { background: 'var(--color-apjek-blue)', color: '#ffffff' }"

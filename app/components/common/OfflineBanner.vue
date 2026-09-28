@@ -9,8 +9,8 @@
     <div
       v-if="isOffline"
       ref="root"
-      class="fixed left-0 right-0 mx-auto w-full max-w-md z-[9999] flex items-center justify-center gap-2 bg-apjek-cta text-white text-xs font-medium py-2 px-4"
-      style="top: var(--sat); padding-left: max(16px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(16px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
+      class="relative mx-auto w-full max-w-md z-[9999] flex items-center justify-center gap-2 bg-apjek-cta text-white text-xs font-medium py-2 px-4"
+      style="margin-top: var(--sat); padding-left: max(16px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(16px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
       role="status"
       aria-live="polite"
     >
@@ -24,7 +24,8 @@
 // null이면 플러그인 미지원/초기화 전 — 기존 브라우저 신호를 그대로 사용한다.
 const nativeConnected = useState<boolean | null>('native-network-connected', () => null)
 const browserOffline = ref<boolean>(false)
-const isOffline = computed(() => nativeConnected.value === null ? browserOffline.value : !nativeConnected.value)
+const mounted = ref(false)
+const isOffline = computed(() => mounted.value && (nativeConnected.value === null ? browserOffline.value : !nativeConnected.value))
 const root = ref<HTMLElement | null>(null)
 const { slots } = useToast()
 const { height } = useElementBounding(root)
@@ -36,6 +37,7 @@ function onOffline() { browserOffline.value = true }
 onMounted(() => {
   if (!import.meta.client) return
   browserOffline.value = !navigator.onLine
+  mounted.value = true
   window.addEventListener('online', onOnline)
   window.addEventListener('offline', onOffline)
 })
