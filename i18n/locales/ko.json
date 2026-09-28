@@ -99,7 +99,6 @@
       "optional": "선택",
       "terms": "이용약관 동의",
       "privacy": "개인정보 수집·이용 동의",
-      "photo": "사진 첨부(저장) 동의",
       "push": "푸시 알림 수신 동의",
       "adId": "광고 식별자 수집·맞춤광고 동의",
       "analytics": "서비스 이용 분석(GA4) 동의",
@@ -637,9 +636,6 @@
   "upgrade": {
     "backToProfile": "← 프로필로 돌아가기",
     "buyButton": "구매하기 (₩1,900)",
-    "feature1": "5슬롯 그리드 → 임의 좌표 자유 배치",
-    "feature2": "회전 / 크기 조절 핸들 (planned)",
-    "feature3": "진화 단계 'CUSTOM' 잠금 해제",
     "freePlacementAlreadyAvailable": "자유배치는 이미 사용할 수 있어요.",
     "freePlacementDesc": "슬롯 제약 없이 임의 좌표에 아이템을 배치할 수 있는 무료 기본 기능입니다.",
     "freePlacementTitle": "자유배치 권리",

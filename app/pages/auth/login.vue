@@ -22,7 +22,7 @@
 
     <!--
       h-dvh(고정 높이) 컨테이너 안에서 실제 로그인/가입 폼만 자체 스크롤 영역으로 분리.
-      가입 모드(닉네임+생년월일+동의 5종)는 작은 화면에서 뷰포트보다 콘텐츠가 길어질 수 있는데,
+      가입 모드(닉네임+생년월일+선택 동의 4종)는 작은 화면에서 뷰포트보다 콘텐츠가 길어질 수 있는데,
       이전엔 바깥 div가 min-h-screen(하한만 있고 상한 없음)이라 그대로 늘어나며 body 전체가
       스크롤돼 iOS에서 화면 전체가 밀리는 오류가 있었다(default.vue 의 <main overflow-y-auto>
       패턴과 동일하게 스크롤 영역을 명시적으로 감싼다).
@@ -345,7 +345,7 @@ function authErrorMessage(error: { code?: string; message?: string } | null | un
 }
 const emailInput = ref<HTMLInputElement | null>(null)
 
-// P1-2 (PIPA 제15조): 분리 동의 상태. 필수(약관·개인정보) + 선택 5종.
+// P1-2 (PIPA 제15조): 분리 동의 상태. 필수(약관·개인정보) + 선택 4종.
 // 동의 버전 — privacy.md/terms.md 갱신 시 함께 올려 동의 이력의 정책 버전을 식별.
 const CONSENT_VERSION = '2026-06-23'
 const agreeTerms = ref<boolean>(false)
@@ -370,7 +370,6 @@ function restoreSignupDraft() {
   agreePrivacy.value = draft.agreePrivacy === true
 }
 const optionalConsents = ref<Array<{ key: string; value: boolean }>>([
-  { key: 'photo', value: false },
   { key: 'push', value: false },
   { key: 'adId', value: false },
   { key: 'analytics', value: false },
@@ -489,7 +488,6 @@ async function onSubmit() {
         marketingConsent: consentValue('marketing'),
         analyticsConsent: consentValue('analytics'),
         adConsent: consentValue('adId'),
-        photoConsent: consentValue('photo'),
         pushConsent: consentValue('push'),
         consentVersion: CONSENT_VERSION,
         consentedAt: new Date().toISOString(),

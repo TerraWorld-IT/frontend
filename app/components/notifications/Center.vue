@@ -13,12 +13,15 @@
     <Transition name="notif-panel">
       <div v-if="open" ref="root" class="fixed inset-0 z-[9997]" role="dialog" aria-modal="true" aria-label="알림">
         <div class="notif-backdrop fixed inset-0 bg-black/40" @click="emit('close')" />
-        <!-- 패널 — 앱 컬럼 안의 풀높이 우측 슬라이드. X 는 translate 유틸 미사용이라 transform 단독 트랜지션 안전 -->
+        <!-- 패널 경계는 뷰포트 안에 고정하고 내부 콘텐츠만 잘린 영역에서 슬라이드한다. -->
         <section
-          class="notif-panel fixed inset-y-0 inset-x-0 w-full max-w-md mx-auto flex flex-col shadow-2xl"
-          style="background: var(--color-apjek-surface); padding-left: max(0px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(0px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
+          class="notif-panel fixed inset-y-0 inset-x-0 w-full max-w-md mx-auto overflow-hidden shadow-2xl"
           data-testid="notifications-panel"
         >
+          <div
+            class="notif-panel-content absolute inset-0 flex flex-col"
+            style="background: var(--color-apjek-surface); padding-left: max(0px, calc(var(--sal) - (100vw - min(100vw, 28rem)) / 2)); padding-right: max(0px, calc(var(--sar) - (100vw - min(100vw, 28rem)) / 2))"
+          >
           <header
             class="flex items-center justify-between px-5 pb-3 border-b border-black/5 shrink-0"
             style="padding-top: calc(1rem + var(--sat))"
@@ -77,6 +80,7 @@
               </button>
               <p v-else>모든 알림을 확인했어요</p>
             </div>
+          </div>
           </div>
         </section>
       </div>
@@ -200,12 +204,16 @@ function relativeTime(iso: string): string {
   transform: translateX(min(100%, max(0px, calc((100vw - 28rem) / 2))));
 }
 
-/* 앱 컬럼과 뷰포트 폭이 같은 화면에서는 패널 박스를 이동시키지 않고 페이드한다. */
+/* 좁은 화면에서는 패널 경계를 고정하고 내부 콘텐츠만 오른쪽으로 이동시킨다. */
 @media (max-width: 448px) {
   .notif-panel-enter-active .notif-panel,
-  .notif-panel-leave-active .notif-panel { transition: opacity 0.28s ease; }
+  .notif-panel-leave-active .notif-panel { transition: none; }
   .notif-panel-enter-from .notif-panel,
-  .notif-panel-leave-to .notif-panel { transform: none; opacity: 0; }
+  .notif-panel-leave-to .notif-panel { transform: none; }
+  .notif-panel-enter-active .notif-panel-content,
+  .notif-panel-leave-active .notif-panel-content { transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1); }
+  .notif-panel-enter-from .notif-panel-content,
+  .notif-panel-leave-to .notif-panel-content { transform: translateX(100%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -214,6 +222,8 @@ function relativeTime(iso: string): string {
   .notif-panel-enter-active .notif-backdrop,
   .notif-panel-leave-active .notif-backdrop,
   .notif-panel-enter-active .notif-panel,
-  .notif-panel-leave-active .notif-panel { transition-duration: 0.01ms; }
+  .notif-panel-leave-active .notif-panel,
+  .notif-panel-enter-active .notif-panel-content,
+  .notif-panel-leave-active .notif-panel-content { transition-duration: 0.01ms; }
 }
 </style>

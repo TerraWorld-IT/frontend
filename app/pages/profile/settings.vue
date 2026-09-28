@@ -283,13 +283,12 @@ const consentRenderKey = ref<number>(0)
 const pushOffPending = ref<boolean>(false)
 // 저장 중 세션 객체가 교체돼도 현재 사용자의 OFF 의도를 표시값에 우선 반영한다.
 const pushOffUserId = ref<string | null>(null)
-// 가입 시 받는 선택 동의 5종(photo/push/adId/analytics/marketing)과 1:1 로 맞춘다.
+// 가입 시 받는 선택 동의 4종(push/adId/analytics/marketing)과 1:1 로 맞춘다.
 // 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
 const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
   { key: 'marketing', field: 'marketingConsent', value: false },
   { key: 'analytics', field: 'analyticsConsent', value: false },
   { key: 'adId', field: 'adConsent', value: false },
-  { key: 'photo', field: 'photoConsent', value: false },
   { key: 'push', field: 'pushConsent', value: false },
 ])
 const visibleConsentToggles = computed(() => consentToggles.value.filter(item => isAndroidNative.value || (item.key !== 'push' && item.key !== 'adId')))
@@ -302,7 +301,6 @@ function applyConsentFromSession(u: unknown) {
       marketingConsent?: boolean
       analyticsConsent?: boolean
       adConsent?: boolean
-      photoConsent?: boolean
       pushConsent?: boolean
     } | undefined
     pushOffPending.value = !!cu?.id && hasPushOffPending(cu.id)
@@ -312,7 +310,6 @@ function applyConsentFromSession(u: unknown) {
       { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
       { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
       { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
-      { key: 'photo', field: 'photoConsent', value: cu.photoConsent ?? false },
       { key: 'push', field: 'pushConsent', value: pushOffPending.value || pushOffUserId.value === cu.id ? false : cu.pushConsent ?? false },
     ]
 }

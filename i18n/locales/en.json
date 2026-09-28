@@ -99,7 +99,6 @@
       "optional": "Optional",
       "terms": "Agree to the Terms of Service",
       "privacy": "Agree to collection and use of personal data",
-      "photo": "Agree to photo attachment (storage)",
       "push": "Agree to push notifications",
       "adId": "Agree to advertising ID collection / personalized ads",
       "analytics": "Agree to usage analytics (GA4)",
@@ -637,9 +636,6 @@
   "upgrade": {
     "backToProfile": "← Back to profile",
     "buyButton": "Buy (₩1,900)",
-    "feature1": "5-slot grid → free placement at any coordinate",
-    "feature2": "Rotation / resize handles (planned)",
-    "feature3": "Unlock the 'CUSTOM' evolution stage",
     "freePlacementAlreadyAvailable": "Free placement is already available to you.",
     "freePlacementDesc": "A feature included for free that lets you place items at any coordinate without slot limits.",
     "freePlacementTitle": "Free Placement right",

@@ -157,6 +157,7 @@ describe('계정 설정', () => {
     expect(w.get('a[href="/legal/terms"]').text()).toBe('이용약관')
     expect(w.find('[data-testid="consent-push"]').exists()).toBe(false)
     expect(w.find('[data-testid="consent-adId"]').exists()).toBe(false)
+    expect(w.find('[data-testid="consent-photo"]').exists()).toBe(false)
   })
 
   it('삭제 pending 중 중복 요청과 닫기를 막고 비밀번호 오류 후 재시도 성공 시 로그인으로 이동한다', async () => {
@@ -241,7 +242,7 @@ describe('계정 설정', () => {
     const w = await mountSettings()
     expect(w.find('[data-testid="consent-push"]').exists()).toBe(false)
     expect(w.find('[data-testid="consent-adId"]').exists()).toBe(false)
-    expect(w.find('[data-testid="consent-photo"]').exists()).toBe(true)
+    expect(w.find('[data-testid="consent-photo"]').exists()).toBe(false)
     expect(w.text()).toContain('1.2.3 (42)')
   })
 

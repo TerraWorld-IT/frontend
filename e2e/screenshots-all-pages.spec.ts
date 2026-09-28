@@ -89,6 +89,8 @@ async function signUpAndLogin(page: Page) {
     // signup mode 전환 후 nickname + birthDate input 가 v-if 로 렌더링
     await page.locator('input[v-model="nickname"], input[type="date"]').first().waitFor({ timeout: 5000 }).catch(() => {})
   }
+  await expect(page.getByText('사진 첨부(저장) 동의')).toHaveCount(0)
+  await expect(page.locator('fieldset input[type="checkbox"]')).toHaveCount(7)
 
   // form fill — placeholder 기반 (i18n key 정합)
   await page.locator('input[type="email"]').first().fill(user.email)
@@ -110,6 +112,7 @@ async function signUpAndLogin(page: Page) {
   if (await agreeAllBox.isVisible().catch(() => false)) {
     await agreeAllBox.check().catch(() => {})
   }
+  await expect(page.locator('fieldset input[type="checkbox"]:checked')).toHaveCount(7)
 
   // 응답 모니터 — better-auth signup endpoint 응답 대기
   const signupResp = page.waitForResponse(
@@ -122,6 +125,7 @@ async function signUpAndLogin(page: Page) {
 
   const resp = await signupResp
   if (resp) {
+    expect(resp.request().postDataJSON()).not.toHaveProperty('photoConsent')
     // 응답 status code 출력 (debugging)
     console.log(`signup status: ${resp.status()}`)
   }
@@ -287,6 +291,8 @@ test.describe('인증 후 페이지', () => {
   test('13-upgrade-free-placement', async ({ page }) => {
     await signUpAndLogin(page)
     await page.goto('/upgrade/free-placement')
+    await expect(page.getByText('자유배치는 이미 사용할 수 있어요.')).toBeVisible()
+    await expect(page.getByText(/회전 \/ 크기 조절 핸들|CUSTOM 잠금 해제|5슬롯 그리드/)).toHaveCount(0)
     await shot(page, '13-upgrade-free-placement')
   })
 
