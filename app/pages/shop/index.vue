@@ -137,7 +137,7 @@
               <IconsCurrencyIcon v-if="part.code" :code="part.code" :size="20" />
               <div class="flex min-w-0 flex-col items-start gap-[2px]">
                 <span class="text-[10px] text-apjek-text-sub leading-[14px] whitespace-nowrap">{{ part.label }}</span>
-                <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums break-all" :title="formatNumber(part.amount)">{{ formatNumber(part.amount) }}</span>
+                <span class="text-[13px] font-bold text-apjek-text leading-[16px] tabular-nums break-all">{{ formatNumber(part.amount) }}</span>
               </div>
             </div>
           </div>

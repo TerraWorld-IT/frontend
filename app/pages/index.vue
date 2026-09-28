@@ -531,7 +531,7 @@
               >
                 <IconsCurrencyIcon :code="c.code" :size="36" />
                 <span class="text-[11px] text-apjek-text-sub whitespace-nowrap">{{ c.labelKo }}토큰</span>
-                <span class="text-[13px] font-bold text-apjek-text tabular-nums max-w-full break-all text-center" :title="formatNumber(balanceOf(user?.currency, c.code))">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</span>
+                <span class="text-[13px] font-bold text-apjek-text tabular-nums max-w-full break-all text-center">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</span>
               </div>
             </div>
             <!-- 코인류 3종 (코인/반짝이/루비) — 아이콘 좌측 + 라벨/값 -->
@@ -544,7 +544,7 @@
                 <IconsCurrencyIcon :code="c.code" :size="36" />
                 <div class="min-w-0 max-w-full text-center min-[360px]:text-left">
                   <p class="text-[11px] text-apjek-text-sub leading-[14px] truncate">{{ c.labelKo }}</p>
-                  <p class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums break-all" :title="formatNumber(balanceOf(user?.currency, c.code))">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</p>
+                  <p class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums break-all">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</p>
                 </div>
               </div>
             </div>

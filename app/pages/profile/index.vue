@@ -213,7 +213,7 @@
               <IconsCurrencyIcon :code="c.code" :size="40" />
               <div class="min-w-0 w-full text-center min-[360px]:w-auto min-[360px]:text-left">
                 <p class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap min-[360px]:truncate">{{ c.label }}</p>
-                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums break-all" :title="formatNumber(balanceOf(user?.currency, c.code))">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</p>
+                <p class="text-[15px] font-bold text-apjek-text leading-[20px] tracking-[-0.3px] tabular-nums break-all">{{ formatNumber(balanceOf(user?.currency, c.code)) }}</p>
               </div>
             </div>
           </div>
@@ -227,7 +227,7 @@
             >
               <IconsCurrencyIcon :code="tkn.code" :size="40" />
               <span class="text-[12px] text-apjek-text-sub leading-[16px] whitespace-nowrap">{{ tkn.label }}</span>
-              <span class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums max-w-full break-all text-center" :title="formatNumber(balanceOf(user?.currency, tkn.code))">{{ formatNumber(balanceOf(user?.currency, tkn.code)) }}</span>
+              <span class="text-[14px] font-bold text-apjek-text leading-[18px] tabular-nums max-w-full break-all text-center">{{ formatNumber(balanceOf(user?.currency, tkn.code)) }}</span>
             </div>
           </div>
         </div>
