@@ -9,6 +9,7 @@ describe('Onboarding (common)', () => {
     document.body.innerHTML = ''
     document.documentElement.classList.remove('scroll-locked')
     document.documentElement.removeAttribute('data-scroll-lock-count')
+    localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE)
   })
 
   it('show=false 면 오버레이 미렌더', async () => {
@@ -28,5 +29,24 @@ describe('Onboarding (common)', () => {
     expect(root!.classList.contains('fixed')).toBe(true)
     expect(root!.classList.contains('z-[9998]')).toBe(true)
     expect(root!.getAttribute('role')).toBe('dialog')
+  })
+
+  it('Esc로 닫으면 온보딩 완료를 저장하고 close를 보낸다', async () => {
+    const wrapper = await mountSuspended(Onboarding, { props: { show: true } })
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+
+    expect(localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)).toBe('true')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('바깥 영역 클릭으로 닫으면 온보딩 완료를 저장하고 close를 보낸다', async () => {
+    const wrapper = await mountSuspended(Onboarding, { props: { show: true } })
+    const root = document.body.querySelector('[data-testid="onboarding-root"]') as HTMLElement
+
+    root.click()
+
+    expect(localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)).toBe('true')
+    expect(wrapper.emitted('close')).toHaveLength(1)
   })
 })

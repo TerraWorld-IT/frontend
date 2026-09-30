@@ -14,7 +14,7 @@
         role="dialog"
         aria-modal="true"
         aria-label="시작하기 안내"
-        @click.self="$emit('close')"
+        @click.self="onComplete"
       >
         <div style="max-height: calc(100dvh - var(--sat) - var(--sab) - 48px)" class="w-full max-w-[393px] bg-apjek-surface text-apjek-text rounded-2xl overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <!-- Step content — 좌우 스와이프로도 이전/다음 이동(Codex 감사 지적 — 이전엔 버튼 전용) -->
@@ -94,7 +94,7 @@ const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const rootEl = ref<HTMLElement | null>(null)
-useDialogFocusTrap(rootEl, computed(() => props.show), () => emit('close'))
+useDialogFocusTrap(rootEl, computed(() => props.show), onComplete)
 
 const { t } = useI18n()
 const step = ref<number>(0)
