@@ -8,7 +8,10 @@
       marginTop: 'calc(-1rem - var(--sat))',
       marginBottom: 'calc(-98px - var(--sab))',
       paddingTop: 'var(--sat)',
-      paddingBottom: 'calc(24px + 98px + var(--sab))',
+      // 음(-98px) marginBottom 이 스크롤 높이를 그만큼 줄여, 완료(30 달성) 화면의 긴 스택
+      // (히어로+성공카드+도장판 3행+알림카드) 하단이 바텀네비 아래로 잘렸다(폰 QA).
+      // 네비 높이(98px)만큼 더해 스크롤 여백을 확보한다.
+      paddingBottom: 'calc(24px + 98px + 98px + var(--sab))',
       minHeight: 'calc(100dvh - 98px - var(--sab))',
       background: 'url(/bg/grow.webp) center var(--sat) / 100% auto no-repeat #f5f9fc',
     }"
@@ -351,11 +354,28 @@ function stageOf(c: GrowthItem): SpiritStage {
 }
 
 // G3 30개 달성은 페이지 안 상시 배너가 아니라 공용 Figma 카드형 토스트로 알린다.
-// completedToday 가 서버의 KST 당일 유지/다음날 리셋 SoT 이며, 같은 사이클은 한 마운트에서 한 번만 띄운다.
-const completedToastCycles = new Set<string>()
+// completedToday 는 서버의 KST 당일 유지 SoT 라, in-memory Set 만 쓰면 /grow 재진입(재마운트)마다
+// 같은 사이클에 대해 토스트가 다시 뜬다("알림 계속 나옴"). 본 cycleId 를 localStorage 에 영속화해
+// 사이클당 한 번만 알린다(새 cycleId = 새 획득이면 다시 알림).
+const COMPLETION_SEEN_KEY = 'tw:growth:completionSeen'
+function loadCompletionSeen(): Set<string> {
+  if (!import.meta.client) return new Set()
+  try {
+    const raw = localStorage.getItem(COMPLETION_SEEN_KEY)
+    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+  }
+  catch { return new Set() }
+}
+const completedToastCycles = loadCompletionSeen()
+function markCompletionSeen(cycleId: string): void {
+  completedToastCycles.add(cycleId)
+  if (!import.meta.client) return
+  try { localStorage.setItem(COMPLETION_SEEN_KEY, JSON.stringify([...completedToastCycles])) }
+  catch { /* localStorage 불가 환경 무시 */ }
+}
 function showCompletionToast(c: GrowthItem): void {
   if (!isComplete(c) || !c.completedToday || completedToastCycles.has(c.cycleId)) return
-  completedToastCycles.add(c.cycleId)
+  markCompletionSeen(c.cycleId)
   toast.success(`${c.goal}개 달성! 정령을 획득했어요`, {
     description: '획득한 정령을 나의 테라에 배치할 수 있어요',
     icon: 'lucide:party-popper',

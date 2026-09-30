@@ -986,11 +986,10 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
     const w = await mountPage(HomePage); const s = state(w)
     const stage = w.get('#my-terra-container')
     Object.defineProperty(stage.element, 'setPointerCapture', { value: vi.fn(), configurable: true })
-    expect(stage.classes()).toContain('touch-pan-x')
-    expect(stage.classes()).toContain('touch-pan-y')
+    expect(stage.attributes('style')).toContain('touch-action: pan-x pan-y')
     s.healingMode = true
     await nextTick()
-    expect(stage.classes()).toContain('touch-none')
+    expect(stage.attributes('style')).toContain('touch-action: none')
     await stage.trigger('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 0, clientY: 0 })
     await stage.trigger('pointermove', { pointerId: 1, pointerType: 'touch', clientX: 20, clientY: 0 })
     expect(s.zoomLevel).toBe(1)
@@ -1009,7 +1008,7 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
     expect(s.zoomLevel).toBe(1.5)
     s.editMode = true; await nextTick()
     expect(s.zoomLevel).toBe(1)
-    expect(stage.classes()).toContain('touch-none')
+    expect(stage.attributes('style')).toContain('touch-action: none')
     await stage.trigger('pointerdown', { pointerId: 2, pointerType: 'touch', clientX: 120, clientY: 0 })
     await stage.trigger('pointermove', { pointerId: 2, pointerType: 'touch', clientX: 220, clientY: 0 })
     expect(s.zoomLevel).toBe(1)
@@ -1048,8 +1047,7 @@ describe('T2-Y 이미지 공유와 배치 복구', () => {
     expect(s.zoomOffset).toEqual({ x: 0, y: 0 })
     expect(s.pinchPointers.size).toBe(0)
     expect(capture).not.toHaveBeenCalled()
-    expect(stage.classes()).toContain('touch-pan-x')
-    expect(stage.classes()).toContain('touch-pan-y')
+    expect(stage.attributes('style')).toContain('touch-action: pan-x pan-y')
   })
 
   it('힐링 핀치는 이전 중점의 콘텐츠를 새 중점에 유지하고 종료하면 배율·오프셋을 초기화한다', async () => {

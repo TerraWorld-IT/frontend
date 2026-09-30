@@ -143,10 +143,10 @@ describe('홈 배치 키보드 조작', () => {
   it('이동은 편집 영역과 시각 반지름 경계에서 멈춘다', async () => {
     const { s, item } = await managePage()
     s.placedItems[0].x = 48
-    s.placedItems[0].y = 220
+    s.placedItems[0].y = 160
     await item.trigger('keydown', { key: 'ArrowLeft' })
     await item.trigger('keydown', { key: 'ArrowUp' })
-    expect(s.placedItems[0]).toMatchObject({ x: 48, y: 220 })
+    expect(s.placedItems[0]).toMatchObject({ x: 48, y: 160 })
     s.placedItems[0].x = 352
     s.placedItems[0].y = 504
     await item.trigger('keydown', { key: 'ArrowRight' })
