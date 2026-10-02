@@ -211,12 +211,12 @@
           ref="stageEl"
           :role="healingMode ? 'dialog' : undefined" :aria-modal="healingMode ? true : undefined"
           :aria-label="healingMode ? '힐링 모드' : undefined"
-          :class="[editMode || healingMode ? 'touch-none' : 'touch-pan-x touch-pan-y', healingMode
+          :class="[healingMode
             ? 'fixed inset-y-0 left-1/2 -translate-x-1/2 w-full max-w-md z-[9990] flex flex-col items-center justify-center overflow-hidden'
             : 'relative flex justify-center items-center w-full overflow-hidden']"
           :style="healingMode
-            ? { background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
-            : { cursor: 'default', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
+            ? { touchAction: 'none', background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
+            : { touchAction: editMode ? 'none' : 'pan-x pan-y', cursor: 'default', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
           @pointerdown="onPinchPointer"
           @pointermove="onPinchPointer"
@@ -281,9 +281,9 @@
                 class="absolute z-20 pointer-events-none rounded-xl"
                 :style="{
                   left: `${JAR.minX}px`,
-                  top: `${JAR.minY + 60}px`,
+                  top: `${JAR.minY}px`,
                   width: `${JAR.maxX - JAR.minX}px`,
-                  height: `${JAR.maxY - JAR.minY - 60}px`,
+                  height: `${JAR.maxY - JAR.minY}px`,
                   background: 'rgba(81,140,219,0.04)',
                 }"
               >
@@ -799,7 +799,9 @@ onBeforeUnmount(() => {
 const STAGE_W = 400
 const STAGE_H = 552
 const JAR = { minX: 30, maxX: 370, minY: 160, maxY: 520 }
-const EDIT = { minX: JAR.minX, maxX: JAR.maxX, minY: JAR.minY + 60, maxY: JAR.maxY }
+// 배치 가능 영역 = 병 유리 내부(JAR) 전체. 이전엔 minY 에 +60 밴드를 둬 상단에 오브젝트를
+// 배치할 수 없었다(폰 QA 지적). 상단 개방을 위해 +60 제거 — 전체 유리 내부를 쓴다.
+const EDIT = { minX: JAR.minX, maxX: JAR.maxX, minY: JAR.minY, maxY: JAR.maxY }
 // 아이템 기본 박스 — Figma 홈의 식물이 병 폭의 약 1/3 이라 96px(scale 1). posX/posY 는 정규화 중심 좌표라
 // 기존 배치의 위치는 그대로이고 크기만 커진다. friends/TerrariumView.vue 와 같은 값을 유지할 것.
 const BASE_SIZE = 96

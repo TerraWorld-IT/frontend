@@ -104,7 +104,7 @@
                 v-model.number="amount"
                 type="number"
                 min="1"
-                :max="fromBalance"
+                :max="maxAmount"
                 inputmode="numeric"
                 aria-label="환전 수량"
                 class="relative z-[1] w-full h-11 bg-transparent text-center text-[16px] font-bold text-apjek-text outline-none [appearance:textfield]"
@@ -120,7 +120,7 @@
               type="button"
               class="relative after:absolute after:-inset-1 after:content-[''] apjek-chip text-[12px] h-9 shrink-0 disabled:opacity-40"
               :disabled="fromBalance === 0"
-              @click="amount = fromBalance"
+              @click="amount = maxAmount"
             >전량</button>
           </div>
 
@@ -240,26 +240,39 @@ const selectedRate = computed<ExchangeRateResponse | null>(() =>
   exchangeRates.value.find(rate => rate.from === fromCode.value && rate.to === toCode.value) ?? null,
 )
 
+// 환전 상한: 잔액과 일일 한도(dailyCap) 중 작은 값.
+// 백엔드 ExchangeExecutor 는 `prior + amount > dailyCap` 로 FROM 수량의 하루 누적을 막는다.
+// 프론트엔드엔 오늘 사용량(prior)이 노출되지 않으므로 dailyCap 자체로 캡핑하고,
+// 이미 소진분이 있으면 서버가 DAILY_LIMIT_EXCEEDED 로 최종 방어한다.
+const maxAmount = computed<number>(() => {
+  const cap = selectedRate.value?.dailyCap
+  const byCap = typeof cap === 'number' ? Math.min(fromBalance.value, cap) : fromBalance.value
+  return Math.max(1, byCap)
+})
+
 // v-model.number 는 빈 입력 시 문자열('')을 남길 수 있어 정수 검증까지 통과해야 활성화
 const canSubmit = computed<boolean>(() =>
   !exchanging.value
   && selectedRate.value !== null
   && Number.isInteger(amount.value)
   && amount.value >= 1
-  && amount.value <= fromBalance.value,
+  && amount.value <= maxAmount.value,
 )
 
 function selectFrom(code: CurrencyCode) {
   fromCode.value = code
   toCode.value = code === 'COIN' ? 'DEW' : 'COIN'
-  // 재화 변경 시 수량을 새 잔액 안으로 클램프 (0 잔액이면 1 유지 — CTA disabled 가 방어)
+  // 재화 변경 시 수량을 새 잔액·일일 한도 안으로 클램프 (0 잔액이면 1 유지 — CTA disabled 가 방어)
   const next = Number.isInteger(amount.value) ? amount.value : 1
-  amount.value = Math.min(Math.max(1, next), Math.max(1, balanceOf(currency.value, code)))
+  const cap = exchangeRates.value.find(r => r.from === code && r.to === toCode.value)?.dailyCap
+  const balForCode = balanceOf(currency.value, code)
+  const ceil = Math.max(1, typeof cap === 'number' ? Math.min(balForCode, cap) : balForCode)
+  amount.value = Math.min(Math.max(1, next), ceil)
 }
 
 function step(delta: number) {
   const base = Number.isInteger(amount.value) ? amount.value : 1
-  amount.value = Math.min(Math.max(1, base + delta), Math.max(1, fromBalance.value))
+  amount.value = Math.min(Math.max(1, base + delta), maxAmount.value)
 }
 
 /** basis points 를 사용자가 읽는 퍼센트로 변환한다. 예: 1000 → 10%, 15 → 0.15%. */
