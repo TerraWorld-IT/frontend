@@ -9,7 +9,7 @@
       </header>
 
       <!-- 수집 항목·외부 업체·보유 기간은 실제 코드·배포 설정 동작을 서술한다. 기능이 바뀌면 이 문서를 먼저 개정한다. -->
-      <section class="space-y-3 text-sm leading-relaxed">
+      <section class="space-y-3 text-sm leading-relaxed break-words">
         <div>
           <p class="text-riso-dark/80">
             TerraWorld 운영팀(대표 김태겸, 이하 "운영팀")은 「개인정보 보호법」 등 관련 법령을 지키며 이용자의 개인정보를 다음과 같이 처리합니다.

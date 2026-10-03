@@ -9,7 +9,7 @@
       </header>
 
       <!-- 면책 조항은 약관규제법 제7조에 따라 운영팀의 고의·중과실 책임을 배제하지 않는다. -->
-      <section class="space-y-3 text-sm leading-relaxed">
+      <section class="space-y-3 text-sm leading-relaxed break-words">
         <div>
           <h2 class="font-semibold mb-1">1. 목적</h2>
           <p class="text-riso-dark/80">

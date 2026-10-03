@@ -6,7 +6,7 @@
         <p class="text-xs text-riso-dark/50">기록으로 시작해 나만의 테라리움을 완성하는 방법을 안내해요.</p>
       </header>
 
-      <section class="space-y-3 text-sm leading-relaxed">
+      <section class="space-y-3 text-sm leading-relaxed break-words">
         <div>
           <h2 class="font-semibold mb-1">1. 기록</h2>
           <p class="text-riso-dark/80">기록 탭에서 습관을 체크하거나 투두·일기·집중·거리 같은 오늘의 일상을 기록해요.</p>
