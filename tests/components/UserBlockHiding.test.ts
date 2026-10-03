@@ -136,7 +136,7 @@ describe('랭킹 숨김·신고·차단', () => {
     expect(body).toContain('신고자 회원 ID: me-id')
     expect(body).toMatch(/신고 시각: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/)
 
-    expect(q('report-mail-address')!.textContent).toBe('oharapass@gmail.com')
+    expect(q<HTMLInputElement>('report-mail-address')!.value).toBe('oharapass@gmail.com')
     expect(q<HTMLTextAreaElement>('report-mail-body')!.value).toBe(body)
     // 신고만으로는 차단되지 않는다.
     expect(q('ranking-row-1')).not.toBeNull()
