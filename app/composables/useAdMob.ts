@@ -68,11 +68,6 @@ export function markAdLimitReachedToday(userId: string | undefined): void {
   }
 }
 
-// H3 (code-review): iOS ATT 결과를 모듈 스코프에 보존한다. ATT 요청은 앱 시작 시
-// (capacitor.client.ts) 의 useAdMob() 인스턴스에서, 광고 표시는 별도 useAdMob() 인스턴스에서
-// 일어나므로 인스턴스 변수로는 공유 불가. 미인증/오류 시 fail-closed(개인화 광고 미요청).
-let iosTrackingAuthorized = false
-
 /** 서버 nonce를 광고 SSV에 전달하고 시청 완료 증거를 반환한다. */
 export function useAdMob() {
   const { sdk, client } = useOpenApi()
@@ -97,15 +92,10 @@ export function useAdMob() {
       // requestTrackingAuthorization() 가 ATT prompt 를 띄움(핵심). 반환 타입은 플러그인 버전에 따라
       // void 또는 { status } — 런타임에서 status 가 있으면 반환, 없으면 null (as unknown 으로 양쪽 호환).
       const res = await AdMob.requestTrackingAuthorization()
-      const status = (res as unknown as { status?: string } | undefined)?.status ?? null
-      // H3: status 를 버리지 않고 보존 — authorized 일 때만 IDFA 기반 개인화. denied/restricted/
-      // notDetermined/null(미상)은 fail-closed 로 비개인화 유지.
-      iosTrackingAuthorized = status === 'authorized'
-      return status
+      // 광고 요청은 플랫폼 무관 비개인화(npa: true) 고정이라 ATT 결과로 개인화 여부를 바꾸지 않는다.
+      return (res as unknown as { status?: string } | undefined)?.status ?? null
     }
     catch {
-      // 오류 = prompt 미표시 가능성 포함 → fail-closed (개인화 안 함).
-      iosTrackingAuthorized = false
       return null
     }
   }
@@ -219,9 +209,11 @@ export function useAdMob() {
         if (preparation.signal.aborted) return
         await AdMob.prepareRewardVideoAd({
           adId: adId || 'ca-app-pub-3940256099942544/5224354917', // Google 공식 테스트 보상형 광고 ID
-          // H3: iOS 에서 ATT 미인증이면 비개인화 광고(npa) 요청. 현재 iOS 는 위 isAndroid 게이트로
-          //     이 경로 미도달이라 사실상 false(Android 개인화)지만, iOS 광고 도입 시 ATT 정합 보장.
-          npa: isIos && !iosTrackingAuthorized,
+          // 비개인화 광고(npa) 고정 — 광고 정책 결정 Q26-B "한국 성인 대상 비개인화 광고, UMP 미사용"
+          // (workspace#36, 법무 확인 대상). UMP 동의 수집이 없으므로 Android 도 개인화 요청을 하지 않는다.
+          // 개인화 광고를 도입하려면 UMP 동의 플로우 + Data safety 공시 변경이 선행돼야 한다.
+          // (iOS 는 ATT 미인증 시 어차피 비개인화 — iOS 광고 도입 시에도 이 값이 정합을 보장)
+          npa: true,
           ...(ssv ? { ssv } : {}),
         })
       })(), REWARD_AD_PREPARE_TIMEOUT_MS, preparation)
