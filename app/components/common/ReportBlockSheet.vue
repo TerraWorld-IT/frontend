@@ -68,7 +68,16 @@
           <div class="rounded-[12px] bg-apjek-bg p-[12px] flex flex-col gap-[8px]" data-testid="report-mail-fallback">
             <p class="text-[12px] text-apjek-text-sub leading-[18px]">{{ $t('moderation.mailFallback') }}</p>
             <div class="flex items-center justify-between gap-2">
-              <span class="text-[13px] font-semibold text-apjek-text select-all break-all" data-testid="report-mail-address">{{ supportEmail }}</span>
+              <!-- 네이티브 앱은 전역 user-select:none 이라 일반 텍스트는 길게 눌러 복사할 수 없다 — input/textarea 는 선택이 허용되므로 readonly input 으로 보인다 -->
+              <input
+                :value="supportEmail"
+                type="text"
+                readonly
+                :aria-label="$t('moderation.mailAddressLabel')"
+                class="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-apjek-text outline-none"
+                data-testid="report-mail-address"
+                @focus="selectAll"
+              >
               <button type="button" class="apjek-chip shrink-0 px-2.5 py-1.5 text-[12px] font-semibold active:scale-95" @click="copy(supportEmail)">
                 {{ $t('moderation.copyAddress') }}
               </button>
@@ -81,6 +90,7 @@
               rows="6"
               class="w-full rounded-[8px] border border-apjek-border bg-apjek-surface p-[8px] text-[12px] text-apjek-text leading-[18px] resize-none"
               data-testid="report-mail-body"
+              @focus="selectAll"
             />
             <button type="button" class="apjek-chip self-end px-2.5 py-1.5 text-[12px] font-semibold active:scale-95" @click="copy(`${reportSubject}\n\n${reportBody}`)">
               {{ $t('moderation.copyBody') }}
@@ -179,6 +189,11 @@ watch(() => props.open, (open) => {
 function goReport() {
   reportedAt.value = dayjs().format('YYYY-MM-DD HH:mm:ss Z')
   step.value = 'report'
+}
+
+/** 읽기 전용 칸을 누르면 전체를 선택해 바로 복사할 수 있게 한다. */
+function selectAll(event: FocusEvent) {
+  (event.target as HTMLInputElement | HTMLTextAreaElement | null)?.select()
 }
 
 async function copy(text: string) {

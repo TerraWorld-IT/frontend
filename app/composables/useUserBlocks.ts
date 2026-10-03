@@ -1,3 +1,4 @@
+import { authClient } from '~/lib/auth-client'
 import { useUserStore } from '~/stores/user'
 
 /** 차단한 회원 한 명 — 닉네임은 차단 당시 화면에 보이던 표시(전체 랭킹이면 가린 표시)를 그대로 둔다. */
@@ -48,13 +49,17 @@ function writeBlocks(ownerId: string, list: BlockedUser[]): boolean {
  * 차단은 이 기기의 로컬 저장소에 로그인 회원 ID 별로 저장하는 앱 내 기능이다. 서버로 보내지 않고 상대방에게 알리지 않으며,
  * 차단한 회원을 친구 목록·홈 친구 목록·랭킹·습관 친구 선택·방문 화면에서 숨긴다(목록은 `filterBlocked` 로 거른다).
  *
+ * 로그인 회원 ID 는 사용자 정보 스토어를 우선하고, 비어 있으면 세션의 사용자 ID 를 쓴다.
  * 상태는 `useState` 로 컴포넌트 사이에 공유해 한 화면에서 차단하면 다른 화면의 목록도 즉시 바뀐다.
  * 서버 렌더에서는 저장소가 없으므로 비어 있고, 클라이언트에서 로그인 회원 ID 가 정해지면 그 회원의 목록을 읽는다.
  */
 export function useUserBlocks() {
   const userStore = useUserStore()
   const blocksByOwner = useState<Record<string, BlockedUser[]>>('tw-user-blocks', () => ({}))
-  const ownerId = computed<string | null>(() => userStore.me?.userId ?? null)
+  // 사용자 정보 스토어가 아직 비어 있어도(기록 화면 직접 진입 등) 세션의 사용자 ID 로 차단 목록을 적용한다.
+  // 세션 JWT 의 sub 는 서버의 회원 ID 와 같은 값이다(server/lib/auth.ts).
+  const session = authClient.useSession()
+  const ownerId = computed<string | null>(() => userStore.me?.userId ?? session.value?.data?.user?.id ?? null)
 
   // clearNuxtState 로 비워진 뒤에도(undefined) 빈 목록으로 다룬다.
   function ensureLoaded(owner: string | null): void {
