@@ -85,7 +85,7 @@
 
     <!-- Main -->
     <template v-else>
-      <!-- ─── T7b 상단 원형 메뉴바 5종 상시 노출 (관리 모드에선 칩으로 대체) ─── -->
+      <!-- ─── T7b 상단 원형 메뉴바 (관리 모드에선 칩으로 대체). justify-evenly 라 광고보상을 숨긴 4종도 고르게 놓인다 ─── -->
       <div
         v-if="!editMode"
         class="mx-auto w-full max-w-[400px] rounded-full px-2 py-2 flex items-center justify-evenly"
@@ -113,9 +113,10 @@
           </span>
           <span class="menu-label">출석체크</span>
         </button>
-        <!-- 광고보상 — 상시 노출(T7b, §4 N-3). 실 광고 가용 플랫폼(Android 네이티브/dev)에서만 팝업,
-             웹/비지원 환경은 탭 시 안내 토스트(광고 없이 보상만 청구되던 fail-open 진입점은 계속 차단). -->
+        <!-- 광고보상 — 첫 출시에는 adMenuDisabled 로 모든 플랫폼에서 숨긴다(동작하지 않는 버튼은 iOS 심사 2.1 반려 사유).
+             광고 도입 시 플래그만 바꾸면 버튼과 팝업 로직이 그대로 돌아온다(광고 없이 보상만 청구되던 fail-open 진입점은 계속 차단). -->
         <button
+          v-if="!adMenuDisabled"
           type="button"
           data-testid="home-freecoin"
           class="menu-item disabled:opacity-50 disabled:cursor-not-allowed"
@@ -891,7 +892,7 @@ const showAttendance = ref<boolean>(false)
 const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 const adClaiming = ref<boolean>(false)
-// 첫 출시에는 모든 플랫폼에서 광고보상 진입점을 비활성으로 유지한다.
+// 첫 출시에는 모든 플랫폼에서 광고보상 진입점을 숨기고 직접 호출도 막는다.
 const adAvailable = ref<boolean>(false)
 const adMenuDisabled = true
 const adRemainingToday = ref<number | null>(null)

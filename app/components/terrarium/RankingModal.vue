@@ -5,6 +5,7 @@
   데이터: `GET /rankings/monthly?type=items&scope=all|friends` — 보유 아이템 수(월 무관 현재값),
   0점도 myRank 산출(동점 올림픽). myRank null(미집계)이면 "순위 없음".
   열릴 때와 스코프 전환 시 조회. 로딩/빈 목록/실패(재시도) 상태를 구분해 보여준다.
+  전체 랭킹의 다른 회원 닉네임은 첫 글자만 보이게 가린다(App Store 1.2, 이용약관 10조).
   등록명: TerrariumRankingModal.
 -->
 <template>
@@ -15,7 +16,7 @@
       style="background: var(--color-apjek-blue-soft)"
       data-testid="ranking-my-card"
     >
-      <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0" style="background: var(--color-apjek-surface)" aria-hidden="true">{{ (myNickname || '?').trim().charAt(0).toUpperCase() || '?' }}</div>
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0" style="background: var(--color-apjek-surface)" aria-hidden="true">{{ firstChar(myNickname).toUpperCase() }}</div>
       <div class="min-w-0">
         <p class="text-[15px] font-extrabold text-apjek-text truncate" data-testid="ranking-my-rank">{{ myRankLabel }}</p>
         <p class="text-xs text-apjek-text-sub">나의 보유 아이템 수 : {{ myScore }}</p>
@@ -65,9 +66,9 @@
           :style="entry.isSelf ? { borderColor: 'var(--color-apjek-blue)' } : {}"
           :data-testid="`ranking-row-${entry.rank}`"
         >
-          <span class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style="background: var(--color-apjek-bg)" aria-hidden="true">{{ (entry.nickname || '?').trim().charAt(0).toUpperCase() || '?' }}</span>
+          <span class="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0" style="background: var(--color-apjek-bg)" aria-hidden="true">{{ avatarInitial(entry) }}</span>
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-bold text-apjek-text truncate">#{{ entry.rank }} {{ entry.nickname }}<span v-if="entry.isSelf" class="ml-1 text-[10px] font-semibold text-apjek-text-faint">(나)</span></p>
+            <p class="text-sm font-bold text-apjek-text truncate">#{{ entry.rank }} {{ displayNickname(entry) }}<span v-if="entry.isSelf" class="ml-1 text-[10px] font-semibold text-apjek-text-faint">(나)</span></p>
             <p class="text-xs text-apjek-text-sub">보유 아이템 수 : {{ entry.score }}</p>
           </div>
         </li>
@@ -111,6 +112,23 @@ const myRankLabel = computed<string>(() => {
   const rank = data.value?.myRank
   return rank === null || rank === undefined ? `순위 없음 ${myNickname.value}` : `#${rank} ${myNickname.value}`
 })
+
+// 전체 랭킹은 초대 코드로 연결되지 않은 회원에게도 보이므로 다른 회원 닉네임을 첫 글자 + 고정 '**' 로 가린다.
+// 길이를 드러내지 않게 '*' 개수는 고정. 친구 랭킹 응답과 본인 행만 원래 닉네임(그 밖은 가림). 응답 데이터는 바꾸지 않는 표시 전용 처리.
+// 첫 글자는 코드포인트 단위로 뽑아 이모지(서로게이트 쌍)가 잘리지 않게 한다.
+function firstChar(nickname: string | null | undefined): string {
+  return Array.from((nickname ?? '').trim())[0] ?? '?'
+}
+
+function displayNickname(entry: RankingEntry): string {
+  if (entry.isSelf || data.value?.scope === 'friends') return entry.nickname
+  return `${firstChar(entry.nickname)}**`
+}
+
+// 아바타 이니셜은 가린 표시의 첫 글자를 그대로 쓴다.
+function avatarInitial(entry: RankingEntry): string {
+  return firstChar(displayNickname(entry)).toUpperCase()
+}
 
 function onTabKeydown(event: KeyboardEvent): void {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
