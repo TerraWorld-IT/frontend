@@ -487,7 +487,7 @@ const nickname = computed<string>(() => user.value?.nickname ?? 'TERRA유저')
 // ── M6: 고객센터 메일 — runtimeConfig public.supportEmail, 미설정 시 기본 주소 ──
 const supportEmail = computed<string>(() => {
   const v = (runtimeConfig.public as { supportEmail?: string }).supportEmail
-  return v && v.trim() ? v.trim() : 'support@terraworld.app'
+  return v && v.trim() ? v.trim() : 'oharapass@gmail.com'
 })
 const supportMailto = computed<string>(() => `mailto:${supportEmail.value}?subject=${encodeURIComponent('[TERRAWORLD] 문의')}`)
 

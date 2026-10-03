@@ -53,9 +53,87 @@ describe('RankingModal', () => {
     // 내 순위 카드 — entries 의 본인(isSelf) 닉네임 우선
     expect(document.body.querySelector('[data-testid="ranking-my-rank"]')!.textContent).toBe('#2 테라 유저')
     expect(body).toContain('나의 보유 아이템 수 : 19')
-    // 리스트 행 "#rank 닉네임 / 보유 아이템 수 : score"
-    expect(document.body.querySelector('[data-testid="ranking-row-1"]')!.textContent).toContain('#1 친구A')
+    // 리스트 행 "#rank 닉네임 / 보유 아이템 수 : score" — 전체 랭킹의 다른 회원 닉네임은 가려진다
+    expect(document.body.querySelector('[data-testid="ranking-row-1"]')!.textContent).toContain('#1 친**')
     expect(body).toContain('보유 아이템 수 : 80')
+  })
+
+  it('전체 랭킹: 다른 회원 닉네임은 첫 글자 + 고정 ** 로 가리고 아바타도 가린 표시를 따르며, 본인 행은 원래 닉네임', async () => {
+    getMonthlyRanking.mockResolvedValue({
+      data: response({
+        entries: [
+          { rank: 1, userId: 'u1', nickname: '아주긴닉네임입니다', score: 80, isSelf: false },
+          { rank: 2, userId: 'me', nickname: '테라 유저', score: 19, isSelf: true },
+          { rank: 3, userId: 'u3', nickname: '김', score: 5, isSelf: false },
+        ],
+      }),
+      error: undefined,
+    })
+    await mountSuspended(RankingModal, { props: { open: true, nickname: '테라 유저' } })
+    await flush()
+
+    const row1 = document.body.querySelector('[data-testid="ranking-row-1"]')!
+    expect(row1.querySelector('p')!.textContent).toBe('#1 아**')
+    expect(row1.textContent).not.toContain('아주긴닉네임입니다')
+    expect(row1.querySelector('span[aria-hidden="true"]')!.textContent).toBe('아')
+    // 한 글자 닉네임도 길이와 무관하게 '**' 고정
+    expect(document.body.querySelector('[data-testid="ranking-row-3"] p')!.textContent).toBe('#3 김**')
+    // 본인 행과 내 순위 카드는 원래 닉네임
+    expect(document.body.querySelector('[data-testid="ranking-row-2"] p')!.textContent).toBe('#2 테라 유저(나)')
+    expect(document.body.querySelector('[data-testid="ranking-my-rank"]')!.textContent).toBe('#2 테라 유저')
+  })
+
+  it('친구 랭킹: 친구 닉네임을 가리지 않고 그대로 보인다', async () => {
+    getMonthlyRanking
+      .mockResolvedValueOnce({ data: response(), error: undefined })
+      .mockResolvedValueOnce({ data: response({ scope: 'friends' }), error: undefined })
+    await mountSuspended(RankingModal, { props: { open: true, nickname: '테라 유저' } })
+    await flush()
+
+    document.body.querySelector<HTMLButtonElement>('[data-testid="ranking-scope-friends"]')!.click()
+    await flush()
+
+    const row1 = document.body.querySelector('[data-testid="ranking-row-1"]')!
+    expect(row1.querySelector('p')!.textContent).toBe('#1 친구A')
+    expect(row1.querySelector('span[aria-hidden="true"]')!.textContent).toBe('친')
+    expect(document.body.querySelector('[data-testid="ranking-row-2"] p')!.textContent).toBe('#2 테라 유저(나)')
+  })
+
+  it('이모지 닉네임: 전체 랭킹은 이모지 한 글자 + ** 로 가리고 친구 랭킹은 원문 그대로, 아바타는 이모지가 잘리지 않는다', async () => {
+    const emojiEntries = [{ rank: 1, userId: 'u1', nickname: '🌱user', score: 80, isSelf: false }]
+    getMonthlyRanking
+      .mockResolvedValueOnce({ data: response({ entries: emojiEntries }), error: undefined })
+      .mockResolvedValueOnce({ data: response({ scope: 'friends', entries: emojiEntries }), error: undefined })
+    await mountSuspended(RankingModal, { props: { open: true, nickname: '테라 유저' } })
+    await flush()
+
+    const allRow = document.body.querySelector('[data-testid="ranking-row-1"]')!
+    expect(allRow.querySelector('p')!.textContent).toBe('#1 🌱**')
+    expect(allRow.querySelector('span[aria-hidden="true"]')!.textContent).toBe('🌱')
+
+    document.body.querySelector<HTMLButtonElement>('[data-testid="ranking-scope-friends"]')!.click()
+    await flush()
+
+    const friendRow = document.body.querySelector('[data-testid="ranking-row-1"]')!
+    expect(friendRow.querySelector('p')!.textContent).toBe('#1 🌱user')
+    expect(friendRow.querySelector('span[aria-hidden="true"]')!.textContent).toBe('🌱')
+  })
+
+  it('내 순위 카드: 본인 닉네임이 이모지로 시작해도 이니셜이 잘리지 않고 닉네임은 원문 그대로', async () => {
+    getMonthlyRanking.mockResolvedValue({
+      data: response({
+        entries: [{ rank: 1, userId: 'me', nickname: '🌱me', score: 19, isSelf: true }],
+        myRank: 1,
+      }),
+      error: undefined,
+    })
+    await mountSuspended(RankingModal, { props: { open: true, nickname: '🌱me' } })
+    await flush()
+
+    const card = document.body.querySelector('[data-testid="ranking-my-rank"]')!
+    expect(card.textContent).toBe('#1 🌱me')
+    expect(card.parentElement!.previousElementSibling!.textContent).toBe('🌱')
+    expect(document.body.querySelector('[data-testid="ranking-row-1"] span[aria-hidden="true"]')!.textContent).toBe('🌱')
   })
 
   it('친구 랭킹 세그먼트 탭 → scope=friends 로 재조회, 빈 목록은 안내 문구', async () => {

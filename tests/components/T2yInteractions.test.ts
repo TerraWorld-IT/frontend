@@ -662,14 +662,14 @@ describe('WP2a-B 홈 피드백', () => {
     expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
   })
 
-  it.each(['web', 'android', 'ios'] as const)('B-16 %s에서 광고보상 버튼은 비활성이며 클릭과 직접 호출 모두 팝업·광고를 열지 않는다', async (platform) => {
+  it.each(['web', 'android', 'ios'] as const)('B-16 %s에서 광고보상 버튼은 렌더하지 않으며 직접 호출도 팝업·광고를 열지 않는다', async (platform) => {
     mocks.adNative = platform !== 'web'
     mocks.adAndroid = platform === 'android'
     mocks.adIos = platform === 'ios'
     const w = await mountPage(HomePage); const s = state(w)
-    const button = w.get('[data-testid="home-freecoin"]')
-    expect((button.element as HTMLButtonElement).disabled).toBe(true)
-    await button.trigger('click')
+    expect(w.find('[data-testid="home-freecoin"]').exists()).toBe(false)
+    // 남은 메뉴 4종은 그대로 노출된다.
+    for (const id of ['home-ranking', 'home-share', 'home-attendance', 'home-notify']) expect(w.find(`[data-testid="${id}"]`).exists()).toBe(true)
     s.onAdMenuClick()
     await s.onClaimAdReward()
     expect(s.showFreeCoinDialog).toBe(false)

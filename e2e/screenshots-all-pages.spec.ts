@@ -668,7 +668,7 @@ test.describe('cycle 6 모달 정밀화', () => {
     await shot(page, 'M-E2-shop-exchange-modal')
   })
 
-  // M-C2-홈-무료코인-광고-trigger: 첫 출시 실결제·광고 보상 진입 차단 정책으로 트리거 UI 비활성 — 삭제하지 않고 skip.
+  // M-C2-홈-무료코인-광고-trigger: 첫 출시 실결제·광고 보상 진입 차단 정책으로 트리거 버튼을 렌더하지 않는다 — 삭제하지 않고 skip.
   test.skip('M-C2-홈-무료코인-광고-trigger', async ({ page }) => {
     await signUpAndLogin(page)
     await page.goto('/')
