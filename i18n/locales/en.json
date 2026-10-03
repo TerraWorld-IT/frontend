@@ -371,6 +371,7 @@
     "mailFallback": "If your mail app does not open, copy the report below and send it to this address.",
     "mailBodyLabel": "Report details",
     "copyAddress": "Copy address",
+    "mailAddressLabel": "Report email address",
     "copyBody": "Copy details",
     "copied": "Copied",
     "copyFailed": "Could not copy. Press and hold to copy manually",

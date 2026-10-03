@@ -371,6 +371,7 @@
     "mailFallback": "메일 앱이 열리지 않으면 아래 주소로 신고 내용을 복사해 보내 주세요.",
     "mailBodyLabel": "신고 내용",
     "copyAddress": "주소 복사",
+    "mailAddressLabel": "신고 메일 받는 주소",
     "copyBody": "내용 복사",
     "copied": "복사했어요",
     "copyFailed": "복사하지 못했어요. 길게 눌러 직접 복사해 주세요",
