@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { jwt, bearer } from 'better-auth/plugins'
 import { Pool } from 'pg'
+import { isForbiddenNickname, NICKNAME_NOT_ALLOWED_CODE, NICKNAME_NOT_ALLOWED_MESSAGE } from '#shared/utils/nicknamePolicy'
 
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
@@ -312,6 +313,13 @@ export const auth = betterAuth({
           const consentUser = user as { agreeTerms?: boolean; agreePrivacy?: boolean }
           if (consentUser.agreeTerms !== true || consentUser.agreePrivacy !== true) {
             throw new Error('필수 약관 및 개인정보 수집·이용 동의가 필요합니다')
+          }
+          // App Store 1.2 (UGC 필터링): 욕설·비하·성적 표현·운영자 사칭 닉네임은 가입을 거절한다(트랜잭션 롤백).
+          // 가입 폼이 같은 정책으로 1차 안내하지만 직접 signup API 호출도 여기서 막는다.
+          // APIError 는 sign-up 라우트가 그대로 전달하므로 클라이언트가 code 로 안내 문구를 고를 수 있다.
+          // 프로필에서 닉네임을 바꿀 때의 최종 검증은 백엔드 PUT /users/me 가 같은 정책으로 한다.
+          if (isForbiddenNickname((user as { name?: string }).name ?? '')) {
+            throw new APIError('BAD_REQUEST', { code: NICKNAME_NOT_ALLOWED_CODE, message: NICKNAME_NOT_ALLOWED_MESSAGE })
           }
           // better-auth `before` hook signature: Promise<boolean | void | { data: Optional<User> & Record<string, any> }>.
           // 통과 시 `return true` (passthrough) — user 객체 수정 없음, transaction 진행.

@@ -105,7 +105,7 @@
             @click="emit('retry')"
           >다시 시도</button>
         </div>
-        <div v-else-if="friends.length === 0" class="text-[13px] text-apjek-text-faint text-center py-[16px]">
+        <div v-else-if="availableFriends.length === 0" class="text-[13px] text-apjek-text-faint text-center py-[16px]">
           함께 할 친구가 없어요.
           <NuxtLink to="/friends" class="text-apjek-blue underline font-semibold">친구 초대하기</NuxtLink>
         </div>
@@ -226,7 +226,10 @@ const step = ref<1 | 2 | 3>(1)
 const mode = ref<Mode | null>(null)
 const title = ref<string>('')
 const selectedFriendId = ref<string | null>(null)
-const selectedFriendAvailable = computed<boolean>(() => props.friends.some(friend => friend.userId === selectedFriendId.value))
+// 차단(App Store 1.2) — 차단한 회원은 친구 선택 후보에서 숨기고, 초안에 남은 선택도 제출할 수 없게 한다.
+const { filterBlocked } = useUserBlocks()
+const availableFriends = computed<FriendInfo[]>(() => filterBlocked(props.friends))
+const selectedFriendAvailable = computed<boolean>(() => availableFriends.value.some(friend => friend.userId === selectedFriendId.value))
 const modeUnavailable = computed<boolean>(() => mode.value === 'friend' ? !!props.friendUnavailable : mode.value === 'solo' && !!props.soloUnavailable)
 const userStore = useUserStore()
 const session = authClient.useSession()
@@ -237,8 +240,8 @@ type HabitSelectionDraft = { mode: Mode | null; selectedFriendId: string | null 
 
 // 선택한 친구를 DOM 맨 앞으로 옮겨 표시 순서와 키보드 탐색 순서를 맞춘다.
 const displayFriends = computed<FriendInfo[]>(() => [
-  ...props.friends.filter(friend => friend.userId === selectedFriendId.value),
-  ...props.friends.filter(friend => friend.userId !== selectedFriendId.value),
+  ...availableFriends.value.filter(friend => friend.userId === selectedFriendId.value),
+  ...availableFriends.value.filter(friend => friend.userId !== selectedFriendId.value),
 ])
 
 const introText = computed<string>(() => mode.value === 'friend'
