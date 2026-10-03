@@ -4,6 +4,7 @@
     배경 스크롤 잠금 합성) + Android 하드웨어 뒤로가기(useBackButtonStack) 등록.
   - 카드/CTA/칩은 아프젝 공용 컴포넌트 클래스(apjek-card/apjek-cta/apjek-chip) 사용.
   - 좋아요 토글은 페이지가 소유(단일 핸들러) — 여기서는 emit 만 한다.
+  - 신고·차단(App Store 1.2)은 헤더 메뉴 → CommonReportBlockSheet. 차단하면 close 를 emit 하고, 차단한 회원이면 열리지 않는다.
 -->
 <template>
   <Teleport to="body">
@@ -29,16 +30,31 @@
             <h3 id="friend-visit-title" class="apjek-section-title text-[17px] leading-[24px]">
               {{ title }}
             </h3>
-            <button
-              type="button"
-              class="group shrink-0 size-11 -m-[6px] flex items-center justify-center"
-              :aria-label="$t('common.close')"
-              @click="emit('close')"
-            >
-              <span class="size-8 rounded-full bg-apjek-bg flex items-center justify-center group-active:scale-95">
-                <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
-              </span>
-            </button>
+            <div class="flex shrink-0">
+              <!-- 신고·차단 (App Store 1.2) — 시트는 이 모달 위에 쌓인다 -->
+              <button
+                v-if="friend"
+                type="button"
+                class="group shrink-0 size-11 -my-[6px] flex items-center justify-center"
+                :aria-label="$t('moderation.openMenu', { nickname: friend.nickname })"
+                data-testid="visit-report-block"
+                @click="reportOpen = true"
+              >
+                <span class="size-8 rounded-full bg-apjek-bg flex items-center justify-center group-active:scale-95">
+                  <Icon name="lucide:ellipsis" class="w-4 h-4 text-apjek-text-sub" />
+                </span>
+              </button>
+              <button
+                type="button"
+                class="group shrink-0 size-11 -m-[6px] flex items-center justify-center"
+                :aria-label="$t('common.close')"
+                @click="emit('close')"
+              >
+                <span class="size-8 rounded-full bg-apjek-bg flex items-center justify-center group-active:scale-95">
+                  <Icon name="lucide:x" class="w-4 h-4 text-apjek-text-sub" />
+                </span>
+              </button>
+            </div>
           </div>
 
           <!-- 본문: 실 테라리움 렌더 -->
@@ -79,6 +95,12 @@
       </div>
     </Transition>
   </Teleport>
+  <!-- 방문 Teleport 뒤에 선언해 body 안에서 방문 모달보다 위에 쌓이게 한다. 차단하면 아래 isBlocked 감시가 방문 모달을 닫는다. -->
+  <CommonReportBlockSheet
+    :open="open && reportOpen"
+    :target="friend"
+    @close="reportOpen = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -105,10 +127,21 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isBlocked } = useUserBlocks()
 
 const title = computed<string>(() =>
   props.friend ? t('friends.visitTitle', { nickname: props.friend.nickname }) : '',
 )
+
+// 신고·차단 시트 — 방문 모달이 닫히면 같이 닫는다.
+const reportOpen = ref<boolean>(false)
+watch(() => props.open, (open) => {
+  if (!open) reportOpen.value = false
+})
+// 차단한 회원의 방문 모달은 띄우지 않는다(다른 화면에서 차단돼 목록에서 사라진 경우 포함).
+watch(() => props.open && !!props.friend && isBlocked(props.friend.userId), (blocked) => {
+  if (blocked) emit('close')
+}, { immediate: true })
 
 // focus trap + ESC 닫기 + 배경 스크롤 잠금 (useOverlayScrollLock 합성 포함)
 const rootEl = ref<HTMLElement | null>(null)

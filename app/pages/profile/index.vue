@@ -167,11 +167,11 @@
               </button>
             </div>
             <NuxtLink
-              v-if="friends.length > friendRows.length"
+              v-if="visibleFriends.length > friendRows.length"
               to="/friends"
               class="relative after:absolute after:inset-x-0 after:-inset-y-[14px] after:content-[''] self-center text-[12px] text-apjek-text-sub underline underline-offset-2"
             >
-              친구 {{ friends.length }}명 모두 보기
+              친구 {{ visibleFriends.length }}명 모두 보기
             </NuxtLink>
           </div>
 
@@ -433,10 +433,13 @@
               maxlength="20"
               placeholder="닉네임을 입력해주세요"
               class="w-full h-[48px] px-[16px] rounded-[12px] border border-apjek-border-strong bg-apjek-surface text-[15px] text-apjek-text focus:outline-none focus:border-apjek-blue"
+              :aria-invalid="!nicknameValid || nicknameForbidden"
               @keydown.enter="!$event.isComposing && saveNickname()"
             >
             <div class="flex items-center justify-between min-h-[16px]">
               <p v-if="!nicknameValid" class="text-[12px] text-riso-poppy">닉네임은 1~20자로 입력해주세요</p>
+              <!-- 금칙어는 저장 전에 바로 안내한다(최종 검증은 백엔드 PUT /users/me 가 같은 정책으로) -->
+              <p v-else-if="nicknameForbidden" class="text-[12px] text-riso-poppy" role="alert" data-testid="profile-nickname-forbidden">{{ NICKNAME_NOT_ALLOWED_MESSAGE }}</p>
               <span v-else class="text-[12px] text-transparent select-none">&nbsp;</span>
               <span class="text-[12px] text-apjek-text-faint">{{ nicknameDraft.trim().length }}/20</span>
             </div>
@@ -444,7 +447,7 @@
           <button
             type="button"
             class="apjek-cta w-full h-[48px]"
-            :disabled="!nicknameValid || nicknameSaving"
+            :disabled="!nicknameValid || nicknameForbidden || nicknameSaving"
             @click="saveNickname"
           >
             {{ nicknameSaving ? '저장 중...' : '저장' }}
@@ -461,6 +464,7 @@ import type { FriendInfo, TerrariumResponse, UserMeResponse } from '@terraworld-
 import { useUserStore } from '~/stores/user'
 import { balanceOf, type CurrencyCode } from '~/utils/currency'
 import { formatNumber } from '~/utils/format'
+import { isForbiddenNickname, NICKNAME_NOT_ALLOWED_MESSAGE } from '#shared/utils/nicknamePolicy'
 
 // 더보기(M5b) — Figma(2026-08-21) 카드 5개: 나의 프로필 / 친구목록 / 보유 재화 / 문의 및 알림 / 계정.
 // 공지사항은 정적 notices.json(§4-6), 알림은 홈과 같은 NotificationsCenter(M8), 고객센터는 메일(M6).
@@ -500,7 +504,10 @@ function openNotices() {
 const friends = ref<FriendInfo[]>([])
 const friendsLoading = ref<boolean>(false)
 const friendsError = ref<boolean>(false)
-const friendRows = computed<FriendInfo[]>(() => friends.value.slice(0, 3))
+// 차단(App Store 1.2) — 차단한 회원은 이 기기의 친구 목록에서 숨긴다(신고·차단은 방문 모달 메뉴에서).
+const { filterBlocked } = useUserBlocks()
+const visibleFriends = computed<FriendInfo[]>(() => filterBlocked(friends.value))
+const friendRows = computed<FriendInfo[]>(() => visibleFriends.value.slice(0, 3))
 const likingId = ref<string | null>(null)
 const visitingId = ref<string | null>(null)
 const visitModalOpen = ref<boolean>(false)
@@ -581,6 +588,8 @@ const nicknameValid = computed<boolean>(() => {
   const len = nicknameDraft.value.trim().length
   return len >= 1 && len <= 20
 })
+// 금칙어 닉네임 — 가입 폼·Nuxt 서버와 같은 공용 정책 함수(백엔드 NicknamePolicy 와 같은 규칙).
+const nicknameForbidden = computed<boolean>(() => isForbiddenNickname(nicknameDraft.value))
 
 function openNicknameSheet() {
   // 현재 닉네임 프리필 — 시트를 다시 열 때마다 최신 값으로 초기화.
@@ -589,13 +598,16 @@ function openNicknameSheet() {
 }
 
 async function saveNickname() {
-  if (!nicknameValid.value || nicknameSaving.value) return
+  if (!nicknameValid.value || nicknameForbidden.value || nicknameSaving.value) return
   nicknameSaving.value = true
   try {
     const { error } = await sdk.updateMe({ client, body: { nickname: nicknameDraft.value.trim() } })
     // 백엔드 미구현 구간(실서버 404 가능) 안전 처리 — raw 에러는 노출하지 않는다.
+    // 백엔드 금칙어 거절(INVALID_INPUT + 같은 안내 문구)만 그 문구로 알리고 시트는 열어 둔다.
     if (error) {
-      toast.error('잠시 후 다시 시도해주세요')
+      toast.error((error as { message?: string }).message === NICKNAME_NOT_ALLOWED_MESSAGE
+        ? NICKNAME_NOT_ALLOWED_MESSAGE
+        : '잠시 후 다시 시도해주세요')
       return
     }
     showNicknameSheet.value = false

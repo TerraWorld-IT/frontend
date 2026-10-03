@@ -74,6 +74,7 @@
               autocomplete="nickname"
               autocapitalize="none"
               aria-describedby="nickname-hint"
+              :aria-invalid="nicknameForbidden"
               :placeholder="t('auth.nicknamePlaceholder')"
               required
               maxlength="20"
@@ -81,7 +82,9 @@
               @focus="onFieldFocus"
               @blur="onFieldBlur"
             >
-            <p id="nickname-hint" class="text-xs mt-1" style="color: #4f659c">닉네임은 1~20자로 입력해주세요</p>
+            <!-- 금칙어 닉네임은 제출 전에 바로 안내한다(서버 before hook 이 같은 정책으로 최종 거절) -->
+            <p v-if="nicknameForbidden" id="nickname-hint" class="text-xs mt-1" style="color: #c2410c" role="alert" data-testid="signup-nickname-forbidden">{{ t('auth.nicknameNotAllowed') }}</p>
+            <p v-else id="nickname-hint" class="text-xs mt-1" style="color: #4f659c">닉네임은 1~20자로 입력해주세요</p>
           </div>
 
           <!--
@@ -253,6 +256,7 @@
 import { authClient } from '~/lib/auth-client'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
+import { isForbiddenNickname } from '#shared/utils/nicknamePolicy'
 
 definePageMeta({ layout: false })
 
@@ -327,6 +331,8 @@ const password = ref<string>('')
 const nickname = ref<string>('')
 const birthDate = ref<string>('')
 const submitting = ref<boolean>(false)
+// 가입 닉네임 금칙어 여부 — 서버 before hook 과 같은 공용 정책 함수.
+const nicknameForbidden = computed<boolean>(() => mode.value === 'signup' && isForbiddenNickname(nickname.value))
 
 function onFormKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' && (event.isComposing || event.keyCode === 229)) event.preventDefault()
@@ -470,6 +476,10 @@ async function onSubmit() {
       // LEGAL-001 fix (Codex audit HIGH, 2026-05-18): 만 14세 미만 가입 차단.
       if (!isAtLeast14(birthDate.value)) {
         throw new Error(t('auth.underageError'))
+      }
+      // App Store 1.2: 금칙어 닉네임은 요청 전에 막는다(서버 before hook 이 같은 정책으로 재검증).
+      if (nicknameForbidden.value) {
+        throw new Error(t('auth.nicknameNotAllowed'))
       }
       // P1-2 (PIPA 제15조): 필수 동의(이용약관·개인정보 수집·이용) 미체크 시 가입 차단.
       if (!agreeTerms.value || !agreePrivacy.value) {

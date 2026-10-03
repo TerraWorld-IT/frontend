@@ -55,6 +55,41 @@
       </div>
     </div>
 
+    <!-- 차단한 회원 (App Store 1.2) — 이 기기에만 저장된 차단 목록을 보고 해제한다.
+         목록은 기기 저장소에서 읽으므로 마운트 뒤에만 그려 서버 렌더와 첫 렌더를 같게 둔다. -->
+    <div class="apjek-card w-full relative" data-testid="blocked-users-card">
+      <div class="p-[21px] flex flex-col gap-[16px]">
+        <div class="flex items-center gap-[8px] text-apjek-text">
+          <Icon name="lucide:ban" class="w-5 h-5" aria-hidden="true" />
+          <span class="font-bold text-[18px] text-apjek-text tracking-[-0.44px] leading-[27px]">{{ $t('moderation.blockedListTitle') }}</span>
+        </div>
+        <p class="text-[12px] text-apjek-text-sub">{{ $t('moderation.blockedListDesc') }}</p>
+        <ul v-if="mounted && blockedUsers.length" class="flex flex-col gap-[8px]">
+          <li
+            v-for="b in blockedUsers"
+            :key="b.userId"
+            class="w-full flex items-center justify-between gap-3 p-[13px] bg-apjek-surface border border-apjek-border rounded-[12px]"
+            data-testid="blocked-user-row"
+          >
+            <div class="min-w-0">
+              <p class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px] truncate">{{ b.nickname }}</p>
+              <p class="text-[11px] text-apjek-text-faint">{{ $t('moderation.blockedAt', { date: formatDateDot(b.blockedAt) }) }}</p>
+            </div>
+            <button
+              type="button"
+              class="apjek-chip shrink-0 px-3 py-1.5 text-[12px] font-semibold active:scale-95"
+              :aria-label="$t('moderation.unblockAria', { nickname: b.nickname })"
+              :data-testid="`unblock-${b.userId}`"
+              @click="onUnblock(b.userId)"
+            >
+              {{ $t('moderation.unblock') }}
+            </button>
+          </li>
+        </ul>
+        <p v-else class="text-[13px] text-apjek-text-faint text-center py-2">{{ $t('moderation.blockedEmpty') }}</p>
+      </div>
+    </div>
+
     <!-- 계정 -->
     <div class="apjek-card w-full relative">
       <div class="p-[21px] flex flex-col gap-[24px]">
@@ -191,11 +226,22 @@ import { authClient } from '~/lib/auth-client'
 import { Capacitor } from '@capacitor/core'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { hasPushOffPending } from '~/composables/useNative'
+import { BLOCKS_STORAGE_PREFIX } from '~/composables/useUserBlocks'
+import { useUserStore } from '~/stores/user'
+import { formatDateDot } from '~/utils/format'
 
 definePageMeta({ layout: 'default', middleware: 'auth' })
 
 const toast = useToast()
 const { t } = useI18n()
+const userStore = useUserStore()
+
+// 차단한 회원 (App Store 1.2) — 로그인 회원 ID 별로 이 기기에 저장된 목록. 해제하면 다른 화면에도 즉시 다시 보인다.
+const { blockedUsers, unblock } = useUserBlocks()
+function onUnblock(userId: string) {
+  if (unblock(userId)) toast.success(t('moderation.unblocked'))
+  else toast.error(t('moderation.unblockFailed'))
+}
 const { signOutAndClear } = useAuth()
 const { client } = useOpenApi()
 const { registerPush, registerPushIfGranted, invalidatePushRegistration, deactivateDevicesOnce, getAppInfo } = useNative()
@@ -219,6 +265,8 @@ async function onDeleteAccount() {
       toast.error('비밀번호를 입력해 주세요')
       return
     }
+    // 삭제 뒤에는 세션이 사라지므로 이 기기의 차단 목록 키를 지울 회원 ID 를 먼저 잡아 둔다.
+    const deletedUserId = session.value?.data?.user?.id ?? userStore.me?.userId ?? null
     const { error } = await authClient.deleteUser({ password: deletePassword.value })
     if (error) {
       toast.error(error.code === 'PASSWORD_REQUIRED'
@@ -233,7 +281,8 @@ async function onDeleteAccount() {
     // 계정 활동 캐시만 제거하고 테마 등 계정과 무관한 설정은 보존한다.
     for (let index = localStorage.length - 1; index >= 0; index--) {
       const key = localStorage.key(index)
-      if (key?.startsWith('tw.todos.') || key?.startsWith(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX)) localStorage.removeItem(key)
+      if (key?.startsWith('tw.todos.') || key?.startsWith(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX)
+        || (deletedUserId && key === BLOCKS_STORAGE_PREFIX + deletedUserId)) localStorage.removeItem(key)
     }
     localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE)
     // 삭제로 서버 세션이 사라졌어도 기존 로그아웃 경로로 JWT와 사용자 캐시를 정리한다.
@@ -323,6 +372,8 @@ function restorePushOffState(u: unknown) {
 
 onMounted(() => {
   mounted.value = true
+  // 차단 목록의 소유 회원 ID 확보(TTL 캐시라 대개 재요청 없음). 실패해도 다른 설정은 쓸 수 있다.
+  void userStore.fetchMe().catch(() => {})
   isAndroidNative.value = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
   if (Capacitor.isNativePlatform()) {
     appVersion.value = '확인 중'

@@ -470,11 +470,12 @@
             <div v-if="homeFriendsLoading" class="rounded-xl bg-gray-50 p-3 text-center">
               <p class="text-xs text-apjek-text-faint">친구 목록 불러오는 중…</p>
             </div>
-            <template v-else-if="homeFriends.length > 0">
+            <template v-else-if="visibleHomeFriends.length > 0">
               <div
-                v-for="friend in homeFriends"
+                v-for="friend in visibleHomeFriends"
                 :key="friend.userId"
                 class="rounded-xl bg-gray-50 flex items-center gap-3 p-3"
+                data-testid="home-friend-row"
               >
                 <div class="size-9 rounded-full flex items-center justify-center text-lg shrink-0" style="background: linear-gradient(135deg,#e8f0ff,#f5e8ff)">{{ (friend.nickname || '?').trim().charAt(0).toUpperCase() || '?' }}</div>
                 <div class="flex-1 min-w-0">
@@ -490,6 +491,14 @@
                   :data-testid="`home-visit-${friend.userId}`"
                   @click="onVisitFriend(friend)"
                 >놀러가기</button>
+                <!-- 신고·차단 (App Store 1.2) -->
+                <button
+                  type="button"
+                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] rounded-full p-1.5 text-apjek-text-sub shrink-0 bg-white"
+                  :aria-label="`${friend.nickname}님 신고·차단 메뉴`"
+                  :data-testid="`home-report-block-${friend.userId}`"
+                  @click="homeReportTarget = friend"
+                ><Icon name="lucide:ellipsis" class="w-4 h-4" aria-hidden="true" /></button>
               </div>
             </template>
             <div v-else class="rounded-xl bg-gray-50 flex items-center justify-between gap-3 p-3">
@@ -639,6 +648,9 @@
     @close="visitModalOpen = false"
     @toggle-like="visitFriend && onToggleLike(visitFriend)"
   />
+
+  <!-- 홈 친구 목록 신고·차단 시트 (App Store 1.2) — 차단하면 목록에서 바로 사라진다 -->
+  <CommonReportBlockSheet :open="homeReportTarget !== null" :target="homeReportTarget" @close="homeReportTarget = null" />
 
   <!-- ═══════════════ T12 재화 환전 다이얼로그 (상점 컴포넌트 재사용) ═══════════════ -->
   <ShopExchangeDialog v-model="showExchange" />
@@ -1025,6 +1037,10 @@ interface HomeFriend { userId: string, nickname: string, likeCount: number, like
 const homeFriends = ref<HomeFriend[]>([])
 const homeFriendsLoading = ref<boolean>(false)
 const homeFriendsError = ref<boolean>(false)
+// 차단(App Store 1.2) — 차단한 회원은 홈 친구 목록에서 숨긴다. 신고·차단 시트 대상 행.
+const { filterBlocked } = useUserBlocks()
+const visibleHomeFriends = computed<HomeFriend[]>(() => filterBlocked(homeFriends.value).slice(0, 5))
+const homeReportTarget = ref<HomeFriend | null>(null)
 let homeFriendsLoaded = false
 const homeSecondaryReady = ref<boolean>(false)
 let homeDisposed = false
@@ -1036,7 +1052,8 @@ async function loadHomeFriends() {
   try {
     const { data, error } = await sdk.listFriends({ client })
     if (error) throw error
-    homeFriends.value = (castData<HomeFriend[]>(data) ?? []).slice(0, 5).map(f => ({ ...f, likeCount: f.likeCount ?? 0, liked: f.liked ?? false }))
+    // 전체를 들고 있다가 표시할 때 차단한 회원을 뺀 뒤 5명으로 자른다(차단으로 빈자리가 생기지 않게).
+    homeFriends.value = (castData<HomeFriend[]>(data) ?? []).map(f => ({ ...f, likeCount: f.likeCount ?? 0, liked: f.liked ?? false }))
     homeFriendsLoaded = true
   }
   catch {

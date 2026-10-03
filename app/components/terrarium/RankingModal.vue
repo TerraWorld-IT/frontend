@@ -6,6 +6,7 @@
   0점도 myRank 산출(동점 올림픽). myRank null(미집계)이면 "순위 없음".
   열릴 때와 스코프 전환 시 조회. 로딩/빈 목록/실패(재시도) 상태를 구분해 보여준다.
   전체 랭킹의 다른 회원 닉네임은 첫 글자만 보이게 가린다(App Store 1.2, 이용약관 10조).
+  본인 외 행에는 신고·차단 메뉴가 있고, 차단한 회원 행은 숨긴다(useUserBlocks).
   등록명: TerrariumRankingModal.
 -->
 <template>
@@ -71,10 +72,24 @@
             <p class="text-sm font-bold text-apjek-text truncate">#{{ entry.rank }} {{ displayNickname(entry) }}<span v-if="entry.isSelf" class="ml-1 text-[10px] font-semibold text-apjek-text-faint">(나)</span></p>
             <p class="text-xs text-apjek-text-sub">보유 아이템 수 : {{ entry.score }}</p>
           </div>
+          <!-- 신고·차단 (App Store 1.2) — 본인 행 제외. 대상 닉네임은 화면 표시(전체 랭킹이면 가린 표시) 그대로 -->
+          <button
+            v-if="!entry.isSelf"
+            type="button"
+            class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] shrink-0 size-8 rounded-full flex items-center justify-center text-apjek-text-sub active:scale-95"
+            style="background: var(--color-apjek-bg)"
+            :aria-label="`${displayNickname(entry)}님 신고·차단 메뉴`"
+            :data-testid="`ranking-report-block-${entry.rank}`"
+            @click="reportTarget = { userId: entry.userId, nickname: displayNickname(entry) }"
+          >
+            <Icon name="lucide:ellipsis" class="w-4 h-4" aria-hidden="true" />
+          </button>
         </li>
       </ol>
     </div>
   </TerrariumHomeDialog>
+  <!-- 랭킹 다이얼로그 Teleport 뒤에 선언해 그 위에 쌓인다. 차단하면 공유 차단 상태로 목록에서 바로 사라진다 -->
+  <CommonReportBlockSheet :open="open && reportTarget !== null" :target="reportTarget" @close="reportTarget = null" />
 </template>
 
 <script setup lang="ts">
@@ -105,7 +120,14 @@ const errorMessage = ref<string>('')
 // 스코프를 빠르게 오갈 때 늦게 도착한 이전 응답이 현재 스코프를 덮지 않도록 요청 순번으로 판별.
 let requestSeq = 0
 
-const entries = computed<RankingEntry[]>(() => data.value?.entries ?? [])
+// 차단(App Store 1.2) — 차단한 회원 행은 전체·친구 랭킹 모두에서 숨긴다(순위 숫자는 서버 값 그대로).
+const { filterBlocked } = useUserBlocks()
+const reportTarget = ref<{ userId: string, nickname: string } | null>(null)
+watch(() => props.open, (open) => {
+  if (!open) reportTarget.value = null
+})
+
+const entries = computed<RankingEntry[]>(() => filterBlocked(data.value?.entries ?? []))
 const myScore = computed<number>(() => data.value?.myScore ?? 0)
 const myNickname = computed<string>(() => entries.value.find(e => e.isSelf)?.nickname ?? props.nickname)
 const myRankLabel = computed<string>(() => {

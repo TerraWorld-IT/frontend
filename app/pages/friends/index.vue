@@ -98,7 +98,7 @@
       <h3 class="apjek-section-title text-[15px] flex items-center gap-1.5">
         <Icon name="lucide:users" class="w-4 h-4" aria-hidden="true" />
         {{ $t('friends.listTitle') }}
-        <span v-if="!friendsLoading && !friendsError && friends.length > 0" class="text-[13px] font-normal text-apjek-text-faint">({{ friends.length }})</span>
+        <span v-if="!friendsLoading && !friendsError && visibleFriends.length > 0" class="text-[13px] font-normal text-apjek-text-faint">({{ visibleFriends.length }})</span>
       </h3>
 
       <!-- 로딩 -->
@@ -120,18 +120,19 @@
 
       <!-- 빈 상태 -->
       <p
-        v-else-if="friends.length === 0"
+        v-else-if="visibleFriends.length === 0"
         class="text-[13px] text-apjek-text-sub leading-[18px] py-4 text-center"
       >
         {{ $t('friends.noFriends') }}
       </p>
 
-      <!-- 친구 카드 목록 (fig 더보기 탭 친구목록 행 참조 — 연회색 행 + 다크 미니 필 버튼) -->
+      <!-- 친구 카드 목록 (fig 더보기 탭 친구목록 행 참조 — 연회색 행 + 다크 미니 필 버튼). 차단한 회원은 숨긴다 -->
       <ul v-else class="space-y-2.5">
         <li
-          v-for="friend in friends"
+          v-for="friend in visibleFriends"
           :key="friend.userId"
           class="bg-apjek-bg rounded-[12px] px-3 py-3 flex items-center justify-between gap-3"
+          data-testid="friends-row"
         >
           <div class="flex items-center gap-2.5 min-w-0">
             <!-- 아바타 (닉네임 이니셜) — 텍스트-only 행의 시각 식별성 보강 (2026-07-20 #2) -->
@@ -170,10 +171,23 @@
               <span aria-hidden="true">{{ friend.liked ? '♥' : '♡' }}</span>
               {{ $t('friends.likeButton') }}
             </button>
+            <!-- 신고·차단 (App Store 1.2) -->
+            <button
+              type="button"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-chip px-2 py-1.5 active:scale-95"
+              :aria-label="$t('moderation.openMenu', { nickname: friend.nickname })"
+              :data-testid="`friends-report-block-${friend.userId}`"
+              @click="reportTarget = friend"
+            >
+              <Icon name="lucide:ellipsis" class="w-4 h-4" aria-hidden="true" />
+            </button>
           </div>
         </li>
       </ul>
     </section>
+
+    <!-- 신고·차단 시트 — 차단하면 useUserBlocks 공유 상태로 목록에서 바로 사라진다 -->
+    <CommonReportBlockSheet :open="reportTarget !== null" :target="reportTarget" @close="reportTarget = null" />
 
     <!-- 놀러가기 모달 — 친구 테라리움 실렌더 (placeholder 승격) -->
     <FriendsVisitModal
@@ -225,6 +239,11 @@ const visitingId = ref<string | null>(null)
 const visitModalOpen = ref<boolean>(false)
 const visitFriend = ref<FriendItem | null>(null)
 const visitTerrarium = ref<TerrariumResponse | null>(null)
+
+// 차단(App Store 1.2) — 차단한 회원은 이 기기의 목록에서 숨긴다. 신고·차단 시트 대상 행.
+const { filterBlocked } = useUserBlocks()
+const visibleFriends = computed<FriendItem[]>(() => filterBlocked(friends.value))
+const reportTarget = ref<FriendItem | null>(null)
 
 function friendInitial(nickname: string): string {
   return (nickname || '?').trim().charAt(0).toUpperCase() || '?'
@@ -293,7 +312,11 @@ async function onVisit(friend: FriendItem) {
   }
 }
 
-onMounted(loadFriends)
+onMounted(() => {
+  // 차단 목록은 로그인 회원 ID 별로 저장되므로 회원 정보를 확보한다(TTL 캐시라 대개 재요청 없음).
+  void userStore.fetchMe().catch(() => {})
+  void loadFriends()
+})
 
 async function onCreateInvite() {
   if (creating.value) return
