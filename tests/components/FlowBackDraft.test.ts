@@ -33,6 +33,9 @@ vi.mock('~/lib/auth-client', () => ({ authClient: { useSession: () => session, g
 vi.mock('~/lib/nativeDistanceTracker', () => ({
   isNativeDistanceTrackerAvailable: async () => mocks.nativeAvailable,
   DistanceTracker: { start: mocks.nativeStart, stop: mocks.nativeStop, drain: vi.fn(async () => ({ fixes: [] })) },
+  // 종료 재시도 대기 목록은 브리지 모듈 단위 테스트가 다룬다 — 여기서는 같은 stop 모의로 위임한다.
+  stopNativeSession: (sessionId: string, afterSeq: number) => mocks.nativeStop({ sessionId, afterSeq }),
+  retryPendingNativeStops: async () => undefined,
 }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: mocks.sdk, client: {} }))
 mockNuxtImport('useToast', () => () => mocks.toast)

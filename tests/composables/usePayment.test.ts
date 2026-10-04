@@ -93,4 +93,32 @@ describe('usePayment', () => {
     expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('요청 처리 중 오류가 발생했습니다')
     expect(mocks.toast.error).not.toHaveBeenCalled()
   })
+
+  it('B9 결제 플러그인이 빠진 Android 빌드(CdvPurchase 부재)는 로그인 시 구매 복구를 조용히 건너뛴다', async () => {
+    mocks.native = true
+    const { recoverPendingPurchases } = await import('~/composables/usePayment')
+    await expect(recoverPendingPurchases()).resolves.toBeUndefined()
+    ;(window as unknown as { CdvPurchase: unknown }).CdvPurchase = {}
+    await expect(recoverPendingPurchases()).resolves.toBeUndefined()
+    expect(mocks.request).not.toHaveBeenCalled()
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(mocks.toast.info).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['reject', () => Promise.reject(new Error('plugin_not_installed'))],
+    ['오류 목록', () => Promise.resolve([{ code: 6777003, message: 'Billing unavailable' }])],
+  ] as const)('B9 네이티브 결제 모듈 없이 JS 만 남은 경우(initialize %s)도 복구가 예외·안내 없이 끝난다', async (_label, initialize) => {
+    mocks.native = true
+    const store = { when: () => ({ approved: vi.fn() }), register: vi.fn(), initialize: vi.fn(initialize), update: vi.fn(), get: vi.fn() }
+    ;(window as unknown as { CdvPurchase: unknown }).CdvPurchase = {
+      store, Platform: { GOOGLE_PLAY: 'android' }, ProductType: { NON_CONSUMABLE: 'non-consumable' },
+    }
+    vi.resetModules()
+    const { recoverPendingPurchases } = await import('~/composables/usePayment')
+    await expect(recoverPendingPurchases()).resolves.toBeUndefined()
+    expect(store.initialize).toHaveBeenCalledTimes(1)
+    expect(mocks.request).not.toHaveBeenCalled()
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+  })
 })

@@ -15,7 +15,7 @@ vi.mock('~/lib/auth-client', () => ({ authClient: {
   signUp: { email: mocks.signUp },
 } }))
 mockNuxtImport('useAuth', () => () => ({ loadJwt: vi.fn(async () => 'test-token') }))
-mockNuxtImport('useNative', () => () => ({ registerPushIfGranted: vi.fn(async () => undefined) }))
+mockNuxtImport('useNative', () => () => ({ registerPush: vi.fn(async () => null), registerPushIfGranted: vi.fn(async () => undefined), isNative: false, isAndroid: false }))
 mockNuxtImport('useToast', () => () => mocks.toast)
 mockNuxtImport('navigateTo', () => mocks.navigate)
 mockNuxtImport('dismissKeyboard', () => vi.fn())

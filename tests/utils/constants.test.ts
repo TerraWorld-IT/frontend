@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CATEGORY_COLORS, CATEGORY_ICONS, RARITY_LABELS, DEFAULTS } from '~/utils/constants'
+import { ADS_ENABLED, CATEGORY_COLORS, CATEGORY_ICONS, RARITY_LABELS, DEFAULTS } from '~/utils/constants'
 
 describe('constants', () => {
   describe('CATEGORY_COLORS', () => {
@@ -37,6 +37,12 @@ describe('constants', () => {
       expect(DEFAULTS.MAX_DAILY_RECORDS).toBeGreaterThan(0)
       expect(DEFAULTS.TOKEN_EXCHANGE_RATE).toBeGreaterThan(0)
       expect(DEFAULTS.PAGE_SIZE).toBeGreaterThan(0)
+    })
+  })
+
+  describe('ADS_ENABLED', () => {
+    it('첫 출시는 광고를 제외한다(홈·성장 광고 진입점과 광고 호출의 단일 플래그)', () => {
+      expect(ADS_ENABLED).toBe(false)
     })
   })
 })

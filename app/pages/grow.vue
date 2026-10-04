@@ -271,7 +271,7 @@
       :ruby="ruby"
       :ruby-cost="lostRubyCost"
       :busy="reviving"
-      :ad-available="!isIos"
+      :ad-available="ADS_ENABLED && !isIos"
       @close="closeLostModal"
       @revive="onRevive"
     />
@@ -283,6 +283,7 @@ import { h } from 'vue'
 import { useUserStore } from '~/stores/user'
 import { formatNumber } from '~/utils/format'
 import { readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim } from '~/composables/useAdMob'
+import { ADS_ENABLED } from '~/utils/constants'
 import type { GrowthItem, GrowthResponse, GrowthReviveRequest } from '@terraworld-it/openapi-frontend'
 import {
   BOOSTER_COST,
@@ -498,6 +499,8 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       await callRevive(species, { method: 'RUBY' })
       return
     }
+    // 첫 출시 광고 제외 — 모달 버튼이 숨겨져도 직접 호출은 광고·nonce·보류 청구를 시작하지 않는다.
+    if (!ADS_ENABLED) return
     const { isAndroid, isIos: adIos, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
     if (adIos) return
     const stored = readPendingAdClaim('GROWTH_REVIVE', userId)

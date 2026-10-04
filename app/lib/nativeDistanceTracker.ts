@@ -43,4 +43,29 @@ export async function isNativeDistanceTrackerAvailable(): Promise<boolean> {
   }
 }
 
+// 종료 요청이 실패한 세션 — 화면을 떠나 상태를 보존할 수 없을 때 다음 측정 시작·화면 진입에서
+// 같은 세션 ID 로 다시 종료한다. 네이티브 stop 은 세션 불일치·중복 호출을 무시하므로 멱등이다.
+const pendingStopSessions = new Set<string>()
+
+/** 세션 종료 + 잔여 fix 회수. 실패하면 세션을 재시도 대상으로 남기고 오류를 그대로 던진다. */
+export async function stopNativeSession(sessionId: string, afterSeq: number): Promise<{ fixes: DistanceFix[], lastSeq: number }> {
+  try {
+    const result = await DistanceTracker.stop({ sessionId, afterSeq })
+    pendingStopSessions.delete(sessionId)
+    return result
+  }
+  catch (e) {
+    pendingStopSessions.add(sessionId)
+    throw e
+  }
+}
+
+/** 이전에 종료하지 못한 세션을 다시 종료한다. 실패한 세션은 다음 기회까지 남는다. */
+export async function retryPendingNativeStops(): Promise<void> {
+  // 순회 중 성공한 세션은 지워지고 실패한 세션은 그대로 남는다(Set 순회는 삭제에 안전).
+  for (const sessionId of pendingStopSessions) {
+    await stopNativeSession(sessionId, 0).catch(() => {})
+  }
+}
+
 export { DistanceTracker }

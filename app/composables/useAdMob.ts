@@ -1,12 +1,24 @@
 import { Capacitor } from '@capacitor/core'
 import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
-import { STORAGE_KEYS } from '~/utils/constants'
+import { ADS_ENABLED, STORAGE_KEYS } from '~/utils/constants'
 import { kstTodayKey } from '~/utils/habitState'
 import { withTimeout } from '~/utils/withTimeout'
 
 export const REWARD_AD_TIMEOUT_MS = 60_000
 // 준비는 전체 60초 안에서 20초로 제한한다. 운영 실측 전 가정값이다.
 export const REWARD_AD_PREPARE_TIMEOUT_MS = 20_000
+/** Google 공식 테스트 보상형 광고 ID — 운영 빌드에서는 쓰지 않는다. */
+export const TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917'
+
+/**
+ * 보상형 광고 단위 ID. 운영 빌드에서 설정값이 비어 있으면 테스트 ID 로 대체하지 않고 null —
+ * 호출부는 광고를 시작하지 않는다(운영에서 테스트 광고 노출 금지). 개발·테스트 빌드만 테스트 ID 를 쓴다.
+ */
+export function resolveRewardedAdId(configured: string | undefined, isProd: boolean): string | null {
+  const adId = configured?.trim() ?? ''
+  if (adId) return adId
+  return isProd ? null : TEST_REWARDED_AD_ID
+}
 
 /** 보류는 서버 만료시각 그대로 보존한다. 만료 안내와 제거는 진입점이 담당한다. */
 export function readPendingAdClaim(purpose: AdRewardNonceResponse['purpose'], userId: string | undefined): (Pick<AdRewardNonceResponse, 'nonce' | 'purpose' | 'expiresAt'> & { speciesCode?: string }) | null {
@@ -154,7 +166,7 @@ export function useAdMob() {
   }
 
   async function initialize(): Promise<void> {
-    if (!import.meta.client || !isNative || initialized) return
+    if (!import.meta.client || !ADS_ENABLED || !isNative || initialized) return
     try {
       const { AdMob } = await import('@capacitor-community/admob')
       // P3-3: iOS 는 IDFA 접근 전 ATT 동의 요청(Apple 정책). Android/web no-op.
@@ -185,14 +197,16 @@ export function useAdMob() {
    */
   async function showRewardedAd(opts?: { ssvUserId?: string, ssvCustomData?: string }): Promise<boolean> {
     if (!import.meta.client) return false
+    // 첫 출시 광고 제외 — 진입점이 숨겨져도 직접 호출까지 막는다.
+    if (!ADS_ENABLED) return false
     if (!isNative || !isAndroid) {
       return import.meta.dev
     }
+    // 운영에서 광고 단위 ID 가 비어 있으면 테스트 광고로 대체하지 않고 시작하지 않는다.
+    const adId = resolveRewardedAdId(config.public.admobRewardedAdId as string | undefined, import.meta.env.PROD)
+    if (!adId) return false
     try {
       const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob')
-
-      const adId = (config.public.admobRewardedAdId as string | undefined) ?? ''
-      // 빈 adId 일 때는 아래 fallback 의 Google 공식 테스트 ID 가 사용됨.
 
       // SSV 콜백에 user/nonce 를 실어 서버가 "누가 어떤 nonce 로 시청했나"를 알 수 있게 한다.
       // 플러그인 타입이 AtLeastOne(userId | customData) 이라 명시 분기로 구성.
@@ -208,7 +222,7 @@ export function useAdMob() {
         await initialize()
         if (preparation.signal.aborted) return
         await AdMob.prepareRewardVideoAd({
-          adId: adId || 'ca-app-pub-3940256099942544/5224354917', // Google 공식 테스트 보상형 광고 ID
+          adId,
           // 비개인화 광고(npa) 고정 — 광고 정책 결정 Q26-B "한국 성인 대상 비개인화 광고, UMP 미사용"
           // (workspace#36, 법무 확인 대상). UMP 동의 수집이 없으므로 Android 도 개인화 요청을 하지 않는다.
           // 개인화 광고를 도입하려면 UMP 동의 플로우 + Data safety 공시 변경이 선행돼야 한다.

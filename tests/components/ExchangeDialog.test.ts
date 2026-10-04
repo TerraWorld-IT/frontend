@@ -109,4 +109,41 @@ describe('ExchangeDialog', () => {
     submit.click()
     expect(exchange).not.toHaveBeenCalled()
   })
+
+  it('#91 잔액 0 인 재화는 표시 수량이 1이어도 제출할 수 없고 잔액 이하일 때만 제출된다', async () => {
+    getExchangeRates.mockResolvedValue({ data: rateResponse(), error: undefined })
+    await mountSuspended(ExchangeDialog, { props: { modelValue: true } })
+    await flush()
+    const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'))
+    const submit = () => buttons().find(b => b.textContent?.includes('코인으로 환전하기'))!
+    const input = () => document.body.querySelector<HTMLInputElement>('input[aria-label="환전 수량"]')!
+
+    // 루비 잔액 0 — 입력 최솟값 1 은 유지하되 실제 지출 상한은 0 이라 제출이 닫힌다.
+    buttons().find(b => b.textContent?.includes('루비'))!.click()
+    await nextTick()
+    expect(input().value).toBe('1')
+    expect(input().max).toBe('1')
+    expect(submit().disabled).toBe(true)
+    buttons().find(b => b.getAttribute('aria-label') === '수량 늘리기')!.click()
+    await nextTick()
+    expect(input().value).toBe('1')
+    expect(submit().disabled).toBe(true)
+    expect(buttons().find(b => b.textContent?.trim() === '전량')!.disabled).toBe(true)
+    submit().click()
+    await flush()
+    expect(exchange).not.toHaveBeenCalled()
+
+    // 잔액 100 — 잔액 이하만 제출 가능, 초과 입력은 막는다.
+    buttons().find(b => b.textContent?.includes('이슬'))!.click()
+    await nextTick()
+    expect(submit().disabled).toBe(false)
+    input().value = '101'
+    input().dispatchEvent(new Event('input'))
+    await nextTick()
+    expect(submit().disabled).toBe(true)
+    input().value = '100'
+    input().dispatchEvent(new Event('input'))
+    await nextTick()
+    expect(submit().disabled).toBe(false)
+  })
 })

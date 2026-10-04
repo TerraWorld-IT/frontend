@@ -254,6 +254,7 @@
 
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
+import { PUSH_PERMISSION_DENIED_MESSAGE } from '~/composables/useNative'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { readDraft, writeDraft, clearDraft } from '~/utils/draftStorage'
 import { isForbiddenNickname } from '#shared/utils/nicknamePolicy'
@@ -267,7 +268,21 @@ const { t, te } = useI18n()
 const { loadJwt } = useAuth()
 const toast = useToast()
 const { trackLogin, trackSignup } = useGtagEvents()
-const { registerPushIfGranted } = useNative()
+const { registerPush, registerPushIfGranted, isNative, isAndroid } = useNative()
+
+/**
+ * 가입 폼에서 푸시에 동의한 Android 사용자에게만 가입 직후 알림 권한을 한 번 요청한다(Android 13+).
+ * 거부하면 설정 화면과 같은 안내를 띄우고, 설정 화면의 '권한 허용 필요' 토글로 다시 요청할 수 있다.
+ */
+async function requestSignupPushPermission(userId: string) {
+  try {
+    const permission = await registerPush(userId)
+    if (permission && permission.receive !== 'granted') toast.info(PUSH_PERMISSION_DENIED_MESSAGE)
+  }
+  catch {
+    // 권한 요청 실패 — 가입은 완료됐고 설정 화면 토글로 다시 요청할 수 있다.
+  }
+}
 
 /**
  * 콜드 스타트 세션 복구.
@@ -485,7 +500,7 @@ async function onSubmit() {
       if (!agreeTerms.value || !agreePrivacy.value) {
         throw new Error(t('auth.consent.requiredError'))
       }
-      const { error } = await authClient.signUp.email({
+      const { data: signupData, error } = await authClient.signUp.email({
         email: email.value,
         password: password.value,
         name: nickname.value,
@@ -511,8 +526,10 @@ async function onSubmit() {
       if (!token) throw new Error(t('auth.tokenError'))
 
       trackSignup('email')
-      // 가입 직후에는 권한을 요청하지 않는다. 기존 동의·권한만 확인한다.
-      void registerPushIfGranted().catch(() => {})
+      // 푸시 동의를 체크한 Android 네이티브만 권한을 요청한다. 그 밖에는 기존 동의·권한만 확인한다.
+      const signupUserId = (signupData as { user?: { id?: string } } | null | undefined)?.user?.id
+      if (isNative && isAndroid && consentValue('push') && signupUserId) void requestSignupPushPermission(signupUserId)
+      else void registerPushIfGranted().catch(() => {})
       toast.success(t('auth.signupSuccess'))
       void dismissKeyboard()
       await navigateTo(typeof route.query.redirect === 'string' && /^\/share\/[A-Za-z0-9_-]{1,64}$/.test(route.query.redirect) ? route.query.redirect : '/')

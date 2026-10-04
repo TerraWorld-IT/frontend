@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   platform: 'web', native: false,
   isLoggedIn: null as Ref<boolean> | null, getJwt: vi.fn(), getSession: vi.fn(),
   deleteUser: vi.fn(), updateUser: vi.fn(), signOutAndClear: vi.fn(),
-  deactivateMyDevices: vi.fn(), registerPush: vi.fn(), registerPushIfGranted: vi.fn(), getAppInfo: vi.fn(),
+  deactivateMyDevices: vi.fn(), registerPush: vi.fn(), registerPushIfGranted: vi.fn(), getAppInfo: vi.fn(), checkPushPermission: vi.fn(),
   invalidatePushRegistration: vi.fn(),
   betterAuth: vi.fn((options: unknown) => options),
   client: { request: vi.fn() },
@@ -35,6 +35,7 @@ mockNuxtImport('useAuth', () => () => ({ isLoggedIn: mocks.isLoggedIn ??= ref<bo
 mockNuxtImport('useOpenApi', () => () => ({ sdk: { deactivateMyDevices: mocks.deactivateMyDevices }, client: mocks.client }))
 mockNuxtImport('useNative', () => () => ({
   registerPush: mocks.registerPush, registerPushIfGranted: mocks.registerPushIfGranted, getAppInfo: mocks.getAppInfo,
+  checkPushPermission: mocks.checkPushPermission,
   invalidatePushRegistration: mocks.invalidatePushRegistration,
   deactivateDevicesOnce,
 }))
@@ -62,6 +63,7 @@ beforeEach(() => {
   mocks.registerPush.mockReset().mockImplementation(async () => mocks.native && mocks.platform === 'android' ? { receive: 'granted' } : null)
   mocks.registerPushIfGranted.mockReset().mockImplementation(async () => mocks.native && mocks.platform === 'android')
   mocks.getAppInfo.mockReset().mockResolvedValue({ version: '1.2.3', build: '42' })
+  mocks.checkPushPermission.mockReset().mockImplementation(async () => mocks.native && mocks.platform === 'android' ? 'granted' : null)
 })
 
 describe('계정 삭제 서버 훅', () => {
@@ -416,5 +418,100 @@ describe('계정 설정', () => {
     for (const key of keys.slice(0, 5)) expect(localStorage.getItem(key)).toBe(succeeded ? null : 'preserved')
     for (const key of keys.slice(5)) expect(localStorage.getItem(key)).toBe('preserved')
     for (const key of keys) localStorage.removeItem(key)
+  })
+
+  it('B2 푸시 동의 ON 인데 Android 알림 권한이 꺼져 있으면 토글은 동의값대로 켜 두고 아래에 안내와 재요청을 보여 준다', async () => {
+    mocks.platform = 'android'; mocks.native = true
+    mocks.checkPushPermission.mockResolvedValue('denied')
+    const w = await mountSettings()
+    expect(mocks.checkPushPermission).toHaveBeenCalled()
+    expect(w.get('[data-testid="push-permission-needed"]').text()).toBe('알림 권한이 꺼져 있어요')
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
+
+    // 재요청은 동의를 다시 저장하지 않고 권한만 요청한 뒤 허용되면 기존 자동 등록 경로로 등록한다.
+    mocks.registerPush.mockImplementationOnce(async () => {
+      mocks.checkPushPermission.mockResolvedValue('granted')
+      return { receive: 'granted' }
+    })
+    await w.get('[data-testid="retry-push-permission"]').trigger('click')
+    await flushPromises()
+    expect(mocks.registerPush).toHaveBeenCalledExactlyOnceWith('user-a')
+    expect(mocks.registerPushIfGranted).toHaveBeenCalledTimes(1)
+    expect(mocks.updateUser).not.toHaveBeenCalled()
+    expect(w.find('[data-testid="push-permission-needed"]').exists()).toBe(false)
+    expect(w.find('[data-testid="retry-push-permission"]').exists()).toBe(false)
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('B2 권한 재요청을 다시 거부하면 같은 안내 토스트와 권한 안내를 유지한다', async () => {
+    mocks.platform = 'android'; mocks.native = true
+    mocks.checkPushPermission.mockResolvedValue('denied')
+    const w = await mountSettings()
+    mocks.registerPush.mockResolvedValueOnce({ receive: 'denied' })
+    await w.get('[data-testid="retry-push-permission"]').trigger('click')
+    await flushPromises()
+    expect(mocks.toast.info).toHaveBeenCalledExactlyOnceWith('알림 권한이 허용되지 않았어요. 기기 설정에서 알림 권한을 확인해 주세요.')
+    expect(mocks.registerPushIfGranted).not.toHaveBeenCalled()
+    expect(mocks.updateUser).not.toHaveBeenCalled()
+    expect(w.find('[data-testid="push-permission-needed"]').exists()).toBe(true)
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('B2 권한이 꺼져 있어도 토글 OFF 는 동의 철회(서버 저장·기기 해제)로 동작하고 권한 안내를 감춘다', async () => {
+    mocks.platform = 'android'; mocks.native = true
+    mocks.checkPushPermission.mockResolvedValue('denied')
+    const w = await mountSettings()
+    await w.get('[data-testid="consent-push"]').setValue(false)
+    await flushPromises()
+    expect(mocks.registerPush).not.toHaveBeenCalled()
+    expect(mocks.invalidatePushRegistration).toHaveBeenCalledWith('user-a')
+    expect(mocks.updateUser).toHaveBeenCalledExactlyOnceWith({ pushConsent: false })
+    expect(mocks.deactivateMyDevices).toHaveBeenCalledTimes(1)
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(false)
+    expect(w.find('[data-testid="push-permission-needed"]').exists()).toBe(false)
+  })
+
+  it('B2 기기 설정에서 권한을 허용하고 돌아오면 다시 확인해 안내를 감춘다', async () => {
+    mocks.platform = 'android'; mocks.native = true
+    mocks.checkPushPermission.mockResolvedValue('denied')
+    const w = await mountSettings()
+    expect(w.find('[data-testid="push-permission-needed"]').exists()).toBe(true)
+    mocks.checkPushPermission.mockResolvedValue('granted')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(w.find('[data-testid="push-permission-needed"]').exists()).toBe(false)
+    expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it.each([
+    ['동의 OFF + 권한 거부', 'android', true, false, 'denied'],
+    ['동의 ON + 권한 허용', 'android', true, true, 'granted'],
+    ['iOS', 'ios', true, true, null],
+    ['웹', 'web', false, true, null],
+  ] as const)('B2 %s 에서는 권한 안내를 표시하지 않는다', async (_label, platform, native, pushConsent, permission) => {
+    mocks.platform = platform; mocks.native = native
+    mocks.session = ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent, adConsent: true } } })
+    mocks.checkPushPermission.mockResolvedValue(permission)
+    const w = await mountSettings()
+    expect(w.find('[data-testid="push-permission-needed"]').exists()).toBe(false)
+    expect(w.find('[data-testid="retry-push-permission"]').exists()).toBe(false)
+    if (platform !== 'android') expect(mocks.checkPushPermission).not.toHaveBeenCalled()
+    else expect((w.get('[data-testid="consent-push"]').element as HTMLInputElement).checked).toBe(pushConsent)
+  })
+
+  it('B4 계정 삭제 성공 시 삭제된 사용자의 로그아웃 해제 보류만 지운다', async () => {
+    const own = STORAGE_KEYS.PUSH_LOGOUT_PENDING_PREFIX + 'user-a'
+    const other = STORAGE_KEYS.PUSH_LOGOUT_PENDING_PREFIX + 'user-b'
+    localStorage.setItem(own, '1')
+    localStorage.setItem(other, '1')
+    const w = await mountSettings()
+    await w.get('[data-testid="delete-account"]').trigger('click')
+    await w.get('#delete-account-password').setValue('password')
+    await w.get('[role="dialog"] button[autofocus]').trigger('click')
+    await flushPromises()
+    expect(mocks.signOutAndClear).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(own)).toBeNull()
+    expect(localStorage.getItem(other)).toBe('1')
+    localStorage.removeItem(other)
   })
 })
