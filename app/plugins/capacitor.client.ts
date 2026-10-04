@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core'
 import * as sdk from '@terraworld-it/openapi-frontend'
 import { authClient } from '~/lib/auth-client'
-import { isPushRegistrationCurrent, pushRegistrationEpoch } from '~/composables/useNative'
+import { hasPushLogoutPending, invalidatePushSession, isPushRegistrationCurrent, pushRegistrationEpoch } from '~/composables/useNative'
+import { useUserStore } from '~/stores/user'
 
 /**
  * Capacitor client-only plugin.
@@ -22,6 +23,31 @@ const SAFE_ROUTE_RE = /^\/[^/]/
 
 /** Deep link allowlist: only specific path patterns are navigable */
 const DEEP_LINK_RE = /^\/share\/[A-Za-z0-9_-]{1,64}$/
+
+// 이 WebView 에서 이미 이동한 딥링크 URL — 새로고침(웹 콘텐츠 프로세스 재시작 포함) 뒤 getLaunchUrl() 이
+// 같은 URL 을 다시 돌려줘도 다시 이동하지 않는다. 앱 프로세스가 새로 뜨면 sessionStorage 도 비어 있다.
+const HANDLED_DEEP_LINKS_KEY = 'tw-handled-deep-links'
+const HANDLED_DEEP_LINKS_MAX = 20
+
+function readHandledDeepLinks(): string[] {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(HANDLED_DEEP_LINKS_KEY) ?? '[]')
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  }
+  catch {
+    return []
+  }
+}
+
+function rememberHandledDeepLink(url: string) {
+  try {
+    const next = [...readHandledDeepLinks().filter(item => item !== url), url].slice(-HANDLED_DEEP_LINKS_MAX)
+    sessionStorage.setItem(HANDLED_DEEP_LINKS_KEY, JSON.stringify(next))
+  }
+  catch {
+    // 저장소를 쓸 수 없으면 새로고침 중복 방지만 포기한다.
+  }
+}
 
 /** Capacitor platform → 백엔드 enum 매핑 */
 function resolveDevicePlatform(): 'ANDROID' | 'IOS' | 'WEB' {
@@ -94,9 +120,9 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   // --- Deep Link Handler ---
   const { App } = await import('@capacitor/app')
-  App.addListener('appUrlOpen', (event) => {
+  function navigateDeepLink(rawUrl: string) {
     try {
-      const url = new URL(event.url)
+      const url = new URL(rawUrl)
       // 커스텀 스킴(terraworld://share/{code})은 URL 파싱상 'share' 가 host 로 들어가
       // pathname 만 보면 '/{code}' 라 매칭에 실패한다 (Codex R1) — host+pathname 으로 정규화.
       // path-form(terraworld:/share/x, terraworld:///share/x)은 host 가 비어 선행 '/' 가
@@ -110,7 +136,44 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     } catch {
       // Invalid URL — ignore
     }
+  }
+  // 콜드 스타트 딥링크 — 앱이 종료된 상태에서 링크로 시작하면 이벤트만으로는 최초 URL 을 놓칠 수 있어
+  // 라우터 준비 뒤 getLaunchUrl() 을 한 번 처리한다. 같은 URL 이 이벤트로도 오면(iOS 콜드 스타트 등)
+  // 한쪽만 이동한다: 이벤트가 먼저 처리했으면 시작 URL 을 건너뛰고, 시작 URL 을 먼저 처리했으면
+  // 직후 도착한 같은 URL 이벤트 1회만 건너뛴다. 그 밖의 이벤트 처리는 기존과 같다.
+  const LAUNCH_DUPLICATE_WINDOW_MS = 5_000
+  const eventUrlsBeforeLaunch = new Set<string>()
+  let launchUrlChecked = false
+  let launchHandled: { url: string, at: number } | null = null
+  App.addListener('appUrlOpen', (event) => {
+    if (launchHandled?.url === event.url && Date.now() - launchHandled.at < LAUNCH_DUPLICATE_WINDOW_MS) {
+      launchHandled = null
+      return
+    }
+    if (!launchUrlChecked) eventUrlsBeforeLaunch.add(event.url)
+    rememberHandledDeepLink(event.url)
+    navigateDeepLink(event.url)
   })
+  void useRouter().isReady().then(async () => {
+    try {
+      const launch = await App.getLaunchUrl()
+      launchUrlChecked = true
+      const url = launch?.url
+      if (!url || eventUrlsBeforeLaunch.has(url)) return
+      // 같은 WebView 의 새로고침은 이미 처리한 URL 을 다시 돌려줄 수 있다 — WebView 당 한 번만 이동한다.
+      if (readHandledDeepLinks().includes(url)) return
+      rememberHandledDeepLink(url)
+      launchHandled = { url, at: Date.now() }
+      navigateDeepLink(url)
+    }
+    catch {
+      // 시작 URL 조회 실패 — 이벤트 경로는 그대로 동작한다.
+    }
+    finally {
+      launchUrlChecked = true
+      eventUrlsBeforeLaunch.clear()
+    }
+  }).catch(() => {})
 
   // --- Back Button (Android) ---
   const { popTopBackHandler } = useBackButtonStack()
@@ -147,19 +210,51 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     //   - throw 분기: 네트워크 오류 / interceptor 의 redirect 등
     //   payload 에는 reason + status code 만 (PII / 토큰 절대 안 됨).
     const { trackPushRegistrationFailed } = useGtagEvents()
+    const { isLoggedIn } = useAuth()
+
+    // OS 등록(register())과 서버 등록(registerDevice) 성공을 분리한다. OS 등록만 성공하고 서버 등록이
+    // 실패하면 완료로 보지 않아 다음 로그인·복귀에서 다시 등록한다. 성공한 세대(epoch)와 토큰을 함께
+    // 기록해 OFF·로그아웃으로 세대가 바뀌거나 OS 가 새 토큰을 주면(토큰 갱신) 자동으로 무효가 된다.
+    // 등록한 사용자도 함께 기록해 확인된 현재 사용자와 다르면 완료로 보지 않는다.
+    let serverRegistered: { epoch: number, token: string, userId: string } | null = null
+    // OS 가 마지막으로 전달한 토큰 — 이 토큰의 서버 등록이 성공해야 완료다.
+    let latestDeviceToken: string | null = null
+    const currentUserId = (): string | undefined => {
+      try {
+        return useUserStore().me?.userId
+      }
+      catch {
+        return undefined
+      }
+    }
+    const isServerRegistrationComplete = () => {
+      if (serverRegistered === null
+        || serverRegistered.epoch !== pushRegistrationEpoch
+        || serverRegistered.token !== latestDeviceToken) return false
+      const userId = currentUserId()
+      return !userId || serverRegistered.userId === userId
+    }
+    // 같은 토큰의 재등록이 실패해도 이전 성공 기록을 지운다 — 서버에서 비활성일 수 있어 다음 복귀에 재시도한다.
+    const markServerRegistrationFailed = (failedToken: string) => {
+      if (serverRegistered?.token === failedToken) serverRegistered = null
+    }
 
     PushNotifications.addListener('registration', async (token) => {
       const epoch = pushRegistrationEpoch
-      if (resolveDevicePlatform() !== 'ANDROID' || !isPushRegistrationCurrent(epoch)) return
+      if (resolveDevicePlatform() !== 'ANDROID') return
+      latestDeviceToken = token.value
+      if (!isPushRegistrationCurrent(epoch)) return
       const session = await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => null)
       const user = session?.data?.user as { id: string; pushConsent?: boolean } | undefined
       if (session?.error || !user?.id || !isPushRegistrationCurrent(epoch, user.id)) return
       if (user.pushConsent !== true) return
+      // 로그아웃 때 실패한 해제가 남아 있으면 등록 경로(registerPushIfGranted)가 해제를 끝낸 뒤 다시 등록한다.
+      if (hasPushLogoutPending(user.id)) return
       localStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token.value)
 
       // 동일 토큰도 isActive를 복구하는 upsert이므로 철회된 세대는 위에서 차단한다.
       // 인증/리프레시는 plugins/openapi.ts 의 인터셉터가 자동 처리.
-      // 등록 실패는 silent (UX 차단 없음) — 토큰은 localStorage 에 보존되어 다음 세션에서 재시도.
+      // 등록 실패는 silent (UX 차단 없음) — 서버 등록 완료가 기록되지 않아 다음 로그인·복귀에서 재시도.
       try {
         const client = nuxtApp.$apiClient as Parameters<typeof sdk.registerDevice>[0]['client']
         const { error, response } = await sdk.registerDevice({
@@ -170,13 +265,20 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           },
         })
         if (error) {
+          markServerRegistrationFailed(token.value)
           trackPushRegistrationFailed({
             reason: 'sdk_error',
             status: response?.status ?? 0,
           })
         }
+        // 늦게 끝난 이전 토큰의 성공과 로그아웃 이전에 시작된 등록의 성공은 기록하지 않는다
+        // — 현재 로그인 세대에서 현재 토큰의 등록만 완료로 본다.
+        else if (isLoggedIn.value && isPushRegistrationCurrent(epoch, user.id) && token.value === latestDeviceToken) {
+          serverRegistered = { epoch, token: token.value, userId: user.id }
+        }
       }
       catch (e) {
+        markServerRegistrationFailed(token.value)
         trackPushRegistrationFailed({
           reason: e instanceof Error ? `exception:${e.name}` : 'exception:unknown',
         })
@@ -206,24 +308,28 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     })
 
     // 로그인·복귀 시에는 기존 동의와 권한만 확인한다. 권한 요청은 설정의 사용자 액션에서만 한다.
-    const { isLoggedIn } = useAuth()
     const { registerPushIfGranted } = useNative()
-    let pushRegistrationTriggered = false
+    // 진행 중 중복 호출만 막는다. 완료 판정은 OS register() 가 아니라 현재 토큰의 서버 등록 성공이다.
+    // 가드는 시작한 세대에 묶는다 — 로그아웃으로 세대가 바뀌면 다음 사용자의 등록을 막지 않고,
+    // 이전 세대 요청의 finally 는 새 세대의 가드를 풀지 않는다.
+    let pushRegistrationInFlightEpoch: number | null = null
     function triggerPushRegistration() {
-      if (!isLoggedIn.value || pushRegistrationTriggered) return
-      pushRegistrationTriggered = true
-      void registerPushIfGranted().then((registered) => {
-        pushRegistrationTriggered = registered
-      }).catch(() => {
+      if (!isLoggedIn.value || pushRegistrationInFlightEpoch === pushRegistrationEpoch || isServerRegistrationComplete()) return
+      const epoch = pushRegistrationEpoch
+      pushRegistrationInFlightEpoch = epoch
+      void registerPushIfGranted().catch(() => {
         // 일시 실패 시 다음 로그인·복귀에서 조용히 재시도한다.
-        pushRegistrationTriggered = false
+      }).finally(() => {
+        if (pushRegistrationInFlightEpoch === epoch) pushRegistrationInFlightEpoch = null
       })
     }
     retryPushRegistration = triggerPushRegistration
     watch(isLoggedIn, (loggedIn) => {
       if (!loggedIn) {
-        // 로그아웃/계정 전환 — 다음 로그인 사용자로 registerDevice 를 다시 태워야 한다.
-        pushRegistrationTriggered = false
+        // 로그아웃/계정 전환 — 다음 로그인 사용자로 registerDevice 를 다시 태워야 한다. 세대를 올려
+        // 로그아웃 이전에 시작된 등록 요청의 늦은 응답이 완료 기록을 되살리지 못하게 한다.
+        serverRegistered = null
+        invalidatePushSession()
         return
       }
       triggerPushRegistration()

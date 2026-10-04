@@ -51,6 +51,16 @@
             :disabled="consentSaving"
             @click="onConsentToggle('push', false)"
           >푸시 알림 해제 다시 시도</button>
+          <!-- 동의는 켜져 있는데 Android 알림 권한이 꺼진 경우만 — 토글은 동의값 그대로 두고 권한만 다시 요청한다. -->
+          <template v-if="pushPermissionMismatch">
+            <p data-testid="push-permission-needed" class="text-[12px] text-apjek-text-sub">알림 권한이 꺼져 있어요</p>
+            <button
+              type="button"
+              data-testid="retry-push-permission"
+              :disabled="consentSaving"
+              @click="onPushPermissionRetry"
+            >알림 권한 다시 요청</button>
+          </template>
         </div>
       </div>
     </div>
@@ -225,7 +235,7 @@
 import { authClient } from '~/lib/auth-client'
 import { Capacitor } from '@capacitor/core'
 import { STORAGE_KEYS } from '~/utils/constants'
-import { hasPushOffPending } from '~/composables/useNative'
+import { hasPushOffPending, PUSH_PERMISSION_DENIED_MESSAGE } from '~/composables/useNative'
 import { BLOCKS_STORAGE_PREFIX } from '~/composables/useUserBlocks'
 import { useUserStore } from '~/stores/user'
 import { formatDateDot } from '~/utils/format'
@@ -244,7 +254,7 @@ function onUnblock(userId: string) {
 }
 const { signOutAndClear } = useAuth()
 const { client } = useOpenApi()
-const { registerPush, registerPushIfGranted, invalidatePushRegistration, deactivateDevicesOnce, getAppInfo } = useNative()
+const { registerPush, registerPushIfGranted, checkPushPermission, invalidatePushRegistration, deactivateDevicesOnce, getAppInfo } = useNative()
 const isAndroidNative = ref<boolean>(false)
 const appVersion = ref<string>('웹')
 const showDeleteDialog = ref<boolean>(false)
@@ -288,6 +298,8 @@ async function onDeleteAccount() {
     // 삭제로 서버 세션이 사라졌어도 기존 로그아웃 경로로 JWT와 사용자 캐시를 정리한다.
     // 서버 로그아웃이 실패해도 signOutAndClear의 finally에서 로컬 인증 상태는 정리된다.
     await signOutAndClear().catch(() => {})
+    // 삭제된 계정은 다시 로그인하지 않으므로 로그아웃 중 남은 기기 해제 보류도 지운다.
+    if (deletedUserId) localStorage.removeItem(STORAGE_KEYS.PUSH_LOGOUT_PENDING_PREFIX + deletedUserId)
     toast.success('계정이 삭제되었습니다.')
     await navigateTo('/auth/login')
   }
@@ -332,6 +344,28 @@ const consentRenderKey = ref<number>(0)
 const pushOffPending = ref<boolean>(false)
 // 저장 중 세션 객체가 교체돼도 현재 사용자의 OFF 의도를 표시값에 우선 반영한다.
 const pushOffUserId = ref<string | null>(null)
+// 동의는 켜져 있는데 OS 알림 권한이 없는 상태(가입 직후 권한 거부 등) — 토글은 서버 동의값 그대로 두어
+// OFF 로 언제든 철회할 수 있게 하고, 토글 아래에 권한 안내와 재요청 동작만 보여 준다(Android 한정).
+const pushPermissionNeeded = ref<boolean>(false)
+const pushPermissionMismatch = computed<boolean>(() =>
+  isAndroidNative.value && pushPermissionNeeded.value && !pushOffPending.value
+  && !!consentToggles.value.find(c => c.key === 'push')?.value)
+let pushPermissionCheck = 0
+async function refreshPushPermission() {
+  if (!isAndroidNative.value) return
+  const check = ++pushPermissionCheck
+  try {
+    const state = await checkPushPermission()
+    if (check === pushPermissionCheck) pushPermissionNeeded.value = state !== null && state !== 'granted'
+  }
+  catch {
+    // 권한 조회 실패 — 기존 표시를 유지한다.
+  }
+}
+// 기기 설정에서 권한을 바꾸고 돌아오면 다시 확인한다.
+function onSettingsVisibilityChange() {
+  if (!document.hidden) void refreshPushPermission()
+}
 // 가입 시 받는 선택 동의 4종(push/adId/analytics/marketing)과 1:1 로 맞춘다.
 // 철회 수단이 없는 동의 항목이 남으면 안 된다 — 철회는 동의보다 어려워선 안 되기 때문이다.
 const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>>([
@@ -383,6 +417,11 @@ onMounted(() => {
   }
   restorePushOffState(session.value?.data?.user)
   watch(() => session.value?.data?.user, restorePushOffState)
+  void refreshPushPermission()
+  document.addEventListener('visibilitychange', onSettingsVisibilityChange)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onSettingsVisibilityChange)
 })
 
 async function onConsentToggle(key: string, checked: boolean) {
@@ -421,7 +460,7 @@ async function onPushConsentToggle(checked: boolean) {
     if (checked) {
       const permission = await registerPush(userId)
       if (permission?.receive !== 'granted') {
-        toast.info('알림 권한이 허용되지 않았어요. 기기 설정에서 알림 권한을 확인해 주세요.')
+        toast.info(PUSH_PERMISSION_DENIED_MESSAGE)
         return
       }
       if (session.value?.data?.user?.id !== userId) return
@@ -468,6 +507,30 @@ async function onPushConsentToggle(checked: boolean) {
   finally {
     consentSaving.value = false
     consentRenderKey.value++
+    // 권한 요청 결과(허용·거부)를 권한 안내 표시에 반영한다.
+    void refreshPushPermission()
+  }
+}
+
+// 동의는 유지한 채 알림 권한만 다시 요청한다 — 허용되면 기존 자동 등록 경로로 기기를 등록한다.
+async function onPushPermissionRetry() {
+  const userId = session.value?.data?.user?.id
+  if (!userId || !pushPermissionMismatch.value || consentSaving.value || deletingAccount.value || loggingOut.value) return
+  consentSaving.value = true
+  try {
+    const permission = await registerPush(userId)
+    if (permission?.receive !== 'granted') {
+      toast.info(PUSH_PERMISSION_DENIED_MESSAGE)
+      return
+    }
+    await registerPushIfGranted()
+  }
+  catch {
+    toast.info(PUSH_PERMISSION_DENIED_MESSAGE)
+  }
+  finally {
+    consentSaving.value = false
+    void refreshPushPermission()
   }
 }
 

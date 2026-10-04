@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
-import { useAdMob, REWARD_AD_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
+import { useAdMob, REWARD_AD_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, resolveRewardedAdId, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { kstTodayKey } from '~/utils/habitState'
 
 const mocks = vi.hoisted(() => ({
+  adsEnabled: false,
   native: false,
   platform: 'web',
   issue: vi.fn(),
@@ -17,6 +18,11 @@ const mocks = vi.hoisted(() => ({
   listeners: new Map<string, () => void>(),
 }))
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => mocks.platform } }))
+// 출시 플래그는 실제 값(false)을 기본으로 두고, 광고 도입 후 경로 검증에서만 켠다.
+vi.mock('~/utils/constants', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~/utils/constants')>()
+  return { ...actual, get ADS_ENABLED() { return mocks.adsEnabled } }
+})
 vi.mock('@capacitor-community/admob', () => ({
   AdMob: {
     initialize: mocks.initialize,
@@ -31,6 +37,11 @@ vi.mock('@capacitor-community/admob', () => ({
 }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: { issueAdRewardNonce: mocks.issue }, client: {} }))
 
+// 런타임 설정은 Nuxt 앱이 소유하므로 모의 대신 공개 설정 값만 바꾼다.
+function setAdId(value: string): void {
+  useRuntimeConfig().public.admobRewardedAdId = value
+}
+
 function nonce(overrides: Partial<AdRewardNonceResponse> = {}): AdRewardNonceResponse {
   return { nonce: 'server-nonce', purpose: 'AD_REWARD', status: 'PENDING', expiresAt: '2026-09-09T03:10:00Z', ...overrides }
 }
@@ -38,6 +49,8 @@ function nonce(overrides: Partial<AdRewardNonceResponse> = {}): AdRewardNonceRes
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-09-09T03:00:00Z'))
+  mocks.adsEnabled = false
+  setAdId('')
   mocks.native = false
   mocks.platform = 'web'
   mocks.listeners.clear()
@@ -205,6 +218,7 @@ describe('광고 보류와 한도일 저장', () => {
 
 describe('Android 광고 시한과 완료 증거', () => {
   beforeEach(() => {
+    mocks.adsEnabled = true
     mocks.native = true
     mocks.platform = 'android'
   })
@@ -252,5 +266,46 @@ describe('Android 광고 시한과 완료 증거', () => {
     await flushPromises()
     mocks.listeners.get('failed')!()
     expect(await failed).toBe(false)
+  })
+})
+
+describe('첫 출시 광고 제외와 운영 광고 단위 ID', () => {
+  it.each(['android', 'ios', 'web'] as const)('ADS_ENABLED=false면 %s에서 SDK 초기화·준비·표시를 시작하지 않는다', async (platform) => {
+    mocks.native = platform !== 'web'
+    mocks.platform = platform
+    setAdId('ca-app-pub-real/1')
+    const ad = useAdMob()
+    expect(await ad.showRewardedAd({ ssvUserId: 'u1', ssvCustomData: 'server-nonce' })).toBe(false)
+    await ad.initialize()
+    expect(mocks.initialize).not.toHaveBeenCalled()
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(mocks.show).not.toHaveBeenCalled()
+    expect(mocks.listeners.size).toBe(0)
+  })
+
+  it('운영 빌드는 빈 광고 단위 ID를 테스트 ID로 대체하지 않는다', () => {
+    expect(resolveRewardedAdId('', true)).toBeNull()
+    expect(resolveRewardedAdId('   ', true)).toBeNull()
+    expect(resolveRewardedAdId(undefined, true)).toBeNull()
+    expect(resolveRewardedAdId('ca-app-pub-real/1', true)).toBe('ca-app-pub-real/1')
+    // 개발·테스트 빌드만 Google 공식 테스트 ID 를 쓴다.
+    expect(resolveRewardedAdId('', false)).toBe(TEST_REWARDED_AD_ID)
+    expect(resolveRewardedAdId('ca-app-pub-real/1', false)).toBe('ca-app-pub-real/1')
+  })
+
+  it('광고를 켜면 설정된 광고 단위 ID로 준비하고, 비어 있으면 테스트 빌드에서만 테스트 ID를 쓴다', async () => {
+    mocks.adsEnabled = true
+    mocks.native = true
+    mocks.platform = 'android'
+    setAdId('ca-app-pub-real/1')
+    void useAdMob().showRewardedAd()
+    await flushPromises()
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ adId: 'ca-app-pub-real/1', npa: true }))
+    mocks.prepare.mockClear()
+    setAdId('')
+    void useAdMob().showRewardedAd()
+    await flushPromises()
+    expect(import.meta.env.PROD).toBe(false)
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ adId: TEST_REWARDED_AD_ID }))
   })
 })

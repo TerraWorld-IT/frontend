@@ -244,11 +244,14 @@ const selectedRate = computed<ExchangeRateResponse | null>(() =>
 // 백엔드 ExchangeExecutor 는 `prior + amount > dailyCap` 로 FROM 수량의 하루 누적을 막는다.
 // 프론트엔드엔 오늘 사용량(prior)이 노출되지 않으므로 dailyCap 자체로 캡핑하고,
 // 이미 소진분이 있으면 서버가 DAILY_LIMIT_EXCEEDED 로 최종 방어한다.
-const maxAmount = computed<number>(() => {
+// 실제 지출 상한 — 잔액이 0 이면 0 이라 제출할 수 없다(#91 회귀: 표시용 최솟값 1 로 제출이 열렸다).
+const spendLimit = computed<number>(() => {
   const cap = selectedRate.value?.dailyCap
   const byCap = typeof cap === 'number' ? Math.min(fromBalance.value, cap) : fromBalance.value
-  return Math.max(1, byCap)
+  return Math.max(0, byCap)
 })
+// 수량 입력·스테퍼 표시용 상한 — 입력은 최소 1 을 유지한다. 제출 판정에는 쓰지 않는다.
+const maxAmount = computed<number>(() => Math.max(1, spendLimit.value))
 
 // v-model.number 는 빈 입력 시 문자열('')을 남길 수 있어 정수 검증까지 통과해야 활성화
 const canSubmit = computed<boolean>(() =>
@@ -256,7 +259,8 @@ const canSubmit = computed<boolean>(() =>
   && selectedRate.value !== null
   && Number.isInteger(amount.value)
   && amount.value >= 1
-  && amount.value <= maxAmount.value,
+  && amount.value <= spendLimit.value
+  && amount.value <= fromBalance.value,
 )
 
 function selectFrom(code: CurrencyCode) {

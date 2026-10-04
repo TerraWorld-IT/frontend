@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, type PermissionState } from '@capacitor/core'
 import { authClient } from '~/lib/auth-client'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { deactivateMyDevices } from '@terraworld-it/openapi-frontend'
@@ -14,7 +14,11 @@ export function deactivateDevicesOnce(userId: string, client: Client): ReturnTyp
   const inflight = inflightDeactivations.get(userId)
   if (inflight) return inflight
   const request = deactivateMyDevices({ client }).then((result) => {
-    if (!result.error && import.meta.client) localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId)
+    // 해제는 사용자의 모든 기기를 끄므로 OFF 보류와 로그아웃 보류를 함께 해소한다.
+    if (!result.error && import.meta.client) {
+      localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId)
+      localStorage.removeItem(STORAGE_KEYS.PUSH_LOGOUT_PENDING_PREFIX + userId)
+    }
     return result
   }).finally(() => { inflightDeactivations.delete(userId) })
   inflightDeactivations.set(userId, request)
@@ -23,6 +27,29 @@ export function deactivateDevicesOnce(userId: string, client: Client): ReturnTyp
 
 export function hasPushOffPending(userId: string): boolean {
   return import.meta.client && localStorage.getItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + userId) !== null
+}
+
+/** 로그아웃 때 기기 비활성화가 실패한 사용자 — 같은 사용자의 다음 로그인·복귀에서 해제를 먼저 재시도한다. */
+export function hasPushLogoutPending(userId: string): boolean {
+  return import.meta.client && localStorage.getItem(STORAGE_KEYS.PUSH_LOGOUT_PENDING_PREFIX + userId) !== null
+}
+
+export function markPushLogoutPending(userId: string): void {
+  if (!import.meta.client) return
+  try {
+    localStorage.setItem(STORAGE_KEYS.PUSH_LOGOUT_PENDING_PREFIX + userId, '1')
+  }
+  catch {
+    // 저장소를 쓸 수 없어도 로그아웃은 계속한다.
+  }
+}
+
+/** 알림 권한 거부 안내 — 설정 토글과 가입 직후 권한 요청이 같은 문구를 쓴다. */
+export const PUSH_PERMISSION_DENIED_MESSAGE = '알림 권한이 허용되지 않았어요. 기기 설정에서 알림 권한을 확인해 주세요.'
+
+/** 로그아웃 — 사용자를 차단하지 않고 세대만 올려 로그아웃 이전에 시작된 등록 응답을 버린다. */
+export function invalidatePushSession(): void {
+  pushRegistrationEpoch++
 }
 
 export function isPushRegistrationCurrent(epoch: number, userId?: string): boolean {
@@ -217,12 +244,28 @@ export function useNative() {
       await deactivateDevicesOnce(user.id, client)
       return false
     }
+    // 로그아웃 때 실패한 기기 해제를 같은 사용자의 다음 로그인·복귀에서 먼저 끝낸다. 해제가 끝나기
+    // 전에는 다시 등록하지 않는다(늦게 끝난 해제가 새 등록을 끄지 않게). 실패하면 다음 복귀에 재시도한다.
+    if (hasPushLogoutPending(user.id)) {
+      const client = nuxtApp!.$apiClient
+      if (!client || getJwt() !== jwt) return false
+      const { error } = await deactivateDevicesOnce(user.id, client)
+      if (error) return false
+    }
     if (!isPushRegistrationCurrent(epoch, user.id) || user.pushConsent !== true) return false
     const { PushNotifications } = await import('@capacitor/push-notifications')
     const perm = await PushNotifications.checkPermissions()
     if (perm.receive !== 'granted' || !isPushRegistrationCurrent(epoch, user.id)) return false
     await PushNotifications.register()
     return true
+  }
+
+  /** Android 알림 권한 상태 — 설정 화면이 동의값과 실제 권한의 불일치를 표시한다. 그 밖의 플랫폼은 null. */
+  async function checkPushPermission(): Promise<PermissionState | null> {
+    if (!isNative || !isAndroid) return null
+    const { PushNotifications } = await import('@capacitor/push-notifications')
+    const perm = await PushNotifications.checkPermissions()
+    return perm.receive
   }
 
   /**
@@ -286,7 +329,9 @@ export function useNative() {
     registerPush,
     invalidatePushRegistration,
     deactivateDevicesOnce,
+    markPushLogoutPending,
     registerPushIfGranted,
+    checkPushPermission,
     onPushReceived,
     hideSplash,
     setStatusBarColor,

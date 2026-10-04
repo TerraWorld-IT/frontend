@@ -172,9 +172,12 @@ export function useAuth() {
       try {
         const native = useNative()
         const client = native.isNative ? useNuxtApp().$apiClient : null
-        if (client) {
-          const userId = useUserStore().me?.userId
-          if (userId) await native.deactivateDevicesOnce(userId, client)
+        const userId = client ? useUserStore().me?.userId : undefined
+        if (client && userId) {
+          // 반환 error·예외 모두 실패로 보고, Android 는 사용자별 보류 키로 다음 로그인·복귀 때 해제를 재시도한다
+          // (푸시 OFF 보류와 같은 방식). 실패해도 로그아웃은 계속한다.
+          const failed = await native.deactivateDevicesOnce(userId, client).then(({ error }) => !!error, () => true)
+          if (failed && native.isAndroid) native.markPushLogoutPending(userId)
         }
       }
       catch {

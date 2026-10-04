@@ -16,6 +16,9 @@
   - footer 슬롯(옵션): 스크롤 영역 밖 하단 고정 — 주 CTA 를 여기 두면 콘텐츠가 길거나 키보드가
     떠서 시트가 줄어도 CTA 가 잘리지 않는다(620 고정 시트의 투두/응원/습관 생성). 있으면
     safe-area 여백도 footer 가 맡는다.
+  - 키보드 가림 보정(Android 네이티브 한정): visualViewport 가 레이아웃 뷰포트보다 작으면(키보드 표시)
+    패널을 보이는 영역 하단에 붙이고 높이를 줄인다 — footer CTA 가 키보드 위에 남는다. iOS 는
+    Keyboard resize=body 가 이미 본문을 줄이고, 웹 브라우저도 기존 배치를 그대로 쓴다.
 
   트랜지션 함정 (frontend/CLAUDE.md): Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate`
   속성이라 transform 에 X 축을 넣으면 이중 적용된다. 수평 중앙은 `inset-x-0 mx-auto` 로 잡고
@@ -94,6 +97,8 @@
 </template>
 
 <script setup lang="ts">
+import { Capacitor } from '@capacitor/core'
+
 const props = withDefaults(defineProps<{
   /** 시트 표시 여부 — 상태는 부모가 소유한다. 닫기 요청은 close emit 로만 전달. */
   open: boolean
@@ -119,6 +124,46 @@ const emit = defineEmits<{ close: [] }>()
 
 const expanded = ref<boolean>(false)
 
+/**
+ * 키보드가 가린 하단 높이 — visualViewport 기준, Android 네이티브에서만 적용.
+ * Android 15 edge-to-edge WebView 는 키보드가 떠도 레이아웃 뷰포트가 줄지 않아 bottom-0 패널의 하단 CTA 가
+ * 키보드에 가려졌다(에뮬레이터 실측: visualViewport 499px, 저장 버튼 하단 518px). 보이는 영역의 하단
+ * (offsetTop + height)에 패널을 붙이고 높이를 그 안으로 줄인다. 레이아웃 뷰포트가 함께 줄어드는 환경
+ * (가림 0)과 핀치 확대(scale > 1)에서는 기존 배치를 그대로 쓴다. iOS(심사 중인 1.0.0 이 같은 웹을 쓴다)와
+ * 웹 브라우저는 구독하지 않아 동작이 이전과 같다.
+ */
+const keyboardViewport = ref<{ bottom: number, inset: number } | null>(null)
+
+function syncVisualViewport() {
+  const vv = window.visualViewport
+  if (!vv || vv.scale > 1.01) {
+    keyboardViewport.value = null
+    return
+  }
+  const bottom = vv.offsetTop + vv.height
+  const inset = Math.round(window.innerHeight - bottom)
+  keyboardViewport.value = inset >= 1 ? { bottom: Math.round(bottom), inset } : null
+}
+
+function bindVisualViewport(open: boolean) {
+  if (!import.meta.client || !Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return
+  const vv = window.visualViewport
+  if (!vv) return
+  if (open) {
+    vv.addEventListener('resize', syncVisualViewport)
+    vv.addEventListener('scroll', syncVisualViewport)
+    syncVisualViewport()
+  }
+  else {
+    vv.removeEventListener('resize', syncVisualViewport)
+    vv.removeEventListener('scroll', syncVisualViewport)
+    keyboardViewport.value = null
+  }
+}
+
+watch(() => props.open, bindVisualViewport, { immediate: true })
+onBeforeUnmount(() => bindVisualViewport(false))
+
 const panelStyle = computed<Record<string, string>>(() => {
   const current = expanded.value ? props.expandedHeight : props.baseHeight
   const style: Record<string, string> = { maxHeight: current }
@@ -127,6 +172,14 @@ const panelStyle = computed<Record<string, string>>(() => {
     style.maxHeight = props.expandedHeight
   }
   style.maxHeight = `min(${style.maxHeight}, calc(100dvh - var(--sat)))`
+  const keyboard = keyboardViewport.value
+  if (keyboard) {
+    // 키보드 표시 중 — 패널을 보이는 영역 하단에 붙이고 높이를 보이는 영역 안으로 제한한다.
+    const visible = `calc(${keyboard.bottom}px - var(--sat))`
+    style.bottom = `${keyboard.inset}px`
+    style.maxHeight = `min(${style.maxHeight}, ${visible})`
+    if (style.height) style.height = `min(${style.height}, ${visible})`
+  }
   return style
 })
 

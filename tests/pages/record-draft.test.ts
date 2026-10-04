@@ -20,6 +20,8 @@ vi.mock('~/lib/auth-client', () => ({ authClient: { useSession: () => session } 
 vi.mock('~/lib/nativeDistanceTracker', () => ({
   isNativeDistanceTrackerAvailable: async () => false,
   DistanceTracker: { start: vi.fn(), stop: vi.fn(), drain: vi.fn() },
+  stopNativeSession: vi.fn(),
+  retryPendingNativeStops: vi.fn(async () => undefined),
 }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: mocks.sdk, client: {} }))
 mockNuxtImport('useToast', () => () => mocks.toast)

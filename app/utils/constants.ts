@@ -85,12 +85,20 @@ export const DEFAULTS = {
   PAGE_SIZE: 20,
 } as const
 
+/**
+ * 광고 출시 플래그 — 첫 출시(iOS·Android)는 광고를 제외한다.
+ * 홈 광고보상·성장 부활 광고의 진입점과 useAdMob 광고 호출이 모두 이 값 하나를 따른다.
+ * 광고 도입 시 이 값만 true 로 바꾼다(운영 광고 단위 ID 설정이 선행돼야 한다).
+ */
+export const ADS_ENABLED: boolean = false
+
 /** localStorage 키 (일관된 네이밍) */
 export const STORAGE_KEYS = {
   ONBOARDING_DONE: 'tw-onboarding-done',
   LAYOUT_VARIANT: 'tw-layout',
   PUSH_TOKEN: 'tw-push-token',
   PUSH_OFF_PENDING_PREFIX: 'tw-push-off-pending.',
+  PUSH_LOGOUT_PENDING_PREFIX: 'tw-push-logout-pending.',
   THEME: 'tw-theme',
   AD_PENDING: 'tw-ad-pending.',
   AD_LIMIT_DATE: 'tw-ad-limit-date.',

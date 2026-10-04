@@ -269,11 +269,13 @@
           class="w-full flex-1 text-[14px] text-apjek-text leading-relaxed outline-none ring-inset focus:ring-2 focus:ring-apjek-blue/30 resize-none bg-transparent placeholder:text-apjek-text-faint"
         />
       </div>
-      <div class="px-5 pb-1 pt-2">
+      <!-- iOS·웹은 이전 배치(본문 아래) 그대로 둔다 -->
+      <div v-if="!diaryCtaInFooter" class="px-5 pb-1 pt-2">
         <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
         <div class="text-[12px] text-apjek-text-faint text-center mb-2">오늘 첫 일기 저장 시 햇살토큰 지급</div>
         <button
           type="button"
+          data-testid="diary-save"
           class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-apjek-cta"
           :disabled="submitting"
           @click="saveDiary"
@@ -281,6 +283,20 @@
           <Icon name="lucide:save" class="w-4 h-4" />저장하기
         </button>
       </div>
+      <!-- Android 네이티브만 footer 슬롯 — 본문 입력 중 키보드가 시트를 줄여도 스크롤 영역 밖이라 가려지지 않는다 -->
+      <template v-if="diaryCtaInFooter" #footer>
+        <!-- 지급량은 서버가 결정 — 하드코딩 수치 노출 금지 (R4-FE) -->
+        <div class="text-[12px] text-apjek-text-faint text-center mb-2">오늘 첫 일기 저장 시 햇살토큰 지급</div>
+        <button
+          type="button"
+          data-testid="diary-save"
+          class="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-apjek-cta"
+          :disabled="submitting"
+          @click="saveDiary"
+        >
+          <Icon name="lucide:save" class="w-4 h-4" />저장하기
+        </button>
+      </template>
     </CommonBottomSheet>
 
     <!-- 집중 시트 (R8) — 타이머 진행 중 실수 닫기 방지 가드(onSheetClose) 유지 -->
@@ -838,6 +854,9 @@ async function submitCheer(message: string) {
 // ─── 일상 기록 (시트) ───
 type DailyModal = 'todo' | 'diary' | 'focus' | 'distance'
 const openModal = ref<DailyModal | null>(null)
+// 일기 저장 CTA 를 시트 footer 에 둘지 — Android 네이티브만(키보드가 레이아웃 뷰포트를 줄이지 않아 본문 아래
+// CTA 가 가려진다). iOS·웹은 이전 배치를 유지한다. 하이드레이션 일치를 위해 마운트 후 정한다.
+const diaryCtaInFooter = ref<boolean>(false)
 
 // 일상 기록 시트 4종의 focus trap + 배경 스크롤 잠금 + ESC + Android 뒤로가기는
 // CommonBottomSheet 가 내장 처리한다(이중 등록 금지).
@@ -1256,6 +1275,13 @@ let nativeDrainTimer: ReturnType<typeof setInterval> | null = null
 // 세션 세대 토큰 — 비동기 start 가 완료되기 전에 세션이 리셋/이탈되면(gen 불일치) 결과를
 // 폐기하고 서비스를 즉시 중지한다 (Codex R1 F3 — start 대기창 race).
 let distSessionGen = 0
+// 네이티브 종료(stop) 대기 중인 세션 세대 — 대기 중에는 nativeTracking=false 지만 서비스는 아직 수집 중일 수
+// 있어 복귀가 웹 watch 를 띄우면 안 된다(종료 실패 복구 시 네이티브와 이중 집계).
+let nativeStoppingGen: number | null = null
+
+function isNativeStopPending(): boolean {
+  return nativeStoppingGen !== null && nativeStoppingGen === distSessionGen
+}
 
 function applyNativeFixes(fixes: import('~/lib/nativeDistanceTracker').DistanceFix[]) {
   for (const f of fixes) {
@@ -1271,11 +1297,21 @@ function applyNativeFixes(fixes: import('~/lib/nativeDistanceTracker').DistanceF
   }
 }
 
+/** 요청 시점의 세션·세대가 아직 진행 중인지 — 종료·초기화·새 세션 뒤 도착한 이전 응답을 폐기한다. */
+function isCurrentNativeSession(sessionId: string, gen: number): boolean {
+  return nativeTracking && nativeSessionId === sessionId && distSessionGen === gen
+}
+
 async function drainNative() {
   if (!nativeTracking) return
+  // 이전 세션의 늦은 drain 응답이 새 세션의 거리·seq 를 오염시키지 않도록 요청 시점 값을 캡처한다.
+  const sessionId = nativeSessionId
+  const gen = distSessionGen
   try {
     const { DistanceTracker } = await import('~/lib/nativeDistanceTracker')
-    const { fixes } = await DistanceTracker.drain({ sessionId: nativeSessionId, afterSeq: nativeLastSeq })
+    if (!isCurrentNativeSession(sessionId, gen)) return
+    const { fixes } = await DistanceTracker.drain({ sessionId, afterSeq: nativeLastSeq })
+    if (!isCurrentNativeSession(sessionId, gen)) return
     applyNativeFixes(fixes)
   }
   catch {
@@ -1365,7 +1401,9 @@ async function startDistance() {
   nativeTracking = false
   const gen = ++distSessionGen
   try {
-    const { isNativeDistanceTrackerAvailable, DistanceTracker } = await import('~/lib/nativeDistanceTracker')
+    const { isNativeDistanceTrackerAvailable, DistanceTracker, stopNativeSession, retryPendingNativeStops } = await import('~/lib/nativeDistanceTracker')
+    // 이전에 종료하지 못한 세션을 새 세션 시작 전에 정리한다(같은 세션 ID 재종료 — 멱등).
+    await retryPendingNativeStops()
     if (await isNativeDistanceTrackerAvailable()) {
       // 권한 선확보: 웹 프롬프트(WebView→앱 권한 브리지)로 먼저 확보. 명시 거부면 웹 watch
       // 폴백(거부 에러 UI 를 기존 경로가 표시). precise/GPS 검증은 플러그인 start 가 수행.
@@ -1381,7 +1419,7 @@ async function startDistance() {
         await DistanceTracker.start({ sessionId })
         // start 대기 중 세션이 리셋/이탈됐으면(gen 불일치) 서비스 즉시 회수 (Codex R1 F3).
         if (gen !== distSessionGen || distPhase.value !== 'tracking') {
-          void DistanceTracker.stop({ sessionId, afterSeq: 0 }).catch(() => {})
+          void stopNativeSession(sessionId, 0).catch(() => {})
           return
         }
         nativeSessionId = sessionId
@@ -1446,13 +1484,16 @@ function resumeDistanceWatchFromBackground() {
   }
   if (distPhase.value !== 'tracking') return
   // 네이티브 경로: 백그라운드 fix 를 drain 으로 회수 — 직선거리 보정 불요(실경로 반영).
-  if (nativeTracking) {
+  // 종료 대기 중에도 네이티브 경로로 다룬다 — 웹 watch 를 띄우지 않고, drain 은 종료 응답이 대신한다.
+  if (nativeTracking || isNativeStopPending()) {
     const gap = bgPauseAt !== null ? Date.now() - bgPauseAt : 0
     if (gap > 0) distElapsed.value += Math.floor(gap / 1000)
     bgPauseAt = null
     bgLastCoord = null
-    void drainNative()
-    if (!nativeDrainTimer) nativeDrainTimer = setInterval(() => { void drainNative() }, 5000)
+    if (nativeTracking) {
+      void drainNative()
+      if (!nativeDrainTimer) nativeDrainTimer = setInterval(() => { void drainNative() }, 5000)
+    }
     if (!distTimer) distTimer = setInterval(() => { distElapsed.value += 1 }, 1000)
     return
   }
@@ -1471,7 +1512,7 @@ function resumeDistanceWatchFromBackground() {
   // stale 콜백을 폐기한다 (Codex R2 #4).
   const epoch = bgEpoch
   function startWebResumeWatch() {
-    if (epoch !== bgEpoch || distPhase.value !== 'tracking' || distWatchId !== null || nativeTracking) return
+    if (epoch !== bgEpoch || distPhase.value !== 'tracking' || distWatchId !== null || nativeTracking || isNativeStopPending()) return
     if (import.meta.client && document.hidden) return // 백그라운드에서 watch 기동 금지
     beginDistanceWatch()
   }
@@ -1500,28 +1541,53 @@ function resumeDistanceWatchFromBackground() {
   }
 }
 
-async function stopDistance() {
-  if (submitting.value) return
+/** 측정 종료. 네이티브 종료가 실패하면 측정 상태와 세션을 보존하고 false — 같은 세션으로 다시 종료할 수 있다. */
+async function stopDistance(): Promise<boolean> {
+  if (submitting.value) return false
   submitting.value = true
   try {
     // 네이티브 경로: 서비스 종료 + 잔여 fix 회수 (orphan FGS 방지).
     if (nativeTracking) {
+      const sessionId = nativeSessionId
+      const gen = distSessionGen
+      // 종료 중 도착하는 drain 응답은 폐기한다 — 종료 응답이 같은 afterSeq 이후 fix 를 모두 돌려준다.
+      // 대기 중 복귀가 웹 watch 를 띄우지 않도록 종료 대기 세대를 표시한다.
+      nativeStoppingGen = gen
       nativeTracking = false
       if (nativeDrainTimer) {
         clearInterval(nativeDrainTimer)
         nativeDrainTimer = null
       }
       try {
-        const { DistanceTracker } = await import('~/lib/nativeDistanceTracker')
-        const { fixes } = await DistanceTracker.stop({ sessionId: nativeSessionId, afterSeq: nativeLastSeq })
+        const { stopNativeSession } = await import('~/lib/nativeDistanceTracker')
+        const { fixes } = await stopNativeSession(sessionId, nativeLastSeq)
+        // 종료 대기 중 세션이 초기화됐으면 이전 세션 결과를 반영하지 않는다.
+        if (gen !== distSessionGen) return false
         applyNativeFixes(fixes)
       }
       catch {
-        // 종료 drain 실패 — 이미 회수된 거리까지만 반영.
+        if (gen !== distSessionGen) return false
+        // 종료 실패를 숨기지 않는다 — 서비스가 계속 수집 중일 수 있어 측정 상태와 세션을 그대로 두고
+        // 안내한다. 네이티브 stop 은 같은 세션 ID 재호출에 멱등이라 종료 버튼으로 다시 시도할 수 있다.
+        // 네이티브 수집만 복구한다 — 웹 watch 가 떠 있으면 이중 집계라 먼저 정리하고, 대기 중인 복귀
+        // 보정(getCurrentPosition)도 무효화한다.
+        if (distWatchId !== null) {
+          navigator.geolocation.clearWatch(distWatchId)
+          distWatchId = null
+        }
+        bgEpoch += 1
+        nativeTracking = true
+        if (!nativeDrainTimer && !document.hidden) nativeDrainTimer = setInterval(() => { void drainNative() }, 5000)
+        toast.error('거리 측정을 종료하지 못했어요. 다시 시도해 주세요.')
+        return false
+      }
+      finally {
+        if (nativeStoppingGen === gen) nativeStoppingGen = null
       }
     }
     clearDistWatch()
     distPhase.value = 'done'
+    return true
   }
   finally {
     submitting.value = false
@@ -1536,9 +1602,15 @@ function abortNativeTracking() {
     clearInterval(nativeDrainTimer)
     nativeDrainTimer = null
   }
+  // 호출 시점 세션을 캡처한다 — 동적 import 뒤에 읽으면 그사이 시작한 새 세션을 끌 수 있다.
+  const sessionId = nativeSessionId
+  const afterSeq = nativeLastSeq
   void import('~/lib/nativeDistanceTracker')
-    .then(({ DistanceTracker }) => DistanceTracker.stop({ sessionId: nativeSessionId, afterSeq: nativeLastSeq }))
-    .catch(() => {})
+    .then(({ stopNativeSession }) => stopNativeSession(sessionId, afterSeq))
+    .catch(() => {
+      // 화면을 떠나 상태를 보존할 수 없으므로 안내만 하고, 다음 측정 시작·화면 진입에서 같은 세션을 다시 종료한다.
+      toast.info('거리 측정 종료를 확인하지 못했어요. 다음에 기록 화면을 열 때 다시 종료할게요.')
+    })
 }
 
 async function saveDistance() {
@@ -1650,8 +1722,11 @@ onMounted(() => {
   loadHabits()
 
   // 거리 추적 중 백그라운드 전환 시 watcher 정리 + 복귀 시 재개(Codex 감사 지적).
-  const { isNative } = useNative()
+  const { isNative, isAndroid } = useNative()
+  diaryCtaInFooter.value = isNative && isAndroid
   if (isNative) {
+    // 이전 화면에서 종료하지 못한 네이티브 거리 세션을 다시 종료한다.
+    void import('~/lib/nativeDistanceTracker').then(({ retryPendingNativeStops }) => retryPendingNativeStops()).catch(() => {})
     import('@capacitor/app').then(({ App }) => {
       App.addListener('pause', pauseDistanceWatchForBackground).then((h) => {
         if (disposed) { h.remove(); return }
