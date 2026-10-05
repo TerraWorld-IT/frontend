@@ -75,7 +75,7 @@
       <p class="text-riso-poppy font-medium">{{ $t('common.loadFail') }}</p>
       <p class="text-xs text-apjek-text-sub">{{ $t('common.loadFailDesc') }}</p>
       <button
-        class="mt-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] mt-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
         style="background: var(--color-apjek-blue)"
         @click="load"
       >
@@ -189,7 +189,7 @@
         <p class="text-[14px]">정보를 불러오지 못했어요</p>
         <button
           type="button"
-          class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
           @click="tier.load()"
         >
           다시 시도
@@ -519,7 +519,7 @@
             <button
               type="button"
               data-testid="home-exchange"
-              class="apjek-cta w-full py-2.5 text-sm"
+              class="apjek-cta w-full min-h-[44px] py-2.5 text-sm"
               @click="showExchange = true"
             >
               <span aria-hidden="true">⇄</span> 재화 환전
@@ -2492,9 +2492,11 @@ definePageMeta({ layout: 'default', middleware: 'auth' })
 .mode-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   border-radius: 9999px;
   padding: 0.7rem 1.5rem;
+  min-height: 44px;
   font-size: 0.875rem;
   font-weight: 700;
   white-space: nowrap;

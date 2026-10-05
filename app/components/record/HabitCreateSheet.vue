@@ -101,7 +101,7 @@
           <p>정보를 불러오지 못했어요</p>
           <button
             type="button"
-            class="px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
+            class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] px-4 py-2 rounded-full bg-white text-apjek-text text-[13px] transition-all active:scale-95"
             @click="emit('retry')"
           >다시 시도</button>
         </div>

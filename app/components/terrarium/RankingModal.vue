@@ -76,7 +76,7 @@
           <button
             v-if="!entry.isSelf"
             type="button"
-            class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] shrink-0 size-8 rounded-full flex items-center justify-center text-apjek-text-sub active:scale-95"
+            class="relative after:absolute after:-inset-x-[6px] after:top-1/2 after:-translate-y-1/2 after:min-h-11 after:h-full after:content-[''] shrink-0 size-8 rounded-full flex items-center justify-center text-apjek-text-sub active:scale-95"
             style="background: var(--color-apjek-bg)"
             :aria-label="`${displayNickname(entry)}님 신고·차단 메뉴`"
             :data-testid="`ranking-report-block-${entry.rank}`"

@@ -51,7 +51,7 @@
       <!-- raw error.message 는 사용자에게 무의미/노출 위험 — 일반화된 안내 문구로 표시 -->
       <p class="text-xs text-riso-dark/60">{{ $t('common.loadFailDesc') }}</p>
       <button
-        class="mt-2 px-4 py-2 rounded-full bg-riso-pink text-white text-sm riso-shadow-sm"
+        class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] mt-2 px-4 py-2 rounded-full bg-riso-pink text-white text-sm riso-shadow-sm"
         @click="load"
       >
         {{ $t('common.retry') }}

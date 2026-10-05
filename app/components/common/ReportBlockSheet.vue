@@ -78,7 +78,7 @@
                 data-testid="report-mail-address"
                 @focus="selectAll"
               >
-              <button type="button" class="apjek-chip shrink-0 px-2.5 py-1.5 text-[12px] font-semibold active:scale-95" @click="copy(supportEmail)">
+              <button type="button" class="apjek-chip shrink-0 px-2.5 py-1.5 text-[12px] font-semibold active:scale-95 relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-['']" @click="copy(supportEmail)">
                 {{ $t('moderation.copyAddress') }}
               </button>
             </div>
@@ -92,7 +92,7 @@
               data-testid="report-mail-body"
               @focus="selectAll"
             />
-            <button type="button" class="apjek-chip self-end px-2.5 py-1.5 text-[12px] font-semibold active:scale-95" @click="copy(`${reportSubject}\n\n${reportBody}`)">
+            <button type="button" class="apjek-chip self-end px-2.5 py-1.5 text-[12px] font-semibold active:scale-95 relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-['']" @click="copy(`${reportSubject}\n\n${reportBody}`)">
               {{ $t('moderation.copyBody') }}
             </button>
           </div>

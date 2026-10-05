@@ -48,6 +48,7 @@
             v-if="isAndroidNative && pushOffPending"
             type="button"
             data-testid="retry-push-consent"
+            class="mt-1 self-start min-h-[44px] px-3 inline-flex items-center rounded-full bg-apjek-surface border border-apjek-border text-[13px] font-semibold text-apjek-text active:scale-95 disabled:opacity-60"
             :disabled="consentSaving"
             @click="onConsentToggle('push', false)"
           >푸시 알림 해제 다시 시도</button>
@@ -57,6 +58,7 @@
             <button
               type="button"
               data-testid="retry-push-permission"
+              class="mt-1 self-start min-h-[44px] px-3 inline-flex items-center rounded-full bg-apjek-surface border border-apjek-border text-[13px] font-semibold text-apjek-text active:scale-95 disabled:opacity-60"
               :disabled="consentSaving"
               @click="onPushPermissionRetry"
             >알림 권한 다시 요청</button>
@@ -87,7 +89,7 @@
             </div>
             <button
               type="button"
-              class="apjek-chip shrink-0 px-3 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="apjek-chip shrink-0 px-3 py-1.5 text-[12px] font-semibold active:scale-95 relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[44px] after:h-full after:content-['']"
               :aria-label="$t('moderation.unblockAria', { nickname: b.nickname })"
               :data-testid="`unblock-${b.userId}`"
               @click="onUnblock(b.userId)"
