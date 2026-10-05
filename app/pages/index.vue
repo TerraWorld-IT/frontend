@@ -303,13 +303,13 @@
               <!-- 병 실루엣은 스테이지 좌표에 고정하고 편집 조작부는 마스크 밖에 둔다. -->
               <div class="absolute pointer-events-none" :style="itemMaskStyle(placed)">
                 <div
-                  class="absolute flex items-center justify-center pointer-events-auto"
+                  class="absolute flex items-center justify-center pointer-events-none"
                   :class="animClass(placed)"
                   :style="{ left: `${placed.x - HALF}px`, top: `${placed.y - HALF}px`, width: `${BASE_SIZE}px`, height: `${BASE_SIZE}px`, transformOrigin: placed.rarity === 'rare' ? 'bottom center' : undefined }"
                 >
-                  <!-- 아이템 본체 -->
+                  <!-- 아이템 본체 — 히트영역은 scale 이 적용된 본체에 둬서 시각=히트(이웃 탭 가로채기 방지). -->
                   <div
-                    class="relative flex items-center justify-center"
+                    class="relative flex items-center justify-center pointer-events-auto"
                     :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
                     :role="editMode ? 'button' : undefined"
                     :tabindex="editMode ? 0 : undefined"
