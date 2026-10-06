@@ -120,7 +120,10 @@ describe('JarCarousel 슬라이드 구성', () => {
 })
 
 describe('JarCarousel 짧은 스와이프 페이징', () => {
-  // snap-mandatory 만으로는 폭 절반 미만 스와이프가 제자리로 스냅되던 문제(폰 QA) — 손을 뗄 때 가로 이동량으로 넘긴다.
+  // snap-mandatory 만으로는 폭 절반 미만 스와이프가 제자리로 스냅되던 문제(#101) + 실기기 관성과 겹쳐 두 장씩
+  // 넘어가던 문제(폰 QA) — 스크롤이 멈춘 뒤 네이티브가 넘기지 못했을 때만 한 장 보낸다.
+  const settle = () => new Promise(r => setTimeout(r, 300))
+
   async function setup(scrollLeft = 393) {
     const wrapper = await mount(catalog(1, 1), 1)
     const track = wrapper.get('[data-testid="jar-carousel"]')
@@ -136,10 +139,27 @@ describe('JarCarousel 짧은 스와이프 페이징', () => {
     return { wrapper, track, el, scroll, swipe }
   }
 
-  it.each([[-40, 2], [-60, 2], [40, 0]])('가로 %ipx 스와이프 → 슬라이드 %i 로 이동', async (dx, target) => {
+  it('슬라이드는 scroll-snap-stop: always(snap-always) 로 한 번에 한 장까지만 넘어간다', async () => {
+    const { wrapper } = await setup()
+    for (const slide of wrapper.findAll('[data-testid^="jar-slide-"]')) expect(slide.classes()).toContain('snap-always')
+    wrapper.unmount()
+  })
+
+  it.each([[-40, 2], [-60, 2], [40, 0]])('가로 %ipx 스와이프 후 제자리에 멈추면 슬라이드 %i 로 보낸다', async (dx, target) => {
     const { wrapper, scroll, swipe } = await setup()
     await swipe(dx)
+    expect(scroll).not.toHaveBeenCalled() // 손을 떼는 즉시가 아니라 스크롤이 멈춘 뒤 판단
+    await settle()
     expect(scroll).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ left: target * 393 }))
+    wrapper.unmount()
+  })
+
+  it('네이티브(관성)가 이미 다음 장으로 넘겼으면 더 보내지 않는다 — 두 장 넘김 방지', async () => {
+    const { wrapper, el, scroll, swipe } = await setup()
+    await swipe(-120)
+    el.scrollLeft = 2 * 393
+    await settle()
+    expect(scroll).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -147,6 +167,7 @@ describe('JarCarousel 짧은 스와이프 페이징', () => {
     const { wrapper, scroll, swipe } = await setup()
     await swipe(-10)
     await swipe(-40, 80)
+    await settle()
     expect(scroll).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -154,7 +175,8 @@ describe('JarCarousel 짧은 스와이프 페이징', () => {
   it('양 끝에서는 범위를 넘지 않는다', async () => {
     const { wrapper, scroll, swipe } = await setup(2 * 393)
     await swipe(-80)
-    expect(scroll).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ left: 2 * 393 }))
+    await settle()
+    expect(scroll).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -176,6 +198,7 @@ describe('JarCarousel 짧은 스와이프 페이징', () => {
     (track.element as HTMLElement).scrollTo = scroll
     await track.trigger('touchstart', { touches: [{ clientX: 200, clientY: 300 }] })
     await track.trigger('touchend', { changedTouches: [{ clientX: 100, clientY: 300 }] })
+    await settle()
     expect(scroll).not.toHaveBeenCalled()
     wrapper.unmount()
   })
