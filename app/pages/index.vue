@@ -494,7 +494,7 @@
                 <!-- 신고·차단 (App Store 1.2) -->
                 <button
                   type="button"
-                  class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] rounded-full p-1.5 text-apjek-text-sub shrink-0 bg-white"
+                  class="relative after:absolute after:-inset-x-[8px] after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] rounded-full p-1.5 text-apjek-text-sub shrink-0 bg-white"
                   :aria-label="`${friend.nickname}님 신고·차단 메뉴`"
                   :data-testid="`home-report-block-${friend.userId}`"
                   @click="homeReportTarget = friend"
