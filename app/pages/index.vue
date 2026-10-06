@@ -356,7 +356,7 @@
                   :title="btn.label"
                   :disabled="placementBusy || saving || backgroundBusy" :aria-label="btn.label"
                   :data-testid="`home-item-action-${btn.key}`"
-                  class="absolute flex items-center justify-center z-30 transition-transform active:scale-90"
+                  class="absolute flex items-center justify-center z-30 transition-transform active:scale-90 pointer-events-auto"
                   :style="itemActionControlStyle(placed, btn.offsetY)"
                   @pointerdown.stop
                   @click.stop="btn.onClick()"
@@ -377,7 +377,7 @@
                   :disabled="placementBusy || saving || backgroundBusy"
                   :aria-label="c.label"
                   :data-testid="`home-resize-${c.key}`"
-                  class="absolute z-30 flex items-center justify-center"
+                  class="absolute z-30 flex items-center justify-center pointer-events-auto"
                   :style="{
                     left: `${HALF + c.ox - MIN_TOUCH_TARGET / 2}px`,
                     top: `${HALF + c.oy - MIN_TOUCH_TARGET / 2}px`,
