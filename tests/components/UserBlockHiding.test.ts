@@ -170,6 +170,22 @@ describe('친구 목록 숨김', () => {
     await flush()
     expect(names()).toEqual(['친구3'])
   })
+
+  it('신고·차단 버튼 히트영역은 좌측이 버튼 간격을 넘지 않고 우측으로 넓혀 44px 이상을 유지한다', async () => {
+    mocks.listFriends.mockResolvedValue({
+      data: [{ userId: 'f1', nickname: '친구1', likeCount: 0, liked: false }],
+      error: undefined,
+    })
+    const wrapper = await mountSuspended(FriendsPage)
+    wrappers.push(wrapper)
+    await flush()
+
+    // 버튼 간격 gap-1.5(6px) + 테두리 1px — 좌측 7px 확장이 좋아요 버튼 외곽에 닿되 겹치지 않는 상한
+    expect(wrapper.get('[data-testid="friends-row"] > div:last-child').classes()).toContain('gap-1.5')
+    const classes = wrapper.get('[data-testid="friends-report-block-f1"]').classes()
+    expect(classes).toEqual(expect.arrayContaining(['after:-left-[7px]', 'after:-right-[9px]', 'after:-inset-y-[8px]', 'px-2', 'py-1.5']))
+    expect(classes).not.toContain('after:-inset-x-[8px]')
+  })
 })
 
 describe('습관 친구 선택 숨김', () => {
