@@ -111,7 +111,7 @@
         </div>
 
         <!-- 친구 선택은 전송 전까지 다른 카드로 교체할 수 있다. -->
-        <div v-else class="flex gap-[10px] overflow-x-auto scrollbar-hide -mx-5 px-5 pb-[4px]">
+        <div v-else class="flex gap-[10px] overflow-x-auto scrollbar-hide -mx-5 px-5 pb-[4px]" style="touch-action: pan-x">
           <div
             v-for="f in displayFriends"
             :key="f.userId"
