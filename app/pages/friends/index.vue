@@ -171,10 +171,10 @@
               <span aria-hidden="true">{{ friend.liked ? '♥' : '♡' }}</span>
               {{ $t('friends.likeButton') }}
             </button>
-            <!-- 신고·차단 (App Store 1.2) -->
+            <!-- 신고·차단 (App Store 1.2) — 히트영역 좌측은 간격(6px)까지만 넓혀 좋아요 버튼과 겹치지 않고, 행 끝인 우측을 더 넓혀 폭 44px 이상 -->
             <button
               type="button"
-              class="relative after:absolute after:-inset-x-[8px] after:-inset-y-[8px] after:content-[''] apjek-chip px-2 py-1.5 active:scale-95"
+              class="relative after:absolute after:-left-[7px] after:-right-[9px] after:-inset-y-[8px] after:content-[''] apjek-chip px-2 py-1.5 active:scale-95"
               :aria-label="$t('moderation.openMenu', { nickname: friend.nickname })"
               :data-testid="`friends-report-block-${friend.userId}`"
               @click="reportTarget = friend"
