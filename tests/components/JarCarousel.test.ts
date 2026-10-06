@@ -118,3 +118,65 @@ describe('JarCarousel 슬라이드 구성', () => {
     expect(wrapper.findAll('button[aria-pressed]')).toHaveLength(0)
   })
 })
+
+describe('JarCarousel 짧은 스와이프 페이징', () => {
+  // snap-mandatory 만으로는 폭 절반 미만 스와이프가 제자리로 스냅되던 문제(폰 QA) — 손을 뗄 때 가로 이동량으로 넘긴다.
+  async function setup(scrollLeft = 393) {
+    const wrapper = await mount(catalog(1, 1), 1)
+    const track = wrapper.get('[data-testid="jar-carousel"]')
+    const el = track.element as HTMLElement
+    Object.defineProperty(el, 'clientWidth', { value: 393, configurable: true })
+    el.scrollLeft = scrollLeft
+    const scroll = vi.fn()
+    el.scrollTo = scroll
+    const swipe = async (dx: number, dy = 0) => {
+      await track.trigger('touchstart', { touches: [{ clientX: 200, clientY: 300 }] })
+      await track.trigger('touchend', { changedTouches: [{ clientX: 200 + dx, clientY: 300 + dy }] })
+    }
+    return { wrapper, track, el, scroll, swipe }
+  }
+
+  it.each([[-40, 2], [-60, 2], [40, 0]])('가로 %ipx 스와이프 → 슬라이드 %i 로 이동', async (dx, target) => {
+    const { wrapper, scroll, swipe } = await setup()
+    await swipe(dx)
+    expect(scroll).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ left: target * 393 }))
+    wrapper.unmount()
+  })
+
+  it('임계값 미만·세로 위주 스와이프는 네이티브 스냅에 맡긴다', async () => {
+    const { wrapper, scroll, swipe } = await setup()
+    await swipe(-10)
+    await swipe(-40, 80)
+    expect(scroll).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('양 끝에서는 범위를 넘지 않는다', async () => {
+    const { wrapper, scroll, swipe } = await setup(2 * 393)
+    await swipe(-80)
+    expect(scroll).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ left: 2 * 393 }))
+    wrapper.unmount()
+  })
+
+  it('스와이프 직후의 카드 click 은 전환/해금으로 이어지지 않고, 그냥 탭은 동작한다', async () => {
+    const { wrapper, swipe } = await setup()
+    await swipe(-60)
+    await wrapper.get('[data-testid="jar-card-unlock-3"]').trigger('click')
+    expect(wrapper.emitted('unlock')).toBeUndefined()
+    await new Promise(r => setTimeout(r, 450))
+    await wrapper.get('[data-testid="jar-card-unlock-3"]').trigger('click')
+    expect(wrapper.emitted('unlock')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('locked(관리/힐링) 이면 스와이프로 넘기지 않는다', async () => {
+    const wrapper = await mount(catalog(2, 2), 2, true)
+    const track = wrapper.get('[data-testid="jar-carousel"]')
+    const scroll = vi.fn();
+    (track.element as HTMLElement).scrollTo = scroll
+    await track.trigger('touchstart', { touches: [{ clientX: 200, clientY: 300 }] })
+    await track.trigger('touchend', { changedTouches: [{ clientX: 100, clientY: 300 }] })
+    expect(scroll).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+})
