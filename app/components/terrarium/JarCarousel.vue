@@ -22,6 +22,10 @@
       style="scroll-behavior: smooth; -webkit-overflow-scrolling: touch"
       data-testid="jar-carousel"
       @scroll.passive="onScroll"
+      @touchstart.passive="onTouchStart"
+      @touchend.passive="onTouchEnd"
+      @touchcancel.passive="onTouchCancel"
+      @click.capture="onClickCapture"
     >
       <template v-for="slide in slides" :key="slide.level">
         <!-- 라이브 슬라이드 — 현재 표시 중인 병 스테이지 -->
@@ -156,6 +160,63 @@ function scrollTo(i: number, behavior: ScrollBehavior = typeof window !== 'undef
   else el.scrollLeft = i * el.clientWidth
   index.value = i
 }
+
+// ─── 짧은 스와이프 페이징 ───
+// snap-mandatory 만으로는 손을 뗀 위치에서 가장 가까운 슬라이드로 스냅되므로, 폭의 절반 미만을 민
+// 스와이프(폰 실측 30~150px, 빠른 플릭 포함)는 항상 제자리로 되돌아갔다. 손을 뗄 때 가로 이동량으로
+// 다음/이전 슬라이드를 직접 정한다. 터치 시작·끝 좌표만 쓰므로 기기에서 네이티브 팬이 시작되지
+// 않은 경우(병 위 요소에서 시작한 제스처 등)에도 페이지가 넘어간다.
+const SWIPE_MIN_PX = 24
+const SWIPE_MIN_RATIO = 0.08
+let touchStart: { x: number, y: number, index: number } | null = null
+let snapRestoreTimer: ReturnType<typeof setTimeout> | null = null
+// 스와이프로 페이지를 넘긴 직후의 click(손을 뗀 카드의 전환/해금 버튼)은 의도한 탭이 아니다.
+let swipedAt = 0
+
+function onClickCapture(e: MouseEvent): void {
+  if (Date.now() - swipedAt < 400) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}
+
+function onTouchStart(e: TouchEvent): void {
+  if (props.locked || slides.value.length < 2 || e.touches.length !== 1) { touchStart = null; return }
+  const t = e.touches[0]!
+  const el = track.value
+  const current = el && el.clientWidth ? Math.round(el.scrollLeft / el.clientWidth) : index.value
+  touchStart = { x: t.clientX, y: t.clientY, index: current }
+}
+
+function onTouchCancel(): void {
+  touchStart = null
+}
+
+function onTouchEnd(e: TouchEvent): void {
+  const start = touchStart
+  touchStart = null
+  const el = track.value
+  if (!start || !el || props.locked || e.changedTouches.length === 0) return
+  const t = e.changedTouches[0]!
+  const dx = t.clientX - start.x
+  const dy = t.clientY - start.y
+  // 세로 스크롤 의도이거나 이동이 작으면 네이티브 스냅에 맡긴다(탭 포함).
+  if (Math.abs(dx) < Math.max(SWIPE_MIN_PX, el.clientWidth * SWIPE_MIN_RATIO) || Math.abs(dx) <= Math.abs(dy)) return
+  swipedAt = Date.now()
+  const target = Math.max(0, Math.min(slides.value.length - 1, start.index + (dx < 0 ? 1 : -1)))
+  // 네이티브 스냅 애니메이션과 다투지 않도록 이동하는 동안만 스냅을 끈다.
+  el.style.scrollSnapType = 'none'
+  scrollTo(target)
+  if (snapRestoreTimer) clearTimeout(snapRestoreTimer)
+  snapRestoreTimer = setTimeout(() => {
+    el.style.scrollSnapType = ''
+    snapRestoreTimer = null
+  }, 450)
+}
+
+onBeforeUnmount(() => {
+  if (snapRestoreTimer) clearTimeout(snapRestoreTimer)
+})
 
 // 잠금 전환 시 라이브 슬라이드로 되돌린다 — 관리/힐링 모드는 항상 현재 병 기준.
 // 다른 슬라이드는 display:none 이라 라이브 슬라이드가 scrollLeft 0 에 온다.
