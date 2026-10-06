@@ -71,6 +71,22 @@ describe('ManagePanel 타일 목록 스와이프 보완', () => {
     wrapper.unmount()
   })
 
+  it('드래그 후 400ms 안이라도 새 touchstart 로 시작한 탭은 선택된다', async () => {
+    const { wrapper, scroller, tile } = await mount()
+    await scroller.trigger('touchstart', { touches: [touch(300)] })
+    await scroller.trigger('touchmove', { touches: [touch(260)] })
+    await scroller.trigger('touchend', { changedTouches: [touch(260)] })
+    // 같은 제스처의 click(touchend 직후, 새 touchstart 전)은 막힌다.
+    await tile(2).trigger('click')
+    expect(wrapper.emitted('tile')).toBeUndefined()
+    await new Promise(r => setTimeout(r, 200))
+    await scroller.trigger('touchstart', { touches: [touch(300)] })
+    await scroller.trigger('touchend', { changedTouches: [touch(301)] })
+    await tile(2).trigger('click')
+    expect(wrapper.emitted('tile')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
   it('세로 위주 이동은 가로 보완을 시작하지 않는다', async () => {
     const { wrapper, scroller, el } = await mount()
     el.scrollLeft = 0

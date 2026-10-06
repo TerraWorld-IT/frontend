@@ -54,6 +54,9 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ done: [] }>()
 
+// 풀스크린 오버레이라 열린 동안 뒤 화면이 스크롤되지 않게 다른 오버레이와 같은 잠금을 쓴다.
+useOverlayScrollLock(toRef(props, 'open'))
+
 // 인트로가 안전영역까지 덮으므로 열린 동안만 스크림을 배경 그라디언트 시작색으로 맞춘다(색 띠 제거).
 useHead({
   htmlAttrs: {

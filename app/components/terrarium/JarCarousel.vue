@@ -191,6 +191,8 @@ function clearSettle(): void {
 
 function onTouchStart(e: TouchEvent): void {
   clearSettle()
+  // 새 제스처가 시작되면 이전 스와이프의 click 차단을 푼다 — 스와이프 직후 400ms 안의 새 탭도 동작하게.
+  swipedAt = 0
   if (props.locked || slides.value.length < 2 || e.touches.length !== 1) { touchStart = null; return }
   const t = e.touches[0]!
   const el = track.value
@@ -226,6 +228,8 @@ function onTouchEnd(e: TouchEvent): void {
       return
     }
     settleTimer = null
+    // 대기 중 관리/힐링 모드로 잠겼으면 넘기지 않는다 — 라이브 슬라이드 고정을 깨지 않게.
+    if (props.locked) return
     const settled = el.clientWidth ? Math.round(el.scrollLeft / el.clientWidth) : start.index
     // 네이티브가 이미 넘겼으면(또는 다른 장에 있으면) 그대로 둔다 — 한 장 넘게 보내지 않는다.
     if (settled === start.index && target !== start.index) scrollTo(target)
@@ -238,6 +242,8 @@ onBeforeUnmount(clearSettle)
 // 잠금 전환 시 라이브 슬라이드로 되돌린다 — 관리/힐링 모드는 항상 현재 병 기준.
 // 다른 슬라이드는 display:none 이라 라이브 슬라이드가 scrollLeft 0 에 온다.
 watch(() => props.locked, async (locked) => {
+  // 스와이프 뒤 대기 중인 페이징이 잠금 전환 위치를 덮어쓰지 않게 먼저 취소한다.
+  clearSettle()
   if (locked) {
     const el = track.value
     if (el) el.scrollLeft = 0

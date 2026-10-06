@@ -111,7 +111,8 @@
         </div>
 
         <!-- 친구 선택은 전송 전까지 다른 카드로 교체할 수 있다. -->
-        <div v-else class="flex gap-[10px] overflow-x-auto scrollbar-hide -mx-5 px-5 pb-[4px]" style="touch-action: pan-x">
+        <!-- pan-y 도 허용해야 카드 위에서 시작한 세로 스와이프가 시트 본문 스크롤로 이어진다. -->
+        <div v-else class="flex gap-[10px] overflow-x-auto scrollbar-hide -mx-5 px-5 pb-[4px]" style="touch-action: pan-x pan-y">
           <div
             v-for="f in displayFriends"
             :key="f.userId"
