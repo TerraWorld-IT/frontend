@@ -564,4 +564,20 @@ async function onSubmit() {
 .tw-field:focus {
   border-color: rgba(151, 168, 241, 0.9);
 }
+/* iOS WebKit 의 date input 은 고유 최소 너비 때문에 w-full 이어도 카드 밖으로 넘치고
+   네이티브 외형 패딩으로 다른 칸보다 높아진다. 값이 비면 placeholder 도 그리지 않아 높이가 바뀐다.
+   외형을 끄고 높이를 text-sm 줄높이(1.25rem) + py-3(1.5rem) + 보더(3px)로 다른 tw-field 와 맞춘다. */
+.tw-field[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  height: calc(1.25rem + 1.5rem + 3px);
+  line-height: 1.25rem;
+}
+.tw-field[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
 </style>
