@@ -154,6 +154,8 @@ let tilesDrag: { x: number, y: number, left: number, fallback: boolean, decided:
 let tilesDraggedAt = 0
 
 function onTilesTouchStart(e: TouchEvent): void {
+  // 새 제스처가 시작되면 이전 드래그의 click 차단을 푼다 — 드래그 직후 400ms 안의 새 탭도 선택되게.
+  tilesDraggedAt = 0
   if (e.touches.length !== 1) { tilesDrag = null; return }
   const t = e.touches[0]!
   const left = (e.currentTarget as HTMLElement).scrollLeft

@@ -65,6 +65,19 @@ describe('HabitCreateSheet', () => {
     expect(wrapper.emitted('submit')).toEqual([[{ title: '함께 독서', friendUserId: 'friend-a' }]])
   })
 
+  it('친구 선택 스크롤러는 가로 팬과 함께 세로 팬도 허용한다(카드 위 세로 스와이프 → 시트 스크롤)', async () => {
+    const wrapper = await mountSuspended(HabitCreateSheet, {
+      props: { open: true, initialMode: 'friend', friends: [{ userId: 'friend-a', nickname: '친구 A' }] },
+      global: { stubs: { CommonBottomSheet: { template: '<section><slot/><slot name="footer"/></section>' } } },
+    })
+    wrappers.push(wrapper)
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    await wrapper.get('input').setValue('함께 독서')
+    await wrapper.findAll('button').find(button => button.text() === '다음')!.trigger('click')
+    const scroller = wrapper.find('.overflow-x-auto[style*="touch-action"]')
+    expect(scroller.attributes('style')).toContain('touch-action: pan-x pan-y')
+  })
+
   it('열린 시트에서도 선택 모드가 사용 중으로 바뀌면 제출을 차단한다', async () => {
     const wrapper = await mountSuspended(HabitCreateSheet, {
       props: { open: true, initialMode: 'solo', friends: [] },

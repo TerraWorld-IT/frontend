@@ -191,6 +191,31 @@ describe('JarCarousel 짧은 스와이프 페이징', () => {
     wrapper.unmount()
   })
 
+  it('스와이프 후 400ms 안이라도 새 touchstart 로 시작한 탭은 동작한다', async () => {
+    const { wrapper, track, swipe } = await setup()
+    await swipe(-60)
+    // 같은 제스처의 click(touchend 직후, 새 touchstart 전)은 막힌다.
+    await wrapper.get('[data-testid="jar-card-unlock-3"]').trigger('click')
+    expect(wrapper.emitted('unlock')).toBeUndefined()
+    await new Promise(r => setTimeout(r, 200))
+    await track.trigger('touchstart', { touches: [{ clientX: 200, clientY: 300 }] })
+    await track.trigger('touchend', { changedTouches: [{ clientX: 201, clientY: 300 }] })
+    await wrapper.get('[data-testid="jar-card-unlock-3"]').trigger('click')
+    expect(wrapper.emitted('unlock')).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('스와이프 직후 잠기면(관리/힐링 진입) 대기 중이던 페이징을 취소한다', async () => {
+    // 제자리(0)에서 민 스와이프 — 잠금이 없으면 멈춘 뒤 1 로 보냈을 상황
+    const { wrapper, el, scroll, swipe } = await setup(0)
+    await swipe(-60)
+    await wrapper.setProps({ locked: true })
+    await settle()
+    expect(scroll).not.toHaveBeenCalled()
+    expect(el.scrollLeft).toBe(0)
+    wrapper.unmount()
+  })
+
   it('locked(관리/힐링) 이면 스와이프로 넘기지 않는다', async () => {
     const wrapper = await mount(catalog(2, 2), 2, true)
     const track = wrapper.get('[data-testid="jar-carousel"]')
