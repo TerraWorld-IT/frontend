@@ -408,7 +408,7 @@
           <div
             v-if="healingMode"
             class="absolute left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[409px] h-11 rounded-full flex items-center justify-between px-1.5"
-            :style="{ top: 'calc(0.75rem + env(safe-area-inset-top, 0px))', background: 'rgba(255,255,255,0.88)', border: '1px solid var(--color-apjek-border)' }"
+            :style="{ top: 'calc(0.75rem + var(--sat))', background: 'rgba(255,255,255,0.88)', border: '1px solid var(--color-apjek-border)' }"
             data-testid="home-healing-bar"
           >
             <button
