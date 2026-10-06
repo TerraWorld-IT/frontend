@@ -31,7 +31,7 @@
           v-for="[cat, label] in shopCats"
           :key="cat"
           type="button"
-          class="relative after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] flex-1 h-9 rounded-full text-[14px] font-semibold transition-all"
+          class="relative after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-[''] flex-1 h-9 rounded-full text-[14px] font-semibold transition-all"
           :class="shopCat === cat
             ? 'bg-apjek-blue text-white'
             : 'bg-apjek-surface text-apjek-text border border-apjek-border-strong'"

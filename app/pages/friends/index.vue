@@ -162,7 +162,7 @@
             <!-- 좋아요 — 칩 토글 (활성=연블루) -->
             <button
               type="button"
-              class="relative after:absolute after:inset-x-0 after:-inset-y-[6px] after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
+              class="relative after:absolute after:inset-x-0 after:-inset-y-[8px] after:content-[''] apjek-chip px-2.5 py-1.5 text-[12px] font-semibold active:scale-95"
               :class="friend.liked ? 'apjek-chip-active' : ''"
               :disabled="likingId !== null"
               :aria-pressed="friend.liked ? 'true' : 'false'"
@@ -174,7 +174,7 @@
             <!-- 신고·차단 (App Store 1.2) -->
             <button
               type="button"
-              class="relative after:absolute after:-inset-x-[7px] after:-inset-y-[8px] after:content-[''] apjek-chip px-2 py-1.5 active:scale-95"
+              class="relative after:absolute after:-inset-x-[8px] after:-inset-y-[8px] after:content-[''] apjek-chip px-2 py-1.5 active:scale-95"
               :aria-label="$t('moderation.openMenu', { nickname: friend.nickname })"
               :data-testid="`friends-report-block-${friend.userId}`"
               @click="reportTarget = friend"
