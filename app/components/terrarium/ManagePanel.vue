@@ -44,6 +44,7 @@
             <div
               v-else
               class="min-h-[124px] w-full m-auto overflow-x-auto scrollbar-hide px-5 pt-2 pb-4"
+              style="touch-action: pan-x"
               data-testid="manage-tile-scroller"
               @touchstart.passive="onTilesTouchStart"
               @touchmove.passive="onTilesTouchMove"
@@ -144,6 +145,7 @@ const emit = defineEmits<{ tile: [tile: ManageTile], save: [], emptyCta: [] }>()
 // 폰 QA: 타일(버튼) 위에서 시작한 좌우 스와이프에 목록이 움직이지 않고 타일 사이에서만 스크롤됐다
 // (데스크톱 Chromium 터치 에뮬레이션에선 재현되지 않는 WebView 차이). 손가락이 가로로 움직였는데
 // 네이티브 스크롤이 시작되지 않았을 때만 scrollLeft 를 직접 옮기고, 네이티브가 동작하면 개입하지 않는다.
+// 1차로 스크롤러에 touch-action: pan-x 를 명시해 WebView 가 가로 팬을 바로 잡게 하고, 이 보완은 2차 안전망이다.
 // 드래그로 끝난 제스처의 click 은 타일 선택(배치)으로 이어지지 않게 막는다.
 const DRAG_SLOP_PX = 8
 // 네이티브 팬 시작 여부를 판단하기 전 기다리는 가로 이동량(브라우저 터치 슬롭보다 넉넉하게)
