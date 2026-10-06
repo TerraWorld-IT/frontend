@@ -238,9 +238,18 @@ select:focus-visible {
 
 /* overscroll-behavior 는 상속되지 않는다 — <html> 에만 걸어두면 login.vue 등 개별
    overflow-y-auto 컨테이너는 각자 독립적으로 iOS 바운스를 일으킨다(실기기 QA 발견,
-   콘텐츠가 뷰포트에 정확히 맞아도 WebKit 이 살짝 튕기는 것처럼 보임). 스크롤 가능 여부와
-   무관하게 모든 하위 요소에 적용 — 실제로 스크롤 안 되는 요소엔 no-op 이라 안전. */
-.is-native-app * {
+   콘텐츠가 뷰포트에 정확히 맞아도 WebKit 이 살짝 튕기는 것처럼 보임).
+
+   ⚠️ 예전에는 `.is-native-app * { overscroll-behavior: contain }` 으로 모든 요소에 걸었는데,
+   "스크롤 안 되는 요소엔 no-op" 이라는 가정이 틀렸다. overflow:hidden/auto 인 요소는 실제로
+   넘치지 않아도 스크롤 컨테이너라, 제스처가 그 위에서 시작하면 거기에 붙잡히고 contain 때문에
+   바깥 스크롤러로 전달되지 않는다. 그 결과 네이티브 앱에서만(웹·데스크톱 재현 불가)
+   - 기본 레이아웃의 <main overflow-y-auto>(높이 제한 없음 — 실제 스크롤은 문서)에 막혀
+     기록하기·키우기·홈·프로필·친구 화면 세로 스와이프가 전부 무반응,
+   - 병 스테이지·관리 타일 등 overflow-hidden 요소 위에서 시작한 가로 스와이프가 무반응
+   이었다(폰 QA, 로컬에서 is-native-app 주입으로 재현: 5개 화면 세로 스와이프 60/60 차단).
+   → 독립 페이지 스크롤러에만 contain 을 건다. 문서 자체는 위 .is-native-app(html) 의 none. */
+.is-native-app .apjek-page-scroll {
   overscroll-behavior: contain;
 }
 
