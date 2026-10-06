@@ -41,7 +41,17 @@
               >{{ emptyCtaLabel }}</button>
             </div>
             <!-- 가로 스크롤 타일 카드 96px — 아이콘 + 이름을 카드 안에 (댓글 #54 좌우 스크롤) -->
-            <div v-else class="min-h-[124px] w-full m-auto overflow-x-auto scrollbar-hide px-5 pt-2 pb-4">
+            <div
+              v-else
+              class="min-h-[124px] w-full m-auto overflow-x-auto scrollbar-hide px-5 pt-2 pb-4"
+              style="touch-action: pan-x"
+              data-testid="manage-tile-scroller"
+              @touchstart.passive="onTilesTouchStart"
+              @touchmove.passive="onTilesTouchMove"
+              @touchend.passive="onTilesTouchEnd"
+              @touchcancel.passive="onTilesTouchEnd"
+              @click.capture="onTilesClickCapture"
+            >
               <div class="flex gap-3 w-max">
                 <button
                   v-for="tile in tiles"
@@ -130,6 +140,57 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{ tile: [tile: ManageTile], save: [], emptyCta: [] }>()
+
+// ─── 타일 목록 가로 스와이프 보완 ───
+// 폰 QA: 타일(버튼) 위에서 시작한 좌우 스와이프에 목록이 움직이지 않고 타일 사이에서만 스크롤됐다
+// (데스크톱 Chromium 터치 에뮬레이션에선 재현되지 않는 WebView 차이). 손가락이 가로로 움직였는데
+// 네이티브 스크롤이 시작되지 않았을 때만 scrollLeft 를 직접 옮기고, 네이티브가 동작하면 개입하지 않는다.
+// 1차로 스크롤러에 touch-action: pan-x 를 명시해 WebView 가 가로 팬을 바로 잡게 하고, 이 보완은 2차 안전망이다.
+// 드래그로 끝난 제스처의 click 은 타일 선택(배치)으로 이어지지 않게 막는다.
+const DRAG_SLOP_PX = 8
+// 네이티브 팬 시작 여부를 판단하기 전 기다리는 가로 이동량(브라우저 터치 슬롭보다 넉넉하게)
+const FALLBACK_DECIDE_PX = 20
+let tilesDrag: { x: number, y: number, left: number, fallback: boolean, decided: boolean, moved: boolean, lastSet: number } | null = null
+let tilesDraggedAt = 0
+
+function onTilesTouchStart(e: TouchEvent): void {
+  if (e.touches.length !== 1) { tilesDrag = null; return }
+  const t = e.touches[0]!
+  const left = (e.currentTarget as HTMLElement).scrollLeft
+  tilesDrag = { x: t.clientX, y: t.clientY, left, fallback: false, decided: false, moved: false, lastSet: left }
+}
+
+function onTilesTouchMove(e: TouchEvent): void {
+  const drag = tilesDrag
+  if (!drag || e.touches.length !== 1) return
+  const el = e.currentTarget as HTMLElement
+  const t = e.touches[0]!
+  const dx = t.clientX - drag.x
+  const dy = t.clientY - drag.y
+  if (!drag.moved && Math.abs(dx) > DRAG_SLOP_PX && Math.abs(dx) > Math.abs(dy)) drag.moved = true
+  if (drag.moved && !drag.decided && Math.abs(dx) > FALLBACK_DECIDE_PX) {
+    drag.decided = true
+    // 네이티브 팬이 이미 목록을 옮겼으면 그대로 둔다.
+    drag.fallback = Math.abs(el.scrollLeft - drag.left) < 1
+  }
+  if (!drag.fallback) return
+  // 보완 중 네이티브 팬이 뒤늦게 시작되면(우리가 둔 값과 달라짐) 즉시 손을 뗀다 — 이중 이동 방지.
+  if (Math.abs(el.scrollLeft - drag.lastSet) > 1) { drag.fallback = false; return }
+  el.scrollLeft = drag.left - dx
+  drag.lastSet = el.scrollLeft
+}
+
+function onTilesTouchEnd(): void {
+  if (tilesDrag?.moved) tilesDraggedAt = Date.now()
+  tilesDrag = null
+}
+
+function onTilesClickCapture(e: MouseEvent): void {
+  if (Date.now() - tilesDraggedAt < 400) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+}
 const { onAssetError } = useItemAsset()
 
 const title = computed<string>(() => {
