@@ -24,7 +24,7 @@
         <button
           v-if="error.statusCode !== 404 && error.statusCode !== 410"
           type="button"
-          class="inline-block bg-riso-sage text-white px-6 py-2.5 rounded-full text-sm font-medium riso-shadow-sm"
+          class="relative after:absolute after:inset-x-0 after:top-1/2 after:-translate-y-1/2 after:min-h-[48px] after:h-full after:content-[''] inline-block bg-riso-sage text-white px-6 py-2.5 rounded-full text-sm font-medium riso-shadow-sm"
           @click="refresh()"
         >
           {{ $t('error.generic.cta') }}
