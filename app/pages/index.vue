@@ -295,7 +295,7 @@
             <div
               v-for="placed in placedItems"
               :key="placed.placementId"
-              class="absolute flex items-center justify-center select-none"
+              class="absolute flex items-center justify-center select-none pointer-events-none"
               :style="itemStyle(placed)"
               @pointerdown="(e) => onItemPointerDown(e, placed)"
               @click="onItemClick(placed)"
