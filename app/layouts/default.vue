@@ -23,7 +23,7 @@
            safe-area-inset-bottom: viewport-fit=cover 라 콘텐츠가 세이프에어리어까지
            확장되는데, 이게 없으면 아이폰 홈 인디케이터가 네비게이션 위에 겹친다. -->
       <nav
-        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-apjek-surface border-t border-apjek-border z-40"
+        class="app-bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-apjek-surface border-t border-apjek-border z-40"
         :style="{
           height: 'calc(80px + var(--sab))',
           paddingBottom: 'var(--sab)',

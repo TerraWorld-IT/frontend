@@ -354,26 +354,51 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   // --- Keyboard ---
   try {
-    const { Keyboard } = await import('@capacitor/keyboard')
-    Keyboard.addListener('keyboardWillShow', () => {
+    const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard')
+    const isIOS = Capacitor.getPlatform() === 'ios'
+    if (isIOS) {
+      // 구형 셸에서 설정 호출이 실패해도 리스너와 이후 초기화는 계속한다.
+      await Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {})
+      document.body.classList.add('ios-native-keyboard')
+    }
+    let scrollTimer: ReturnType<typeof setTimeout> | undefined
+    const listeners: ReturnType<typeof Keyboard.addListener>[] = []
+    function scrollFocusedInput() {
+      const active = document.activeElement
+      if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+        active.scrollIntoView({ block: 'nearest', behavior: typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+      }
+    }
+    function scrollAfterResize() {
+      if (!document.body.classList.contains('keyboard-open')) return
+      scrollFocusedInput()
+    }
+    function disposeKeyboard() {
+      clearTimeout(scrollTimer)
+      window.removeEventListener('resize', scrollAfterResize)
+      for (const listener of listeners) void listener.then(handle => handle.remove()).catch(() => {})
+      document.body.classList.remove('keyboard-open', 'ios-native-keyboard')
+    }
+    nuxtApp.vueApp.onUnmount(disposeKeyboard)
+    if (import.meta.hot) import.meta.hot.dispose(disposeKeyboard)
+    if (isIOS) {
+      // 네이티브 프레임 축소는 표시 완료 이벤트보다 늦을 수 있어 실제 뷰포트 변경 뒤 다시 보정한다.
+      window.addEventListener('resize', scrollAfterResize)
+    }
+    listeners.push(Keyboard.addListener('keyboardWillShow', () => {
       document.body.classList.add('keyboard-open')
-      // 포커스된 인풋이 바텀시트/모달 안쪽에 있으면 키보드가 올라온 뒤에도 가려질 수 있음
-      // (capacitor.config.ts 의 scrollAssist 는 body 스크롤만 보정, 중첩 overflow-y-auto
-      // 컨테이너 안까지는 못 미침) — 키보드 애니메이션이 끝날 시간을 준 뒤 보정.
-      setTimeout(() => {
-        const active = document.activeElement
-        if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-          active.scrollIntoView({ block: 'nearest', behavior: typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-        }
-      }, 300)
-    })
+      // 중첩 스크롤 컨테이너의 입력은 키보드 애니메이션 뒤에도 별도 보정이 필요하다.
+      clearTimeout(scrollTimer)
+      scrollTimer = setTimeout(scrollFocusedInput, 300)
+    }))
     // keyboard-open 해제는 Did(완료) 시점 — Will(시작) 시점에 제거하면 닫힘 애니메이션 중의
     // 두 번째 백드롭 탭이 "키보드 닫는 중" 판정을 놓쳐 시트까지 닫는다 (Codex R1 F6).
-    Keyboard.addListener('keyboardDidHide', () => {
+    listeners.push(Keyboard.addListener('keyboardDidHide', () => {
       document.body.classList.remove('keyboard-open')
-    })
+      clearTimeout(scrollTimer)
+    }))
   } catch {
-    // Keyboard plugin not available
+    // 키보드 플러그인을 사용할 수 없는 환경은 건너뛴다.
   }
 
   // --- 빈 영역 탭 시 키보드 닫기 (실기기 QA 발견) ---

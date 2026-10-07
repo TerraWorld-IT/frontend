@@ -6,6 +6,7 @@ import { App } from '@capacitor/app'
 import { Keyboard } from '@capacitor/keyboard'
 
 afterEach(() => {
+  for (const dispose of keyboardDisposers.splice(0)) dispose()
   vi.clearAllMocks()
   vi.clearAllTimers()
   vi.useRealTimers()
@@ -15,15 +16,21 @@ afterEach(() => {
   document.body.innerHTML = ''
   isLoggedIn = ref<boolean>(false)
   sessionStorage.clear()
+  mocks.platform = 'android'
+  vi.mocked(Keyboard.setResizeMode).mockReset().mockResolvedValue(undefined)
 })
 
-const mocks = vi.hoisted(() => ({ native: false, recover: vi.fn().mockResolvedValue(undefined), pushListener: vi.fn(), trackPushRegistrationFailed: vi.fn(), toastInfo: vi.fn(), navigate: vi.fn() }))
+const mocks = vi.hoisted(() => ({ native: false, platform: 'android', recover: vi.fn().mockResolvedValue(undefined), pushListener: vi.fn(), trackPushRegistrationFailed: vi.fn(), toastInfo: vi.fn(), navigate: vi.fn() }))
+const keyboardDisposers: (() => void)[] = []
+function pluginApp() {
+  return { vueApp: { onUnmount: (dispose: () => void) => keyboardDisposers.push(dispose) } } as never
+}
 let isLoggedIn = ref<boolean>(false)
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => 'android' } }))
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => mocks.platform } }))
 vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(), exitApp: vi.fn(), getLaunchUrl: vi.fn() } }))
 mockNuxtImport('navigateTo', () => mocks.navigate)
 vi.mock('@capacitor/push-notifications', () => ({ PushNotifications: { addListener: mocks.pushListener } }))
-vi.mock('@capacitor/keyboard', () => ({ Keyboard: { addListener: vi.fn() } }))
+vi.mock('@capacitor/keyboard', () => ({ KeyboardResize: { Native: 'native' }, Keyboard: { addListener: vi.fn().mockImplementation(async () => ({ remove: vi.fn().mockResolvedValue(undefined) })), setResizeMode: vi.fn().mockResolvedValue(undefined) } }))
 mockNuxtImport('useAuth', () => () => ({ isLoggedIn, loadJwt: async () => null }))
 mockNuxtImport('useBackButtonStack', () => () => ({ popTopBackHandler: () => false }))
 mockNuxtImport('useToast', () => () => ({ info: mocks.toastInfo }))
@@ -38,7 +45,7 @@ describe('Capacitor 뒤로가기 종료 확인', () => {
     vi.mocked(App.exitApp).mockClear()
     mocks.toastInfo.mockClear()
     const translate = vi.spyOn(useNuxtApp().$i18n, 't')
-    await capacitorPlugin({} as never)
+    await capacitorPlugin(pluginApp())
     const backButton = vi.mocked(App.addListener).mock.calls.find(([event]) => event === 'backButton')![1]
     const now = vi.spyOn(Date, 'now').mockReturnValue(10_000)
 
@@ -58,7 +65,7 @@ describe('Capacitor 구매 복구 초기화', () => {
   it('Push 초기화 예외 후에도 로그인 시 미완료 IAP를 복구한다', async () => {
     mocks.native = true
     mocks.pushListener.mockImplementation(() => { throw new Error('push unavailable') })
-    await capacitorPlugin({} as never)
+    await capacitorPlugin(pluginApp())
     expect(mocks.pushListener).toHaveBeenCalled()
     expect(mocks.trackPushRegistrationFailed).toHaveBeenCalledExactlyOnceWith({ reason: 'initialization_failed' })
     expect(mocks.recover).not.toHaveBeenCalled()
@@ -75,7 +82,7 @@ describe('Capacitor 키보드 스크롤 모션', () => {
     vi.mocked(Keyboard.addListener).mockClear()
     if (reduce === undefined) vi.stubGlobal('matchMedia', undefined)
     else vi.spyOn(window, 'matchMedia').mockImplementation(query => ({ matches: query === '(prefers-reduced-motion: reduce)' && reduce }) as MediaQueryList)
-    await capacitorPlugin({} as never)
+    await capacitorPlugin(pluginApp())
     const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
     const input = document.createElement('input')
     document.body.append(input)
@@ -92,6 +99,79 @@ describe('Capacitor 키보드 스크롤 모션', () => {
   })
 })
 
+describe('Capacitor iOS 키보드 리사이즈', () => {
+  async function boot(platform: string) {
+    mocks.native = true
+    mocks.platform = platform
+    mocks.pushListener.mockImplementation(() => { throw new Error('push unavailable') })
+    await capacitorPlugin(pluginApp())
+  }
+
+  it('iOS 네이티브에서 리스너 등록 전에 네이티브 리사이즈를 한 번 설정한다', async () => {
+    await boot('ios')
+    expect(Keyboard.setResizeMode).toHaveBeenCalledExactlyOnceWith({ mode: 'native' })
+    expect(vi.mocked(Keyboard.setResizeMode).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(Keyboard.addListener).mock.invocationCallOrder[0]!)
+    expect(document.body.classList.contains('ios-native-keyboard')).toBe(true)
+  })
+
+  it('Android 네이티브에서는 리사이즈를 설정하거나 iOS 표시를 추가하지 않는다', async () => {
+    await boot('android')
+    expect(Keyboard.setResizeMode).not.toHaveBeenCalled()
+    expect(document.body.classList.contains('ios-native-keyboard')).toBe(false)
+  })
+
+  it('웹에서는 키보드 초기화를 실행하지 않는다', async () => {
+    mocks.native = false
+    mocks.platform = 'ios'
+    await capacitorPlugin(pluginApp())
+    expect(Keyboard.setResizeMode).not.toHaveBeenCalled()
+    expect(Keyboard.addListener).not.toHaveBeenCalled()
+  })
+
+  it('리사이즈 설정 실패 후에도 키보드 리스너와 복귀 초기화는 계속한다', async () => {
+    vi.mocked(Keyboard.setResizeMode).mockRejectedValueOnce(new Error('not implemented'))
+    await boot('ios')
+    expect(Keyboard.addListener).toHaveBeenCalledWith('keyboardWillShow', expect.any(Function))
+    expect(Keyboard.addListener).toHaveBeenCalledWith('keyboardDidHide', expect.any(Function))
+    expect(App.addListener).toHaveBeenCalledWith('resume', expect.any(Function))
+  })
+
+  it.each([true, false])('늦은 뷰포트 변경 뒤 입력을 다시 보정하고 닫힘·해제 뒤에는 보정하지 않는다 (%s)', async (reduce) => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(() => ({ matches: reduce }) as MediaQueryList)
+    await boot('ios')
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const hide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    input.scrollIntoView = vi.fn()
+    window.dispatchEvent(new Event('resize'))
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+    vi.useFakeTimers()
+    show({ keyboardHeight: 300 })
+    vi.advanceTimersByTime(300)
+    vi.mocked(input.scrollIntoView).mockClear()
+    window.dispatchEvent(new Event('resize'))
+    expect(input.scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
+    hide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(false)
+    vi.mocked(input.scrollIntoView).mockClear()
+    window.dispatchEvent(new Event('resize'))
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+
+    const handles = await Promise.all(vi.mocked(Keyboard.addListener).mock.results.map(result => result.value))
+    for (const dispose of keyboardDisposers.splice(0)) dispose()
+    await Promise.resolve()
+    expect(document.body.classList.contains('ios-native-keyboard')).toBe(false)
+    for (const handle of handles) expect(handle.remove).toHaveBeenCalledOnce()
+    // 해제 뒤 표시 상태가 남더라도 뷰포트 리스너는 더 이상 실행되지 않는다.
+    document.body.classList.add('keyboard-open')
+    window.dispatchEvent(new Event('resize'))
+    vi.advanceTimersByTime(400)
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+  })
+})
+
 describe('B6 콜드 스타트 딥링크', () => {
   function deferred<T>() {
     let resolve!: (value: T) => void
@@ -105,7 +185,7 @@ describe('B6 콜드 스타트 딥링크', () => {
     vi.mocked(App.addListener).mockClear()
     vi.mocked(App.getLaunchUrl).mockReset().mockImplementation(async () => launchUrl as { url: string } | undefined)
     mocks.navigate.mockClear()
-    await capacitorPlugin({} as never)
+    await capacitorPlugin(pluginApp())
     return vi.mocked(App.addListener).mock.calls.filter(([event]) => event === 'appUrlOpen').at(-1)![1] as (event: { url: string }) => void
   }
 
@@ -171,7 +251,7 @@ describe('B6 콜드 스타트 딥링크', () => {
     vi.mocked(App.addListener).mockClear()
     vi.mocked(App.getLaunchUrl).mockReset().mockRejectedValue(new Error('not implemented'))
     mocks.navigate.mockClear()
-    await capacitorPlugin({} as never)
+    await capacitorPlugin(pluginApp())
     const urlOpen = vi.mocked(App.addListener).mock.calls.filter(([event]) => event === 'appUrlOpen').at(-1)![1] as (event: { url: string }) => void
     await vi.waitFor(() => expect(App.getLaunchUrl).toHaveBeenCalledTimes(1))
     urlOpen({ url: 'terraworld:///share/xyz' })

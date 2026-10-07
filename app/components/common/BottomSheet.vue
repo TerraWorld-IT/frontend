@@ -18,7 +18,7 @@
     safe-area 여백도 footer 가 맡는다.
   - 키보드 가림 보정(Android 네이티브 한정): visualViewport 가 레이아웃 뷰포트보다 작으면(키보드 표시)
     패널을 보이는 영역 하단에 붙이고 높이를 줄인다 — footer CTA 가 키보드 위에 남는다. iOS 는
-    Keyboard resize=body 가 이미 본문을 줄이고, 웹 브라우저도 기존 배치를 그대로 쓴다.
+    런타임에 Keyboard native 리사이즈로 전환해 레이아웃 뷰포트가 줄고, 웹 브라우저는 기존 배치를 쓴다.
 
   트랜지션 함정 (frontend/CLAUDE.md): Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate`
   속성이라 transform 에 X 축을 넣으면 이중 적용된다. 수평 중앙은 `inset-x-0 mx-auto` 로 잡고
@@ -129,8 +129,8 @@ const expanded = ref<boolean>(false)
  * Android 15 edge-to-edge WebView 는 키보드가 떠도 레이아웃 뷰포트가 줄지 않아 bottom-0 패널의 하단 CTA 가
  * 키보드에 가려졌다(에뮬레이터 실측: visualViewport 499px, 저장 버튼 하단 518px). 보이는 영역의 하단
  * (offsetTop + height)에 패널을 붙이고 높이를 그 안으로 줄인다. 레이아웃 뷰포트가 함께 줄어드는 환경
- * (가림 0)과 핀치 확대(scale > 1)에서는 기존 배치를 그대로 쓴다. iOS(심사 중인 1.0.0 이 같은 웹을 쓴다)와
- * 웹 브라우저는 구독하지 않아 동작이 이전과 같다.
+ * (가림 0)과 핀치 확대(scale > 1)에서는 기존 배치를 그대로 쓴다. iOS 는 네이티브 리사이즈로 레이아웃
+ * 뷰포트가 줄어 기존 배치를 그대로 쓰며, 웹 브라우저도 이 보정에 구독하지 않는다.
  */
 const keyboardViewport = ref<{ bottom: number, inset: number } | null>(null)
 
