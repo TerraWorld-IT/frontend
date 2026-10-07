@@ -7,7 +7,7 @@ import RecordPage from '~/pages/record/index.vue'
 
 // B8: 키보드가 레이아웃 뷰포트를 줄이지 않는 WebView(Android 15 edge-to-edge)에서 시트 하단 CTA 가
 // 키보드에 가려지지 않도록 visualViewport 기준으로 패널을 보이는 영역 안에 둔다. Android 네이티브에서만
-// 적용하고 iOS(Keyboard resize=body)·웹 브라우저는 이전 동작을 그대로 둔다.
+// 적용하고 iOS 는 네이티브 리사이즈로 줄어든 뷰포트를 쓰며 웹 브라우저는 기존 배치를 유지한다.
 const mocks = vi.hoisted(() => ({
   // 앱 부팅 플러그인(capacitor.client)이 네이티브 경로를 타지 않도록 기본은 web, 각 테스트에서 바꾼다.
   platform: 'web' as 'android' | 'ios' | 'web',

@@ -279,6 +279,11 @@ select:focus-visible {
    기존 riso-shadow 류와 독립(그림자 미사용) — 충돌 없음.
    ============================================ */
 @layer components {
+  /* iOS 네이티브에서 키보드 위로 올라온 내비게이션이 입력 영역을 가리지 않도록 숨긴다. */
+  body.ios-native-keyboard.keyboard-open .app-bottom-nav {
+    display: none;
+  }
+
   /* 카드 — 흰 배경 + 라운드 16 + 연회색 보더 */
   .apjek-card {
     background-color: var(--color-apjek-surface);
