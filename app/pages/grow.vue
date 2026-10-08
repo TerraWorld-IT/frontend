@@ -271,7 +271,7 @@
       :ruby="ruby"
       :ruby-cost="lostRubyCost"
       :busy="reviving"
-      :ad-available="ADS_ENABLED && !isIos"
+      :ad-available="adAvailable"
       @close="closeLostModal"
       @revive="onRevive"
     />
@@ -283,7 +283,6 @@ import { h } from 'vue'
 import { useUserStore } from '~/stores/user'
 import { formatNumber } from '~/utils/format'
 import { readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim } from '~/composables/useAdMob'
-import { ADS_ENABLED } from '~/utils/constants'
 import type { GrowthItem, GrowthResponse, GrowthReviveRequest } from '@terraworld-it/openapi-frontend'
 import {
   BOOSTER_COST,
@@ -308,7 +307,7 @@ useHead({ htmlAttrs: { style: '--apjek-scrim: #f5f9fc; --apjek-scrim-bottom: var
 const { sdk, client } = useOpenApi()
 const toast = useToast()
 const { t } = useI18n()
-const isIos = ref<boolean>(false)
+const adAvailable = ref<boolean>(false)
 const userStore = useUserStore()
 
 const heroFrame = ref<HTMLElement | null>(null)
@@ -499,20 +498,15 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       await callRevive(species, { method: 'RUBY' })
       return
     }
-    // 첫 출시 광고 제외 — 모달 버튼이 숨겨져도 직접 호출은 광고·nonce·보류 청구를 시작하지 않는다.
-    if (!ADS_ENABLED) return
-    const { isAndroid, isIos: adIos, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
-    if (adIos) return
+    // 표시 조건과 같은 공통 판정으로 직접 호출·보류 복구까지 제한한다.
+    const { isAvailable, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
+    if (!isAvailable) return
     const stored = readPendingAdClaim('GROWTH_REVIVE', userId)
     if (stored?.purpose === 'GROWTH_REVIVE' && stored.speciesCode === species) {
       pendingClaim = stored
     }
     const recovering = pendingClaim !== null
     if (!pendingClaim) {
-      if (!isAndroid && !import.meta.dev) {
-        toast.info('앱에서 이용할 수 있어요')
-        return
-      }
       const issued = await issueServerNonce('GROWTH_REVIVE')
       const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
       if (!watched) {
@@ -586,7 +580,7 @@ async function loadGrowth(): Promise<void> {
 }
 
 onMounted(() => {
-  isIos.value = useAdMob().isIos
+  adAvailable.value = useAdMob().isAvailable
   // 콜드 진입(직접 URL/새로고침) 시 userStore.me 가 비어 있으면 보유 반짝이가 0 으로
   // 표시되는 정합 버그 방지. fetchMe 는 TTL fetchGuard 가 있어 홈 경유 진입 시 중복 비용 없음.
   void userStore.fetchMe()

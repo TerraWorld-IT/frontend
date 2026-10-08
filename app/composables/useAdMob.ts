@@ -9,15 +9,22 @@ export const REWARD_AD_TIMEOUT_MS = 60_000
 export const REWARD_AD_PREPARE_TIMEOUT_MS = 20_000
 /** Google 공식 테스트 보상형 광고 ID — 운영 빌드에서는 쓰지 않는다. */
 export const TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917'
+export const TEST_REWARDED_AD_ID_IOS = 'ca-app-pub-3940256099942544/1712485313'
 
 /**
  * 보상형 광고 단위 ID. 운영 빌드에서 설정값이 비어 있으면 테스트 ID 로 대체하지 않고 null —
  * 호출부는 광고를 시작하지 않는다(운영에서 테스트 광고 노출 금지). 개발·테스트 빌드만 테스트 ID 를 쓴다.
  */
-export function resolveRewardedAdId(configured: string | undefined, isProd: boolean): string | null {
+export function resolveRewardedAdId(configured: string | undefined, isProd: boolean, platform = 'android'): string | null {
+  if (platform !== 'ios' && platform !== 'android') return null
   const adId = configured?.trim() ?? ''
   if (adId) return adId
-  return isProd ? null : TEST_REWARDED_AD_ID
+  return isProd ? null : platform === 'ios' ? TEST_REWARDED_AD_ID_IOS : TEST_REWARDED_AD_ID
+}
+
+/** 진입점 표시·광고 호출·nonce 발급을 같은 조건으로 제한한다. */
+export function isRewardedAdAvailable(native: boolean, pluginAvailable: boolean, platform: string, adId: string | null): boolean {
+  return ADS_ENABLED && native && pluginAvailable && (platform === 'ios' || platform === 'android') && !!adId
 }
 
 /** 보류는 서버 만료시각 그대로 보존한다. 만료 안내와 제거는 진입점이 담당한다. */
@@ -85,11 +92,19 @@ export function useAdMob() {
   const { sdk, client } = useOpenApi()
   const config = useRuntimeConfig()
   const isNative = import.meta.client ? Capacitor.isNativePlatform() : false
-  const isAndroid = import.meta.client ? Capacitor.getPlatform() === 'android' : false
-  const isIos = import.meta.client ? Capacitor.getPlatform() === 'ios' : false
+  const platform = import.meta.client ? Capacitor.getPlatform() : 'web'
+  const isAndroid = platform === 'android'
+  const isIos = platform === 'ios'
+  const adId = resolveRewardedAdId(
+    (isIos ? config.public.admobRewardedAdIdIos : config.public.admobRewardedAdId) as string | undefined,
+    import.meta.env.PROD,
+    platform,
+  )
+  const isAvailable = isRewardedAdAvailable(isNative, isNative && Capacitor.isPluginAvailable('AdMob'), platform, adId)
 
   let initialized = false
-  let attRequested = false
+  let trackingStatus: string | null = null
+  let trackingRequest: Promise<string | null> | undefined
 
   /**
    * P3-3 (iOS App Tracking Transparency): IDFA(광고 식별자) 접근 전 ATT 동의 prompt 를 요청한다.
@@ -97,22 +112,30 @@ export function useAdMob() {
    * iOS 에서만 동작(1회), Android/web 은 no-op. 반환: ATT status 또는 null.
    */
   async function requestTrackingAuthorization(): Promise<string | null> {
-    if (!import.meta.client || !isIos || attRequested) return null
-    attRequested = true
-    try {
-      const { AdMob } = await import('@capacitor-community/admob')
-      // requestTrackingAuthorization() 가 ATT prompt 를 띄움(핵심). 반환 타입은 플러그인 버전에 따라
-      // void 또는 { status } — 런타임에서 status 가 있으면 반환, 없으면 null (as unknown 으로 양쪽 호환).
-      const res = await AdMob.requestTrackingAuthorization()
-      // 광고 요청은 플랫폼 무관 비개인화(npa: true) 고정이라 ATT 결과로 개인화 여부를 바꾸지 않는다.
-      return (res as unknown as { status?: string } | undefined)?.status ?? null
-    }
-    catch {
-      return null
+    if (!isAvailable || !isIos) return null
+    trackingRequest ??= readTrackingAuthorization()
+    return trackingRequest
+
+    async function readTrackingAuthorization(): Promise<string | null> {
+      try {
+        const { AdMob } = await import('@capacitor-community/admob')
+        trackingStatus = (await AdMob.trackingAuthorizationStatus()).status
+        if (trackingStatus === 'notDetermined') {
+          await AdMob.requestTrackingAuthorization()
+          trackingStatus = (await AdMob.trackingAuthorizationStatus()).status
+        }
+        return trackingStatus
+      }
+      catch {
+        // 상태 확인 실패도 동의로 간주하지 않고 비개인화 광고로 진행한다.
+        trackingStatus = null
+        return null
+      }
     }
   }
 
   async function issueServerNonce(purpose: AdRewardNonceResponse['purpose']): Promise<AdRewardNonceResponse> {
+    if (!isAvailable) throw new Error('앱에서 이용할 수 있어요')
     const { data, error } = await sdk.issueAdRewardNonce({ client, query: { purpose } })
     if (error) throw new Error(errMsg(error, '광고 보상 요청을 준비하지 못했어요'))
     const nonce = castData<AdRewardNonceResponse>(data)
@@ -127,6 +150,7 @@ export function useAdMob() {
     expectedNonce: string,
     opts: { tries?: number, intervalMs?: number, signal?: AbortSignal } = {},
   ): Promise<AdRewardNonceResponse | null> {
+    if (!isAvailable) return null
     const tries = opts.tries ?? 3
     let last: AdRewardNonceResponse | null = null
     for (let attempt = 0; attempt < tries; attempt++) {
@@ -166,7 +190,7 @@ export function useAdMob() {
   }
 
   async function initialize(): Promise<void> {
-    if (!import.meta.client || !ADS_ENABLED || !isNative || initialized) return
+    if (!isAvailable || initialized) return
     try {
       const { AdMob } = await import('@capacitor-community/admob')
       // P3-3: iOS 는 IDFA 접근 전 ATT 동의 요청(Apple 정책). Android/web no-op.
@@ -186,25 +210,14 @@ export function useAdMob() {
   /**
    * 보상형 광고 시청. 시청 완료 시 true 반환.
    *
-   * 플랫폼 게이트 (2026-07-20 audit B2-3 정정): 실 광고는 Android 네이티브에서만 가능.
-   * 이전에는 웹/iOS 에서 무조건 true 를 반환해("30초 카운트다운 모달이 게이트" — 실존하지 않는
-   * 컴포넌트) **프로덕션에서 광고 시청 없이 보상 청구가 가능**했다. 이제 광고를 띄울 수 없는
-   * 플랫폼은 dev 빌드에서만 통과(true, 로컬 보상 플로우 테스트용), 프로덕션은 false —
-   * 진입점(홈 무료코인 버튼)도 Android 네이티브에서만 노출된다.
+   * 네이티브 플러그인과 플랫폼별 광고 ID가 있는 경우만 시작한다.
+   * 개발 빌드도 시청 없이 성공으로 처리하지 않으며 실제 테스트 광고 완료가 필요하다.
    *
    * @param opts.ssvUserId / opts.ssvCustomData — AdMob SSV 콜백에 실릴 사용자/nonce 식별값.
    *   backend SSV-authoritative 전환(Phase 4)의 전제 배선 (audit B2-2 부수).
    */
   async function showRewardedAd(opts?: { ssvUserId?: string, ssvCustomData?: string }): Promise<boolean> {
-    if (!import.meta.client) return false
-    // 첫 출시 광고 제외 — 진입점이 숨겨져도 직접 호출까지 막는다.
-    if (!ADS_ENABLED) return false
-    if (!isNative || !isAndroid) {
-      return import.meta.dev
-    }
-    // 운영에서 광고 단위 ID 가 비어 있으면 테스트 광고로 대체하지 않고 시작하지 않는다.
-    const adId = resolveRewardedAdId(config.public.admobRewardedAdId as string | undefined, import.meta.env.PROD)
-    if (!adId) return false
+    if (!isAvailable || !adId) return false
     try {
       const { AdMob, RewardAdPluginEvents } = await import('@capacitor-community/admob')
 
@@ -223,11 +236,9 @@ export function useAdMob() {
         if (preparation.signal.aborted) return
         await AdMob.prepareRewardVideoAd({
           adId,
-          // 비개인화 광고(npa) 고정 — 광고 정책 결정 Q26-B "한국 성인 대상 비개인화 광고, UMP 미사용"
-          // (workspace#36, 법무 확인 대상). UMP 동의 수집이 없으므로 Android 도 개인화 요청을 하지 않는다.
-          // 개인화 광고를 도입하려면 UMP 동의 플로우 + Data safety 공시 변경이 선행돼야 한다.
-          // (iOS 는 ATT 미인증 시 어차피 비개인화 — iOS 광고 도입 시에도 이 값이 정합을 보장)
-          npa: true,
+          // iOS는 ATT 허용 시 개인화를 요청하고, 거부·제한·미결정·확인 실패는 비개인화로 진행한다.
+          // Android의 기존 비개인화 정책은 유지한다.
+          npa: !isIos || trackingStatus !== 'authorized',
           ...(ssv ? { ssv } : {}),
         })
       })(), REWARD_AD_PREPARE_TIMEOUT_MS, preparation)
@@ -277,6 +288,7 @@ export function useAdMob() {
     isNative,
     isAndroid,
     isIos,
+    isAvailable,
     initialize,
     requestTrackingAuthorization,
     showRewardedAd,

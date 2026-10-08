@@ -82,7 +82,7 @@ const props = withDefaults(defineProps<{
   rubyCost: number
   /** 복귀 요청 진행 중 */
   busy?: boolean
-  /** 광고 진입점 노출 여부 — 성장 화면이 ADS_ENABLED·플랫폼으로 정한다. 생략하면 기존대로 노출한다. */
+  /** 광고 진입점 노출 여부 — 성장 화면이 useAdMob의 공통 판정으로 정한다. 생략하면 기존대로 노출한다. */
   adAvailable?: boolean
 }>(), { adAvailable: true })
 

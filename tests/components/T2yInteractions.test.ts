@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   adAndroid: false,
   adIos: false,
   adNative: false,
+  adPlugin: false,
   issueServerNonce: vi.fn(),
   awaitNonceVerified: vi.fn(),
   backHandlers: [] as Array<() => void>,
@@ -40,7 +41,7 @@ vi.mock('vue-router', async () => ({ ...(await vi.importActual('vue-router')), o
 vi.mock('~/stores/user', () => ({ useUserStore: () => mocks.user }))
 vi.mock('~/stores/items', () => ({ useItemsStore: () => mocks.items }))
 vi.mock('~/stores/homeSnapshot', () => ({ useHomeSnapshotStore: () => mocks.home }))
-// 출시 플래그는 실제 값(false)을 기본으로 두고, 광고 도입 후 성장 청구 경로 검증에서만 켠다.
+// 전체 중단 스위치와 실제 바이너리의 플러그인 유무를 독립적으로 검증한다.
 vi.mock('~/utils/constants', async (importOriginal) => {
   const actual = await importOriginal<typeof import('~/utils/constants')>()
   return { ...actual, get ADS_ENABLED() { return mocks.adsEnabled } }
@@ -57,7 +58,18 @@ mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true),
 mockNuxtImport('useAttendance', () => () => ({ state: ref(null), loading: ref(false), error: ref<string | null>(null), refresh: vi.fn(), checkIn: vi.fn() }))
 mockNuxtImport('useTier', () => () => ({ state: ref(null), catalog: ref(null), loading: ref<boolean>(false), loadError: ref<boolean>(false), load: vi.fn() }))
 mockNuxtImport('useBgm', () => () => ({ enabled: ref(false), playing: ref<boolean>(false), hasSource: false, play: vi.fn(), stop: vi.fn(), toggle: vi.fn() }))
-mockNuxtImport('useAdMob', () => () => ({ isNative: mocks.adNative, isAndroid: mocks.adAndroid, isIos: mocks.adIos, issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd }))
+vi.mock('@capacitor/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@capacitor/core')>()
+  return { ...actual, Capacitor: { ...actual.Capacitor,
+    isNativePlatform: () => mocks.adNative,
+    getPlatform: () => mocks.adIos ? 'ios' : mocks.adAndroid ? 'android' : 'web',
+    isPluginAvailable: (name: string) => name === 'AdMob' && mocks.adPlugin,
+  } }
+})
+mockNuxtImport('useAdMob', async () => {
+  const actual = await vi.importActual<typeof import('~/composables/useAdMob')>('~/composables/useAdMob')
+  return () => ({ ...actual.useAdMob(), issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd })
+})
 
 const wrappers: VueWrapper[] = []
 // 실제 SFC setup을 마운트하고 외부 I/O와 자식 셸만 대체한다. 로직 복제/소스 문자열 실행은 하지 않는다.
@@ -83,7 +95,7 @@ function deferred<T = any>() {
   return { promise, resolve, reject }
 }
 
-// 첫 출시 홈 광고는 UI와 직접 핸들러 모두 외부 작업을 시작하지 않는다.
+// 광고 미지원 바이너리는 UI와 직접 핸들러 모두 외부 작업을 시작하지 않는다.
 function expectNoHomeAdWork(s: Record<string, any>) {
   expect(s.adClaiming).toBe(false)
   expect(mocks.issueServerNonce).not.toHaveBeenCalled()
@@ -412,10 +424,13 @@ beforeEach(() => {
   mocks.user.fetchMe.mockReset().mockResolvedValue(undefined)
   mocks.shareFile.mockReset().mockResolvedValue(true)
   mocks.capture.mockReset().mockResolvedValue({ toBlob: (callback: (blob: Blob) => void) => callback(new Blob(['png'], { type: 'image/png' })) })
-  mocks.adsEnabled = false
+  mocks.adsEnabled = true
   mocks.adAndroid = false
   mocks.adIos = false
   mocks.adNative = false
+  mocks.adPlugin = false
+  useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'
+  useRuntimeConfig().public.admobRewardedAdId = 'android-real/1'
   mocks.showRewardedAd.mockReset().mockResolvedValue(true)
   mocks.issueServerNonce.mockReset().mockImplementation(async (purpose) => ({ nonce: 'n1', purpose, status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() }))
   mocks.awaitNonceVerified.mockReset().mockResolvedValue({ nonce: 'n1', status: 'VERIFIED' })
@@ -430,12 +445,12 @@ afterEach(() => {
 })
 
 describe('WP4a 보류 복구 델타', () => {
-  beforeEach(() => { mocks.adAndroid = true })
+  beforeEach(() => { mocks.adNative = true; mocks.adIos = true })
   it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 보류는 성장 광고 청구 실패 또는 홈 광고 진입 차단에도 유지된다', async (purpose) => {
     const claim = { nonce: 'previous', purpose, expiresAt: new Date(Date.now() + 600000).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) }
     writePendingAdClaim(purpose, 'u1', claim)
-    // 성장 청구 경로는 광고 도입 후 동작을 검증하고, 홈은 출시 플래그(off) 차단을 검증한다.
-    mocks.adsEnabled = purpose === 'AD_REWARD'
+    // 성장 청구는 새 iOS 바이너리로, 홈 진입 차단은 플러그인 없는 구버전으로 검증한다.
+    mocks.adPlugin = purpose === 'AD_REWARD'
     const s = state(await mountPage(purpose === 'AD_REWARD' ? GrowPage : HomePage))
     if (purpose === 'AD_REWARD') {
       s.lostModalSpecies = 'SPIRIT_A'
@@ -482,7 +497,7 @@ describe('WP4a 보류 복구 델타', () => {
   })
 
   it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 로컬 만료는 홈 진입 차단 시 보존하고 성장 복구 시 재조회 후 정리한다', async (purpose) => {
-    mocks.adsEnabled = purpose === 'GROWTH_REVIVE'
+    mocks.adPlugin = purpose === 'GROWTH_REVIVE'
     const s = state(await mountPage(purpose === 'AD_REWARD' ? HomePage : GrowPage))
     writePendingAdClaim(purpose, 'u1', { nonce: 'expired', purpose, expiresAt: new Date(Date.now() - 1).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) })
     mocks.user.fetchMe.mockClear()
@@ -511,7 +526,7 @@ describe('WP4a 보류 복구 델타', () => {
   })
 
   it.each(['mismatch', 'consumed', 'new-mismatch'] as const)('성장 %s에서 잔액 실패를 격리하고 성장 재조회 성공 후 정리한다', async (scenario) => {
-    mocks.adsEnabled = true
+    mocks.adPlugin = true
     const s = state(await mountPage(GrowPage))
     if (scenario !== 'new-mismatch') writePendingAdClaim('GROWTH_REVIVE', 'u1', { nonce: 'n1', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' })
     s.lostModalSpecies = 'SPIRIT_A'
@@ -535,7 +550,7 @@ describe('WP4a 보류 복구 델타', () => {
   })
 
   it.each(['mismatch', 'consumed'] as const)('성장 %s 재조회 실패는 모달과 보류를 유지한다', async (scenario) => {
-    mocks.adsEnabled = true
+    mocks.adPlugin = true
     const s = state(await mountPage(GrowPage))
     writePendingAdClaim('GROWTH_REVIVE', 'u1', { nonce: 'n1', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' })
     s.lostModalSpecies = 'SPIRIT_A'
@@ -577,47 +592,103 @@ describe('WP4a 보류 복구 델타', () => {
 
 })
 
-describe('B1 첫 출시 성장 광고 제외', () => {
-  it.each(['android', 'ios', 'web'] as const)('ADS_ENABLED=false면 %s 성장 부활 모달에 광고 버튼을 넘기지 않는다', async (platform) => {
+describe('B1 바이너리별 홈·성장 광고 가용성', () => {
+  it.each(['android', 'ios', 'web'] as const)('플러그인 없는 %s는 홈·성장 광고 버튼을 숨긴다', async (platform) => {
     mocks.adNative = platform !== 'web'
     mocks.adAndroid = platform === 'android'
     mocks.adIos = platform === 'ios'
     const w = await mountPage(GrowPage)
     expect(w.findComponent({ name: 'GrowLostModal' }).props('adAvailable')).toBe(false)
+    const home = await mountPage(HomePage)
+    expect(home.find('[data-testid="home-freecoin"]').exists()).toBe(false)
   })
 
-  it('광고를 켜면 Android만 부활 광고 버튼을 받는다(플래그가 유일한 스위치)', async () => {
-    mocks.adsEnabled = true
+  it('플러그인과 ID가 있는 iOS는 홈·성장 광고 버튼을 표시하고 광고를 시작한다', async () => {
     mocks.adNative = true
-    mocks.adAndroid = true
-    expect(state(await mountPage(GrowPage)).isIos).toBe(false)
-    expect(wrappers.at(-1)!.findComponent({ name: 'GrowLostModal' }).props('adAvailable')).toBe(true)
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const growth = await mountPage(GrowPage)
+    expect(growth.findComponent({ name: 'GrowLostModal' }).props('adAvailable')).toBe(true)
+    const home = await mountPage(HomePage)
+    await home.get('[data-testid="home-freecoin"]').trigger('click')
+    expect(state(home).showFreeCoinDialog).toBe(true)
+    mocks.sdk.claimAdReward!.mockResolvedValueOnce({ data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } })
+    await state(home).onClaimAdReward()
+    expect(mocks.issueServerNonce).toHaveBeenCalledWith('AD_REWARD')
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(1)
+    expect(mocks.user.updateCurrency).toHaveBeenCalledWith({ specialCoins: 2 })
+    expect(mocks.toast.success).toHaveBeenCalledTimes(1)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    expect(state(home).showFreeCoinDialog).toBe(false)
+    state(growth).lostModalSpecies = 'SPIRIT_A'
+    mocks.sdk.reviveGrowth!.mockResolvedValueOnce({ data: null })
+    await state(growth).onRevive('AD')
+    expect(mocks.issueServerNonce).toHaveBeenCalledWith('GROWTH_REVIVE')
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(2)
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(1)
+    expect(mocks.toast.success).toHaveBeenCalledWith('정령이 돌아왔어요! 이어서 기록해요')
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(state(growth).lostModalSpecies).toBeNull()
   })
 
-  it.each([false, true])('ADS_ENABLED=false면 부활 광고 직접 호출(보류=%s)도 nonce·광고·검증·청구를 시작하지 않고 보류를 보존한다', async (pending) => {
+  it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('iOS %s 시청 미완료는 안내만 표시하고 검증·청구·보류를 만들지 않는다', async (purpose) => {
     mocks.adNative = true
-    mocks.adAndroid = true
-    const claim = { nonce: 'previous', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
-    if (pending) writePendingAdClaim('GROWTH_REVIVE', 'u1', claim)
-    const s = state(await mountPage(GrowPage))
-    s.lostModalSpecies = 'SPIRIT_A'
-    mocks.sdk.getGrowth!.mockClear()
-    mocks.user.fetchMe.mockClear()
-    await s.onRevive('AD')
-    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
-    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    mocks.adIos = true
+    mocks.adPlugin = true
+    mocks.showRewardedAd.mockResolvedValueOnce(false)
+    const s = state(await mountPage(purpose === 'AD_REWARD' ? HomePage : GrowPage))
+    if (purpose === 'AD_REWARD') await s.onClaimAdReward()
+    else {
+      s.lostModalSpecies = 'SPIRIT_A'
+      await s.onRevive('AD')
+    }
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    expect(mocks.toast.info).toHaveBeenCalledTimes(1)
+    expect(mocks.toast.success).not.toHaveBeenCalled()
     expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
     expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
-    expect(mocks.sdk.getGrowth).not.toHaveBeenCalled()
-    expect(mocks.user.fetchMe).not.toHaveBeenCalled()
-    expect(mocks.toast.error).not.toHaveBeenCalled()
-    expect(mocks.toast.info).not.toHaveBeenCalled()
-    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(pending ? claim : null)
-    expect(s.lostModalSpecies).toBe('SPIRIT_A')
-    expect(s.reviving).toBe(false)
+    expect(readPendingAdClaim(purpose, 'u1')).toBeNull()
+  })
+
+  describe.each(['ios', 'android', 'web'])('%s 플러그인 없는 환경', (platform) => {
+    it.each([false, true])('직접 호출(보류=%s)도 nonce·광고·검증·청구를 시작하지 않고 보류를 보존한다', async (pending) => {
+      mocks.adNative = platform !== 'web'
+      mocks.adAndroid = platform === 'android'
+      mocks.adIos = platform === 'ios'
+      const claim = { nonce: 'previous', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
+      if (pending) writePendingAdClaim('GROWTH_REVIVE', 'u1', claim)
+      const s = state(await mountPage(GrowPage))
+      s.lostModalSpecies = 'SPIRIT_A'
+      mocks.sdk.getGrowth!.mockClear()
+      mocks.user.fetchMe.mockClear()
+      await s.onRevive('AD')
+      expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+      expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+      expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+      expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
+      expect(mocks.sdk.getGrowth).not.toHaveBeenCalled()
+      expect(mocks.user.fetchMe).not.toHaveBeenCalled()
+      expect(mocks.toast.error).not.toHaveBeenCalled()
+      expect(mocks.toast.info).not.toHaveBeenCalled()
+      expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(pending ? claim : null)
+      expect(s.lostModalSpecies).toBe('SPIRIT_A')
+      expect(s.reviving).toBe(false)
+      const home = state(await mountPage(HomePage))
+      const homeClaim = { nonce: 'home-previous', purpose: 'AD_REWARD' as const, expiresAt: claim.expiresAt }
+      if (pending) writePendingAdClaim('AD_REWARD', 'u1', homeClaim)
+      home.onAdMenuClick()
+      await home.onClaimAdReward()
+      await home.claimPendingAdReward()
+      expectNoHomeAdWork(home)
+      expect(readPendingAdClaim('AD_REWARD', 'u1')).toEqual(pending ? homeClaim : null)
+      expect(home.showFreeCoinDialog).toBe(false)
+    })
   })
 
   it('ADS_ENABLED=false여도 루비 부활은 그대로 동작한다', async () => {
+    mocks.adsEnabled = false
     const s = state(await mountPage(GrowPage))
     s.lostModalSpecies = 'SPIRIT_A'
     mocks.sdk.reviveGrowth!.mockResolvedValueOnce({ data: null })
@@ -625,6 +696,22 @@ describe('B1 첫 출시 성장 광고 제외', () => {
     expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(1)
     expect(mocks.sdk.reviveGrowth!.mock.calls[0]![0]).toMatchObject({ body: { method: 'RUBY' } })
     expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+  })
+
+  it('전체 중단 스위치는 플러그인과 ID가 있는 iOS도 차단한다', async () => {
+    mocks.adsEnabled = false
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const growth = await mountPage(GrowPage)
+    expect(growth.findComponent({ name: 'GrowLostModal' }).props('adAvailable')).toBe(false)
+    state(growth).lostModalSpecies = 'SPIRIT_A'
+    await state(growth).onRevive('AD')
+    const home = await mountPage(HomePage)
+    expect(home.find('[data-testid="home-freecoin"]').exists()).toBe(false)
+    await state(home).onClaimAdReward()
+    expectNoHomeAdWork(state(home))
+    expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
   })
 })
 

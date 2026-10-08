@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
-import { useAdMob, REWARD_AD_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, resolveRewardedAdId, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
+import { useAdMob, REWARD_AD_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, TEST_REWARDED_AD_ID_IOS, resolveRewardedAdId, isRewardedAdAvailable, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { kstTodayKey } from '~/utils/habitState'
 
@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   adsEnabled: false,
   native: false,
   platform: 'web',
+  pluginAvailable: false,
+  trackingStatus: vi.fn(),
+  requestTracking: vi.fn(),
   issue: vi.fn(),
   initialize: vi.fn(),
   prepare: vi.fn(),
@@ -17,8 +20,8 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   listeners: new Map<string, () => void>(),
 }))
-vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => mocks.platform } }))
-// 출시 플래그는 실제 값(false)을 기본으로 두고, 광고 도입 후 경로 검증에서만 켠다.
+vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => mocks.platform, isPluginAvailable: (name: string) => name === 'AdMob' && mocks.pluginAvailable } }))
+// 전체 중단 스위치와 실제 바이너리의 플러그인 유무를 각각 검증한다.
 vi.mock('~/utils/constants', async (importOriginal) => {
   const actual = await importOriginal<typeof import('~/utils/constants')>()
   return { ...actual, get ADS_ENABLED() { return mocks.adsEnabled } }
@@ -28,6 +31,8 @@ vi.mock('@capacitor-community/admob', () => ({
     initialize: mocks.initialize,
     prepareRewardVideoAd: mocks.prepare,
     showRewardVideoAd: mocks.show,
+    trackingAuthorizationStatus: mocks.trackingStatus,
+    requestTrackingAuthorization: mocks.requestTracking,
     addListener: async (event: string, callback: () => void) => {
       mocks.listeners.set(event, callback)
       return { remove: mocks.remove }
@@ -49,10 +54,14 @@ function nonce(overrides: Partial<AdRewardNonceResponse> = {}): AdRewardNonceRes
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-09-09T03:00:00Z'))
-  mocks.adsEnabled = false
+  mocks.adsEnabled = true
   setAdId('')
-  mocks.native = false
-  mocks.platform = 'web'
+  useRuntimeConfig().public.admobRewardedAdIdIos = ''
+  mocks.native = true
+  mocks.platform = 'android'
+  mocks.pluginAvailable = true
+  mocks.trackingStatus.mockReset().mockResolvedValue({ status: 'authorized' })
+  mocks.requestTracking.mockReset().mockResolvedValue(undefined)
   mocks.listeners.clear()
   mocks.initialize.mockReset().mockResolvedValue(undefined)
   mocks.prepare.mockReset().mockResolvedValue(undefined)
@@ -64,6 +73,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   localStorage.clear()
 })
 
@@ -205,22 +215,29 @@ describe('광고 보류와 한도일 저장', () => {
   })
 
   it('저장소 예외가 청구 결과를 덮지 않는다', () => {
-    vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('저장 차단') })
+    // happy-dom 저장소 프록시의 메서드 교체가 다음 테스트에 남지 않도록 전역을 복원한다.
+    const storage = {
+      setItem: vi.fn(() => { throw new Error('저장 차단') }),
+      getItem: vi.fn(() => { throw new Error('조회 차단') }),
+      removeItem: vi.fn(() => { throw new Error('삭제 차단') }),
+    }
+    vi.stubGlobal('localStorage', storage)
     expect(() => writePendingAdClaim('AD_REWARD', 'u1', nonce())).not.toThrow()
     expect(() => markAdLimitReachedToday('u1')).not.toThrow()
-    vi.spyOn(localStorage, 'getItem').mockImplementation(() => { throw new Error('조회 차단') })
     expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
     expect(isAdLimitReachedToday('u1')).toBe(false)
-    vi.spyOn(localStorage, 'removeItem').mockImplementation(() => { throw new Error('삭제 차단') })
     expect(() => clearPendingAdClaim('AD_REWARD', 'u1')).not.toThrow()
+    expect(storage.setItem).toHaveBeenCalledTimes(2)
+    expect(storage.getItem).toHaveBeenCalledTimes(2)
+    expect(storage.removeItem).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('Android 광고 시한과 완료 증거', () => {
+describe.each(['android', 'ios'])('%s 광고 시한과 완료 증거', (platform) => {
   beforeEach(() => {
     mocks.adsEnabled = true
     mocks.native = true
-    mocks.platform = 'android'
+    mocks.platform = platform
   })
 
   it.each(['initialize', 'prepare'] as const)('%s가 멈추면 준비 20초 뒤 false이며 늦은 완료도 광고를 표시하지 않는다', async (step) => {
@@ -267,10 +284,23 @@ describe('Android 광고 시한과 완료 증거', () => {
     mocks.listeners.get('failed')!()
     expect(await failed).toBe(false)
   })
+
+  it('시청 완료 후 닫으면 성공하고 준비·표시 오류에는 실패한다', async () => {
+    const watched = useAdMob().showRewardedAd()
+    await flushPromises()
+    mocks.listeners.get('rewarded')!()
+    mocks.listeners.get('dismissed')!()
+    expect(await watched).toBe(true)
+    mocks.prepare.mockRejectedValueOnce(new Error('준비 실패'))
+    expect(await useAdMob().showRewardedAd()).toBe(false)
+    mocks.show.mockRejectedValueOnce(new Error('표시 실패'))
+    expect(await useAdMob().showRewardedAd()).toBe(false)
+  })
 })
 
-describe('첫 출시 광고 제외와 운영 광고 단위 ID', () => {
+describe('광고 중단 스위치와 운영 광고 단위 ID', () => {
   it.each(['android', 'ios', 'web'] as const)('ADS_ENABLED=false면 %s에서 SDK 초기화·준비·표시를 시작하지 않는다', async (platform) => {
+    mocks.adsEnabled = false
     mocks.native = platform !== 'web'
     mocks.platform = platform
     setAdId('ca-app-pub-real/1')
@@ -291,6 +321,11 @@ describe('첫 출시 광고 제외와 운영 광고 단위 ID', () => {
     // 개발·테스트 빌드만 Google 공식 테스트 ID 를 쓴다.
     expect(resolveRewardedAdId('', false)).toBe(TEST_REWARDED_AD_ID)
     expect(resolveRewardedAdId('ca-app-pub-real/1', false)).toBe('ca-app-pub-real/1')
+    expect(resolveRewardedAdId('', true, 'ios')).toBeNull()
+    expect(resolveRewardedAdId('   ', true, 'ios')).toBeNull()
+    expect(resolveRewardedAdId(undefined, true, 'ios')).toBeNull()
+    expect(resolveRewardedAdId('ios-real/1', true, 'ios')).toBe('ios-real/1')
+    expect(resolveRewardedAdId('', false, 'ios')).toBe(TEST_REWARDED_AD_ID_IOS)
   })
 
   it('광고를 켜면 설정된 광고 단위 ID로 준비하고, 비어 있으면 테스트 빌드에서만 테스트 ID를 쓴다', async () => {
@@ -301,11 +336,101 @@ describe('첫 출시 광고 제외와 운영 광고 단위 ID', () => {
     void useAdMob().showRewardedAd()
     await flushPromises()
     expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ adId: 'ca-app-pub-real/1', npa: true }))
+    mocks.listeners.get('dismissed')!()
     mocks.prepare.mockClear()
     setAdId('')
     void useAdMob().showRewardedAd()
     await flushPromises()
     expect(import.meta.env.PROD).toBe(false)
     expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ adId: TEST_REWARDED_AD_ID }))
+    mocks.listeners.get('dismissed')!()
+  })
+})
+
+describe('바이너리 가용성과 구버전 보호', () => {
+  it.each([
+    ['ios', true, true, 'ios-real/1', true],
+    ['ios', true, false, 'ios-real/1', false],
+    ['ios', true, true, '', false],
+    ['android', true, false, 'android-real/1', false],
+    ['android', true, true, 'android-real/1', true],
+    ['web', false, true, 'web/1', false],
+    ['other', true, true, 'other/1', false],
+  ] as const)('%s 네이티브=%s 플러그인=%s ID=%s → %s', (platform, native, plugin, configured, expected) => {
+    const adId = resolveRewardedAdId(configured, true, platform)
+    expect(isRewardedAdAvailable(native, plugin, platform, adId)).toBe(expected)
+  })
+
+  it.each(['ios', 'android', 'web'])('%s 플러그인이 없으면 보류를 보존하고 nonce·광고·ATT를 시작하지 않는다', async (platform) => {
+    mocks.platform = platform
+    mocks.native = platform !== 'web'
+    mocks.pluginAvailable = false
+    setAdId('android-real/1')
+    useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'
+    const ad = useAdMob()
+    expect(ad.isAvailable).toBe(false)
+    await ad.initialize()
+    expect(await ad.requestTrackingAuthorization()).toBeNull()
+    expect(await ad.showRewardedAd()).toBe(false)
+    for (const purpose of ['AD_REWARD', 'GROWTH_REVIVE'] as const) {
+      const pending = { ...nonce({ purpose }), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) }
+      writePendingAdClaim(purpose, 'u1', pending)
+      await expect(ad.issueServerNonce(purpose)).rejects.toThrow('앱에서 이용할 수 있어요')
+      expect(await ad.awaitNonceVerified(purpose, pending.nonce)).toBeNull()
+      expect(readPendingAdClaim(purpose, 'u1')?.nonce).toBe(pending.nonce)
+    }
+    expect(mocks.issue).not.toHaveBeenCalled()
+    expect(mocks.initialize).not.toHaveBeenCalled()
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(mocks.show).not.toHaveBeenCalled()
+    expect(mocks.trackingStatus).not.toHaveBeenCalled()
+    expect(mocks.requestTracking).not.toHaveBeenCalled()
+  })
+})
+
+describe('iOS ATT와 광고 단위', () => {
+  beforeEach(() => { mocks.platform = 'ios' })
+
+  it.each(['authorized', 'denied', 'restricted', 'notDetermined'])('ATT %s에서 재요청 없이 광고를 계속한다', async (status) => {
+    mocks.trackingStatus.mockResolvedValue({ status })
+    useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'
+    setAdId('android-real/1')
+    const ad = useAdMob()
+    expect(ad.isAvailable).toBe(true)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = ad.showRewardedAd()
+      await flushPromises()
+      expect(mocks.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ adId: 'ios-real/1', npa: status !== 'authorized' }))
+      mocks.listeners.get('dismissed')!()
+      expect(await result).toBe(false)
+    }
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(status === 'notDetermined' ? 1 : 0)
+    expect(mocks.trackingStatus.mock.invocationCallOrder[0]).toBeLessThan(mocks.initialize.mock.invocationCallOrder[0]!)
+    if (status === 'notDetermined') expect(mocks.requestTracking.mock.invocationCallOrder[0]).toBeLessThan(mocks.initialize.mock.invocationCallOrder[0]!)
+  })
+
+  it.each(['authorized', 'denied', 'restricted'])('미결정 프롬프트 결과 %s를 SDK 초기화 전에 반영한다', async (status) => {
+    mocks.trackingStatus.mockResolvedValueOnce({ status: 'notDetermined' }).mockResolvedValue({ status })
+    const ad = useAdMob()
+    const result = ad.showRewardedAd()
+    await flushPromises()
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(1)
+    expect(mocks.trackingStatus.mock.invocationCallOrder[1]).toBeLessThan(mocks.initialize.mock.invocationCallOrder[0]!)
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ adId: TEST_REWARDED_AD_ID_IOS, npa: status !== 'authorized' }))
+    mocks.listeners.get('dismissed')!()
+    expect(await result).toBe(false)
+  })
+
+  it('ATT 확인 실패는 비개인화로 계속하고 같은 초기화의 요청을 공유한다', async () => {
+    mocks.trackingStatus.mockRejectedValue(new Error('상태 확인 실패'))
+    const ad = useAdMob()
+    await Promise.all([ad.requestTrackingAuthorization(), ad.requestTrackingAuthorization()])
+    const result = ad.showRewardedAd()
+    await flushPromises()
+    expect(mocks.trackingStatus).toHaveBeenCalledTimes(1)
+    expect(mocks.requestTracking).not.toHaveBeenCalled()
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ npa: true }))
+    mocks.listeners.get('dismissed')!()
+    expect(await result).toBe(false)
   })
 })
