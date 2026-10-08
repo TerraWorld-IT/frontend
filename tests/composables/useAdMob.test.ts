@@ -157,6 +157,30 @@ describe('useAdMob contract', () => {
 })
 
 describe('광고 보류와 한도일 저장', () => {
+  it.each([false, true])('성장 보류는 기존 키 사용=%s에서도 원래 종과 nonce를 사용자별로 보존한다', (legacy) => {
+    const first = { nonce: 'first', purpose: 'GROWTH_REVIVE' as const, expiresAt: nonce().expiresAt, speciesCode: 'SPIRIT_A' }
+    if (legacy) localStorage.setItem(STORAGE_KEYS.AD_PENDING + 'GROWTH_REVIVE.u1', JSON.stringify(first))
+    else writePendingAdClaim('GROWTH_REVIVE', 'u1', first)
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(first)
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u2')).toBeNull()
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.AD_PENDING + 'GROWTH_REVIVE.u1')!)).toEqual(first)
+    clearPendingAdClaim('GROWTH_REVIVE', 'u1', 'other-nonce')
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(first)
+    clearPendingAdClaim('GROWTH_REVIVE', 'u1', first.nonce)
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEYS.AD_PENDING + 'GROWTH_REVIVE.u1')).toBeNull()
+  })
+
+  it('이전 성장 청구 정리는 같은 종의 새 nonce 보류를 삭제하지 않는다', () => {
+    const first = { nonce: 'old', purpose: 'GROWTH_REVIVE' as const, expiresAt: nonce().expiresAt, speciesCode: 'SPIRIT_A' }
+    localStorage.setItem(STORAGE_KEYS.AD_PENDING + 'GROWTH_REVIVE.u1', JSON.stringify(first))
+    const newer = { ...first, nonce: 'new' }
+    writePendingAdClaim('GROWTH_REVIVE', 'u1', newer)
+    clearPendingAdClaim('GROWTH_REVIVE', 'u1', first.nonce)
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(newer)
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.AD_PENDING + 'GROWTH_REVIVE.u1')!)).toEqual(newer)
+  })
+
   it('서버 만료시각과 nonce만 보존하고 사용자별로 분리한다', () => {
     writePendingAdClaim('AD_REWARD', 'u1', nonce())
     expect(readPendingAdClaim('AD_REWARD', 'u1')).toEqual({ nonce: 'server-nonce', purpose: 'AD_REWARD', expiresAt: nonce().expiresAt })

@@ -1993,6 +1993,7 @@ async function onClaimAdReward(recoverPending = false) {
   const deadline = new AbortController()
   const userId = user.value?.userId
   let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
+  let adInFlight = false
   try {
     if (!recoverPending) {
       if (isAdLimitReachedToday(userId)) {
@@ -2002,7 +2003,7 @@ async function onClaimAdReward(recoverPending = false) {
       // ATT 응답을 기다리는 동안 잠금은 유지하되 광고·청구 시한은 시작하지 않는다.
       if (adMob.isIos) await adMob.requestTrackingAuthorization()
     }
-    // 준비·시청·보상 요청 전체의 잠금 시간을 제한한다. 네이티브 준비 자체의 취소는 별도 범위다.
+    // 청구 시한이 지나도 취소할 수 없는 광고의 종료까지 재진입 잠금을 유지한다.
     await withTimeout(claimReward(), REWARD_AD_TIMEOUT_MS, deadline)
   }
   catch (e) {
@@ -2013,7 +2014,7 @@ async function onClaimAdReward(recoverPending = false) {
     else toast.error(errMsg(e, '광고 보상 실패'))
   }
   finally {
-    adClaiming.value = false
+    if (!adInFlight) adClaiming.value = false
   }
 
   async function claimReward() {
@@ -2026,11 +2027,20 @@ async function onClaimAdReward(recoverPending = false) {
     else {
       issued = await issueServerNonce('AD_REWARD')
       if (deadline.signal.aborted) return
-      const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
-      if (watched) {
-        pendingClaim = issued
-        // 시청 증거가 생긴 즉시 저장해 전체 시한 초과·응답 유실에도 같은 nonce로 복구한다.
-        writePendingAdClaim('AD_REWARD', userId, issued)
+      let watched = false
+      adInFlight = true
+      try {
+        watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
+        if (watched) {
+          pendingClaim = issued
+          // 시청 증거가 생긴 즉시 저장해 전체 시한 초과·응답 유실에도 같은 nonce로 복구한다.
+          writePendingAdClaim('AD_REWARD', userId, issued)
+        }
+      }
+      finally {
+        adInFlight = false
+        // 보류 저장을 마친 뒤 잠금을 풀어 다음 진입이 같은 nonce를 복구하게 한다.
+        if (deadline.signal.aborted) adClaiming.value = false
       }
       if (deadline.signal.aborted) return
       if (!watched) {

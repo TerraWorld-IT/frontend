@@ -595,6 +595,81 @@ describe('WP4a 보류 복구 델타', () => {
 })
 
 describe('B1 바이너리별 홈·성장 광고 가용성', () => {
+  it.each([false, true])('성장 A 보류(기존 키=%s)는 B 진입 시 공유 nonce로 A부터 복구한다', async (legacy) => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(GrowPage))
+    const first = { nonce: 'pending-a', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
+    let activeNonce: string | null = first.nonce
+    // 서버는 종 구분 없이 목적별 활성 nonce를 재사용하고 부활 성공 시 소비한다.
+    mocks.issueServerNonce.mockImplementation(async (purpose) => {
+      activeNonce ??= 'next-b'
+      return { nonce: activeNonce, purpose, status: 'VERIFIED', expiresAt: first.expiresAt }
+    })
+    mocks.awaitNonceVerified.mockImplementation(async (_purpose, nonce) => nonce === activeNonce ? { nonce, status: 'VERIFIED' } : null)
+    mocks.sdk.reviveGrowth!.mockImplementation(async ({ body }) => {
+      expect(body.adNonce).toBe(activeNonce)
+      activeNonce = null
+      return { data: null }
+    }).mockRejectedValueOnce(new Error('응답 유실'))
+    if (legacy) localStorage.setItem('tw-ad-pending.GROWTH_REVIVE.u1', JSON.stringify(first))
+    else writePendingAdClaim('GROWTH_REVIVE', 'u1', first)
+    s.lostModalSpecies = 'SPIRIT_B'
+    await s.onRevive('AD')
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(first)
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_A' }, body: { method: 'AD', adNonce: first.nonce } }))
+    expect(s.lostModalSpecies).toBe('SPIRIT_B')
+    expect(s.reviving).toBe(false)
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    await s.onRevive('AD')
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(2)
+    expect(mocks.sdk.reviveGrowth).toHaveBeenLastCalledWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_A' }, body: { method: 'AD', adNonce: first.nonce } }))
+    expect(mocks.awaitNonceVerified).toHaveBeenLastCalledWith('GROWTH_REVIVE', first.nonce, { tries: 1 })
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(activeNonce).toBeNull()
+    expect(s.lostModalSpecies).toBeNull()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(localStorage.getItem('tw-ad-pending.GROWTH_REVIVE.u1')).toBeNull()
+    s.lostModalSpecies = 'SPIRIT_B'
+    await s.onRevive('AD')
+    expect(mocks.sdk.reviveGrowth).toHaveBeenLastCalledWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_B' }, body: { method: 'AD', adNonce: 'next-b' } }))
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    expect(mocks.issueServerNonce).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE')
+    expect(mocks.showRewardedAd).toHaveBeenCalledExactlyOnceWith({ ssvUserId: 'u1', ssvCustomData: 'next-b' })
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+  })
+
+  it.each(['authorized', 'denied'])('iOS 성장 ATT %s 응답까지 nonce 발급과 중복 부활을 기다린다', async (status) => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(GrowPage))
+    s.lostModalSpecies = 'SPIRIT_A'
+    vi.useFakeTimers()
+    mocks.requestTrackingAuthorization.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(status), 70000)))
+    mocks.sdk.reviveGrowth!.mockResolvedValueOnce({ data: null })
+    const reviving = s.onRevive('AD')
+    await vi.advanceTimersByTimeAsync(69999)
+    expect(s.reviving).toBe(true)
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    await s.onRevive('AD')
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await reviving
+    expect(mocks.issueServerNonce).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE')
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(1)
+    expect(s.reviving).toBe(false)
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+  })
+
   it('iOS 홈 ATT 25초 뒤 준비·시청·청구 42초를 완료하고 대기 중 중복 진입을 막는다', async () => {
     mocks.adNative = true
     mocks.adIos = true
@@ -632,24 +707,57 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     expect(s.showFreeCoinDialog).toBe(false)
   })
 
-  it('iOS 홈 광고가 응답하지 않으면 ATT 완료 후 60초에 기존 실패 안내와 잠금 해제를 유지한다', async () => {
+  it.each(['watched', 'cancelled', 'rejected'] as const)('iOS 홈 시한 뒤 광고 %s 종료까지 잠그고 늦은 시청 보류를 복구한다', async (outcome) => {
     mocks.adNative = true
     mocks.adIos = true
     mocks.adPlugin = true
     const s = state(await mountPage(HomePage))
     vi.useFakeTimers()
     mocks.requestTrackingAuthorization.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve('denied'), 25000)))
-    mocks.showRewardedAd.mockImplementationOnce(() => new Promise<boolean>(() => undefined))
+    const ad = deferred<boolean>()
+    mocks.showRewardedAd.mockReturnValueOnce(ad.promise)
     const claiming = s.onClaimAdReward()
     await vi.advanceTimersByTimeAsync(25000 + REWARD_AD_TIMEOUT_MS - 1)
     expect(s.adClaiming).toBe(true)
     expect(mocks.toast.error).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
     await claiming
-    expect(s.adClaiming).toBe(false)
+    expect(s.adClaiming).toBe(true)
     expect(mocks.toast.error).toHaveBeenCalledWith('광고 보상 실패')
     expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
     expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
+    await Promise.all([s.onClaimAdReward(), s.onClaimAdReward(true), s.claimPendingAdReward()])
+    s.onAdMenuClick()
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(1)
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    if (outcome === 'rejected') ad.reject(new Error('늦은 광고 실패'))
+    else ad.resolve(outcome === 'watched')
+    await flushPromises()
+    expect(s.adClaiming).toBe(false)
+    expect(mocks.toast.error).toHaveBeenCalledTimes(1)
+    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    if (outcome === 'watched') {
+      expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+      mocks.sdk.claimAdReward!.mockResolvedValueOnce({ data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } })
+      await s.onClaimAdReward()
+      expect(mocks.issueServerNonce).toHaveBeenCalledTimes(1)
+      expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+      expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+      expect(mocks.awaitNonceVerified).toHaveBeenCalledWith('AD_REWARD', 'n1', expect.objectContaining({ tries: 1 }))
+      expect(mocks.sdk.claimAdReward).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ body: { nonce: 'n1' } }))
+      expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    }
+    else {
+      expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+      mocks.showRewardedAd.mockResolvedValueOnce(false)
+      await s.onClaimAdReward()
+      expect(mocks.issueServerNonce).toHaveBeenCalledTimes(2)
+      expect(mocks.showRewardedAd).toHaveBeenCalledTimes(2)
+    }
+    expect(s.adClaiming).toBe(false)
   })
 
   it.each([false, true])('iOS 홈 보류 복구(명시 호출=%s)는 ATT·새 광고 없이 기존 nonce를 청구한다', async (recoverPending) => {

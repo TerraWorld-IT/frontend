@@ -499,14 +499,14 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       return
     }
     // 표시 조건과 같은 공통 판정으로 직접 호출·보류 복구까지 제한한다.
-    const { isAvailable, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
+    const { isAvailable, isIos, requestTrackingAuthorization, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
     if (!isAvailable) return
-    const stored = readPendingAdClaim('GROWTH_REVIVE', userId)
-    if (stored?.purpose === 'GROWTH_REVIVE' && stored.speciesCode === species) {
-      pendingClaim = stored
-    }
+    // 서버 nonce는 종 구분 없이 목적별로 하나이므로 기존 보류를 원래 종에 먼저 사용한다.
+    pendingClaim = readPendingAdClaim('GROWTH_REVIVE', userId)
     const recovering = pendingClaim !== null
     if (!pendingClaim) {
+      // ATT 응답 대기 중에는 서버 nonce의 유효시간을 소비하지 않는다.
+      if (isIos) await requestTrackingAuthorization()
       const issued = await issueServerNonce('GROWTH_REVIVE')
       const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
       if (!watched) {
@@ -529,7 +529,7 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       toast.info(t('home.adPendingExpired'))
       return
     }
-    if (await callRevive(species, { method: 'AD', adNonce: pendingClaim.nonce })) {
+    if (await callRevive(pendingClaim.speciesCode!, { method: 'AD', adNonce: pendingClaim.nonce })) {
       clearPendingAdClaim('GROWTH_REVIVE', userId, pendingClaim.nonce)
     }
   }
