@@ -1981,7 +1981,9 @@ async function claimPendingAdReward(): Promise<void> {
 }
 
 async function onClaimAdReward(recoverPending = false) {
-  if (adClaiming.value || !useAdMob().isAvailable) return
+  if (adClaiming.value) return
+  const adMob = useAdMob()
+  if (!adMob.isAvailable) return
   // 시한 초과 후 열린 팝업에서 재확인해도 새 광고보다 보류 복구를 우선한다.
   if (!recoverPending && readPendingAdClaim('AD_REWARD', user.value?.userId)?.purpose === 'AD_REWARD') {
     await claimPendingAdReward()
@@ -1992,6 +1994,14 @@ async function onClaimAdReward(recoverPending = false) {
   const userId = user.value?.userId
   let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
   try {
+    if (!recoverPending) {
+      if (isAdLimitReachedToday(userId)) {
+        toast.info(t('home.adLimitReached'))
+        return
+      }
+      // ATT 응답을 기다리는 동안 잠금은 유지하되 광고·청구 시한은 시작하지 않는다.
+      if (adMob.isIos) await adMob.requestTrackingAuthorization()
+    }
     // 준비·시청·보상 요청 전체의 잠금 시간을 제한한다. 네이티브 준비 자체의 취소는 별도 범위다.
     await withTimeout(claimReward(), REWARD_AD_TIMEOUT_MS, deadline)
   }
@@ -2007,17 +2017,13 @@ async function onClaimAdReward(recoverPending = false) {
   }
 
   async function claimReward() {
-    const { showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
+    const { showRewardedAd, issueServerNonce, awaitNonceVerified } = adMob
     let issued = recoverPending ? readPendingAdClaim('AD_REWARD', userId) : null
     if (recoverPending) {
       if (issued?.purpose !== 'AD_REWARD') return
       pendingClaim = issued
     }
     else {
-      if (isAdLimitReachedToday(userId)) {
-        toast.info(t('home.adLimitReached'))
-        return
-      }
       issued = await issueServerNonce('AD_REWARD')
       if (deadline.signal.aborted) return
       const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })

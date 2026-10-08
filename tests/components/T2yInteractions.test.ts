@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   shareFile: vi.fn(),
   routeLeave: vi.fn(),
   showRewardedAd: vi.fn(),
+  requestTrackingAuthorization: vi.fn(),
   adAndroid: false,
   adIos: false,
   adNative: false,
@@ -68,7 +69,7 @@ vi.mock('@capacitor/core', async (importOriginal) => {
 })
 mockNuxtImport('useAdMob', async () => {
   const actual = await vi.importActual<typeof import('~/composables/useAdMob')>('~/composables/useAdMob')
-  return () => ({ ...actual.useAdMob(), issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd })
+  return () => ({ ...actual.useAdMob(), issueServerNonce: mocks.issueServerNonce, awaitNonceVerified: mocks.awaitNonceVerified, showRewardedAd: mocks.showRewardedAd, requestTrackingAuthorization: mocks.requestTrackingAuthorization })
 })
 
 const wrappers: VueWrapper[] = []
@@ -432,6 +433,7 @@ beforeEach(() => {
   useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'
   useRuntimeConfig().public.admobRewardedAdId = 'android-real/1'
   mocks.showRewardedAd.mockReset().mockResolvedValue(true)
+  mocks.requestTrackingAuthorization.mockReset().mockResolvedValue('authorized')
   mocks.issueServerNonce.mockReset().mockImplementation(async (purpose) => ({ nonce: 'n1', purpose, status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() }))
   mocks.awaitNonceVerified.mockReset().mockResolvedValue({ nonce: 'n1', status: 'VERIFIED' })
   mocks.sdk.issueAdRewardNonce!.mockImplementation(async ({ query }) => ({ data: { nonce: 'n1', purpose: query.purpose, status: 'PENDING', expiresAt: new Date(Date.now() + 600000).toISOString() } }))
@@ -593,6 +595,81 @@ describe('WP4a 보류 복구 델타', () => {
 })
 
 describe('B1 바이너리별 홈·성장 광고 가용성', () => {
+  it('iOS 홈 ATT 25초 뒤 준비·시청·청구 42초를 완료하고 대기 중 중복 진입을 막는다', async () => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(HomePage))
+    vi.useFakeTimers()
+    mocks.requestTrackingAuthorization.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve('authorized'), 25000)))
+    // 준비 10초와 시청 30초 뒤 완료 증거를 받는 네이티브 호출을 재현한다.
+    mocks.showRewardedAd.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(true), 40000)))
+    mocks.sdk.claimAdReward!.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve({ data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } }), 2000)))
+    s.showFreeCoinDialog = true
+    const claiming = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(24000)
+    expect(s.adClaiming).toBe(true)
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    await s.onClaimAdReward()
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(mocks.issueServerNonce).toHaveBeenCalledWith('AD_REWARD')
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS - 25000)
+    expect(s.adClaiming).toBe(true)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(7000)
+    await claiming
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(1)
+    expect(mocks.user.updateCurrency).toHaveBeenCalledWith({ specialCoins: 2 })
+    expect(mocks.toast.success).toHaveBeenCalledTimes(1)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    expect(s.adClaiming).toBe(false)
+    expect(s.showFreeCoinDialog).toBe(false)
+  })
+
+  it('iOS 홈 광고가 응답하지 않으면 ATT 완료 후 60초에 기존 실패 안내와 잠금 해제를 유지한다', async () => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(HomePage))
+    vi.useFakeTimers()
+    mocks.requestTrackingAuthorization.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve('denied'), 25000)))
+    mocks.showRewardedAd.mockImplementationOnce(() => new Promise<boolean>(() => undefined))
+    const claiming = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(25000 + REWARD_AD_TIMEOUT_MS - 1)
+    expect(s.adClaiming).toBe(true)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await claiming
+    expect(s.adClaiming).toBe(false)
+    expect(mocks.toast.error).toHaveBeenCalledWith('광고 보상 실패')
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('iOS 홈 보류 복구(명시 호출=%s)는 ATT·새 광고 없이 기존 nonce를 청구한다', async (recoverPending) => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(HomePage))
+    writePendingAdClaim('AD_REWARD', 'u1', { nonce: 'n1', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    mocks.sdk.claimAdReward!.mockResolvedValueOnce({ data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } })
+    await s.onClaimAdReward(recoverPending)
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.awaitNonceVerified).toHaveBeenCalledWith('AD_REWARD', 'n1', expect.objectContaining({ tries: 1 }))
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledWith(expect.objectContaining({ body: { nonce: 'n1' } }))
+    expect(mocks.toast.success).toHaveBeenCalledTimes(1)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    expect(s.adClaiming).toBe(false)
+  })
+
   it.each(['android', 'ios', 'web'] as const)('플러그인 없는 %s는 홈·성장 광고 버튼을 숨긴다', async (platform) => {
     mocks.adNative = platform !== 'web'
     mocks.adAndroid = platform === 'android'
