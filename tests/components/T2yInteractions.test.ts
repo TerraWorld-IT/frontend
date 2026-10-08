@@ -595,7 +595,59 @@ describe('WP4a 보류 복구 델타', () => {
 })
 
 describe('B1 바이너리별 홈·성장 광고 가용성', () => {
-  it.each([false, true])('성장 A 보류(기존 키=%s)는 B 진입 시 공유 nonce로 A부터 복구한다', async (legacy) => {
+  it('성장 A가 이미 살아났으면 A의 보류 nonce로 열린 LOST B를 부활한다', async () => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const first = { nonce: 'pending-a', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
+    const speciesA = { speciesCode: 'SPIRIT_A', kind: 'SPIRIT', cycleState: 'ACTIVE', stampCount: 1, goal: 30, stages: [], reviveSnoozedUntil: null }
+    const speciesB = { speciesCode: 'SPIRIT_B', kind: 'SPIRIT', cycleState: 'LOST', stampCount: 1, goal: 30, stages: [], reviveSnoozedUntil: null }
+    mocks.sdk.getGrowth!.mockResolvedValue({ data: { items: [speciesA, speciesB] } })
+    mocks.awaitNonceVerified.mockResolvedValue({ nonce: first.nonce, status: 'VERIFIED' })
+    mocks.sdk.reviveGrowth!.mockResolvedValue({ data: { ...speciesB, cycleState: 'ACTIVE' } })
+    writePendingAdClaim('GROWTH_REVIVE', 'u1', first)
+    const s = state(await mountPage(GrowPage))
+    expect(s.lostModalSpecies).toBe('SPIRIT_B')
+
+    await s.onRevive('AD')
+
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_B' }, body: { method: 'AD', adNonce: first.nonce } }))
+    expect(mocks.awaitNonceVerified).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE', first.nonce, { tries: 1 })
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(s.rawItems.find((item: { speciesCode: string }) => item.speciesCode === 'SPIRIT_B').cycleState).toBe('ACTIVE')
+    expect(s.lostModalSpecies).toBeNull()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+  })
+
+  it('성장 A가 스누즈이면 A의 보류 nonce로 열린 LOST B를 부활한다', async () => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const first = { nonce: 'pending-a', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
+    const speciesA = { speciesCode: 'SPIRIT_A', kind: 'SPIRIT', cycleState: 'LOST', stampCount: 1, goal: 30, stages: [], reviveSnoozedUntil: '9999-12-31' }
+    const speciesB = { speciesCode: 'SPIRIT_B', kind: 'SPIRIT', cycleState: 'LOST', stampCount: 1, goal: 30, stages: [], reviveSnoozedUntil: null }
+    mocks.sdk.getGrowth!.mockResolvedValue({ data: { items: [speciesA, speciesB] } })
+    mocks.awaitNonceVerified.mockResolvedValue({ nonce: first.nonce, status: 'VERIFIED' })
+    mocks.sdk.reviveGrowth!.mockResolvedValue({ data: { ...speciesB, cycleState: 'ACTIVE' } })
+    writePendingAdClaim('GROWTH_REVIVE', 'u1', first)
+    const s = state(await mountPage(GrowPage))
+    expect(s.lostModalSpecies).toBe('SPIRIT_B')
+
+    await s.onRevive('AD')
+
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_B' }, body: { method: 'AD', adNonce: first.nonce } }))
+    expect(mocks.awaitNonceVerified).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE', first.nonce, { tries: 1 })
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(s.rawItems.find((item: { speciesCode: string }) => item.speciesCode === 'SPIRIT_B').cycleState).toBe('ACTIVE')
+    expect(s.lostModalSpecies).toBeNull()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+  })
+
+  it.each([false, true])('성장 A 보류(기존 키=%s)는 B 진입 시 공유 nonce로 열린 종 B를 복구한다', async (legacy) => {
     mocks.adNative = true
     mocks.adIos = true
     mocks.adPlugin = true
@@ -618,7 +670,7 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     s.lostModalSpecies = 'SPIRIT_B'
     await s.onRevive('AD')
     expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(first)
-    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_A' }, body: { method: 'AD', adNonce: first.nonce } }))
+    expect(mocks.sdk.reviveGrowth).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_B' }, body: { method: 'AD', adNonce: first.nonce } }))
     expect(s.lostModalSpecies).toBe('SPIRIT_B')
     expect(s.reviving).toBe(false)
     expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
@@ -626,7 +678,7 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     expect(mocks.showRewardedAd).not.toHaveBeenCalled()
     await s.onRevive('AD')
     expect(mocks.sdk.reviveGrowth).toHaveBeenCalledTimes(2)
-    expect(mocks.sdk.reviveGrowth).toHaveBeenLastCalledWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_A' }, body: { method: 'AD', adNonce: first.nonce } }))
+    expect(mocks.sdk.reviveGrowth).toHaveBeenLastCalledWith(expect.objectContaining({ path: { speciesCode: 'SPIRIT_B' }, body: { method: 'AD', adNonce: first.nonce } }))
     expect(mocks.awaitNonceVerified).toHaveBeenLastCalledWith('GROWTH_REVIVE', first.nonce, { tries: 1 })
     expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
     expect(mocks.issueServerNonce).not.toHaveBeenCalled()

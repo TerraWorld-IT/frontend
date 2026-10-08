@@ -501,8 +501,10 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
     // 표시 조건과 같은 공통 판정으로 직접 호출·보류 복구까지 제한한다.
     const { isAvailable, isIos, requestTrackingAuthorization, showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
     if (!isAvailable) return
-    // 서버 nonce는 종 구분 없이 목적별로 하나이므로 기존 보류를 원래 종에 먼저 사용한다.
+    // 서버 nonce 는 종이 아니라 목적별로 하나이므로 보류된 광고 시청은 지금 열린 LOST 종에 쓴다.
     pendingClaim = readPendingAdClaim('GROWTH_REVIVE', userId)
+    const target = rawItems.value.find((it) => it.speciesCode === species)
+    if (pendingClaim && target && (!isLost(target) || isSnoozed(target))) return
     const recovering = pendingClaim !== null
     if (!pendingClaim) {
       // ATT 응답 대기 중에는 서버 nonce의 유효시간을 소비하지 않는다.
@@ -529,7 +531,7 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       toast.info(t('home.adPendingExpired'))
       return
     }
-    if (await callRevive(pendingClaim.speciesCode!, { method: 'AD', adNonce: pendingClaim.nonce })) {
+    if (await callRevive(species, { method: 'AD', adNonce: pendingClaim.nonce })) {
       clearPendingAdClaim('GROWTH_REVIVE', userId, pendingClaim.nonce)
     }
   }
