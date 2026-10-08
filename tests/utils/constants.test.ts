@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ADS_ENABLED, CATEGORY_COLORS, CATEGORY_ICONS, RARITY_LABELS, DEFAULTS } from '~/utils/constants'
+import { isRewardedAdAvailable, resolveRewardedAdId } from '~/composables/useAdMob'
 
 describe('constants', () => {
   describe('CATEGORY_COLORS', () => {
@@ -41,8 +42,14 @@ describe('constants', () => {
   })
 
   describe('ADS_ENABLED', () => {
-    it('첫 출시는 광고를 제외한다(홈·성장 광고 진입점과 광고 호출의 단일 플래그)', () => {
-      expect(ADS_ENABLED).toBe(false)
+    it('광고 활성화 후에도 플러그인·운영 ID·네이티브 조건을 모두 만족해야 한다', () => {
+      expect(ADS_ENABLED).toBe(true)
+      expect(isRewardedAdAvailable(true, true, 'ios', resolveRewardedAdId('ios-real/1', true, 'ios'))).toBe(true)
+      for (const platform of ['ios', 'android', 'web']) {
+        expect(isRewardedAdAvailable(platform !== 'web', false, platform, 'real/1')).toBe(false)
+      }
+      expect(isRewardedAdAvailable(true, true, 'ios', resolveRewardedAdId('', true, 'ios'))).toBe(false)
+      expect(isRewardedAdAvailable(false, true, 'ios', 'real/1')).toBe(false)
     })
   })
 })

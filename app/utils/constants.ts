@@ -86,11 +86,10 @@ export const DEFAULTS = {
 } as const
 
 /**
- * 광고 출시 플래그 — 첫 출시(iOS·Android)는 광고를 제외한다.
- * 홈 광고보상·성장 부활 광고의 진입점과 useAdMob 광고 호출이 모두 이 값 하나를 따른다.
- * 광고 도입 시 이 값만 true 로 바꾼다(운영 광고 단위 ID 설정이 선행돼야 한다).
+ * 보상형 광고 전체 중단 스위치. 실제 가용성은 useAdMob의 공통 판정이 결정한다.
+ * 활성화해도 네이티브 AdMob 플러그인과 플랫폼별 광고 ID가 없는 바이너리는 제외한다.
  */
-export const ADS_ENABLED: boolean = false
+export const ADS_ENABLED: boolean = true
 
 /** localStorage 키 (일관된 네이밍) */
 export const STORAGE_KEYS = {

@@ -205,8 +205,9 @@ export default defineNuxtConfig({
       // AdSense (PC 웹 배너 전용)
       adsenseClient: process.env.NUXT_PUBLIC_ADSENSE_CLIENT || '',
       adsenseSlot: process.env.NUXT_PUBLIC_ADSENSE_SLOT || '',
-      // AdMob (Android 모바일 앱). dev 빌드는 Capacitor 설정의 testing 모드로 자동 우회.
+      // 네이티브 AdMob 플랫폼별 ID. 미설정 시 운영에서는 숨기고 개발에서는 테스트 ID를 쓴다.
       admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
+      admobRewardedAdIdIos: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID_IOS || '',
       // 인스타 스토리 직접 공유(source_application) — Meta App ID. 미설정 시 시스템 공유 폴백.
       metaAppId: process.env.NUXT_PUBLIC_META_APP_ID || '',
       // 힐링 모드 BGM 음원 URL(useBgm). 빈 값 = 무음 플레이스홀더(토글 UI 만 동작) — 음원은 외부 제공 대기.

@@ -113,8 +113,8 @@
           </span>
           <span class="menu-label">출석체크</span>
         </button>
-        <!-- 광고보상 — 첫 출시에는 adMenuDisabled(=!ADS_ENABLED)로 모든 플랫폼에서 숨긴다(동작하지 않는 버튼은 iOS 심사 2.1 반려 사유).
-             광고 도입 시 ADS_ENABLED 만 바꾸면 버튼과 팝업 로직이 그대로 돌아온다(광고 없이 보상만 청구되던 fail-open 진입점은 계속 차단). -->
+        <!-- 광고보상 — 네이티브 AdMob 플러그인과 플랫폼별 광고 ID가 있을 때만 표시한다.
+             구버전 바이너리와 웹에서는 공통 가용성 판정으로 버튼과 직접 호출을 함께 차단한다. -->
         <button
           v-if="!adMenuDisabled"
           type="button"
@@ -781,7 +781,6 @@ import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useItemsStore } from '~/stores/items'
 import { useUserStore } from '~/stores/user'
 import { formatNumber } from '~/utils/format'
-import { ADS_ENABLED } from '~/utils/constants'
 import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 
 const { sdk, client } = useOpenApi()
@@ -905,17 +904,16 @@ const showAttendance = ref<boolean>(false)
 const showRanking = ref<boolean>(false)
 const showFreeCoinDialog = ref<boolean>(false)
 const adClaiming = ref<boolean>(false)
-// 첫 출시에는 모든 플랫폼에서 광고보상 진입점을 숨기고 직접 호출도 막는다(단일 출시 플래그 ADS_ENABLED).
+// 서버 렌더링에서는 숨기고 마운트 후 네이티브 플러그인·광고 ID 가용성을 반영한다.
 const adAvailable = ref<boolean>(false)
-const adMenuDisabled = !ADS_ENABLED
+const adMenuDisabled = computed<boolean>(() => !adAvailable.value)
 const adRemainingToday = ref<number | null>(null)
 onMounted(() => {
-  const { isNative: adNative, isAndroid: adAndroid } = useAdMob()
-  adAvailable.value = (adNative && adAndroid) || import.meta.dev
+  adAvailable.value = useAdMob().isAvailable
 })
 function onAdMenuClick() {
   if (adClaiming.value) return
-  if (adMenuDisabled) return
+  if (!useAdMob().isAvailable) return
   const pendingClaim = readPendingAdClaim('AD_REWARD', user.value?.userId)
   if (pendingClaim?.purpose === 'AD_REWARD') {
     void claimPendingAdReward()
@@ -1983,7 +1981,9 @@ async function claimPendingAdReward(): Promise<void> {
 }
 
 async function onClaimAdReward(recoverPending = false) {
-  if (adClaiming.value || adMenuDisabled) return
+  if (adClaiming.value) return
+  const adMob = useAdMob()
+  if (!adMob.isAvailable) return
   // 시한 초과 후 열린 팝업에서 재확인해도 새 광고보다 보류 복구를 우선한다.
   if (!recoverPending && readPendingAdClaim('AD_REWARD', user.value?.userId)?.purpose === 'AD_REWARD') {
     await claimPendingAdReward()
@@ -1994,6 +1994,14 @@ async function onClaimAdReward(recoverPending = false) {
   const userId = user.value?.userId
   let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
   try {
+    if (!recoverPending) {
+      if (isAdLimitReachedToday(userId)) {
+        toast.info(t('home.adLimitReached'))
+        return
+      }
+      // ATT 응답을 기다리는 동안 잠금은 유지하되 광고·청구 시한은 시작하지 않는다.
+      if (adMob.isIos) await adMob.requestTrackingAuthorization()
+    }
     // 준비·시청·보상 요청 전체의 잠금 시간을 제한한다. 네이티브 준비 자체의 취소는 별도 범위다.
     await withTimeout(claimReward(), REWARD_AD_TIMEOUT_MS, deadline)
   }
@@ -2009,17 +2017,13 @@ async function onClaimAdReward(recoverPending = false) {
   }
 
   async function claimReward() {
-    const { showRewardedAd, issueServerNonce, awaitNonceVerified } = useAdMob()
+    const { showRewardedAd, issueServerNonce, awaitNonceVerified } = adMob
     let issued = recoverPending ? readPendingAdClaim('AD_REWARD', userId) : null
     if (recoverPending) {
       if (issued?.purpose !== 'AD_REWARD') return
       pendingClaim = issued
     }
     else {
-      if (isAdLimitReachedToday(userId)) {
-        toast.info(t('home.adLimitReached'))
-        return
-      }
       issued = await issueServerNonce('AD_REWARD')
       if (deadline.signal.aborted) return
       const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })

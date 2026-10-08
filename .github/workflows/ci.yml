@@ -165,6 +165,7 @@ jobs:
             NUXT_PUBLIC_ADSENSE_CLIENT=${{ secrets.NUXT_PUBLIC_ADSENSE_CLIENT }}
             NUXT_PUBLIC_ADSENSE_SLOT=${{ secrets.NUXT_PUBLIC_ADSENSE_SLOT }}
             NUXT_PUBLIC_ADMOB_REWARDED_AD_ID=${{ secrets.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID }}
+            NUXT_PUBLIC_ADMOB_REWARDED_AD_ID_IOS=${{ secrets.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID_IOS }}
             NUXT_PUBLIC_META_APP_ID=${{ secrets.NUXT_PUBLIC_META_APP_ID }}
           tags: |
             ${{ env.IMAGE }}:latest
