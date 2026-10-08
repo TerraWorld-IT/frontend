@@ -391,6 +391,92 @@ describe('바이너리 가용성과 구버전 보호', () => {
 describe('iOS ATT와 광고 단위', () => {
   beforeEach(() => { mocks.platform = 'ios' })
 
+  it('ATT 응답이 20초를 넘어도 실패하지 않고 응답 뒤 준비와 시청을 완료한다', async () => {
+    let resolveTracking!: () => void
+    let resolvePrepare!: () => void
+    mocks.trackingStatus.mockResolvedValueOnce({ status: 'notDetermined' }).mockResolvedValue({ status: 'authorized' })
+    mocks.requestTracking.mockReturnValueOnce(new Promise<void>((resolve) => { resolveTracking = resolve }))
+    mocks.prepare.mockReturnValueOnce(new Promise<void>((resolve) => { resolvePrepare = resolve }))
+    const settled = vi.fn()
+    const result = useAdMob().showRewardedAd().then(settled)
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_PREPARE_TIMEOUT_MS + 5000)
+    expect(settled).not.toHaveBeenCalled()
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(1)
+    expect(mocks.initialize).not.toHaveBeenCalled()
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(mocks.show).not.toHaveBeenCalled()
+
+    resolveTracking()
+    await flushPromises()
+    expect(mocks.trackingStatus.mock.invocationCallOrder[1]).toBeLessThan(mocks.initialize.mock.invocationCallOrder[0]!)
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ npa: false }))
+    await vi.advanceTimersByTimeAsync(REWARD_AD_PREPARE_TIMEOUT_MS - 1)
+    expect(settled).not.toHaveBeenCalled()
+    resolvePrepare()
+    await flushPromises()
+    expect(mocks.show).toHaveBeenCalledTimes(1)
+    mocks.listeners.get('rewarded')!()
+    mocks.listeners.get('dismissed')!()
+    await result
+    expect(settled).toHaveBeenCalledExactlyOnceWith(true)
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(1)
+    expect(mocks.remove).toHaveBeenCalledTimes(3)
+  })
+
+  it.each(['initialize', 'prepare'] as const)('긴 ATT 응답 뒤에도 %s의 준비 시한은 20초로 유지한다', async (step) => {
+    let resolveTracking!: () => void
+    let resolveStep!: () => void
+    mocks.trackingStatus.mockResolvedValueOnce({ status: 'notDetermined' }).mockResolvedValue({ status: 'denied' })
+    mocks.requestTracking.mockReturnValueOnce(new Promise<void>((resolve) => { resolveTracking = resolve }))
+    mocks[step].mockReturnValueOnce(new Promise<void>((resolve) => { resolveStep = resolve }))
+    const settled = vi.fn()
+    const result = useAdMob().showRewardedAd().then(settled)
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_PREPARE_TIMEOUT_MS + 5000)
+    expect(settled).not.toHaveBeenCalled()
+    resolveTracking()
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_PREPARE_TIMEOUT_MS - 1)
+    expect(settled).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await result
+    expect(settled).toHaveBeenCalledExactlyOnceWith(false)
+    resolveStep()
+    await flushPromises()
+    expect(mocks.show).not.toHaveBeenCalled()
+    if (step === 'initialize') expect(mocks.prepare).not.toHaveBeenCalled()
+  })
+
+  it.each(['authorized', 'denied'])('같은 인스턴스와 다른 인스턴스의 동시 요청은 ATT 1회와 결과 %s를 공유한다', async (status) => {
+    let resolveTracking!: () => void
+    mocks.trackingStatus.mockResolvedValueOnce({ status: 'notDetermined' }).mockResolvedValue({ status })
+    mocks.requestTracking.mockReturnValueOnce(new Promise<void>((resolve) => { resolveTracking = resolve }))
+    const first = useAdMob()
+    const second = useAdMob()
+    const pending = Promise.all([
+      first.requestTrackingAuthorization(),
+      first.requestTrackingAuthorization(),
+      second.requestTrackingAuthorization(),
+    ])
+    await flushPromises()
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(1)
+    expect(mocks.initialize).not.toHaveBeenCalled()
+    resolveTracking()
+    expect(await pending).toEqual([status, status, status])
+    expect(mocks.trackingStatus).toHaveBeenCalledTimes(2)
+    for (const ad of [first, second]) {
+      const result = ad.showRewardedAd()
+      await flushPromises()
+      expect(mocks.trackingStatus.mock.invocationCallOrder[1]).toBeLessThan(mocks.initialize.mock.invocationCallOrder[0]!)
+      expect(mocks.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ npa: status !== 'authorized' }))
+      mocks.listeners.get('dismissed')!()
+      expect(await result).toBe(false)
+    }
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(1)
+    expect(mocks.trackingStatus).toHaveBeenCalledTimes(2)
+  })
+
   it.each(['authorized', 'denied', 'restricted', 'notDetermined'])('ATT %s에서 재요청 없이 광고를 계속한다', async (status) => {
     mocks.trackingStatus.mockResolvedValue({ status })
     useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'

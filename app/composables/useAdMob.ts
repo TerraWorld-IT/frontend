@@ -5,11 +5,14 @@ import { kstTodayKey } from '~/utils/habitState'
 import { withTimeout } from '~/utils/withTimeout'
 
 export const REWARD_AD_TIMEOUT_MS = 60_000
-// 준비는 전체 60초 안에서 20초로 제한한다. 운영 실측 전 가정값이다.
+// ATT 응답을 기다린 뒤 SDK 초기화와 광고 준비를 20초로 제한한다. 운영 실측 전 가정값이다.
 export const REWARD_AD_PREPARE_TIMEOUT_MS = 20_000
 /** Google 공식 테스트 보상형 광고 ID — 운영 빌드에서는 쓰지 않는다. */
 export const TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917'
 export const TEST_REWARDED_AD_ID_IOS = 'ca-app-pub-3940256099942544/1712485313'
+
+// 서로 다른 진입점이 동시에 초기화돼도 진행 중인 ATT 요청은 공유한다.
+let trackingRequestInFlight: Promise<string | null> | undefined
 
 /**
  * 보상형 광고 단위 ID. 운영 빌드에서 설정값이 비어 있으면 테스트 ID 로 대체하지 않고 null —
@@ -113,22 +116,24 @@ export function useAdMob() {
    */
   async function requestTrackingAuthorization(): Promise<string | null> {
     if (!isAvailable || !isIos) return null
-    trackingRequest ??= readTrackingAuthorization()
-    return trackingRequest
+    trackingRequest ??= trackingRequestInFlight ??= readTrackingAuthorization().finally(() => {
+      trackingRequestInFlight = undefined
+    })
+    trackingStatus = await trackingRequest
+    return trackingStatus
 
     async function readTrackingAuthorization(): Promise<string | null> {
       try {
         const { AdMob } = await import('@capacitor-community/admob')
-        trackingStatus = (await AdMob.trackingAuthorizationStatus()).status
-        if (trackingStatus === 'notDetermined') {
+        let status = (await AdMob.trackingAuthorizationStatus()).status
+        if (status === 'notDetermined') {
           await AdMob.requestTrackingAuthorization()
-          trackingStatus = (await AdMob.trackingAuthorizationStatus()).status
+          status = (await AdMob.trackingAuthorizationStatus()).status
         }
-        return trackingStatus
+        return status
       }
       catch {
         // 상태 확인 실패도 동의로 간주하지 않고 비개인화 광고로 진행한다.
-        trackingStatus = null
         return null
       }
     }
@@ -228,6 +233,9 @@ export function useAdMob() {
         : opts?.ssvCustomData
           ? { customData: opts.ssvCustomData }
           : undefined
+
+      // 사용자의 ATT 응답 시간은 광고 준비 시한에 포함하지 않는다.
+      if (isIos) await requestTrackingAuthorization()
 
       // 광고 준비 (prepare) → 표시 (show). @capacitor-community/admob v8 API.
       const preparation = new AbortController()
