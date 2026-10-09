@@ -532,6 +532,16 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       return
     }
     if (await callRevive(species, { method: 'AD', adNonce: pendingClaim.nonce })) {
+      // 다른 기기에서 이미 부활했다면 서버의 멱등 응답은 nonce를 소비하지 않는다.
+      // 같은 활성 nonce가 남아 있으면 시청 기록을 다음 부활에 사용할 수 있도록 보존한다.
+      let activeNonce: string | undefined
+      try {
+        activeNonce = (await issueServerNonce('GROWTH_REVIVE')).nonce
+      }
+      catch {
+        // 조회 실패 시에는 기존 성공 처리대로 보류 기록을 정리한다.
+      }
+      if (activeNonce === pendingClaim.nonce) return
       clearPendingAdClaim('GROWTH_REVIVE', userId, pendingClaim.nonce)
     }
   }
