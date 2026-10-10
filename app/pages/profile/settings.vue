@@ -130,7 +130,12 @@
           >
             <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">이용약관</span>
           </NuxtLink>
-          <div class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left border border-apjek-border">
+          <!-- 앱 버전 — 7번 연속 탭하면 개발자 광고 테스트 페이지(/dev/ads-test)로 이동(숨은 진입점) -->
+          <div
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left border border-apjek-border select-none"
+            data-testid="app-version"
+            @click="onVersionTap"
+          >
             <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">앱 버전</span>
             <span class="text-[12px] text-apjek-text-sub">{{ appVersion }}</span>
           </div>
@@ -259,6 +264,19 @@ const { client } = useOpenApi()
 const { registerPush, registerPushIfGranted, checkPushPermission, invalidatePushRegistration, deactivateDevicesOnce, getAppInfo } = useNative()
 const isAndroidNative = ref<boolean>(false)
 const appVersion = ref<string>('웹')
+// 개발자 메뉴 진입: 앱 버전 7번 연속 탭(탭 간격 1.5초 이내)
+const DEV_TAPS = 7
+let versionTaps = 0
+let versionTapAt = 0
+function onVersionTap(): void {
+  const now = Date.now()
+  versionTaps = now - versionTapAt < 1500 ? versionTaps + 1 : 1
+  versionTapAt = now
+  if (versionTaps >= DEV_TAPS) {
+    versionTaps = 0
+    void navigateTo('/dev/ads-test')
+  }
+}
 const showDeleteDialog = ref<boolean>(false)
 const deletePassword = ref<string>('')
 const deletingAccount = ref<boolean>(false)
