@@ -76,6 +76,8 @@ function buildRouteRules() {
     // client and redirects non-admin visitors before any protected data
     // is fetched. Trade-off: ~100ms blank shell flash on cold load.
     '/admin/**': { ssr: false },
+    // 개발자 테스트 페이지(네이티브 플러그인 직접 호출) — 클라이언트 전용, 검색 노출 금지.
+    '/dev/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex' } },
     // SEC-030: long-cache static assets. Bundle hashes invalidate
     // automatically, so immutable is safe. These routes never carry
     // user-specific data so private/no-store would be wasteful.
