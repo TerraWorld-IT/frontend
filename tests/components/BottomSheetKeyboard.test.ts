@@ -222,7 +222,7 @@ describe('iOS 키보드 레이아웃과 입력 모달', () => {
     for (const element of [frame, main, layout, page]) expect(keyboardRulesFor(element)).toHaveLength(0)
   })
 
-  it.each(['modal', 'exchange'] as const)('%s의 body 입력 모달은 iOS CSS 모드에서만 배치 하단과 패널 높이에 키보드 여백을 쓴다', async (kind) => {
+  it.each(['modal', 'exchange'] as const)('F1 %s의 body 입력 모달은 iOS CSS 모드에서만 하단과 패널 높이를 키보드와 함께 전환한다', async (kind) => {
     mocks.platform = 'ios'
     document.body.classList.add('ios-css-keyboard', 'keyboard-open')
     document.documentElement.style.setProperty('--keyboard-inset', '301px')
@@ -235,19 +235,38 @@ describe('iOS 키보드 레이아웃과 입력 모달', () => {
     expect(dialog.closest('body')).toBe(document.body)
     expect(dialog.querySelector('input')).not.toBeNull()
     const rules = keyboardRulesFor(dialog)
-    expect(rules).toHaveLength(1)
+    expect(rules).toHaveLength(2)
     expect(rules[0]).toContain('bottom: var(--dialog-keyboard-inset)')
     expect(rules[0]).toContain('--dialog-keyboard-inset: var(--keyboard-inset, 0px)')
     const panel = dialog.querySelector<HTMLElement>(':scope > [style]')!
     expect(panel.getAttribute('style')).toContain('max-height: calc(100dvh - var(--dialog-keyboard-inset, 0px) - var(--sat) - var(--sab) - 32px)')
     expect(panel.classList.contains('overflow-y-auto')).toBe(true)
+    const dialogTransition = 'transition: var(--dialog-visibility-transition, opacity 0s), bottom 0.25s ease'
+    expect(rules.join('\n')).toContain(dialogTransition)
+    expect(keyboardRulesFor(panel).join('\n')).toContain('transition: max-height 0.25s ease')
+    // 전역 iOS 규칙이 scoped 등장·퇴장 규칙보다 우선해도 기존 효과를 함께 합성한다.
+    const componentCss = readFileSync(kind === 'modal' ? 'app/components/common/Modal.vue' : 'app/components/shop/ExchangeDialog.vue', 'utf8').split('<style scoped>')[1]!
+    if (kind === 'modal') {
+      expect(componentCss).toMatch(/\.modal-enter-active\s*\{[^}]*--dialog-visibility-transition: all 0\.2s ease-out;/)
+      expect(componentCss).toMatch(/\.modal-leave-active\s*\{[^}]*--dialog-visibility-transition: all 0\.15s ease-in;/)
+    } else {
+      expect(componentCss).toMatch(/\.fade-enter-active,\s*\.fade-leave-active\s*\{[^}]*--dialog-visibility-transition: opacity 0\.2s ease;/)
+    }
+    // 전역 reduced-motion의 !important가 두 트랜지션을 모두 사실상 즉시 완료시킨다.
+    expect(keyboardCss).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\*,\s*\*::before,\s*\*::after\s*\{[^}]*transition-duration: 0\.01ms !important;/)
     document.documentElement.style.setProperty('--keyboard-inset', '0px')
+    expect(keyboardRulesFor(dialog).join('\n')).toContain(dialogTransition)
+    expect(keyboardRulesFor(panel).join('\n')).toContain('transition: max-height 0.25s ease')
+    document.body.classList.remove('keyboard-open')
     expect(keyboardRulesFor(dialog)).toHaveLength(1)
+    expect(keyboardRulesFor(dialog).join('\n')).not.toContain('transition:')
+    expect(keyboardRulesFor(panel)).toHaveLength(0)
     // Android·웹·Native 폴백은 같은 템플릿에서도 여백 변수를 정의하는 CSS가 적용되지 않는다.
     document.body.classList.remove('ios-css-keyboard')
     for (const platform of ['android', 'web', 'ios'] as const) {
       mocks.platform = platform
       expect(keyboardRulesFor(dialog)).toHaveLength(0)
+      expect(keyboardRulesFor(panel)).toHaveLength(0)
       expect(getComputedStyle(dialog).getPropertyValue('--dialog-keyboard-inset')).toBe('')
     }
   })

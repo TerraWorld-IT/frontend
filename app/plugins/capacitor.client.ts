@@ -374,6 +374,14 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     let scrollFrame: number | undefined
     const listeners: ReturnType<typeof Keyboard.addListener>[] = []
     let keyboardScrollMain: HTMLElement | null = null
+    let keyboardScrollRouteValid = false
+    let keyboardHidePending = false
+    // 레이아웃의 main이 재사용돼도 다른 경로로 이동한 뒤에는 이전 위치를 복원하지 않는다.
+    const removeKeyboardRouteHook = usesKeyboardInset
+      ? useRouter().afterEach((to, from, failure) => {
+          if (!failure && to.path !== from.path) keyboardScrollRouteValid = false
+        })
+      : undefined
     function setKeyboardOpen(open: boolean) {
       const wasOpen = document.body.classList.contains('keyboard-open')
       const documentScroller = document.scrollingElement ?? document.documentElement
@@ -385,11 +393,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       document.body.classList.toggle('keyboard-open', open)
       if (main) {
         keyboardScrollMain = main
+        keyboardScrollRouteValid = true
         main.scrollTop = scrollTop ?? 0
         documentScroller.scrollTop = 0
       } else if (!open && keyboardScrollMain) {
-        // 라우트 전환으로 이전 main이 제거됐다면 새 화면의 문서 위치는 건드리지 않는다.
-        if (keyboardScrollMain.isConnected) {
+        // 경로가 바뀌거나 이전 main이 제거됐다면 새 화면의 문서 위치는 건드리지 않는다.
+        if (keyboardScrollRouteValid && keyboardScrollMain.isConnected) {
           keyboardScrollMain.scrollTop = 0
           documentScroller.scrollTop = scrollTop ?? 0
         }
@@ -417,6 +426,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
       window.removeEventListener('resize', scrollAfterResize)
       document.removeEventListener('transitionend', scrollAfterTransition)
+      removeKeyboardRouteHook?.()
       for (const listener of listeners) void listener.then(handle => handle.remove()).catch(() => {})
       setKeyboardOpen(false)
       document.body.classList.remove('ios-native-keyboard', 'ios-css-keyboard')
@@ -431,6 +441,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       window.addEventListener('resize', scrollAfterResize)
     }
     listeners.push(Keyboard.addListener('keyboardWillShow', ({ keyboardHeight }) => {
+      keyboardHidePending = false
       setKeyboardOpen(true)
       clearTimeout(scrollTimer)
       if (usesKeyboardInset) {
@@ -445,6 +456,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     }))
     if (usesKeyboardInset) {
       listeners.push(Keyboard.addListener('keyboardWillHide', () => {
+        keyboardHidePending = true
         document.documentElement.style.setProperty('--keyboard-inset', '0px')
         if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
       }))
@@ -452,6 +464,9 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     // keyboard-open 해제는 Did(완료) 시점 — Will(시작) 시점에 제거하면 닫힘 애니메이션 중의
     // 두 번째 백드롭 탭이 "키보드 닫는 중" 판정을 놓쳐 시트까지 닫는다 (Codex R1 F6).
     listeners.push(Keyboard.addListener('keyboardDidHide', () => {
+      // 닫힘 도중 재포커스되면 이전 닫힘 완료 이벤트가 새 열림 상태를 지우지 않는다.
+      if (usesKeyboardInset && !keyboardHidePending) return
+      keyboardHidePending = false
       setKeyboardOpen(false)
       clearTimeout(scrollTimer)
       if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)

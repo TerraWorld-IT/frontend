@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import capacitorPlugin from '~/plugins/capacitor.client'
 import { App } from '@capacitor/app'
@@ -23,6 +24,12 @@ afterEach(() => {
 
 const mocks = vi.hoisted(() => ({ native: false, platform: 'android', recover: vi.fn().mockResolvedValue(undefined), pushListener: vi.fn(), trackPushRegistrationFailed: vi.fn(), toastInfo: vi.fn(), navigate: vi.fn() }))
 const keyboardDisposers: (() => void)[] = []
+// 인증 서버나 페이지 마운트 없이 실제 라우터의 경로 전환·afterEach를 검증한다.
+const keyboardRouter = createRouter({
+  history: createMemoryHistory(),
+  routes: [{ path: '/:pathMatch(.*)*', component: { render: () => null } }],
+})
+mockNuxtImport('useRouter', () => () => ({ ...keyboardRouter, isReady: () => Promise.resolve() }))
 function pluginApp() {
   return { vueApp: { onUnmount: (dispose: () => void) => keyboardDisposers.push(dispose) } } as never
 }
@@ -144,7 +151,7 @@ describe('Capacitor iOS 키보드 리사이즈', () => {
     expect(document.body.classList.contains('keyboard-open')).toBe(false)
   })
 
-  it('기본 레이아웃은 열림 직전에 문서 위치를 main으로 옮기고 닫힘 직후 현재 위치를 복원한다', async () => {
+  it('F2 같은 경로에서는 열림 직전 문서 위치를 main으로 옮기고 닫힘 직후 현재 위치를 복원한다', async () => {
     await boot('ios')
     document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main><input></main></div>')
     const main = document.querySelector('main')!
@@ -180,6 +187,82 @@ describe('Capacitor iOS 키보드 리사이즈', () => {
     expect(main.scrollTop).toBe(0)
     didHide()
     expect(documentScroller.scrollTop).toBe(310)
+  })
+
+  it.each([false, true])('F2 main을 재사용하는 라우트 이동 후에는 이전 스크롤을 복원하지 않는다 (원래 경로 복귀: %s)', async (returnToOrigin) => {
+    const router = useRouter()
+    await router.push('/shop')
+    await boot('ios')
+    document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main></main></div>')
+    const main = document.querySelector('main')!
+    const documentScroller = document.scrollingElement ?? document.documentElement
+    documentScroller.scrollTop = 240
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const willHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillHide')![1]
+    const didHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    vi.useFakeTimers()
+    show({ keyboardHeight: 300 })
+    main.scrollTop = 310
+    await router.push('/record')
+    if (returnToOrigin) await router.push('/shop')
+    // 레이아웃은 그대로이고 새 화면의 라우터 스크롤 위치가 이미 적용된 상황이다.
+    expect(main.isConnected).toBe(true)
+    documentScroller.scrollTop = 25
+    willHide()
+    didHide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(false)
+    expect(documentScroller.scrollTop).toBe(25)
+  })
+
+  it('F2 같은 경로의 쿼리 변경은 스크롤 복원을 무효화하지 않는다', async () => {
+    const router = useRouter()
+    await router.push('/shop')
+    await boot('ios')
+    document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main></main></div>')
+    const main = document.querySelector('main')!
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const willHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillHide')![1]
+    const didHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    vi.useFakeTimers()
+    show({ keyboardHeight: 300 })
+    main.scrollTop = 310
+    await router.push('/shop?tab=exchange')
+    willHide()
+    didHide()
+    expect((document.scrollingElement ?? document.documentElement).scrollTop).toBe(310)
+  })
+
+  it('F3 재포커스 뒤 늦은 DidHide는 열림과 스크롤을 유지하고 다음 정상 닫힘은 처리한다', async () => {
+    await boot('ios')
+    document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main><input></main></div>')
+    const main = document.querySelector('main')!
+    const input = main.querySelector('input')!
+    const documentScroller = document.scrollingElement ?? document.documentElement
+    input.focus()
+    input.scrollIntoView = vi.fn()
+    documentScroller.scrollTop = 240
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const willHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillHide')![1]
+    const didHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    vi.useFakeTimers()
+    show({ keyboardHeight: 300 })
+    main.scrollTop = 310
+    willHide()
+    show({ keyboardHeight: 340 })
+    didHide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(true)
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('340px')
+    expect(documentScroller.scrollTop).toBe(0)
+    expect(main.scrollTop).toBe(310)
+    vi.advanceTimersToNextFrame()
+    expect(input.scrollIntoView).toHaveBeenCalledOnce()
+    willHide()
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('0px')
+    expect(document.body.classList.contains('keyboard-open')).toBe(true)
+    didHide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(false)
+    expect(documentScroller.scrollTop).toBe(310)
+    expect(main.scrollTop).toBe(0)
   })
 
   it.each(['android', 'native-fallback'])('%s는 문서와 main의 스크롤 위치를 이전하지 않는다', async (platform) => {

@@ -15,7 +15,7 @@
         @click.self="close()"
       >
         <div
-          class="bg-apjek-surface rounded-2xl shadow-2xl p-5 w-full max-w-md my-auto flex flex-col overflow-y-auto"
+          class="app-keyboard-dialog-panel bg-apjek-surface rounded-2xl shadow-2xl p-5 w-full max-w-md my-auto flex flex-col overflow-y-auto"
           style="max-height: calc(100dvh - var(--dialog-keyboard-inset, 0px) - var(--sat) - var(--sab) - 32px)"
         >
           <!-- 헤더 -->
@@ -371,6 +371,7 @@ async function refreshCurrency() {
 <style scoped>
 .fade-enter-active,
 .fade-leave-active {
+  --dialog-visibility-transition: opacity 0.2s ease;
   transition: opacity 0.2s ease;
 }
 .fade-enter-from,

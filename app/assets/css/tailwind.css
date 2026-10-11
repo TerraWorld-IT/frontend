@@ -296,6 +296,15 @@ body.ios-css-keyboard .app-keyboard-dialog {
   bottom: var(--dialog-keyboard-inset);
 }
 
+body.ios-css-keyboard.keyboard-open .app-keyboard-dialog {
+  /* 등장·퇴장 효과 뒤에 bottom을 지정해 all 트랜지션과도 이동 시간을 분리한다. */
+  transition: var(--dialog-visibility-transition, opacity 0s), bottom 0.25s ease;
+}
+
+body.ios-css-keyboard.keyboard-open .app-keyboard-dialog-panel {
+  transition: max-height 0.25s ease;
+}
+
 .is-native-app img {
   /* 이미지 드래그로 끌어내기(데스크톱 웹 습관) 방지 */
   -webkit-user-drag: none;

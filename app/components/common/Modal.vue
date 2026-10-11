@@ -26,7 +26,7 @@
         -->
         <div
           data-testid="modal-card"
-          class="relative bg-apjek-surface text-apjek-text rounded-2xl p-6 w-full max-w-[393px] my-auto overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+          class="app-keyboard-dialog-panel relative bg-apjek-surface text-apjek-text rounded-2xl p-6 w-full max-w-[393px] my-auto overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
           style="max-height: calc(100dvh - var(--dialog-keyboard-inset, 0px) - var(--sat) - var(--sab) - 32px)"
         >
           <!-- 우상단 닫기 X — 연파랑 원형. cancel 과 동일 경로 -->
@@ -166,8 +166,8 @@ useDialogFocusTrap(modalRoot, toRef(props, 'modelValue'), cancel)
 </script>
 
 <style scoped>
-.modal-enter-active { transition: all 0.2s ease-out; }
-.modal-leave-active { transition: all 0.15s ease-in; }
+.modal-enter-active { --dialog-visibility-transition: all 0.2s ease-out; transition: all 0.2s ease-out; }
+.modal-leave-active { --dialog-visibility-transition: all 0.15s ease-in; transition: all 0.15s ease-in; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-from .relative { transform: scale(0.95); }
 
