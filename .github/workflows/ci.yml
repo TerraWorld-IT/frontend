@@ -316,7 +316,8 @@ jobs:
           echo "nginx-tunnel 빌드 응답 대기..."
           # 요청당 최대 3초와 재시도 간 2초로 약 60초 안에 응답을 확인한다.
           for i in $(seq 1 12); do
-            if tunnel_id=$(read_build_id http://localhost:18090/_nuxt/builds/latest.json); then
+            if candidate_id=$(read_build_id http://localhost:18090/_nuxt/builds/latest.json); then
+              tunnel_id="$candidate_id"
               break
             fi
             [ "$i" -eq 12 ] || sleep 2
