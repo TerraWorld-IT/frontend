@@ -430,6 +430,7 @@ async function onToggleNotify(c: GrowthItem): Promise<void> {
 const lostModalSpecies = ref<string | null>(null)
 const reviving = ref<boolean>(false)
 let unmounted = false
+let nonceWaitGeneration = 0
 const lostItem = computed<GrowthItem | null>(() =>
   rawItems.value.find((it) => it.speciesCode === lostModalSpecies.value) ?? null)
 const lostRubyCost = computed<number>(() => lostItem.value?.reviveRubyCost ?? 0)
@@ -439,6 +440,7 @@ function openLostModal(c: GrowthItem): void {
 }
 // 닫으면 당일 재시도 없음(댓글 #32) — POST revive-dismiss → reviveSnoozedUntil 설정, 다음날 새 사이클.
 async function closeLostModal(): Promise<void> {
+  nonceWaitGeneration++
   const species = lostModalSpecies.value
   lostModalSpecies.value = null
   if (!species || reviving.value) return
@@ -494,6 +496,7 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
   reviving.value = true
   const userId = userStore.me?.userId
   let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
+  let nonceWaitAttempt: number | undefined
   try {
     if (method === 'RUBY') {
       await callRevive(species, { method: 'RUBY' })
@@ -514,12 +517,14 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       const adTimeLimit = REWARD_AD_PREPARE_TIMEOUT_MS + REWARD_AD_TIMEOUT_MS
       const remaining = Date.parse(issued.expiresAt) - Date.now()
       if (remaining < adTimeLimit) {
+        nonceWaitAttempt = ++nonceWaitGeneration
         // 서버는 활성 nonce를 재사용하므로 준비·시청 도중 만료될 nonce는 만료 후 한 번만 다시 발급한다.
         await new Promise(resolve => setTimeout(resolve, Math.min(adTimeLimit, Math.max(0, remaining))))
-        if (unmounted || lostModalSpecies.value !== species) return
+        if (unmounted || nonceWaitAttempt !== nonceWaitGeneration || lostModalSpecies.value !== species) return
         issued = await issueServerNonce('GROWTH_REVIVE')
-        if (unmounted || lostModalSpecies.value !== species) return
+        if (unmounted || nonceWaitAttempt !== nonceWaitGeneration || lostModalSpecies.value !== species) return
         if (Date.parse(issued.expiresAt) - Date.now() < adTimeLimit) throw new Error('정령을 다시 불러오지 못했어요')
+        nonceWaitAttempt = undefined
       }
       const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
       if (!watched) {
@@ -557,6 +562,8 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
     }
   }
   catch (e) {
+    // 닫힌 대기 시도는 재발급 요청이 늦게 실패해도 조용히 끝낸다.
+    if (nonceWaitAttempt !== undefined && (unmounted || nonceWaitAttempt !== nonceWaitGeneration)) return
     toast.error(errMsg(e, '정령을 다시 불러오지 못했어요'), pendingClaim
       ? { actionLabel: '다시 시도', duration: 8000, onAction: () => { void onRevive('AD') } }
       : undefined)
@@ -633,6 +640,7 @@ function flashBoard(speciesCode: string): void {
 }
 onBeforeUnmount(() => {
   unmounted = true
+  nonceWaitGeneration++
   if (flashTimer) clearTimeout(flashTimer)
 })
 

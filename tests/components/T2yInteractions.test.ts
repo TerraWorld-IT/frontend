@@ -498,7 +498,7 @@ describe('성장 광고 nonce 잔여시간', () => {
     expect(s.reviving).toBe(false)
   })
 
-  it.each(['close', 'unmount'] as const)('만료 대기 중 %s이면 재발급·광고·토스트 없이 잠금을 푼다', async (action) => {
+  it.each(['close', 'unmount', 'reopen'] as const)('만료 대기 중 %s이면 재발급·광고·토스트 없이 잠금을 푼다', async (action) => {
     const w = await mountPage(GrowPage)
     const s = state(w)
     s.lostModalSpecies = 'SPIRIT_A'
@@ -508,7 +508,10 @@ describe('성장 광고 nonce 잔여시간', () => {
     await vi.advanceTimersByTimeAsync(9999)
     expect(s.reviving).toBe(true)
     expect(mocks.showRewardedAd).not.toHaveBeenCalled()
-    if (action === 'close') await s.closeLostModal()
+    if (action !== 'unmount') {
+      await s.closeLostModal()
+      if (action === 'reopen') s.openLostModal({ speciesCode: 'SPIRIT_A' })
+    }
     else {
       w.unmount()
       wrappers.splice(wrappers.indexOf(w), 1)
@@ -522,7 +525,37 @@ describe('성장 광고 nonce 잔여시간', () => {
     expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
     expect(mocks.toast.error).not.toHaveBeenCalled()
     expect(mocks.toast.info).not.toHaveBeenCalled()
+    expect(mocks.toast.success).not.toHaveBeenCalled()
     expect(s.reviving).toBe(false)
+  })
+
+  it.each(['resolve', 'reject'] as const)('만료 뒤 재발급 중 같은 종을 다시 열어도 늦은 %s는 광고·보류·토스트 없이 끝난다', async (settlement) => {
+    const s = state(await mountPage(GrowPage))
+    s.lostModalSpecies = 'SPIRIT_A'
+    vi.useFakeTimers()
+    const reissue = deferred()
+    mocks.issueServerNonce
+      .mockResolvedValueOnce({ nonce: 'short', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 10000).toISOString() })
+      .mockReturnValueOnce(reissue.promise)
+    const reviving = s.onRevive('AD')
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(2)
+    expect(s.reviving).toBe(true)
+    await s.closeLostModal()
+    s.openLostModal({ speciesCode: 'SPIRIT_A' })
+    if (settlement === 'reject') reissue.reject(new Error('늦은 재발급 실패'))
+    else reissue.resolve({ nonce: 'fresh', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    await reviving
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(2)
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(mocks.toast.info).not.toHaveBeenCalled()
+    expect(mocks.toast.success).not.toHaveBeenCalled()
+    expect(s.reviving).toBe(false)
+    expect(s.lostModalSpecies).toBe('SPIRIT_A')
   })
 
   it.each([10000, -600000])('같은 짧은 nonce(잔여 %sms)를 다시 받아도 추가 대기·발급 없이 기존 오류로 끝낸다', async (remaining) => {
