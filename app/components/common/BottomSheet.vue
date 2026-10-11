@@ -18,7 +18,7 @@
     safe-area 여백도 footer 가 맡는다.
   - 키보드 가림 보정(Android 네이티브 한정): visualViewport 가 레이아웃 뷰포트보다 작으면(키보드 표시)
     패널을 보이는 영역 하단에 붙이고 높이를 줄인다 — footer CTA 가 키보드 위에 남는다. iOS 는
-    런타임에 Keyboard native 리사이즈로 전환해 레이아웃 뷰포트가 줄고, 웹 브라우저는 기존 배치를 쓴다.
+    런타임 None 모드에서 CSS 키보드 높이를 소비하며, 웹 브라우저는 기존 배치를 쓴다.
 
   트랜지션 함정 (frontend/CLAUDE.md): Tailwind v4 의 `-translate-x-1/2` 는 개별 `translate`
   속성이라 transform 에 X 축을 넣으면 이중 적용된다. 수평 중앙은 `inset-x-0 mx-auto` 로 잡고
@@ -129,8 +129,8 @@ const expanded = ref<boolean>(false)
  * Android 15 edge-to-edge WebView 는 키보드가 떠도 레이아웃 뷰포트가 줄지 않아 bottom-0 패널의 하단 CTA 가
  * 키보드에 가려졌다(에뮬레이터 실측: visualViewport 499px, 저장 버튼 하단 518px). 보이는 영역의 하단
  * (offsetTop + height)에 패널을 붙이고 높이를 그 안으로 줄인다. 레이아웃 뷰포트가 함께 줄어드는 환경
- * (가림 0)과 핀치 확대(scale > 1)에서는 기존 배치를 그대로 쓴다. iOS 는 네이티브 리사이즈로 레이아웃
- * 뷰포트가 줄어 기존 배치를 그대로 쓰며, 웹 브라우저도 이 보정에 구독하지 않는다.
+ * (가림 0)과 핀치 확대(scale > 1)에서는 기존 배치를 그대로 쓴다. iOS 는 별도의 CSS 키보드 높이를
+ * 소비하며, 웹 브라우저도 이 보정에 구독하지 않는다.
  */
 const keyboardViewport = ref<{ bottom: number, inset: number } | null>(null)
 
@@ -172,6 +172,13 @@ const panelStyle = computed<Record<string, string>>(() => {
     style.maxHeight = props.expandedHeight
   }
   style.maxHeight = `min(${style.maxHeight}, calc(100dvh - var(--sat)))`
+  if (import.meta.client && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+    // None 설정 성공 때만 루트 변수가 생긴다. Native 폴백은 0px로 기존 배치를 유지한다.
+    const visible = 'calc(100dvh - var(--keyboard-inset, 0px) - var(--sat))'
+    style.bottom = 'var(--keyboard-inset, 0px)'
+    style.maxHeight = `min(${style.maxHeight}, ${visible})`
+    if (style.height) style.height = `min(${style.height}, ${visible})`
+  }
   const keyboard = keyboardViewport.value
   if (keyboard) {
     // 키보드 표시 중 — 패널을 보이는 영역 하단에 붙이고 높이를 보이는 영역 안으로 제한한다.
@@ -313,6 +320,17 @@ body.keyboard-open .sheet-panel { transition: none; }
 body.keyboard-open .sheet-enter-active .sheet-panel { transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1); }
 body.keyboard-open .sheet-leave-active .sheet-panel { transition: transform 0.28s ease-in; }
 
+/* iOS None 모드는 뷰포트가 고정되어 있어 열림·닫힘 모두 키보드와 함께 이동·축소한다. */
+body.ios-css-keyboard .sheet-panel {
+  transition: bottom 0.25s ease, max-height 0.25s ease, height 0.25s ease;
+}
+body.ios-css-keyboard .sheet-enter-active .sheet-panel {
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), bottom 0.25s ease, max-height 0.25s ease, height 0.25s ease;
+}
+body.ios-css-keyboard .sheet-leave-active .sheet-panel {
+  transition: transform 0.28s ease-in, bottom 0.25s ease, max-height 0.25s ease, height 0.25s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet-enter-active,
   .sheet-leave-active,
@@ -321,6 +339,9 @@ body.keyboard-open .sheet-leave-active .sheet-panel { transition: transform 0.28
   .sheet-enter-active .sheet-panel,
   .sheet-leave-active .sheet-panel,
   .sheet-panel,
+  body.ios-css-keyboard .sheet-panel,
+  body.ios-css-keyboard .sheet-enter-active .sheet-panel,
+  body.ios-css-keyboard .sheet-leave-active .sheet-panel,
   /* keyboard-open 재허용 규칙(specificity 0,4,1)이 모션 감소 설정을 이기지 않도록
      동일 prefix 로 duration 강제 (Codex R1 #12). */
   body.keyboard-open .sheet-enter-active .sheet-panel,

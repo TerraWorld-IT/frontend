@@ -268,6 +268,43 @@ select:focus-visible {
   user-select: text;
 }
 
+/* 키보드가 열린 None 모드에서만 문서 스크롤을 내부 스크롤로 전환한다. */
+body.ios-css-keyboard.keyboard-open .app-keyboard-layout {
+  align-items: flex-start;
+}
+
+body.ios-css-keyboard.keyboard-open .app-keyboard-frame {
+  --app-keyboard-overflow: auto;
+  height: max(0px, calc(100dvh - var(--keyboard-inset, 0px)));
+  min-height: 0;
+  transition: height 0.25s ease, background-color 0.3s ease;
+}
+
+body.ios-css-keyboard.keyboard-open .app-keyboard-frame > main {
+  min-height: 0;
+}
+
+/* 로그인·가입은 layout:false이므로 기존 독립 스크롤 영역의 높이를 함께 줄인다. */
+body.ios-css-keyboard.keyboard-open .apjek-page-scroll {
+  height: max(0px, calc(100dvh - var(--keyboard-inset, 0px)));
+  transition: height 0.25s ease;
+}
+
+/* body로 옮긴 입력 모달도 키보드 위의 영역 안에서 배치하고 스크롤한다. */
+body.ios-css-keyboard .app-keyboard-dialog {
+  --dialog-keyboard-inset: var(--keyboard-inset, 0px);
+  bottom: var(--dialog-keyboard-inset);
+}
+
+body.ios-css-keyboard.keyboard-open .app-keyboard-dialog {
+  /* 등장·퇴장 효과 뒤에 bottom을 지정해 all 트랜지션과도 이동 시간을 분리한다. */
+  transition: var(--dialog-visibility-transition, opacity 0s), bottom 0.25s ease;
+}
+
+body.ios-css-keyboard.keyboard-open .app-keyboard-dialog-panel {
+  transition: max-height 0.25s ease;
+}
+
 .is-native-app img {
   /* 이미지 드래그로 끌어내기(데스크톱 웹 습관) 방지 */
   -webkit-user-drag: none;

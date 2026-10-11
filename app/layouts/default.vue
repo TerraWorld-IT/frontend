@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-dvh bg-neutral-100 flex items-center justify-center">
+  <div class="app-keyboard-layout min-h-dvh bg-neutral-100 flex items-center justify-center">
     <!-- Mobile app frame, centered on desktop (TERRAWORLD2 Root.tsx 정확 이관) -->
     <div
-      class="w-full max-w-md min-h-dvh shadow-2xl relative flex flex-col transition-colors duration-300"
+      class="app-keyboard-frame w-full max-w-md min-h-dvh shadow-2xl relative flex flex-col transition-colors duration-300"
       :style="{ backgroundColor: currentBgColor }"
     >
       <!-- Main content -->
@@ -13,7 +13,7 @@
         :style="{
           paddingTop: 'calc(1rem + var(--sat))',
           paddingBottom: 'calc(80px + var(--sab))',
-          overflowY: route.path === '/shop' ? 'visible' : undefined,
+          overflowY: route.path === '/shop' ? 'var(--app-keyboard-overflow, visible)' as CSSProperties['overflowY'] : undefined,
         }"
       >
         <slot />
@@ -61,6 +61,8 @@
 </template>
 
 <script setup lang="ts">
+import type { CSSProperties } from 'vue'
+
 useHead({ title: 'TERRAWORLD' })
 
 interface Tab {
