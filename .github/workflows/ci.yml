@@ -273,9 +273,57 @@ jobs:
           echo "frontend 응답 대기..."
           # `/` 는 app/middleware/auth.ts 의 protect-by-default 가드 대상이라 미인증 요청이 항상
           # /auth/login 으로 302 된다. 인증 없이 200 이 보장되는 /auth/login 으로 확인한다.
+          frontend_ready=false
           for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:13000/auth/login || echo 000)
-            [ "$code" = 200 ] && { echo "✅ frontend 200"; exit 0; }
+            [ "$code" = 200 ] && { echo "✅ frontend 200"; frontend_ready=true; break; }
             sleep 4
           done
-          echo "❌ frontend 미응답"; docker logs --tail 50 tw-frontend; exit 1
+          if [ "$frontend_ready" != true ]; then
+            echo "❌ frontend 미응답"; docker logs --tail 50 tw-frontend; exit 1
+          fi
+
+          if ! docker container inspect tw-nginx-tunnel >/dev/null 2>&1; then
+            echo "::warning::tw-nginx-tunnel 없음: frontend 직접 응답 확인으로 배포를 마칩니다."
+            exit 0
+          fi
+
+          direct_id=""
+          tunnel_id=""
+          diagnose_tunnel() {
+            echo "::error::frontend 빌드 검증 실패: direct_id=${direct_id:-<읽기 실패>}, tunnel_id=${tunnel_id:-<읽기 실패>}"
+            docker ps -a --filter name=tw-frontend --filter name=tw-nginx-tunnel || true
+            docker exec tw-nginx-tunnel getent hosts frontend || true
+            docker logs --tail 50 tw-frontend || true
+            docker logs --tail 50 tw-nginx-tunnel || true
+          }
+          # 컨테이너 교체로 바뀐 frontend IP를 nginx가 다시 해석하도록 같은 배포 락 안에서 재시작한다.
+          if ! docker restart tw-nginx-tunnel; then
+            diagnose_tunnel
+            exit 1
+          fi
+
+          # 호스트에 JSON 도구를 추가하지 않고 frontend 이미지의 Node로 빌드 ID를 읽는다.
+          read_build_id() {
+            curl -fsS --max-time 3 "$1" | docker exec -i tw-frontend node -e '
+              try {
+                const id = JSON.parse(require("fs").readFileSync(0, "utf8")).id;
+                if (typeof id !== "string" || !id.trim()) process.exit(1);
+                process.stdout.write(id);
+              } catch { process.exit(1); }
+            '
+          }
+          echo "nginx-tunnel 빌드 응답 대기..."
+          # 요청당 최대 3초와 재시도 간 2초로 약 60초 안에 응답을 확인한다.
+          for i in $(seq 1 12); do
+            if tunnel_id=$(read_build_id http://localhost:18090/_nuxt/builds/latest.json); then
+              break
+            fi
+            [ "$i" -eq 12 ] || sleep 2
+          done
+          direct_id=$(read_build_id http://localhost:13000/_nuxt/builds/latest.json) || direct_id=""
+          if [ -z "$direct_id" ] || [ -z "$tunnel_id" ] || [ "$direct_id" != "$tunnel_id" ]; then
+            diagnose_tunnel
+            exit 1
+          fi
+          echo "✅ frontend 빌드 일치: direct=${direct_id:0:8}, tunnel=${tunnel_id:0:8}"
