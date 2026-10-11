@@ -268,6 +268,28 @@ select:focus-visible {
   user-select: text;
 }
 
+/* None 모드에서만 키보드 높이를 소비한다. 유틸리티의 dvh 최소 높이보다 우선한다. */
+body.ios-css-keyboard .app-keyboard-layout {
+  align-items: flex-start;
+}
+
+body.ios-css-keyboard .app-keyboard-frame {
+  --app-keyboard-overflow: auto;
+  height: max(0px, calc(100dvh - var(--keyboard-inset, 0px)));
+  min-height: 0;
+  transition: height 0.25s ease, background-color 0.3s ease;
+}
+
+body.ios-css-keyboard .app-keyboard-frame > main {
+  min-height: 0;
+}
+
+/* 로그인·가입은 layout:false이므로 기존 독립 스크롤 영역의 높이를 함께 줄인다. */
+body.ios-css-keyboard .apjek-page-scroll {
+  height: max(0px, calc(100dvh - var(--keyboard-inset, 0px)));
+  transition: height 0.25s ease;
+}
+
 .is-native-app img {
   /* 이미지 드래그로 끌어내기(데스크톱 웹 습관) 방지 */
   -webkit-user-drag: none;

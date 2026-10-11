@@ -356,12 +356,22 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   try {
     const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard')
     const isIOS = Capacitor.getPlatform() === 'ios'
+    let usesKeyboardInset = false
     if (isIOS) {
-      // 구형 셸에서 설정 호출이 실패해도 리스너와 이후 초기화는 계속한다.
-      await Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {})
+      try {
+        // 네이티브의 지연 프레임 축소 대신 Will 이벤트부터 웹 영역을 함께 줄인다.
+        await Keyboard.setResizeMode({ mode: KeyboardResize.None })
+        usesKeyboardInset = true
+        document.documentElement.style.setProperty('--keyboard-inset', '0px')
+        document.body.classList.add('ios-css-keyboard')
+      } catch {
+        // 구형 셸은 기존 리사이즈로 복귀한다. CSS 보정은 켜지 않아 이중 축소를 막는다.
+        await Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {})
+      }
       document.body.classList.add('ios-native-keyboard')
     }
     let scrollTimer: ReturnType<typeof setTimeout> | undefined
+    let scrollFrame: number | undefined
     const listeners: ReturnType<typeof Keyboard.addListener>[] = []
     function scrollFocusedInput() {
       const active = document.activeElement
@@ -373,29 +383,55 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       if (!document.body.classList.contains('keyboard-open')) return
       scrollFocusedInput()
     }
+    function scrollAfterTransition(event: TransitionEvent) {
+      // 첫 프레임 이후 줄어든 영역에서도 입력을 보이게 한다. 고정 시간 지연은 쓰지 않는다.
+      if (event.target instanceof HTMLElement
+        && event.target.matches('.app-keyboard-frame, .apjek-page-scroll, .sheet-panel')
+        && ['height', 'max-height', 'bottom'].includes(event.propertyName)) scrollAfterResize()
+    }
     function disposeKeyboard() {
       clearTimeout(scrollTimer)
+      if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
       window.removeEventListener('resize', scrollAfterResize)
+      document.removeEventListener('transitionend', scrollAfterTransition)
       for (const listener of listeners) void listener.then(handle => handle.remove()).catch(() => {})
-      document.body.classList.remove('keyboard-open', 'ios-native-keyboard')
+      document.body.classList.remove('keyboard-open', 'ios-native-keyboard', 'ios-css-keyboard')
+      if (usesKeyboardInset) document.documentElement.style.removeProperty('--keyboard-inset')
     }
     nuxtApp.vueApp.onUnmount(disposeKeyboard)
     if (import.meta.hot) import.meta.hot.dispose(disposeKeyboard)
-    if (isIOS) {
+    if (usesKeyboardInset) {
+      document.addEventListener('transitionend', scrollAfterTransition)
+    } else if (isIOS) {
       // 네이티브 프레임 축소는 표시 완료 이벤트보다 늦을 수 있어 실제 뷰포트 변경 뒤 다시 보정한다.
       window.addEventListener('resize', scrollAfterResize)
     }
-    listeners.push(Keyboard.addListener('keyboardWillShow', () => {
+    listeners.push(Keyboard.addListener('keyboardWillShow', ({ keyboardHeight }) => {
       document.body.classList.add('keyboard-open')
-      // 중첩 스크롤 컨테이너의 입력은 키보드 애니메이션 뒤에도 별도 보정이 필요하다.
       clearTimeout(scrollTimer)
-      scrollTimer = setTimeout(scrollFocusedInput, 300)
+      if (usesKeyboardInset) {
+        const height = typeof keyboardHeight === 'number' && Number.isFinite(keyboardHeight) && keyboardHeight > 0 ? keyboardHeight : 0
+        document.documentElement.style.setProperty('--keyboard-inset', `${height}px`)
+        if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
+        scrollFrame = requestAnimationFrame(scrollFocusedInput)
+      } else {
+        // Android와 Native 폴백은 기존 애니메이션 이후 보정을 유지한다.
+        scrollTimer = setTimeout(scrollFocusedInput, 300)
+      }
     }))
+    if (usesKeyboardInset) {
+      listeners.push(Keyboard.addListener('keyboardWillHide', () => {
+        document.documentElement.style.setProperty('--keyboard-inset', '0px')
+        if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
+      }))
+    }
     // keyboard-open 해제는 Did(완료) 시점 — Will(시작) 시점에 제거하면 닫힘 애니메이션 중의
     // 두 번째 백드롭 탭이 "키보드 닫는 중" 판정을 놓쳐 시트까지 닫는다 (Codex R1 F6).
     listeners.push(Keyboard.addListener('keyboardDidHide', () => {
       document.body.classList.remove('keyboard-open')
       clearTimeout(scrollTimer)
+      if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
+      if (usesKeyboardInset) document.documentElement.style.setProperty('--keyboard-inset', '0px')
     }))
   } catch {
     // 키보드 플러그인을 사용할 수 없는 환경은 건너뛴다.

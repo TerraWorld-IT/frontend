@@ -7,7 +7,7 @@ import RecordPage from '~/pages/record/index.vue'
 
 // B8: 키보드가 레이아웃 뷰포트를 줄이지 않는 WebView(Android 15 edge-to-edge)에서 시트 하단 CTA 가
 // 키보드에 가려지지 않도록 visualViewport 기준으로 패널을 보이는 영역 안에 둔다. Android 네이티브에서만
-// 적용하고 iOS 는 네이티브 리사이즈로 줄어든 뷰포트를 쓰며 웹 브라우저는 기존 배치를 유지한다.
+// 적용하고 iOS 는 None 모드의 CSS 키보드 높이를 쓰며 웹 브라우저는 기존 배치를 유지한다.
 const mocks = vi.hoisted(() => ({
   // 앱 부팅 플러그인(capacitor.client)이 네이티브 경로를 타지 않도록 기본은 web, 각 테스트에서 바꾼다.
   platform: 'web' as 'android' | 'ios' | 'web',
@@ -59,6 +59,8 @@ afterEach(() => {
   else delete (window as { visualViewport?: unknown }).visualViewport
   if (originalInnerHeight) Object.defineProperty(window, 'innerHeight', originalInnerHeight)
   document.body.innerHTML = ''
+  document.body.classList.remove('ios-css-keyboard', 'keyboard-open')
+  document.documentElement.style.removeProperty('--keyboard-inset')
 })
 
 async function mountSheet(props: Record<string, unknown> = {}) {
@@ -146,8 +148,8 @@ describe('BottomSheet 키보드 가림 보정 (visualViewport, Android 네이티
 })
 
 describe('BottomSheet 키보드 가림 보정 플랫폼 분기', () => {
-  it.each(['ios', 'web'] as const)('%s 에서는 visualViewport 를 구독하지 않고 키보드가 떠도 배치가 이전과 같다', async (platform) => {
-    mocks.platform = platform
+  it('웹에서는 visualViewport 를 구독하지 않고 키보드가 떠도 배치가 이전과 같다', async () => {
+    mocks.platform = 'web'
     const add = vi.spyOn(viewport, 'addEventListener')
     const wrapper = await mountSheet()
     viewport.set({ height: 499 })
@@ -156,6 +158,31 @@ describe('BottomSheet 키보드 가림 보정 플랫폼 분기', () => {
     expect(panelStyle(wrapper).bottom).toBeUndefined()
     expect(panelStyle(wrapper).maxHeight).toBe('min(min(620px, 88dvh), calc(100dvh - var(--sat)))')
     expect(panel().style.bottom).toBe('')
+  })
+
+  it.each([false, true])('iOS는 CSS 높이로 패널 하단과 높이를 제한하고 visualViewport와 중복 보정하지 않는다 (고정 높이: %s)', async (fixedHeight) => {
+    mocks.platform = 'ios'
+    document.body.classList.add('ios-css-keyboard', 'keyboard-open')
+    document.documentElement.style.setProperty('--keyboard-inset', '301px')
+    const add = vi.spyOn(viewport, 'addEventListener')
+    const wrapper = await mountSheet({ fixedHeight })
+    viewport.set({ height: 499 })
+    await nextTick()
+    expect(add).not.toHaveBeenCalled()
+    // happy-dom은 bottom의 var()를 버리므로 Vue에 전달하는 스타일 계약을 검증한다.
+    expect(panelStyle(wrapper).bottom).toBe('var(--keyboard-inset, 0px)')
+    expect(panelStyle(wrapper).maxHeight).toContain('calc(100dvh - var(--keyboard-inset, 0px) - var(--sat))')
+    if (fixedHeight) expect(panelStyle(wrapper).height).toContain('calc(100dvh - var(--keyboard-inset, 0px) - var(--sat))')
+    expect(panel().querySelector('[data-testid="sheet-footer"] [data-test-cta]')).not.toBeNull()
+    document.documentElement.style.setProperty('--keyboard-inset', '0px')
+    expect(panelStyle(wrapper).bottom).toBe('var(--keyboard-inset, 0px)')
+  })
+
+  it('iOS Native 폴백은 CSS 높이 변수가 없으면 추가 여백을 만들지 않는다', async () => {
+    mocks.platform = 'ios'
+    const wrapper = await mountSheet()
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('')
+    expect(panelStyle(wrapper).bottom).toBe('var(--keyboard-inset, 0px)')
   })
 })
 

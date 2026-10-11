@@ -30,7 +30,7 @@ vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.n
 vi.mock('@capacitor/app', () => ({ App: { addListener: vi.fn(), exitApp: vi.fn(), getLaunchUrl: vi.fn() } }))
 mockNuxtImport('navigateTo', () => mocks.navigate)
 vi.mock('@capacitor/push-notifications', () => ({ PushNotifications: { addListener: mocks.pushListener } }))
-vi.mock('@capacitor/keyboard', () => ({ KeyboardResize: { Native: 'native' }, Keyboard: { addListener: vi.fn().mockImplementation(async () => ({ remove: vi.fn().mockResolvedValue(undefined) })), setResizeMode: vi.fn().mockResolvedValue(undefined) } }))
+vi.mock('@capacitor/keyboard', () => ({ KeyboardResize: { Native: 'native', None: 'none' }, Keyboard: { addListener: vi.fn().mockImplementation(async () => ({ remove: vi.fn().mockResolvedValue(undefined) })), setResizeMode: vi.fn().mockResolvedValue(undefined) } }))
 mockNuxtImport('useAuth', () => () => ({ isLoggedIn, loadJwt: async () => null }))
 mockNuxtImport('useBackButtonStack', () => () => ({ popTopBackHandler: () => false }))
 mockNuxtImport('useToast', () => () => ({ info: mocks.toastInfo }))
@@ -107,17 +107,103 @@ describe('Capacitor iOS 키보드 리사이즈', () => {
     await capacitorPlugin(pluginApp())
   }
 
-  it('iOS 네이티브에서 리스너 등록 전에 네이티브 리사이즈를 한 번 설정한다', async () => {
+  it('iOS 네이티브에서 리스너 등록 전에 None을 설정하고 CSS 보정을 켠다', async () => {
     await boot('ios')
-    expect(Keyboard.setResizeMode).toHaveBeenCalledExactlyOnceWith({ mode: 'native' })
+    expect(Keyboard.setResizeMode).toHaveBeenCalledExactlyOnceWith({ mode: 'none' })
     expect(vi.mocked(Keyboard.setResizeMode).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(Keyboard.addListener).mock.invocationCallOrder[0]!)
     expect(document.body.classList.contains('ios-native-keyboard')).toBe(true)
+    expect(document.body.classList.contains('ios-css-keyboard')).toBe(true)
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('0px')
+  })
+
+  it('WillShow에서 높이를 즉시 반영하고 다음 프레임에 스크롤하며 WillHide부터 여백을 없앤다', async () => {
+    await boot('ios')
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const willHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillHide')![1]
+    const didHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    input.scrollIntoView = vi.fn()
+    vi.useFakeTimers()
+    show({ keyboardHeight: 301 })
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('301px')
+    expect(document.body.classList.contains('keyboard-open')).toBe(true)
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+    vi.advanceTimersToNextFrame()
+    expect(input.scrollIntoView).toHaveBeenCalledOnce()
+    vi.mocked(input.scrollIntoView).mockClear()
+    window.dispatchEvent(new Event('resize'))
+    vi.advanceTimersByTime(300)
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+    willHide()
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('0px')
+    expect(document.body.classList.contains('keyboard-open')).toBe(true)
+    didHide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(false)
+  })
+
+  it.each([0, -1, -300, NaN, Infinity, -Infinity, undefined, null, '300'])('잘못된 높이(%s)는 열린 키보드 여백을 0으로 되돌린다', async (height) => {
+    await boot('ios')
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    show({ keyboardHeight: 300 })
+    show({ keyboardHeight: height as number })
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('0px')
+  })
+
+  it('줄어든 스크롤 영역의 트랜지션 완료 뒤 다시 보정하고 해제 뒤에는 보정하지 않는다', async () => {
+    await boot('ios')
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const container = document.createElement('div')
+    container.className = 'apjek-page-scroll'
+    const input = document.createElement('input')
+    container.append(input)
+    document.body.append(container)
+    input.focus()
+    input.scrollIntoView = vi.fn()
+    vi.useFakeTimers()
+    show({ keyboardHeight: 300 })
+    vi.advanceTimersToNextFrame()
+    vi.mocked(input.scrollIntoView).mockClear()
+    // happy-dom의 TransitionEvent는 propertyName 초기화를 지원하지 않는다.
+    const transition = (propertyName: string) => Object.assign(new Event('transitionend', { bubbles: true }), { propertyName })
+    container.dispatchEvent(transition('opacity'))
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+    container.dispatchEvent(transition('height'))
+    expect(input.scrollIntoView).toHaveBeenCalledOnce()
+    for (const dispose of keyboardDisposers.splice(0)) dispose()
+    document.body.classList.add('keyboard-open')
+    container.dispatchEvent(transition('height'))
+    expect(input.scrollIntoView).toHaveBeenCalledOnce()
+  })
+
+  it('높이 변경은 누적하지 않고 마지막 높이를 반영하며 해제 시 변수와 대기 프레임을 정리한다', async () => {
+    await boot('ios')
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const input = document.createElement('textarea')
+    document.body.append(input)
+    input.focus()
+    input.scrollIntoView = vi.fn()
+    vi.useFakeTimers()
+    for (const height of [301, 216.5, 216.5, 346]) {
+      show({ keyboardHeight: height })
+      expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe(`${height}px`)
+    }
+    for (const dispose of keyboardDisposers.splice(0)) dispose()
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('')
+    expect(document.body.classList.contains('ios-css-keyboard')).toBe(false)
+    vi.advanceTimersByTime(400)
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
   })
 
   it('Android 네이티브에서는 리사이즈를 설정하거나 iOS 표시를 추가하지 않는다', async () => {
     await boot('android')
     expect(Keyboard.setResizeMode).not.toHaveBeenCalled()
     expect(document.body.classList.contains('ios-native-keyboard')).toBe(false)
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    show({ keyboardHeight: 300 })
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('')
+    expect(document.body.classList.contains('ios-css-keyboard')).toBe(false)
   })
 
   it('웹에서는 키보드 초기화를 실행하지 않는다', async () => {
@@ -128,9 +214,26 @@ describe('Capacitor iOS 키보드 리사이즈', () => {
     expect(Keyboard.addListener).not.toHaveBeenCalled()
   })
 
-  it('리사이즈 설정 실패 후에도 키보드 리스너와 복귀 초기화는 계속한다', async () => {
-    vi.mocked(Keyboard.setResizeMode).mockRejectedValueOnce(new Error('not implemented'))
+  it.each([false, true])('None 실패 후 Native로 폴백하고 초기화를 계속한다 (Native 실패: %s)', async (nativeFails) => {
+    vi.mocked(Keyboard.setResizeMode).mockRejectedValueOnce(new Error('none unavailable'))
+    if (nativeFails) vi.mocked(Keyboard.setResizeMode).mockRejectedValueOnce(new Error('native unavailable'))
     await boot('ios')
+    expect(Keyboard.setResizeMode).toHaveBeenNthCalledWith(1, { mode: 'none' })
+    expect(Keyboard.setResizeMode).toHaveBeenNthCalledWith(2, { mode: 'native' })
+    expect(document.body.classList.contains('ios-native-keyboard')).toBe(true)
+    expect(document.body.classList.contains('ios-css-keyboard')).toBe(false)
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const input = document.createElement('input')
+    document.body.append(input)
+    input.focus()
+    input.scrollIntoView = vi.fn()
+    vi.useFakeTimers()
+    show({ keyboardHeight: 300 })
+    expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('')
+    vi.advanceTimersByTime(299)
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(input.scrollIntoView).toHaveBeenCalledOnce()
     expect(Keyboard.addListener).toHaveBeenCalledWith('keyboardWillShow', expect.any(Function))
     expect(Keyboard.addListener).toHaveBeenCalledWith('keyboardDidHide', expect.any(Function))
     expect(App.addListener).toHaveBeenCalledWith('resume', expect.any(Function))
@@ -138,6 +241,7 @@ describe('Capacitor iOS 키보드 리사이즈', () => {
 
   it.each([true, false])('늦은 뷰포트 변경 뒤 입력을 다시 보정하고 닫힘·해제 뒤에는 보정하지 않는다 (%s)', async (reduce) => {
     vi.spyOn(window, 'matchMedia').mockImplementation(() => ({ matches: reduce }) as MediaQueryList)
+    vi.mocked(Keyboard.setResizeMode).mockRejectedValueOnce(new Error('none unavailable'))
     await boot('ios')
     const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
     const hide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
