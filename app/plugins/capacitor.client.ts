@@ -373,6 +373,29 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     let scrollTimer: ReturnType<typeof setTimeout> | undefined
     let scrollFrame: number | undefined
     const listeners: ReturnType<typeof Keyboard.addListener>[] = []
+    let keyboardScrollMain: HTMLElement | null = null
+    function setKeyboardOpen(open: boolean) {
+      const wasOpen = document.body.classList.contains('keyboard-open')
+      const documentScroller = document.scrollingElement ?? document.documentElement
+      // 높이 제한 전후의 위치를 같은 프레임에 옮겨 스크롤 주체 전환으로 인한 점프를 막는다.
+      const main = usesKeyboardInset && open && !wasOpen
+        ? document.querySelector<HTMLElement>('.app-keyboard-frame > main')
+        : null
+      const scrollTop = main ? documentScroller.scrollTop : keyboardScrollMain?.scrollTop
+      document.body.classList.toggle('keyboard-open', open)
+      if (main) {
+        keyboardScrollMain = main
+        main.scrollTop = scrollTop ?? 0
+        documentScroller.scrollTop = 0
+      } else if (!open && keyboardScrollMain) {
+        // 라우트 전환으로 이전 main이 제거됐다면 새 화면의 문서 위치는 건드리지 않는다.
+        if (keyboardScrollMain.isConnected) {
+          keyboardScrollMain.scrollTop = 0
+          documentScroller.scrollTop = scrollTop ?? 0
+        }
+        keyboardScrollMain = null
+      }
+    }
     function scrollFocusedInput() {
       const active = document.activeElement
       if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
@@ -395,7 +418,8 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       window.removeEventListener('resize', scrollAfterResize)
       document.removeEventListener('transitionend', scrollAfterTransition)
       for (const listener of listeners) void listener.then(handle => handle.remove()).catch(() => {})
-      document.body.classList.remove('keyboard-open', 'ios-native-keyboard', 'ios-css-keyboard')
+      setKeyboardOpen(false)
+      document.body.classList.remove('ios-native-keyboard', 'ios-css-keyboard')
       if (usesKeyboardInset) document.documentElement.style.removeProperty('--keyboard-inset')
     }
     nuxtApp.vueApp.onUnmount(disposeKeyboard)
@@ -407,7 +431,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       window.addEventListener('resize', scrollAfterResize)
     }
     listeners.push(Keyboard.addListener('keyboardWillShow', ({ keyboardHeight }) => {
-      document.body.classList.add('keyboard-open')
+      setKeyboardOpen(true)
       clearTimeout(scrollTimer)
       if (usesKeyboardInset) {
         const height = typeof keyboardHeight === 'number' && Number.isFinite(keyboardHeight) && keyboardHeight > 0 ? keyboardHeight : 0
@@ -428,7 +452,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     // keyboard-open 해제는 Did(완료) 시점 — Will(시작) 시점에 제거하면 닫힘 애니메이션 중의
     // 두 번째 백드롭 탭이 "키보드 닫는 중" 판정을 놓쳐 시트까지 닫는다 (Codex R1 F6).
     listeners.push(Keyboard.addListener('keyboardDidHide', () => {
-      document.body.classList.remove('keyboard-open')
+      setKeyboardOpen(false)
       clearTimeout(scrollTimer)
       if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame)
       if (usesKeyboardInset) document.documentElement.style.setProperty('--keyboard-inset', '0px')

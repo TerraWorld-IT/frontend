@@ -14,6 +14,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
   document.body.classList.remove('keyboard-open')
   document.body.innerHTML = ''
+  document.documentElement.scrollTop = 0
   isLoggedIn = ref<boolean>(false)
   sessionStorage.clear()
   mocks.platform = 'android'
@@ -141,6 +142,72 @@ describe('Capacitor iOS 키보드 리사이즈', () => {
     expect(document.body.classList.contains('keyboard-open')).toBe(true)
     didHide()
     expect(document.body.classList.contains('keyboard-open')).toBe(false)
+  })
+
+  it('기본 레이아웃은 열림 직전에 문서 위치를 main으로 옮기고 닫힘 직후 현재 위치를 복원한다', async () => {
+    await boot('ios')
+    document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main><input></main></div>')
+    const main = document.querySelector('main')!
+    const input = main.querySelector('input')!
+    const documentScroller = document.scrollingElement ?? document.documentElement
+    input.focus()
+    input.scrollIntoView = vi.fn(() => {
+      expect(main.scrollTop).toBe(240)
+      expect(documentScroller.scrollTop).toBe(0)
+    })
+    documentScroller.scrollTop = 240
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const willHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillHide')![1]
+    const didHide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    vi.useFakeTimers()
+    expect(document.body.classList.contains('keyboard-open')).toBe(false)
+    expect(main.scrollTop).toBe(0)
+    show({ keyboardHeight: 300 })
+    expect(main.scrollTop).toBe(240)
+    expect(documentScroller.scrollTop).toBe(0)
+    expect(input.scrollIntoView).not.toHaveBeenCalled()
+    vi.advanceTimersToNextFrame()
+    expect(input.scrollIntoView).toHaveBeenCalledOnce()
+    main.scrollTop = 310
+    show({ keyboardHeight: 340 })
+    expect(main.scrollTop).toBe(310)
+    willHide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(true)
+    expect(documentScroller.scrollTop).toBe(0)
+    didHide()
+    expect(document.body.classList.contains('keyboard-open')).toBe(false)
+    expect(documentScroller.scrollTop).toBe(310)
+    expect(main.scrollTop).toBe(0)
+    didHide()
+    expect(documentScroller.scrollTop).toBe(310)
+  })
+
+  it.each(['android', 'native-fallback'])('%s는 문서와 main의 스크롤 위치를 이전하지 않는다', async (platform) => {
+    if (platform === 'native-fallback') vi.mocked(Keyboard.setResizeMode).mockRejectedValueOnce(new Error('none unavailable'))
+    await boot(platform === 'native-fallback' ? 'ios' : platform)
+    document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main></main></div>')
+    const main = document.querySelector('main')!
+    const documentScroller = document.scrollingElement ?? document.documentElement
+    documentScroller.scrollTop = 240
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    const hide = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardDidHide')![1]
+    show({ keyboardHeight: 300 })
+    expect(main.scrollTop).toBe(0)
+    expect(documentScroller.scrollTop).toBe(240)
+    hide()
+    expect(documentScroller.scrollTop).toBe(240)
+  })
+
+  it('열린 상태에서 플러그인을 해제해도 main의 현재 위치를 문서로 복원한다', async () => {
+    await boot('ios')
+    document.body.insertAdjacentHTML('beforeend', '<div class="app-keyboard-frame"><main></main></div>')
+    const main = document.querySelector('main')!
+    const show = vi.mocked(Keyboard.addListener).mock.calls.find(([event]) => event === 'keyboardWillShow')![1]
+    show({ keyboardHeight: 300 })
+    main.scrollTop = 180
+    for (const dispose of keyboardDisposers.splice(0)) dispose()
+    expect((document.scrollingElement ?? document.documentElement).scrollTop).toBe(180)
+    expect(main.scrollTop).toBe(0)
   })
 
   it.each([0, -1, -300, NaN, Infinity, -Infinity, undefined, null, '300'])('잘못된 높이(%s)는 열린 키보드 여백을 0으로 되돌린다', async (height) => {

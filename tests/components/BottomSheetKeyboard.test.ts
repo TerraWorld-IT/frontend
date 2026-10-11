@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { nextTick, ref } from 'vue'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import BottomSheet from '~/components/common/BottomSheet.vue'
 import RecordPage from '~/pages/record/index.vue'
+import Modal from '~/components/common/Modal.vue'
+import ExchangeDialog from '~/components/shop/ExchangeDialog.vue'
+import DefaultLayout from '~/layouts/default.vue'
 
 // B8: 키보드가 레이아웃 뷰포트를 줄이지 않는 WebView(Android 15 edge-to-edge)에서 시트 하단 CTA 가
 // 키보드에 가려지지 않도록 visualViewport 기준으로 패널을 보이는 영역 안에 둔다. Android 네이티브에서만
@@ -11,7 +15,7 @@ import RecordPage from '~/pages/record/index.vue'
 const mocks = vi.hoisted(() => ({
   // 앱 부팅 플러그인(capacitor.client)이 네이티브 경로를 타지 않도록 기본은 web, 각 테스트에서 바꾼다.
   platform: 'web' as 'android' | 'ios' | 'web',
-  sdk: { listCategories: vi.fn(), listFriends: vi.fn(), getGrowth: vi.fn(), createRecord: vi.fn() },
+  sdk: { listCategories: vi.fn(), listFriends: vi.fn(), getGrowth: vi.fn(), createRecord: vi.fn(), getExchangeRates: vi.fn(async () => ({ data: { rates: [] } })) },
   routeLeave: vi.fn(),
 }))
 vi.mock('@capacitor/core', async (importOriginal) => {
@@ -23,12 +27,20 @@ vi.mock('@capacitor/core', async (importOriginal) => {
 })
 vi.mock('vue-router', async () => ({ ...(await vi.importActual('vue-router')), onBeforeRouteLeave: mocks.routeLeave }))
 vi.mock('~/stores/user', () => ({ useUserStore: () => ({ me: { userId: 'record-user' }, fetchMe: vi.fn(async () => undefined) }) }))
-vi.mock('~/lib/auth-client', () => ({ authClient: { useSession: () => ref({ data: { user: { id: 'record-user' } } }) } }))
+vi.mock('~/lib/auth-client', () => ({ authClient: { useSession: () => ref({ data: { user: { id: 'record-user' } } }), getSession: vi.fn(async () => ({ data: { user: { id: 'record-user' } } })) } }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: mocks.sdk, client: {} }))
 mockNuxtImport('useToast', () => () => ({ error: vi.fn(), success: vi.fn(), info: vi.fn() }))
 mockNuxtImport('useGtagEvents', () => () => ({ trackRecordCreated: vi.fn() }))
 mockNuxtImport('useHabits', () => () => ({ trackers: ref([]), loaded: ref(true), loadError: ref(false), load: vi.fn() }))
 mockNuxtImport('dismissKeyboard', () => vi.fn())
+
+// DOM 모의 환경은 dvh 레이아웃을 계산하지 않으므로 실제 CSS 규칙의 선택자·선언을 DOM과 대조한다.
+const keyboardCss = readFileSync('app/assets/css/tailwind.css', 'utf8')
+function keyboardRulesFor(element: Element): string[] {
+  return Array.from(keyboardCss.matchAll(/(body\.ios-css-keyboard[^{}]*)\{([^{}]*)\}/g))
+    .filter(([, selector]) => Array.from(document.querySelectorAll(selector!.trim())).includes(element))
+    .map(([, , declarations]) => declarations!)
+}
 
 /** 테스트용 visualViewport — 실제 브라우저처럼 resize/scroll 이벤트로 변화를 알린다. */
 class FakeVisualViewport extends EventTarget {
@@ -183,6 +195,61 @@ describe('BottomSheet 키보드 가림 보정 플랫폼 분기', () => {
     const wrapper = await mountSheet()
     expect(document.documentElement.style.getPropertyValue('--keyboard-inset')).toBe('')
     expect(panelStyle(wrapper).bottom).toBe('var(--keyboard-inset, 0px)')
+  })
+})
+
+describe('iOS 키보드 레이아웃과 입력 모달', () => {
+  it('닫힌 기본 레이아웃과 독립 페이지에는 고정 높이 규칙이 적용되지 않고 열렸을 때만 적용된다', async () => {
+    mocks.platform = 'ios'
+    document.body.classList.add('ios-css-keyboard')
+    const wrapper = await mountSuspended(DefaultLayout, { attachTo: document.body })
+    wrappers.push(wrapper)
+    const frame = wrapper.get('.app-keyboard-frame').element
+    expect(frame.closest('body')).toBe(document.body)
+    const main = wrapper.get('main').element
+    const layout = wrapper.get('.app-keyboard-layout').element
+    const page = document.createElement('div')
+    page.className = 'apjek-page-scroll'
+    document.body.append(page)
+    expect(frame.classList.contains('min-h-dvh')).toBe(true)
+    for (const element of [frame, main, layout, page]) expect(keyboardRulesFor(element)).toHaveLength(0)
+    document.body.classList.add('keyboard-open')
+    expect(keyboardRulesFor(frame)[0]).toContain('height: max(0px, calc(100dvh - var(--keyboard-inset, 0px)))')
+    expect(keyboardRulesFor(frame)[0]).toContain('min-height: 0')
+    expect(keyboardRulesFor(main)[0]).toContain('min-height: 0')
+    expect(keyboardRulesFor(page)[0]).toContain('height: max(0px, calc(100dvh - var(--keyboard-inset, 0px)))')
+    document.body.classList.remove('keyboard-open')
+    for (const element of [frame, main, layout, page]) expect(keyboardRulesFor(element)).toHaveLength(0)
+  })
+
+  it.each(['modal', 'exchange'] as const)('%s의 body 입력 모달은 iOS CSS 모드에서만 배치 하단과 패널 높이에 키보드 여백을 쓴다', async (kind) => {
+    mocks.platform = 'ios'
+    document.body.classList.add('ios-css-keyboard', 'keyboard-open')
+    document.documentElement.style.setProperty('--keyboard-inset', '301px')
+    const wrapper = kind === 'modal'
+      ? await mountSuspended(Modal, { props: { modelValue: true }, slots: { default: '<input data-test-input>' } })
+      : await mountSuspended(ExchangeDialog, { props: { modelValue: true } })
+    wrappers.push(wrapper)
+    await flushPromises()
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(dialog.closest('body')).toBe(document.body)
+    expect(dialog.querySelector('input')).not.toBeNull()
+    const rules = keyboardRulesFor(dialog)
+    expect(rules).toHaveLength(1)
+    expect(rules[0]).toContain('bottom: var(--dialog-keyboard-inset)')
+    expect(rules[0]).toContain('--dialog-keyboard-inset: var(--keyboard-inset, 0px)')
+    const panel = dialog.querySelector<HTMLElement>(':scope > [style]')!
+    expect(panel.getAttribute('style')).toContain('max-height: calc(100dvh - var(--dialog-keyboard-inset, 0px) - var(--sat) - var(--sab) - 32px)')
+    expect(panel.classList.contains('overflow-y-auto')).toBe(true)
+    document.documentElement.style.setProperty('--keyboard-inset', '0px')
+    expect(keyboardRulesFor(dialog)).toHaveLength(1)
+    // Android·웹·Native 폴백은 같은 템플릿에서도 여백 변수를 정의하는 CSS가 적용되지 않는다.
+    document.body.classList.remove('ios-css-keyboard')
+    for (const platform of ['android', 'web', 'ios'] as const) {
+      mocks.platform = platform
+      expect(keyboardRulesFor(dialog)).toHaveLength(0)
+      expect(getComputedStyle(dialog).getPropertyValue('--dialog-keyboard-inset')).toBe('')
+    }
   })
 })
 

@@ -4,7 +4,7 @@
       <div
         v-if="modelValue"
         ref="modalRoot"
-        class="fixed inset-0 z-[9997] apjek-safe-dialog p-4"
+        class="app-keyboard-dialog fixed inset-0 z-[9997] apjek-safe-dialog p-4"
         role="dialog"
         aria-modal="true"
         :aria-busy="busy"
@@ -27,7 +27,7 @@
         <div
           data-testid="modal-card"
           class="relative bg-apjek-surface text-apjek-text rounded-2xl p-6 w-full max-w-[393px] my-auto overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-          style="max-height: calc(100dvh - var(--sat) - var(--sab) - 32px)"
+          style="max-height: calc(100dvh - var(--dialog-keyboard-inset, 0px) - var(--sat) - var(--sab) - 32px)"
         >
           <!-- 우상단 닫기 X — 연파랑 원형. cancel 과 동일 경로 -->
           <button
