@@ -14,7 +14,7 @@ import HabitCreateSheet from '~/components/record/HabitCreateSheet.vue'
 import HabitTrackerCard from '~/components/record/HabitTrackerCard.vue'
 import ShareModal from '~/components/terrarium/ShareModal.vue'
 import FriendsPage from '~/pages/friends/index.vue'
-import { REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
+import { REWARD_AD_PREPARE_TIMEOUT_MS, REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
 
 const mocks = vi.hoisted(() => ({
   adsEnabled: false,
@@ -446,6 +446,126 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+describe('성장 광고 nonce 잔여시간', () => {
+  const adTimeLimit = REWARD_AD_PREPARE_TIMEOUT_MS + REWARD_AD_TIMEOUT_MS
+
+  beforeEach(() => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+  })
+
+  it('짧은 nonce가 만료될 때까지 잠그고 재발급한 nonce로 광고와 보류를 만든다', async () => {
+    const s = state(await mountPage(GrowPage))
+    s.lostModalSpecies = 'SPIRIT_A'
+    vi.useFakeTimers()
+    const remaining = adTimeLimit - 1
+    const first = { nonce: 'short', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + remaining).toISOString() }
+    const fresh = { ...first, nonce: 'fresh', expiresAt: new Date(Date.now() + 600000).toISOString() }
+    mocks.issueServerNonce.mockResolvedValueOnce(first).mockResolvedValueOnce(fresh)
+    // 청구 응답 유실 뒤 저장된 시청을 검사해 성공 후 별도 nonce 조회와 구분한다.
+    mocks.sdk.reviveGrowth!.mockRejectedValueOnce(new Error('응답 유실'))
+    const reviving = s.onRevive('AD')
+    await vi.advanceTimersByTimeAsync(remaining - 1)
+    expect(s.reviving).toBe(true)
+    expect(mocks.issueServerNonce).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE')
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    await s.onRevive('AD')
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await reviving
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(2)
+    expect(mocks.issueServerNonce).toHaveBeenLastCalledWith('GROWTH_REVIVE')
+    expect(mocks.showRewardedAd).toHaveBeenCalledExactlyOnceWith({ ssvUserId: 'u1', ssvCustomData: fresh.nonce })
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual({ ...fresh, speciesCode: 'SPIRIT_A' })
+    expect(mocks.awaitNonceVerified).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE', fresh.nonce, undefined)
+    expect(s.reviving).toBe(false)
+  })
+
+  it.each([adTimeLimit, 600000])('nonce 잔여시간 %sms가 충분하면 대기와 재발급 없이 광고를 시작한다', async (remaining) => {
+    const s = state(await mountPage(GrowPage))
+    s.lostModalSpecies = 'SPIRIT_A'
+    vi.useFakeTimers()
+    const startedAt = Date.now()
+    mocks.issueServerNonce.mockResolvedValueOnce({ nonce: 'enough', purpose: 'GROWTH_REVIVE', expiresAt: new Date(startedAt + remaining).toISOString() })
+    mocks.showRewardedAd.mockResolvedValueOnce(false)
+    await s.onRevive('AD')
+    expect(Date.now()).toBe(startedAt)
+    expect(mocks.issueServerNonce).toHaveBeenCalledExactlyOnceWith('GROWTH_REVIVE')
+    expect(mocks.showRewardedAd).toHaveBeenCalledExactlyOnceWith({ ssvUserId: 'u1', ssvCustomData: 'enough' })
+    expect(s.reviving).toBe(false)
+  })
+
+  it.each(['close', 'unmount'] as const)('만료 대기 중 %s이면 재발급·광고·토스트 없이 잠금을 푼다', async (action) => {
+    const w = await mountPage(GrowPage)
+    const s = state(w)
+    s.lostModalSpecies = 'SPIRIT_A'
+    vi.useFakeTimers()
+    mocks.issueServerNonce.mockResolvedValueOnce({ nonce: 'short', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 10000).toISOString() })
+    const reviving = s.onRevive('AD')
+    await vi.advanceTimersByTimeAsync(9999)
+    expect(s.reviving).toBe(true)
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    if (action === 'close') await s.closeLostModal()
+    else {
+      w.unmount()
+      wrappers.splice(wrappers.indexOf(w), 1)
+    }
+    await vi.advanceTimersByTimeAsync(1)
+    await reviving
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(1)
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(mocks.toast.info).not.toHaveBeenCalled()
+    expect(s.reviving).toBe(false)
+  })
+
+  it.each([10000, -600000])('같은 짧은 nonce(잔여 %sms)를 다시 받아도 추가 대기·발급 없이 기존 오류로 끝낸다', async (remaining) => {
+    const s = state(await mountPage(GrowPage))
+    s.lostModalSpecies = 'SPIRIT_A'
+    vi.useFakeTimers()
+    const startedAt = Date.now()
+    mocks.issueServerNonce.mockResolvedValue({ nonce: 'short', purpose: 'GROWTH_REVIVE', expiresAt: new Date(startedAt + remaining).toISOString() })
+    const reviving = s.onRevive('AD')
+    await vi.advanceTimersByTimeAsync(Math.max(0, remaining))
+    await reviving
+    expect(Date.now() - startedAt).toBe(Math.max(0, remaining))
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(2)
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toBeNull()
+    expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith('정령을 다시 불러오지 못했어요', undefined)
+    expect(s.reviving).toBe(false)
+  })
+
+  it('보류가 있어도 열린 종을 목록에서 찾지 못하면 시청을 보존하고 복구하지 않는다', async () => {
+    const claim = { nonce: 'pending-a', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
+    writePendingAdClaim('GROWTH_REVIVE', 'u1', claim)
+    const s = state(await mountPage(GrowPage))
+    s.lostModalSpecies = 'SPIRIT_B'
+    s.rawItems = [{ speciesCode: 'SPIRIT_A', kind: 'SPIRIT', cycleState: 'LOST', stages: [] }]
+    expect(s.rawItems.map((item: { speciesCode: string }) => item.speciesCode)).toEqual(['SPIRIT_A'])
+    expect(s.rawItems.find((item: { speciesCode: string }) => item.speciesCode === s.lostModalSpecies)).toBeUndefined()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(claim)
+    await s.onRevive('AD')
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+    expect(mocks.sdk.reviveGrowth).not.toHaveBeenCalled()
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('GROWTH_REVIVE', 'u1')).toEqual(claim)
+    expect(s.lostModalSpecies).toBe('SPIRIT_B')
+    expect(s.reviving).toBe(false)
+  })
+})
+
 describe('WP4a 보류 복구 델타', () => {
   beforeEach(() => { mocks.adNative = true; mocks.adIos = true })
   it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 보류는 성장 광고 청구 실패 또는 홈 광고 진입 차단에도 유지된다', async (purpose) => {
@@ -501,6 +621,7 @@ describe('WP4a 보류 복구 델타', () => {
   it.each(['AD_REWARD', 'GROWTH_REVIVE'] as const)('%s 로컬 만료는 홈 진입 차단 시 보존하고 성장 복구 시 재조회 후 정리한다', async (purpose) => {
     mocks.adPlugin = purpose === 'GROWTH_REVIVE'
     const s = state(await mountPage(purpose === 'AD_REWARD' ? HomePage : GrowPage))
+    if (purpose === 'GROWTH_REVIVE') s.rawItems = [{ speciesCode: 'SPIRIT_A', kind: 'SPIRIT', cycleState: 'LOST', stages: [] }]
     writePendingAdClaim(purpose, 'u1', { nonce: 'expired', purpose, expiresAt: new Date(Date.now() - 1).toISOString(), ...(purpose === 'GROWTH_REVIVE' ? { speciesCode: 'SPIRIT_A' } : {}) })
     mocks.user.fetchMe.mockClear()
     if (purpose === 'AD_REWARD') {
@@ -530,6 +651,7 @@ describe('WP4a 보류 복구 델타', () => {
   it.each(['mismatch', 'consumed', 'new-mismatch'] as const)('성장 %s에서 잔액 실패를 격리하고 성장 재조회 성공 후 정리한다', async (scenario) => {
     mocks.adPlugin = true
     const s = state(await mountPage(GrowPage))
+    s.rawItems = [{ speciesCode: 'SPIRIT_A', kind: 'SPIRIT', cycleState: 'LOST', stages: [] }]
     if (scenario !== 'new-mismatch') writePendingAdClaim('GROWTH_REVIVE', 'u1', { nonce: 'n1', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' })
     s.lostModalSpecies = 'SPIRIT_A'
     if (scenario === 'consumed') {
@@ -557,6 +679,7 @@ describe('WP4a 보류 복구 델타', () => {
   it.each(['mismatch', 'consumed'] as const)('성장 %s 재조회 실패는 모달과 보류를 유지한다', async (scenario) => {
     mocks.adPlugin = true
     const s = state(await mountPage(GrowPage))
+    s.rawItems = [{ speciesCode: 'SPIRIT_A', kind: 'SPIRIT', cycleState: 'LOST', stages: [] }]
     writePendingAdClaim('GROWTH_REVIVE', 'u1', { nonce: 'n1', purpose: 'GROWTH_REVIVE', expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' })
     s.lostModalSpecies = 'SPIRIT_A'
     if (scenario === 'consumed') mocks.sdk.reviveGrowth!.mockResolvedValueOnce({ error: { code: 'NONCE_ALREADY_CONSUMED' } })
@@ -696,6 +819,7 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     mocks.adIos = true
     mocks.adPlugin = true
     const s = state(await mountPage(GrowPage))
+    s.rawItems = [{ speciesCode: 'SPIRIT_B', kind: 'SPIRIT', cycleState: 'LOST', stages: [] }]
     const first = { nonce: 'pending-a', purpose: 'GROWTH_REVIVE' as const, expiresAt: new Date(Date.now() + 600000).toISOString(), speciesCode: 'SPIRIT_A' }
     let activeNonce: string | null = first.nonce
     let issuedCount = 0
