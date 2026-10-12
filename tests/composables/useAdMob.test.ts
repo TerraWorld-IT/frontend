@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
-import { useAdMob, REWARD_AD_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, TEST_REWARDED_AD_ID_IOS, resolveRewardedAdId, isRewardedAdAvailable, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
+import { useAdMob, REWARD_AD_SHOW_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, TEST_REWARDED_AD_ID_IOS, resolveRewardedAdId, isRewardedAdAvailable, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { kstTodayKey } from '~/utils/habitState'
 
@@ -278,13 +278,32 @@ describe.each(['android', 'ios'])('%s 광고 시한과 완료 증거', (platform
     if (step === 'initialize') expect(mocks.prepare).not.toHaveBeenCalled()
   })
 
-  it('Rewarded 뒤 Dismissed가 없어도 60초에 true로 정리한다', async () => {
+  it('70초에 Rewarded를 받고 75초에 닫은 광고는 성공한다', async () => {
+    const settled = vi.fn()
+    const result = useAdMob().showRewardedAd().then(settled)
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(70000)
+    expect(settled).not.toHaveBeenCalled()
+    expect(mocks.remove).not.toHaveBeenCalled()
+    mocks.listeners.get('rewarded')!()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(settled).not.toHaveBeenCalled()
+    mocks.listeners.get('dismissed')!()
+    await result
+    expect(settled).toHaveBeenCalledExactlyOnceWith(true)
+    expect(mocks.remove).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(REWARD_AD_SHOW_TIMEOUT_MS)
+    expect(settled).toHaveBeenCalledTimes(1)
+    expect(mocks.remove).toHaveBeenCalledTimes(3)
+  })
+
+  it('Rewarded 뒤 Dismissed가 없어도 표시 시한에 true로 정리한다', async () => {
     const result = useAdMob().showRewardedAd({ ssvUserId: 'u1', ssvCustomData: 'server-nonce' })
     await flushPromises()
     expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ ssv: { userId: 'u1', customData: 'server-nonce' } }))
     expect(mocks.show).toHaveBeenCalledTimes(1)
     mocks.listeners.get('rewarded')!()
-    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    await vi.advanceTimersByTimeAsync(REWARD_AD_SHOW_TIMEOUT_MS)
     expect(await result).toBe(true)
     expect(mocks.remove).toHaveBeenCalledTimes(3)
   })
@@ -292,7 +311,7 @@ describe.each(['android', 'ios'])('%s 광고 시한과 완료 증거', (platform
   it('완료 증거가 없으면 시한 뒤 false다', async () => {
     const result = useAdMob().showRewardedAd()
     await flushPromises()
-    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    await vi.advanceTimersByTimeAsync(REWARD_AD_SHOW_TIMEOUT_MS)
     expect(await result).toBe(false)
     expect(mocks.remove).toHaveBeenCalledTimes(3)
   })

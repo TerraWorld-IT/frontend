@@ -14,7 +14,7 @@ import HabitCreateSheet from '~/components/record/HabitCreateSheet.vue'
 import HabitTrackerCard from '~/components/record/HabitTrackerCard.vue'
 import ShareModal from '~/components/terrarium/ShareModal.vue'
 import FriendsPage from '~/pages/friends/index.vue'
-import { REWARD_AD_PREPARE_TIMEOUT_MS, REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
+import { REWARD_AD_PREPARE_TIMEOUT_MS, REWARD_AD_SHOW_TIMEOUT_MS, REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim } from '~/composables/useAdMob'
 
 const mocks = vi.hoisted(() => ({
   adsEnabled: false,
@@ -447,7 +447,7 @@ afterEach(() => {
 })
 
 describe('성장 광고 nonce 잔여시간', () => {
-  const adTimeLimit = REWARD_AD_PREPARE_TIMEOUT_MS + REWARD_AD_TIMEOUT_MS
+  const adTimeLimit = REWARD_AD_PREPARE_TIMEOUT_MS + REWARD_AD_SHOW_TIMEOUT_MS
 
   beforeEach(() => {
     mocks.adNative = true
@@ -965,23 +965,23 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     expect(s.showFreeCoinDialog).toBe(false)
   })
 
-  it.each(['watched', 'cancelled', 'rejected'] as const)('iOS 홈 시한 뒤 광고 %s 종료까지 잠그고 늦은 시청 보류를 복구한다', async (outcome) => {
+  it.each(['watched', 'cancelled', 'rejected'] as const)('iOS 홈 60초를 넘는 광고 %s 종료까지 잠그고 시청 결과를 처리한다', async (outcome) => {
     mocks.adNative = true
     mocks.adIos = true
     mocks.adPlugin = true
     const s = state(await mountPage(HomePage))
     vi.useFakeTimers()
-    mocks.requestTrackingAuthorization.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve('denied'), 25000)))
+    mocks.requestTrackingAuthorization.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve('denied'), 65000)))
     const ad = deferred<boolean>()
     mocks.showRewardedAd.mockReturnValueOnce(ad.promise)
+    mocks.sdk.claimAdReward!.mockResolvedValueOnce({ data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } })
     const claiming = s.onClaimAdReward()
-    await vi.advanceTimersByTimeAsync(25000 + REWARD_AD_TIMEOUT_MS - 1)
+    await vi.advanceTimersByTimeAsync(65000)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    // 준비 10초와 백그라운드 전환을 포함한 표시 70초를 재현한다.
+    await vi.advanceTimersByTimeAsync(80000)
     expect(s.adClaiming).toBe(true)
     expect(mocks.toast.error).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(1)
-    await claiming
-    expect(s.adClaiming).toBe(true)
-    expect(mocks.toast.error).toHaveBeenCalledWith('광고 보상 실패')
     expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
     expect(mocks.user.updateCurrency).not.toHaveBeenCalled()
     await Promise.all([s.onClaimAdReward(), s.onClaimAdReward(true), s.claimPendingAdReward()])
@@ -992,30 +992,85 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
     if (outcome === 'rejected') ad.reject(new Error('늦은 광고 실패'))
     else ad.resolve(outcome === 'watched')
-    await flushPromises()
+    await claiming
     expect(s.adClaiming).toBe(false)
-    expect(mocks.toast.error).toHaveBeenCalledTimes(1)
-    expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
-    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
     if (outcome === 'watched') {
-      expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
-      mocks.sdk.claimAdReward!.mockResolvedValueOnce({ data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } })
-      await s.onClaimAdReward()
-      expect(mocks.issueServerNonce).toHaveBeenCalledTimes(1)
-      expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
-      expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
-      expect(mocks.awaitNonceVerified).toHaveBeenCalledWith('AD_REWARD', 'n1', expect.objectContaining({ tries: 1 }))
+      expect(mocks.awaitNonceVerified).toHaveBeenCalledWith('AD_REWARD', 'n1', expect.objectContaining({ signal: expect.any(AbortSignal) }))
       expect(mocks.sdk.claimAdReward).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ body: { nonce: 'n1' } }))
-      expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+      expect(mocks.user.updateCurrency).toHaveBeenCalledExactlyOnceWith({ specialCoins: 2 })
+      expect(mocks.toast.success).toHaveBeenCalledExactlyOnceWith(s.t('home.adRewardEarned', { n: 1 }), { variant: 'pill' })
+      expect(mocks.toast.error).not.toHaveBeenCalled()
     }
     else {
-      expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
-      mocks.showRewardedAd.mockResolvedValueOnce(false)
-      await s.onClaimAdReward()
-      expect(mocks.issueServerNonce).toHaveBeenCalledTimes(2)
-      expect(mocks.showRewardedAd).toHaveBeenCalledTimes(2)
+      expect(mocks.awaitNonceVerified).not.toHaveBeenCalled()
+      expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+      expect(mocks.toast.success).not.toHaveBeenCalled()
+      if (outcome === 'cancelled') {
+        expect(mocks.toast.info).toHaveBeenCalledWith(s.t('home.adWatchRequired'))
+        expect(mocks.toast.error).not.toHaveBeenCalled()
+      }
+      else expect(mocks.toast.error).toHaveBeenCalledTimes(1)
     }
+  })
+
+  it('홈 nonce 발급 시한이 지나면 잠금을 풀고 늦은 발급으로 광고를 시작하지 않는다', async () => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(HomePage))
+    vi.useFakeTimers()
+    const issue = deferred()
+    mocks.issueServerNonce.mockReturnValueOnce(issue.promise)
+    const claiming = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(REWARD_AD_TIMEOUT_MS)
+    await claiming
     expect(s.adClaiming).toBe(false)
+    expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith('광고 보상 실패')
+    issue.resolve({ nonce: 'late', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() })
+    await flushPromises()
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.sdk.claimAdReward).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+  })
+
+  it.each(['verify', 'claim'] as const)('홈 시청 뒤 %s 시한 초과는 보류 안내를 띄우고 같은 nonce로 복구한다', async (step) => {
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const s = state(await mountPage(HomePage))
+    vi.useFakeTimers()
+    // 발급에 사용한 시간은 광고 종료 뒤 확인·청구 시한을 줄이지 않는다.
+    mocks.issueServerNonce.mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve({ nonce: 'n1', purpose: 'AD_REWARD', expiresAt: new Date(Date.now() + 600000).toISOString() }), 50000)))
+    const stalled = deferred()
+    const response = { data: { updatedCurrency: { specialCoins: 2 }, remainingToday: 2, reward: { specialCoins: 1 } } }
+    if (step === 'verify') mocks.awaitNonceVerified.mockReturnValueOnce(stalled.promise)
+    else mocks.sdk.claimAdReward!.mockReturnValueOnce(stalled.promise)
+    const claiming = s.onClaimAdReward()
+    await vi.advanceTimersByTimeAsync(50000 + REWARD_AD_TIMEOUT_MS - 1)
+    expect(s.adClaiming).toBe(true)
+    expect(mocks.toast.error).not.toHaveBeenCalled()
+    expect(readPendingAdClaim('AD_REWARD', 'u1')?.nonce).toBe('n1')
+    await vi.advanceTimersByTimeAsync(1)
+    await claiming
+    expect(s.adClaiming).toBe(false)
+    expect(mocks.toast.error).toHaveBeenCalledExactlyOnceWith(s.t('home.adVerifyPending'), expect.objectContaining({ actionLabel: '다시 시도', onAction: expect.any(Function) }))
+    expect(mocks.toast.error).not.toHaveBeenCalledWith('광고 보상 실패')
+    const attempts = step === 'claim' ? 1 : 0
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(attempts)
+    mocks.sdk.claimAdReward!.mockResolvedValueOnce(response)
+    await s.claimPendingAdReward()
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(attempts + 1)
+    expect(mocks.sdk.claimAdReward).toHaveBeenLastCalledWith(expect.objectContaining({ body: { nonce: 'n1' } }))
+    expect(mocks.issueServerNonce).toHaveBeenCalledTimes(1)
+    expect(mocks.showRewardedAd).toHaveBeenCalledTimes(1)
+    expect(mocks.requestTrackingAuthorization).toHaveBeenCalledTimes(1)
+    expect(readPendingAdClaim('AD_REWARD', 'u1')).toBeNull()
+    stalled.resolve(step === 'verify' ? { nonce: 'n1', status: 'VERIFIED' } : response)
+    await flushPromises()
+    expect(mocks.sdk.claimAdReward).toHaveBeenCalledTimes(attempts + 1)
+    expect(mocks.user.updateCurrency).toHaveBeenCalledTimes(1)
+    expect(mocks.toast.success).toHaveBeenCalledTimes(1)
   })
 
   it.each([false, true])('iOS 홈 보류 복구(명시 호출=%s)는 ATT·새 광고 없이 기존 nonce를 청구한다', async (recoverPending) => {

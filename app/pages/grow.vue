@@ -282,7 +282,7 @@
 import { h } from 'vue'
 import { useUserStore } from '~/stores/user'
 import { formatNumber } from '~/utils/format'
-import { REWARD_AD_PREPARE_TIMEOUT_MS, REWARD_AD_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim } from '~/composables/useAdMob'
+import { REWARD_AD_PREPARE_TIMEOUT_MS, REWARD_AD_SHOW_TIMEOUT_MS, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim } from '~/composables/useAdMob'
 import type { GrowthItem, GrowthResponse, GrowthReviveRequest } from '@terraworld-it/openapi-frontend'
 import {
   BOOSTER_COST,
@@ -514,7 +514,7 @@ async function onRevive(method: 'RUBY' | 'AD'): Promise<void> {
       // ATT 응답 대기 중에는 서버 nonce의 유효시간을 소비하지 않는다.
       if (isIos) await requestTrackingAuthorization()
       let issued = await issueServerNonce('GROWTH_REVIVE')
-      const adTimeLimit = REWARD_AD_PREPARE_TIMEOUT_MS + REWARD_AD_TIMEOUT_MS
+      const adTimeLimit = REWARD_AD_PREPARE_TIMEOUT_MS + REWARD_AD_SHOW_TIMEOUT_MS
       const remaining = Date.parse(issued.expiresAt) - Date.now()
       if (remaining < adTimeLimit) {
         nonceWaitAttempt = ++nonceWaitGeneration
