@@ -5,6 +5,8 @@ import { kstTodayKey } from '~/utils/habitState'
 import { withTimeout } from '~/utils/withTimeout'
 
 export const REWARD_AD_TIMEOUT_MS = 60_000
+// 실광고 시청과 백그라운드 전환을 허용하되 종료 이벤트 유실 시 대기를 제한한다.
+export const REWARD_AD_SHOW_TIMEOUT_MS = 180_000
 // ATT 응답을 기다린 뒤 SDK 초기화와 광고 준비를 20초로 제한한다. 운영 실측 전 가정값이다.
 export const REWARD_AD_PREPARE_TIMEOUT_MS = 20_000
 /** Google 공식 테스트 보상형 광고 ID — 운영 빌드에서는 쓰지 않는다. */
@@ -262,14 +264,12 @@ export function useAdMob() {
         })
         // Codex 감사 지적: 설치된 @capacitor-community/admob Android 구현은 광고 표시 자체가
         // 실패하면(예: mRewardedAd == null) onRewardedVideoAdFailedToShow 만 emit하고
-        // Dismissed 는 오지 않는다 — 이 리스너 없이는 매번 60초 타임아웃까지 대기하게 됨.
+        // Dismissed 는 오지 않는다 — 이 리스너 없이는 표시 시한까지 대기하게 된다.
         const failedHandle = AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => {
           settle(false)
         })
-        // AdMob 네이티브 SDK 문제나 백그라운드 전환 중 Dismissed 이벤트가 아예 안 오면 이 프라미스가
-        // 무기한 대기 — 호출부(pages/index.vue)가 영원히 로딩 상태로 멈춘다(auth.ts 세션체크와
-        // 같은 클래스의 hang 위험). 보상형 광고는 보통 15~30초라 60초 여유를 두고 fail-closed.
-        const timeoutId = setTimeout(() => settle(rewarded), REWARD_AD_TIMEOUT_MS)
+        // 종료 이벤트가 유실되면 표시 시한까지 받은 시청 완료 증거로 판정한다.
+        const timeoutId = setTimeout(() => settle(rewarded), REWARD_AD_SHOW_TIMEOUT_MS)
         // 세 종료 경로(dismiss/failedToShow/timeout/reject) 모두 동일하게 정리 — 이전엔
         // showRewardVideoAd() 의 .catch() 경로만 리스너 remove 를 빠뜨려(Architecture/Codex
         // 감사 둘 다 지적) reject 가 반복되면 전역 리스너가 계속 누적됐다.

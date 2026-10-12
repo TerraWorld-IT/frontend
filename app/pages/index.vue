@@ -1993,7 +1993,6 @@ async function onClaimAdReward(recoverPending = false) {
   const deadline = new AbortController()
   const userId = user.value?.userId
   let pendingClaim: ReturnType<typeof readPendingAdClaim> = null
-  let adInFlight = false
   try {
     if (!recoverPending) {
       if (isAdLimitReachedToday(userId)) {
@@ -2003,52 +2002,44 @@ async function onClaimAdReward(recoverPending = false) {
       // ATT 응답을 기다리는 동안 잠금은 유지하되 광고·청구 시한은 시작하지 않는다.
       if (adMob.isIos) await adMob.requestTrackingAuthorization()
     }
-    // 청구 시한이 지나도 취소할 수 없는 광고의 종료까지 재진입 잠금을 유지한다.
-    await withTimeout(claimReward(), REWARD_AD_TIMEOUT_MS, deadline)
+    // 발급과 확인·청구에 각각 시한을 두고 광고 준비·시청은 광고 모듈의 시한에 맡긴다.
+    await claimReward()
   }
   catch (e) {
-    if (deadline.signal.aborted) toast.error('광고 보상 실패')
-    else if (pendingClaim) toast.error(t('home.adVerifyPending'), {
+    if (pendingClaim) toast.error(t('home.adVerifyPending'), {
       actionLabel: '다시 시도', duration: 8000, onAction: () => { void claimPendingAdReward() },
     })
+    else if (deadline.signal.aborted) toast.error('광고 보상 실패')
     else toast.error(errMsg(e, '광고 보상 실패'))
   }
   finally {
-    if (!adInFlight) adClaiming.value = false
+    adClaiming.value = false
   }
 
   async function claimReward() {
-    const { showRewardedAd, issueServerNonce, awaitNonceVerified } = adMob
+    const { showRewardedAd, issueServerNonce } = adMob
     let issued = recoverPending ? readPendingAdClaim('AD_REWARD', userId) : null
     if (recoverPending) {
       if (issued?.purpose !== 'AD_REWARD') return
       pendingClaim = issued
     }
     else {
-      issued = await issueServerNonce('AD_REWARD')
-      if (deadline.signal.aborted) return
-      let watched = false
-      adInFlight = true
-      try {
-        watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
-        if (watched) {
-          pendingClaim = issued
-          // 시청 증거가 생긴 즉시 저장해 전체 시한 초과·응답 유실에도 같은 nonce로 복구한다.
-          writePendingAdClaim('AD_REWARD', userId, issued)
-        }
-      }
-      finally {
-        adInFlight = false
-        // 보류 저장을 마친 뒤 잠금을 풀어 다음 진입이 같은 nonce를 복구하게 한다.
-        if (deadline.signal.aborted) adClaiming.value = false
-      }
-      if (deadline.signal.aborted) return
+      issued = await withTimeout(issueServerNonce('AD_REWARD'), REWARD_AD_TIMEOUT_MS, deadline)
+      const watched = await showRewardedAd({ ssvUserId: userId, ssvCustomData: issued.nonce })
       if (!watched) {
         toast.info(t('home.adWatchRequired'))
         return
       }
+      pendingClaim = issued
+      // 시청 증거를 즉시 저장해 확인·청구 시한 초과나 응답 유실에도 같은 nonce로 복구한다.
+      writePendingAdClaim('AD_REWARD', userId, issued)
     }
     if (!issued) return
+    await withTimeout(verifyAndClaim(issued), REWARD_AD_TIMEOUT_MS, deadline)
+  }
+
+  async function verifyAndClaim(issued: NonNullable<ReturnType<typeof readPendingAdClaim>>) {
+    const { awaitNonceVerified } = adMob
     const nonce = issued.nonce
     const verified = Date.now() < Date.parse(issued.expiresAt)
       ? await awaitNonceVerified('AD_REWARD', nonce, { ...(recoverPending ? { tries: 1 } : {}), signal: deadline.signal })
