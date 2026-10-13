@@ -5,6 +5,7 @@ import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import SettingsPage from '~/pages/profile/settings.vue'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { deactivateDevicesOnce } from '~/composables/useNative'
+import { useAdMob, useAdConsentState } from '~/composables/useAdMob'
 
 type SettingsSession = { data: { user: { id: string; pushConsent: boolean; adConsent: boolean } } | null }
 
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   platform: 'web', native: false,
   isLoggedIn: null as Ref<boolean> | null, getJwt: vi.fn(), getSession: vi.fn(),
   deleteUser: vi.fn(), updateUser: vi.fn(), signOutAndClear: vi.fn(),
+  prepareAd: vi.fn(), adListeners: new Map<string, () => void>(),
   deactivateMyDevices: vi.fn(), registerPush: vi.fn(), registerPushIfGranted: vi.fn(), getAppInfo: vi.fn(), checkPushPermission: vi.fn(),
   invalidatePushRegistration: vi.fn(),
   betterAuth: vi.fn((options: unknown) => options),
@@ -21,7 +23,21 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('@capacitor/core', () => ({ Capacitor: {
   getPlatform: () => mocks.platform, isNativePlatform: () => mocks.native,
+  isPluginAvailable: () => true,
 } }))
+vi.mock('@capacitor-community/admob', () => ({
+  AdMob: {
+    initialize: vi.fn().mockResolvedValue(undefined),
+    trackingAuthorizationStatus: vi.fn().mockResolvedValue({ status: 'authorized' }),
+    prepareRewardVideoAd: mocks.prepareAd,
+    showRewardVideoAd: async () => { mocks.adListeners.get('dismissed')!() },
+    addListener: async (event: string, callback: () => void) => {
+      mocks.adListeners.set(event, callback)
+      return { remove: () => {} }
+    },
+  },
+  RewardAdPluginEvents: { Rewarded: 'rewarded', Dismissed: 'dismissed', FailedToShow: 'failed' },
+}))
 vi.mock('better-auth', () => ({ betterAuth: mocks.betterAuth }))
 vi.mock('better-auth/plugins', () => ({ jwt: vi.fn(), bearer: vi.fn() }))
 vi.mock('pg', () => ({ Pool: class {} }))
@@ -30,6 +46,7 @@ vi.mock('~/lib/auth-client', () => ({ authClient: {
   useSession: () => mocks.session ??= ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent: true, adConsent: true } } }),
   deleteUser: mocks.deleteUser, updateUser: mocks.updateUser,
   getSession: mocks.getSession,
+  $store: { atoms: { session: { get: () => mocks.session?.value } } },
 } }))
 mockNuxtImport('useAuth', () => () => ({ isLoggedIn: mocks.isLoggedIn ??= ref<boolean>(true), getJwt: mocks.getJwt, signOutAndClear: mocks.signOutAndClear }))
 mockNuxtImport('useOpenApi', () => () => ({ sdk: { deactivateMyDevices: mocks.deactivateMyDevices }, client: mocks.client }))
@@ -54,6 +71,10 @@ beforeEach(() => {
   mocks.getJwt.mockReset().mockReturnValue('jwt-a')
   mocks.getSession.mockReset().mockImplementation(async () => mocks.session!.value)
   mocks.session = ref<SettingsSession>({ data: { user: { id: 'user-a', pushConsent: true, adConsent: true } } })
+  useAdConsentState().value = { userId: null, pending: false, revision: 0 }
+  useRuntimeConfig().public.adsEffectiveAt = '2026-01-01T00:00:00+09:00'
+  mocks.prepareAd.mockReset().mockResolvedValue(undefined)
+  mocks.adListeners.clear()
   localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-a')
   localStorage.removeItem(STORAGE_KEYS.PUSH_OFF_PENDING_PREFIX + 'user-b')
   mocks.deleteUser.mockReset().mockResolvedValue({ error: null })
@@ -239,13 +260,59 @@ describe('계정 설정', () => {
     expect(mocks.signOutAndClear).not.toHaveBeenCalled()
   })
 
-  it('iOS에서는 푸시·광고 동의 토글을 숨기고 앱 버전과 빌드를 표시한다', async () => {
+  it('iOS에서는 광고 동의 토글을 표시하고 푸시는 숨기며 앱 버전과 빌드를 표시한다', async () => {
     mocks.platform = 'ios'; mocks.native = true
     const w = await mountSettings()
     expect(w.find('[data-testid="consent-push"]').exists()).toBe(false)
-    expect(w.find('[data-testid="consent-adId"]').exists()).toBe(false)
+    expect(w.find('[data-testid="consent-adId"]').exists()).toBe(true)
+    await w.get('[data-testid="consent-adId"]').setValue(false)
+    await flushPromises()
+    expect(mocks.updateUser).toHaveBeenCalledWith({ adConsent: false })
     expect(w.find('[data-testid="consent-photo"]').exists()).toBe(false)
     expect(w.text()).toContain('1.2.3 (42)')
+  })
+
+  it.each(['실패', '지연'])('광고 동의 철회 저장 뒤 세션 갱신 %s에도 다음 광고는 비맞춤이다', async (refresh) => {
+    mocks.platform = 'ios'; mocks.native = true
+    const w = await mountSettings()
+    let finishRefresh!: () => void
+    mocks.updateUser.mockImplementationOnce(async () => {
+      // 자동 세션 갱신은 저장 성공 이후에도 이전 true를 보존할 수 있다.
+      const refreshResult = refresh === '실패'
+        ? Promise.reject(new Error('세션 갱신 실패'))
+        : new Promise<void>(resolve => { finishRefresh = resolve })
+      void refreshResult.catch(() => {}).then(() => {
+        mocks.session!.value = { data: { user: { id: 'user-a', adConsent: true, pushConsent: true } } }
+      })
+      return { error: null }
+    })
+    await w.get('[data-testid="consent-adId"]').setValue(false)
+    await flushPromises()
+    expect(mocks.session!.value.data!.user.adConsent).toBe(true)
+    expect((w.get('[data-testid="consent-adId"]').element as HTMLInputElement).checked).toBe(false)
+    await useAdMob().showRewardedAd()
+    expect(mocks.prepareAd).toHaveBeenLastCalledWith(expect.objectContaining({ npa: true }))
+    if (refresh === '지연') {
+      finishRefresh()
+      await flushPromises()
+      expect((w.get('[data-testid="consent-adId"]').element as HTMLInputElement).checked).toBe(false)
+    }
+  })
+
+  it('동의 저장 중에는 비맞춤이며 저장 실패를 철회 성공으로 반영하지 않는다', async () => {
+    mocks.platform = 'ios'; mocks.native = true
+    const w = await mountSettings()
+    let finishSave!: (value: unknown) => void
+    mocks.updateUser.mockReturnValueOnce(new Promise(resolve => { finishSave = resolve }))
+    await w.get('[data-testid="consent-adId"]').setValue(false)
+    await useAdMob().showRewardedAd()
+    expect(mocks.prepareAd).toHaveBeenLastCalledWith(expect.objectContaining({ npa: true }))
+    finishSave({ error: { message: '저장 실패' } })
+    await flushPromises()
+    expect((w.get('[data-testid="consent-adId"]').element as HTMLInputElement).checked).toBe(true)
+    expect(mocks.toast.success).not.toHaveBeenCalled()
+    await useAdMob().showRewardedAd()
+    expect(mocks.prepareAd).toHaveBeenLastCalledWith(expect.objectContaining({ npa: false }))
   })
 
   it('푸시 OFF는 동의를 먼저 저장하고 모든 디바이스를 비활성화한다', async () => {

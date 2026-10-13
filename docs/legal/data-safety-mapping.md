@@ -1,73 +1,43 @@
-# 스토어 데이터 공시 매핑표 (Play Data Safety / Apple App Privacy)
+# 스토어 데이터 공시 매핑표
 
-> ⚠️ **DRAFT — 초안.** 본 표는 [개인정보 처리방침](privacy.md) §2 수집 항목과 배포 매니페스트
-> `mobile/ios/App/App/PrivacyInfo.xcprivacy`(SoT)의 12유형 선언을 Google Play Data Safety /
-> Apple App Privacy 공시 항목에 매핑한 것입니다. **콘솔 최종 입력값은 사업자/스토어
-> 계정 보유자가 확정**(인간/외부 게이트)하며, 본 표는 입력 가이드입니다.
-> 작성: 2026-06-23 (P3-5).
+공고일: 2026-10-14 · 광고 관련 개정 시행일: 2026-11-13 00:00 (KST).
+개정 [개인정보 처리방침](privacy.md)과 [이용약관](terms.md)에 대응합니다. 시행 전에는 보상형 광고 진입·ATT 요청·SDK 초기화·nonce 발급을 차단합니다.
 
-## 매핑 표
+## 서비스 정보
 
-| 수집 항목 | Play Data Safety 분류 | Apple App Privacy 분류 | 수집 | 공유(제3자) | 목적 | 필수/선택 | 전송 암호화 | 삭제 요청 |
-| --- | --- | --- | :---: | :---: | --- | --- | :---: | :---: |
-| 이메일 | Personal info → Email address | Contact Info → Email Address | ✅ | ❌ | 계정·인증 | 필수 | ✅ | ✅ |
-| 사용자 ID | Personal info → User IDs | Identifiers → User ID | ✅ | ❌ | 계정 식별(핵심) | 필수 | ✅ | ✅ |
-| 비밀번호 | (공시 비대상 — 단방향 해시 인증수단) | (공시 비대상) | — | — | 인증 | 필수 | ✅ | ✅(탈퇴) |
-| 닉네임 | Personal info → Name | Contact Info → Name | ✅ | ❌ | 서비스 내 식별 | 필수 | ✅ | ✅ |
-| 생년월일 | Personal info → Other info | Other Data Types | ✅ | ❌ | 만 14세 미만 차단(연령 확인) | 필수 | ✅ | ✅ |
-| 활동 기록 본문 | App activity → Other user-generated content | User Content → Other User Content | ✅ | ❌ | 핵심 기능 | 필수 | ✅ | ✅ |
-| 사진 | Photos and videos → Photos | User Content → Photos or Videos | ✅ | ❌ | 사진 첨부(선택) | 선택 | ✅ | ✅ |
-| 디바이스 정보(OS/브라우저/해상도) | Device or other IDs / App info and performance | Identifiers / Diagnostics | ✅ | ❌ | 호환성·보안(rate limit) | 필수 | ✅ | ✅ |
-| 광고 식별자(GAID/IDFA) | Device or other IDs → Device ID | Identifiers → Device ID | ✅ | ✅ (AdMob/AdSense) | 광고 노출·측정 | 선택 | ✅ | OS 설정/ATT |
-| FCM 토큰 | Device or other IDs (push token) | Identifiers → Device ID | ✅ | ❌ | 푸시 알림(선택) | 선택 | ✅ | ✅(해지) |
-| GA4 분석 데이터(가명·집계) | App activity → App interactions / Analytics | Usage Data → Product Interaction | ✅ | ❌ | 이용 분석(선택) | 선택 | ✅ | OS 설정/Opt-out |
-| 결제 영수증(purchaseToken/productId) | Financial info → Purchase history | Purchases → Purchase History | ✅ | ❌ | 결제 검증·환불 | 필수(결제 시) | ✅ | 법령 보존 후 파기 |
-| 신용카드 정보 | (미수집 — Apple/Google 결제 위임) | (미수집) | ❌ | — | — | — | — | — |
-| 위치정보(대략적) | Location → Approximate location (매니페스트 기준, Play 콘솔 확정) | Location → Coarse Location | ✅ | ❌ | 이용 분석(GA4) | 선택(분석 동의 게이트) | ✅ | OS 설정/Opt-out |
-| 친구 관계(소셜그래프) | Contacts (친구 관계; 매니페스트 기준, Play 콘솔 확정) | Contacts | ✅ | ❌ | 친구 기능(핵심) | 선택(친구 사용 시) | ✅ | ✅ |
-| 운동 기록(거리·시간) | Health and fitness → Fitness info (매니페스트 기준, Play 콘솔 확정) | Health & Fitness → Fitness | ✅ | ❌ | 기록 기능(핵심) | 선택(산책·러닝 기록 시) | ✅ | ✅ |
+| 수집 항목 | Play Data Safety 분류 후보 | Apple App Privacy 분류 후보 | 목적·처리 |
+| --- | --- | --- | --- |
+| 이메일·닉네임·회원 식별번호·생년월일 | Personal info | Email Address / Name / User ID / Other Data Types | 계정 관리·연령 확인, 계정에 연결 |
+| 활동 기록·메모·테라리움·재화 내역 | App activity | Other User Content / Other Data Types | 서비스 제공·보상, 계정에 연결 |
+| 거리·시간 기록 | Health and fitness | Fitness | 기록 기능, 계정에 연결. 위치 좌표는 서버 미수집 |
+| 친구 관계 | Contacts | Contacts | 친구 기능, 계정에 연결 |
+| 이전 버전 사진 | Photos and videos | Photos or Videos | 기존 저장분만 보유, 새 사진 첨부 없음 |
+| 세션·접속 IP·브라우저·기기 정보 | Device or other IDs / App info and performance | Identifiers / Diagnostics | 로그인 유지·보안 |
+| Android 푸시 토큰 | Device or other IDs | Device ID | Android 푸시 동의 시 FCM 전송. 철회 시 비활성화, 계정 삭제 시 삭제 |
+| 광고 시청·지급 기록, 1회용 시청 확인값·검증 거래 ID | App activity | Advertising Data / User ID | 광고 보상·중복 및 부정 지급 방지, 계정 삭제 시 파기. 지급 감사 기록은 처리방침 7조, 백업은 6조 |
 
-### Apple 매니페스트 12유형 대조
+## iOS Google Mobile Ads SDK
 
-Apple의 Linked(사용자 연결 여부)와 Purpose(목적)는 매니페스트 선언을 기준으로 다음과 같이 적용한다.
-표의 서비스별 목적 설명과 별도로, Apple 콘솔 입력 시 아래 선언을 대조한다.
+근거: 메인이 앱 번들의 `GoogleMobileAds.framework/PrivacyInfo.xcprivacy`를 확인한 선언과 [Google iOS 광고 SDK 공시 안내](https://developers.google.com/admob/ios/privacy/data-disclosure). 아래 연결·추적 여부는 해당 SDK 매니페스트 기준이며 앱 자체의 선언과 합산하여 App Store Connect에 입력해야 합니다.
 
-- **Linked=true(연결), Purpose=AppFunctionality** — `EmailAddress`(이메일), `UserID`(사용자 ID),
-  `Name`(닉네임), `OtherDataTypes`(생년월일), `PhotosorVideos`(사진), `OtherUserContent`(활동 기록 본문),
-  `PurchaseHistory`(결제 영수증), `Contacts`(친구 관계/소셜그래프), `Fitness`(운동 기록: 거리·시간)의 9유형.
-- **Linked=false(비연결), Purpose=Analytics** — `ProductInteraction`(GA4 이용 분석),
-  `DeviceID`(GA4/광고 식별자·푸시 토큰), `CoarseLocation`(GA4 대략적 위치)의 3유형.
-- **전체 `NSPrivacyTracking=false`** — 위 12유형은 추적 없음 선언을 따른다. Play의 공유 여부와
-  Apple의 Tracking은 별도 공시 항목이며, 광고 식별자·푸시 토큰의 서비스 용도가 Apple의
-  `DeviceID` 선언(비연결·Analytics)을 바꾸지는 않는다.
-- 위 표는 12유형을 모두 포괄한다. 기존 디바이스 정보 행의 `Identifiers / Diagnostics`는
-  매니페스트의 별도 Diagnostics 유형 선언을 뜻하지 않는다. 해당 행의 Play 세부 분류는
-  **매니페스트 기준, Play 콘솔 확정**으로 남기며 사업/법무가 최종 입력 시 확인한다.
+| SDK 수집 항목 | Play Data Safety 분류 후보 | Apple App Privacy 유형 | 사용자 연결 | 추적 | 목적 |
+| --- | --- | --- | --- | --- | --- |
+| 광고 식별자(IDFA, ATT 허용 시)·기기 식별자 | Device or other IDs | Identifiers → Device ID (`DeviceID`) | 연결 | 추적 | 제3자 광고·개발자 광고·분석 |
+| 광고 조회·시청 정보 | App activity | Usage Data → Advertising Data (`AdvertisingData`) | 연결 | 비추적 | 제3자 광고·개발자 광고·분석 |
+| 앱·광고 상호작용 | App activity | Usage Data → Product Interaction (`ProductInteraction`) | 연결 | 비추적 | 제3자 광고·개발자 광고·분석 |
+| IP 주소 기반 대략적 위치 | Location → Approximate location | Location → Coarse Location (`CoarseLocation`) | 연결 | 비추적 | 제3자 광고·개발자 광고·분석 |
+| 성능 정보 | App info and performance | Diagnostics → Performance Data (`PerformanceData`) | 비연결 | 비추적 | 제3자 광고·개발자 광고·분석 |
+| 충돌 정보 | App info and performance | Diagnostics → Crash Data (`CrashData`) | 비연결 | 비추적 | 제3자 광고·개발자 광고·분석 |
+| 기타 진단 정보 | App info and performance | Diagnostics → Other Diagnostic Data (`OtherDiagnosticData`) | 비연결 | 비추적 | 제3자 광고·개발자 광고·분석 |
 
-## 공시 시 주의 (정합 포인트)
+- Google LLC는 광고 요청·이용 시 AdMob SDK로 정보를 직접 수집하며, 수집한 정보를 미국 등 국외에서 처리할 수 있습니다. 보유 기간과 파기는 [Google 개인정보처리방침](https://policies.google.com/privacy)에 따릅니다. SDK 직접 수집은 처리방침 15조에서 안내하며, 운영팀의 처리위탁에 따른 국외 이전(10조)과 구분합니다. 문의는 [Google 개인정보 문의](https://support.google.com/policies/contact/general_privacy_form)로 보냅니다.
+- 보상 검증용 회원 식별번호와 1회용 시청 확인값은 Google LLC에 시청 검증을 위탁하기 위해 광고 요청·이용 시 네트워크로 미국에 이전합니다(처리방침 9·10조). 보유 기간은 시청 검증 위탁 목적 달성 시까지이며, 구체적 보관은 Google 광고 데이터 처리 조건에 따릅니다. 서비스 서버는 IDFA를 직접 저장하지 않습니다.
+- 맞춤형 광고는 iOS ATT `authorized`와 세션의 `user.adConsent === true`가 모두 성립할 때만 요청합니다. 그 외에는 `npa=true`로 비맞춤형 광고를 요청합니다. iOS 앱 설정의 맞춤형 광고 동의 토글은 기존 저장 경로를 사용하며, 철회하면 맞춤형 광고만 중단합니다. IDFA 제공 자체를 막으려면 iOS 설정에서 TerraWorld의 추적(ATT)을 거부해야 합니다.
+- ATT 거부·광고 동의 철회는 맞춤형 광고를 거부하는 수단입니다. 비맞춤형 광고도 정보 수집·전송이 있으므로, Google의 광고 정보 수집·국외 이전을 원하지 않으면 광고를 이용하지 않아야 합니다. 광고 보상 외 기능에는 영향이 없습니다.
+- 현재 운영 웹에는 광고를 표시하지 않으며 광고·추적 쿠키를 사용하지 않습니다. GA4·유료 상품은 운영하지 않습니다. Android 앱은 스토어 미출시이며 이번 도입은 iOS 보상형 광고입니다. Play 열은 분류 참고용이며 Android 출시 공시를 확정하지 않습니다.
 
-- **광고 식별자·GA4 는 "선택"** 으로 공시 — 앱 내 opt-in 게이트(GA4: `analyticsConsent`, iOS: ATT)와
-  정합해야 함. "필수"로 공시하면 [privacy.md](privacy.md) §2.2 표기와 모순. (P2-2 / P3-3 구현 정합)
-- **광고 식별자는 "데이터 공유(sharing)"** 로 표기 — AdMob/AdSense 가 자사 광고·측정 목적으로도 처리
-  ([privacy.md](privacy.md) §4 제3자 제공·공유와 정합).
-- **데이터 암호화 전송(in transit)**: 전 항목 HTTPS(TLS 1.2+) — Data Safety 의 "Data is encrypted in
-  transit" = 예.
-- **데이터 삭제 요청 경로 제공**: 탈퇴 + privacy@terraworld.app — Data Safety 의 "users can request
-  data deletion" = 예.
+## 게시·검증 인계
 
-## 인간/외부 게이트 (본 표로 대체 불가)
-
-### 정합 미해결 — 개인정보 처리방침 법무 확인
-
-[privacy.md](privacy.md) §9의2는 여전히 "위치정보를 수집하지 않습니다"로 되어 있어,
-매니페스트의 `CoarseLocation` 수집 선언 및 본 표의 GA4 대략적 위치 수집 공시와 **모순**된다.
-**법무 확인으로 privacy.md를 매니페스트와 정합해야 한다.** 이 PR에서는 법무 문서인
-`privacy.md`를 편집하지 않으며, 본 표의 수정만으로 처리방침 정합이나 공시 승인이 완료되지 않는다.
-
-- [ ] `privacy.md` §9의2 위치 미수집 문구 정합(법무 확인)
-- [ ] GA4 대략적 위치=`CoarseLocation`, 친구 관계=`Contacts`, 거리·시간 기록=`Fitness` 해당 여부 및
-  Play 세부 카테고리 확정(콘솔 최종 입력 시 사업/법무 — 매니페스트 기준, Play 콘솔 확정)
-
-- [ ] Play Console → Data safety form **최종 입력**
-- [ ] App Store Connect → App Privacy **최종 입력**
-- [ ] 광고/분석 "선택" 운영 정책 확정(사업) — opt-in 유지 vs "필수" 전환
+- 시행 시각은 `runtimeConfig.public.adsEffectiveAt`(기본 `2026-11-13T00:00:00+09:00`)이며 `NUXT_PUBLIC_ADS_EFFECTIVE_AT`로 덮어씁니다. 개발 검증도 같은 설정을 사용합니다. 잘못된 값은 현행 본문과 광고 차단을 유지합니다.
+- 배포 담당자는 실제 공개 시각을 기록하고 공개일 + 30일이 시행일을 넘지 않는지 확인합니다. 공개가 늦으면 공지·문서 날짜와 시행 설정을 함께 조정해야 합니다.
+- 법적 충분성·국외 이전 근거의 최종 판단, 스토어 개인정보 라벨 입력, 심사 제출은 메인 담당입니다. 본 표는 콘솔 입력이나 독립 법적 검토의 완료 근거가 아닙니다.

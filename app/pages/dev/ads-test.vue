@@ -75,6 +75,7 @@
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
 import { ADS_ENABLED } from '~/utils/constants'
 import { TEST_REWARDED_AD_ID, TEST_REWARDED_AD_ID_IOS } from '~/composables/useAdMob'
+import { isAdsPolicyEffective } from '~/components/legal/adsPolicy'
 
 // 개발자 메뉴(설정 > 앱 버전 7번 탭)에서만 들어오는 숨은 페이지. 로그인 사용자 누구나 열 수 있지만
 // 테스트 광고만 쓰고 서버 보상을 청구하지 않아 재화·수익에 영향이 없다.
@@ -90,7 +91,8 @@ const pluginAvailable = import.meta.client ? Capacitor.isPluginAvailable('AdMob'
 const configuredAdId = String((platform === 'ios' ? config.public.admobRewardedAdIdIos : config.public.admobRewardedAdId) ?? '').trim()
 const testAdId = platform === 'ios' ? TEST_REWARDED_AD_ID_IOS : TEST_REWARDED_AD_ID
 
-const canRun = isNative && pluginAvailable && (platform === 'android' || platform === 'ios')
+const canRun = isAdsPolicyEffective(config.public.adsEffectiveAt)
+  && isNative && pluginAvailable && (platform === 'android' || platform === 'ios')
 const blockedReason = !isNative
   ? '앱(안드로이드/iOS)에서 열어야 광고 SDK 를 쓸 수 있어요. 웹 브라우저에서는 동작하지 않아요.'
   : !pluginAvailable

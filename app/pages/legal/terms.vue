@@ -4,9 +4,11 @@
       <header class="space-y-1">
         <h1 class="text-lg font-bold">이용약관</h1>
         <p class="text-xs text-riso-dark/50">
-          공고일: 2026년 10월 3일 · 시행일: 2026년 10월 3일
+          {{ revised ? '공고일: 2026년 10월 14일 · 시행일: 2026년 11월 13일' : '공고일: 2026년 10월 3일 · 시행일: 2026년 10월 3일' }}
         </p>
       </header>
+
+      <VersionNotice v-model="revised" :effective="effective" />
 
       <!-- 면책 조항은 약관규제법 제7조에 따라 운영팀의 고의·중과실 책임을 배제하지 않는다. -->
       <section class="space-y-3 text-sm leading-relaxed break-words">
@@ -39,7 +41,14 @@
           <h2 class="font-semibold mb-1">4. 서비스의 내용</h2>
           <p class="text-riso-dark/80">
             운영팀은 습관·할 일·일기·집중·거리 기록, 기록에 따른 가상 재화 지급, 상점과 테라리움 꾸미기, 친구·랭킹·공유 기능을 제공합니다.
-            서비스는 무료로 제공하며, 현재 유료 상품과 광고는 제공하지 않습니다. 유료 상품이나 광고를 도입하려면 시행 전에 이 약관과 개인정보 처리방침을 개정해 알립니다.
+            <template v-if="revised">서비스는 무료로 제공하며 현재 유료 상품은 제공하지 않습니다. 유료 상품을 도입하려면 시행 전에 이 약관과 개인정보 처리방침을 개정해 알립니다.</template>
+            <template v-else>서비스는 무료로 제공하며, 현재 유료 상품과 광고는 제공하지 않습니다. 유료 상품이나 광고를 도입하려면 시행 전에 이 약관과 개인정보 처리방침을 개정해 알립니다.</template>
+          </p>
+          <p v-if="revised" class="text-riso-dark/80">
+            iOS 앱에서는 이용자가 선택해 시청하는 Google AdMob 보상형 광고를 제공합니다. 홈의 광고보상은 시청을 완료하고 확인되면 루비 1개를 지급하며 하루 최대 5회 이용할 수 있습니다. 키우기에서는 광고를 시청해 부활 기능을 이용할 수 있습니다.
+            광고를 시청하지 않아도 다른 서비스를 이용할 수 있으나 광고 시청 보상은 받을 수 없습니다. 비정상 시청이나 부정 이용으로 확인되면 보상을 제한하거나 부정하게 지급된 보상을 회수할 수 있습니다.
+            광고의 내용과 광고주가 제공하는 상품·서비스에 대한 책임은 해당 광고주에게 있습니다. 운영팀의 고의 또는 중대한 과실에 대한 책임은 배제하지 않습니다.
+            광고 관련 개인정보 처리와 맞춤형 광고 조건, 거부 방법은 개인정보 처리방침에서 안내합니다.
           </p>
         </div>
         <div>
@@ -171,7 +180,8 @@
         </div>
         <div>
           <h2 class="font-semibold mb-1">부칙</h2>
-          <p class="text-riso-dark/80">이 약관은 2026년 10월 3일에 공고하고 같은 날부터 시행합니다.</p>
+          <p v-if="revised" class="text-riso-dark/80">이 약관은 2026년 10월 14일에 공고하고 2026년 11월 13일부터 시행합니다. 개정 이력: 2026년 10월 3일 최초 시행, 2026년 11월 13일 보상형 광고 조항 개정 시행.</p>
+          <p v-else class="text-riso-dark/80">이 약관은 2026년 10월 3일에 공고하고 같은 날부터 시행합니다.</p>
         </div>
       </section>
 
@@ -189,7 +199,17 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: false })
+import VersionNotice from '~/components/legal/VersionNotice.vue'
+import { useLegalVersion } from '~/components/legal/adsPolicy'
+
+const { effective, revised } = useLegalVersion()
+definePageMeta({
+  layout: false,
+  middleware: [to => {
+    // 앱 내부 이동도 서버에서 새로 렌더해 기기 시계나 이전 방문의 시각을 쓰지 않는다.
+    if (import.meta.client && !useNuxtApp().isHydrating) return navigateTo(to.fullPath, { external: true })
+  }],
+})
 
 const supportEmail = useRuntimeConfig().public.supportEmail
 

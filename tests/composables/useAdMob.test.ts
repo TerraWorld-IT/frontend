@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { ref, type Ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
-import { useAdMob, REWARD_AD_SHOW_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, TEST_REWARDED_AD_ID_IOS, resolveRewardedAdId, isRewardedAdAvailable, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
+import { useAdConsentState, useAdMob, REWARD_AD_SHOW_TIMEOUT_MS, REWARD_AD_PREPARE_TIMEOUT_MS, TEST_REWARDED_AD_ID, TEST_REWARDED_AD_ID_IOS, resolveRewardedAdId, isRewardedAdAvailable, readPendingAdClaim, writePendingAdClaim, clearPendingAdClaim, isAdLimitReachedToday, markAdLimitReachedToday } from '~/composables/useAdMob'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { kstTodayKey } from '~/utils/habitState'
 
 const mocks = vi.hoisted(() => ({
   adsEnabled: false,
+  session: null as Ref<{ data: { user: { id: string; adConsent?: boolean } } | null; error?: unknown; isPending?: boolean; isRefetching?: boolean }> | null,
+  getSession: vi.fn(),
   native: false,
   platform: 'web',
   pluginAvailable: false,
@@ -20,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   listeners: new Map<string, () => void>(),
 }))
+vi.mock('~/lib/auth-client', () => ({ authClient: { getSession: mocks.getSession, $store: { atoms: { session: { get: () => mocks.session?.value } } } } }))
 vi.mock('@capacitor/core', () => ({ Capacitor: { isNativePlatform: () => mocks.native, getPlatform: () => mocks.platform, isPluginAvailable: (name: string) => name === 'AdMob' && mocks.pluginAvailable } }))
 // 전체 중단 스위치와 실제 바이너리의 플러그인 유무를 각각 검증한다.
 vi.mock('~/utils/constants', async (importOriginal) => {
@@ -54,6 +58,10 @@ function nonce(overrides: Partial<AdRewardNonceResponse> = {}): AdRewardNonceRes
 beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-09-09T03:00:00Z'))
+  mocks.session = ref({ data: { user: { id: 'user-a', adConsent: true } } })
+  useAdConsentState().value = { userId: null, pending: false, revision: 0 }
+  mocks.getSession.mockReset().mockImplementation(async () => mocks.session!.value)
+  useRuntimeConfig().public.adsEffectiveAt = '2026-01-01T00:00:00+09:00'
   mocks.adsEnabled = true
   setAdId('')
   useRuntimeConfig().public.admobRewardedAdIdIos = ''
@@ -74,6 +82,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   localStorage.clear()
 })
 
@@ -561,5 +570,141 @@ describe('iOS ATT와 광고 단위', () => {
     expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ npa: true }))
     mocks.listeners.get('dismissed')!()
     expect(await result).toBe(false)
+  })
+})
+
+
+describe('광고 시행일과 맞춤형 광고 동의', () => {
+  it.each(['응답 오류', '예외', '빈 데이터', '지연', '갱신 중', '계정 변경'])(
+    '이전 동의가 true여도 최신 동의 조회 %s는 비맞춤 광고로 처리한다', async (failure) => {
+      mocks.platform = 'ios'
+      let resolve!: (value: unknown) => void
+      if (failure === '응답 오류') mocks.getSession.mockResolvedValue({ error: new Error('조회 실패'), data: mocks.session!.value.data })
+      if (failure === '예외') mocks.getSession.mockRejectedValue(new Error('조회 실패'))
+      if (failure === '빈 데이터') mocks.getSession.mockResolvedValue({ data: null })
+      if (failure === '갱신 중') mocks.session!.value.isRefetching = true
+      if (failure === '지연' || failure === '계정 변경') mocks.getSession.mockReturnValue(new Promise(done => { resolve = done }))
+      const result = useAdMob().showRewardedAd()
+      await flushPromises()
+      if (failure === '지연') {
+        await vi.advanceTimersByTimeAsync(3000)
+        expect(mocks.getSession.mock.calls[0]![0].fetchOptions.signal.aborted).toBe(true)
+      }
+      if (failure === '계정 변경') {
+        mocks.session!.value = { data: { user: { id: 'user-b', adConsent: true } } }
+        resolve({ data: { user: { id: 'user-a', adConsent: true } } })
+        await flushPromises()
+      }
+      expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ npa: true }))
+      if (failure === '지연') {
+        resolve({ data: { user: { id: 'user-a', adConsent: true } } })
+        await flushPromises()
+        expect(mocks.prepare).toHaveBeenCalledTimes(1)
+      }
+      mocks.listeners.get('dismissed')!()
+      await result
+    },
+  )
+
+  it('캐시가 아닌 최신 서버 동의를 매 광고 준비마다 확인한다', async () => {
+    mocks.platform = 'ios'
+    const ad = useAdMob()
+    for (const consent of [false, true]) {
+      mocks.getSession.mockResolvedValue({ data: { user: { id: 'user-a', adConsent: consent } } })
+      const result = ad.showRewardedAd()
+      await flushPromises()
+      expect(mocks.getSession).toHaveBeenLastCalledWith({
+        query: { disableCookieCache: true },
+        fetchOptions: { cache: 'no-store', signal: expect.any(AbortSignal) },
+      })
+      expect(mocks.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ npa: !consent }))
+      mocks.listeners.get('dismissed')!()
+      await result
+    }
+    expect(mocks.getSession).toHaveBeenCalledTimes(2)
+  })
+
+  it('동의 조회 중 철회 저장이 완료되면 먼저 시작한 true 응답을 사용하지 않는다', async () => {
+    mocks.platform = 'ios'
+    let resolve!: (value: unknown) => void
+    mocks.getSession.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    const result = useAdMob().showRewardedAd()
+    await flushPromises()
+    useAdConsentState().value = { userId: 'user-a', saved: false, pending: false, revision: 2 }
+    resolve({ data: { user: { id: 'user-a', adConsent: true } } })
+    await flushPromises()
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ npa: true }))
+    mocks.listeners.get('dismissed')!()
+    await result
+  })
+
+  it.each(['2026-11-12T14:59:59.999Z', '2026-11-12T15:00:00.000Z', '2026-11-12T15:00:00.001Z'])('시행 경계 %s에서 광고의 모든 진입을 제한한다', async (now) => {
+    vi.stubEnv('PROD', true)
+    useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'
+    vi.setSystemTime(new Date(now))
+    useRuntimeConfig().public.adsEffectiveAt = '2026-11-13T00:00:00+09:00'
+    mocks.platform = 'ios'
+    const ad = useAdMob()
+    const allowed = now !== '2026-11-12T14:59:59.999Z'
+    expect(ad.isAvailable).toBe(allowed)
+    await ad.initialize()
+    await ad.requestTrackingAuthorization()
+    if (allowed) {
+      expect(mocks.initialize).toHaveBeenCalledTimes(1)
+      await expect(ad.issueServerNonce('AD_REWARD')).resolves.toMatchObject({ nonce: 'server-nonce' })
+    }
+    else {
+      expect(await ad.showRewardedAd()).toBe(false)
+      await expect(ad.issueServerNonce('AD_REWARD')).rejects.toThrow()
+      expect(mocks.trackingStatus).not.toHaveBeenCalled()
+      expect(mocks.requestTracking).not.toHaveBeenCalled()
+      expect(mocks.initialize).not.toHaveBeenCalled()
+      expect(mocks.prepare).not.toHaveBeenCalled()
+      expect(mocks.show).not.toHaveBeenCalled()
+      expect(mocks.issue).not.toHaveBeenCalled()
+    }
+  })
+
+  it.each(['', 'invalid', '2026-01-01', '2026-02-30T00:00:00+09:00'])('잘못된 시행 설정 %s는 광고를 차단한다', (effectiveAt) => {
+    useRuntimeConfig().public.adsEffectiveAt = effectiveAt
+    expect(useAdMob().isAvailable).toBe(false)
+  })
+
+  it.each([
+    ['authorized', true, false], ['authorized', false, true],
+    ['denied', true, true], ['denied', false, true],
+    ['authorized', undefined, true],
+  ] as const)('ATT=%s 광고 동의=%s이면 npa=%s로 요청한다', async (status, consent, npa) => {
+    mocks.platform = 'ios'
+    mocks.trackingStatus.mockResolvedValue({ status })
+    mocks.session!.value = { data: { user: { id: 'user-a', adConsent: consent } } }
+    const result = useAdMob().showRewardedAd()
+    await flushPromises()
+    expect(mocks.prepare).toHaveBeenCalledWith(expect.objectContaining({ npa }))
+    mocks.listeners.get('dismissed')!()
+    await result
+  })
+
+  it('ATT 응답을 기다리는 동안 철회한 동의와 세션 만료를 다음 요청에 반영한다', async () => {
+    mocks.platform = 'ios'
+    let resolve!: () => void
+    mocks.trackingStatus.mockResolvedValueOnce({ status: 'notDetermined' }).mockResolvedValue({ status: 'authorized' })
+    mocks.requestTracking.mockReturnValueOnce(new Promise<void>((done) => { resolve = done }))
+    const ad = useAdMob()
+    const first = ad.showRewardedAd()
+    await flushPromises()
+    mocks.session!.value = { data: { user: { id: 'user-a', adConsent: false } } }
+    resolve()
+    await flushPromises()
+    expect(mocks.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ npa: true }))
+    mocks.listeners.get('dismissed')!()
+    await first
+    mocks.session!.value = { data: null }
+    const second = ad.showRewardedAd()
+    await flushPromises()
+    expect(mocks.prepare).toHaveBeenLastCalledWith(expect.objectContaining({ npa: true }))
+    mocks.listeners.get('dismissed')!()
+    await second
+    expect(mocks.requestTracking).toHaveBeenCalledTimes(1)
   })
 })
