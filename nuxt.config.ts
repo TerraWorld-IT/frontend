@@ -87,20 +87,8 @@ function buildRouteRules() {
     '/favicon.ico': {
       headers: { 'Cache-Control': 'public, max-age=86400' },
     },
-    // 약관/개인정보 페이지는 `layout: false` 에 사용자 데이터 참조가 0건인 순수 정적 문서다.
-    // (검증: 두 페이지 모두 userStore/sdk/useAuth 미참조, SSR HTML 이 쿠키에 불변 —
-    //  color-mode 는 storage 기본값이 localStorage 라 SSR 에서 테마 클래스를 붙이지 않는다.)
-    // 따라서 SEC-006 의 전면 `private, no-store` 에서 이 둘만 예외로 둔다.
-    // 나머지 HTML 라우트는 그대로 no-store — 특히 `/` 는 SSR 로 개인화되어 캐싱 불가다.
-    //
-    // `swr` 이 스스로 `Cache-Control: s-maxage=3600, stale-while-revalidate` 를 써서
-    // `/**` 의 no-store 를 덮는다(실측). 여기에 `headers` 로 Cache-Control 을 또 적어도
-    // 무시되므로 적지 않는다. 보안 헤더(CSP·XFO·nosniff·HSTS)는 `/**` 것이 그대로 남는다(실측).
-    //
-    // 와일드카드(`/legal/**`) 대신 두 경로를 명시한다. 나중에 `/legal/` 아래에 개인화된
-    // 페이지가 생기면 와일드카드가 그것까지 조용히 공유 캐시 대상으로 만들기 때문이다.
-    '/legal/terms': { swr: 3600 },
-    '/legal/privacy': { swr: 3600 },
+    // 약관·처리방침도 요청 시각에 따라 현행/개정 본문이 바뀌므로 공유 캐시를 사용하지 않는다.
+    // SWR 예외 없이 모든 HTML에 private, no-store와 기존 보안 헤더를 적용한다.
     '/**': { headers: buildSecurityHeaders() },
     // R7: /terrarium/free 는 홈(index.vue)의 자유배치(scale/flip/zIndex + {error} 처리)로 대체된 구 PoC.
     //   Figma(TW2)에도 별도 화면이 없어, 중복·divergent(필드 누락/fail-open save) 페이지를 홈으로 redirect.
@@ -210,6 +198,8 @@ export default defineNuxtConfig({
       // 네이티브 AdMob 플랫폼별 ID. 미설정 시 운영에서는 숨기고 개발에서는 테스트 ID를 쓴다.
       admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
       admobRewardedAdIdIos: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID_IOS || '',
+      // 개발·시뮬레이터에서도 환경 변수로 같은 시행일 게이트를 검증한다.
+      adsEffectiveAt: '2026-11-13T00:00:00+09:00',
       // 인스타 스토리 직접 공유(source_application) — Meta App ID. 미설정 시 시스템 공유 폴백.
       metaAppId: process.env.NUXT_PUBLIC_META_APP_ID || '',
       // 힐링 모드 BGM 음원 URL(useBgm). 빈 값 = 무음 플레이스홀더(토글 UI 만 동작) — 음원은 외부 제공 대기.

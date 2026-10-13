@@ -3,6 +3,8 @@ import type { AdRewardNonceResponse } from '@terraworld-it/openapi-frontend'
 import { ADS_ENABLED, STORAGE_KEYS } from '~/utils/constants'
 import { kstTodayKey } from '~/utils/habitState'
 import { withTimeout } from '~/utils/withTimeout'
+import { authClient } from '~/lib/auth-client'
+import { isAdsPolicyEffective } from '~/components/legal/adsPolicy'
 
 export const REWARD_AD_TIMEOUT_MS = 60_000
 // 실광고 시청과 백그라운드 전환을 허용하되 종료 이벤트 유실 시 대기를 제한한다.
@@ -15,6 +17,13 @@ export const TEST_REWARDED_AD_ID_IOS = 'ca-app-pub-3940256099942544/1712485313'
 
 // 서로 다른 진입점이 동시에 초기화돼도 진행 중인 ATT 요청은 공유한다.
 let trackingRequestInFlight: Promise<string | null> | undefined
+
+/** 세션 자동 갱신의 성공 여부와 무관하게 저장 중인 동의와 저장 결과를 공유한다. */
+export function useAdConsentState() {
+  return useState<{ userId: string | null, pending: boolean, saved?: boolean, revision: number }>(
+    'ad-consent-save', () => ({ userId: null, pending: false, revision: 0 }),
+  )
+}
 
 /**
  * 보상형 광고 단위 ID. 운영 빌드에서 설정값이 비어 있으면 테스트 ID 로 대체하지 않고 null —
@@ -94,6 +103,7 @@ export function markAdLimitReachedToday(userId: string | undefined): void {
 
 /** 서버 nonce를 광고 SSV에 전달하고 시청 완료 증거를 반환한다. */
 export function useAdMob() {
+  const consentState = useAdConsentState()
   const { sdk, client } = useOpenApi()
   const config = useRuntimeConfig()
   const isNative = import.meta.client ? Capacitor.isNativePlatform() : false
@@ -105,11 +115,38 @@ export function useAdMob() {
     import.meta.env.PROD,
     platform,
   )
-  const isAvailable = isRewardedAdAvailable(isNative, isNative && Capacitor.isPluginAvailable('AdMob'), platform, adId)
+  const isAvailable = isAdsPolicyEffective(config.public.adsEffectiveAt)
+    && isRewardedAdAvailable(isNative, isNative && Capacitor.isPluginAvailable('AdMob'), platform, adId)
 
   let initialized = false
   let trackingStatus: string | null = null
   let trackingRequest: Promise<string | null> | undefined
+
+  async function readFreshAdConsent(): Promise<boolean> {
+    const session = authClient.$store.atoms.session?.get()
+    const userId = session?.data?.user.id
+    const revision = consentState.value.revision
+    if (!userId || session?.error || session?.isPending || session?.isRefetching
+      || (consentState.value.userId === userId && consentState.value.pending)) return false
+    const controller = new AbortController()
+    try {
+      // 쿠키 캐시도 우회하며 준비 시한 안에서 조회 실패·지연은 비맞춤 광고로 처리한다.
+      const { data, error } = await withTimeout(authClient.getSession({
+        query: { disableCookieCache: true },
+        fetchOptions: { signal: controller.signal, cache: 'no-store' },
+      }), 3000, controller)
+      const current = authClient.$store.atoms.session?.get()
+      const saved = consentState.value
+      return !error && !!data && data.user.id === userId
+        && current?.data?.user.id === userId && !current.error && !current.isPending && !current.isRefetching
+        && saved.revision === revision
+        && !(saved.userId === userId && (saved.pending || saved.saved === false))
+        && (data.user as { adConsent?: boolean }).adConsent === true
+    }
+    catch {
+      return false
+    }
+  }
 
   /**
    * P3-3 (iOS App Tracking Transparency): IDFA(광고 식별자) 접근 전 ATT 동의 prompt 를 요청한다.
@@ -244,11 +281,13 @@ export function useAdMob() {
       await withTimeout((async () => {
         await initialize()
         if (preparation.signal.aborted) return
+        const adConsent = isIos && trackingStatus === 'authorized' && await readFreshAdConsent()
+        if (preparation.signal.aborted) return
         await AdMob.prepareRewardVideoAd({
           adId,
-          // iOS는 ATT 허용 시 개인화를 요청하고, 거부·제한·미결정·확인 실패는 비개인화로 진행한다.
+          // iOS는 ATT 허용과 최신 세션의 광고 동의가 모두 있을 때만 맞춤형 광고를 요청한다.
           // Android의 기존 비개인화 정책은 유지한다.
-          npa: !isIos || trackingStatus !== 'authorized',
+          npa: !isIos || trackingStatus !== 'authorized' || !adConsent,
           ...(ssv ? { ssv } : {}),
         })
       })(), REWARD_AD_PREPARE_TIMEOUT_MS, preparation)

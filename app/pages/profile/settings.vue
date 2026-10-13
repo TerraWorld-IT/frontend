@@ -240,6 +240,7 @@
 
 <script setup lang="ts">
 import { authClient } from '~/lib/auth-client'
+import { useAdConsentState } from '~/composables/useAdMob'
 import { Capacitor } from '@capacitor/core'
 import { STORAGE_KEYS } from '~/utils/constants'
 import { hasPushOffPending, PUSH_PERMISSION_DENIED_MESSAGE } from '~/composables/useNative'
@@ -355,6 +356,7 @@ const P = {
 
 // P3-2 (PIPA): 동의 항목 관리 — better-auth session 의 동의 필드를 읽어 토글, 변경 시 updateUser.
 const session = authClient.useSession()
+const adConsentState = useAdConsentState()
 // 클라이언트 플러그인이 세션을 먼저 복원해도 SSR과 첫 렌더의 계정 메뉴를 같게 유지한다.
 // 마운트 뒤에는 세션 교체·로그아웃을 계속 반영한다.
 const mounted = ref(false)
@@ -394,7 +396,9 @@ const consentToggles = ref<Array<{ key: string; field: string; value: boolean }>
   { key: 'adId', field: 'adConsent', value: false },
   { key: 'push', field: 'pushConsent', value: false },
 ])
-const visibleConsentToggles = computed(() => consentToggles.value.filter(item => isAndroidNative.value || (item.key !== 'push' && item.key !== 'adId')))
+const isIosNative = ref(false)
+const visibleConsentToggles = computed(() => consentToggles.value.filter(item =>
+  item.key === 'push' ? isAndroidNative.value : item.key === 'adId' ? isAndroidNative.value || isIosNative.value : true))
 
 // 세션은 클라이언트에서만 읽힌다 — 서버 렌더(전부 미체크)와 첫 클라이언트 렌더를 같게 두고,
 // 마운트 뒤에 세션 값을 반영해 hydration 불일치(checked 속성)를 피한다.
@@ -412,7 +416,7 @@ function applyConsentFromSession(u: unknown) {
     consentToggles.value = [
       { key: 'marketing', field: 'marketingConsent', value: cu.marketingConsent ?? false },
       { key: 'analytics', field: 'analyticsConsent', value: cu.analyticsConsent ?? false },
-      { key: 'adId', field: 'adConsent', value: cu.adConsent ?? false },
+      { key: 'adId', field: 'adConsent', value: adConsentState.value.userId === cu.id ? adConsentState.value.saved ?? cu.adConsent ?? false : cu.adConsent ?? false },
       { key: 'push', field: 'pushConsent', value: pushOffPending.value || pushOffUserId.value === cu.id ? false : cu.pushConsent ?? false },
     ]
 }
@@ -429,6 +433,7 @@ onMounted(() => {
   // 차단 목록의 소유 회원 ID 확보(TTL 캐시라 대개 재요청 없음). 실패해도 다른 설정은 쓸 수 있다.
   void userStore.fetchMe().catch(() => {})
   isAndroidNative.value = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
+  isIosNative.value = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
   if (Capacitor.isNativePlatform()) {
     appVersion.value = '확인 중'
     void getAppInfo().then((info) => {
@@ -452,13 +457,24 @@ async function onConsentToggle(key: string, checked: boolean) {
     await onPushConsentToggle(checked)
     return
   }
+  const userId = session.value?.data?.user?.id
+  if (!userId) return
+  if (key === 'adId') {
+    adConsentState.value = {
+      userId, pending: true, revision: adConsentState.value.revision + 1,
+      saved: adConsentState.value.userId === userId ? adConsentState.value.saved : undefined,
+    }
+  }
   consentSaving.value = true
   try {
     const { error } = await authClient.updateUser(
       { [item.field]: checked } as unknown as Parameters<typeof authClient.updateUser>[0],
     )
     if (error) throw new Error(error.message ?? t('profile.consentSaveFail'))
+    if (key === 'adId' && adConsentState.value.userId === userId) adConsentState.value.saved = checked
+    if (session.value?.data?.user?.id !== userId) return
     item.value = checked
+    if (key === 'adId') applyConsentFromSession(session.value?.data?.user)
     toast.success(t('profile.consentSaved'))
   }
   catch (e) {
@@ -467,6 +483,10 @@ async function onConsentToggle(key: string, checked: boolean) {
       : (e as Error).message)
   }
   finally {
+    if (key === 'adId' && adConsentState.value.userId === userId) {
+      adConsentState.value.pending = false
+      adConsentState.value.revision++
+    }
     consentSaving.value = false
     consentRenderKey.value++
   }

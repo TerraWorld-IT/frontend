@@ -412,6 +412,7 @@ describe('WP2a 조회 상태', () => {
 })
 
 beforeEach(() => {
+  useRuntimeConfig().public.adsEffectiveAt = '2026-01-01T00:00:00+09:00'
   vi.clearAllMocks()
   mocks.backHandlers.length = 0
   mocks.home.snapshot = { terrarium: { placedItems: [], maxSlots: 6 }, freePlacements: { items: [] } }
@@ -1099,6 +1100,25 @@ describe('B1 바이너리별 홈·성장 광고 가용성', () => {
     expect(w.findComponent({ name: 'GrowLostModal' }).props('adAvailable')).toBe(false)
     const home = await mountPage(HomePage)
     expect(home.find('[data-testid="home-freecoin"]').exists()).toBe(false)
+  })
+
+  it('시행일 전에는 iOS 홈·키우기 진입과 직접 호출에서 광고·ATT·nonce를 차단한다', async () => {
+    useRuntimeConfig().public.adsEffectiveAt = '2099-11-13T00:00:00+09:00'
+    mocks.adNative = true
+    mocks.adIos = true
+    mocks.adPlugin = true
+    const growth = await mountPage(GrowPage)
+    const home = await mountPage(HomePage)
+    expect(growth.findComponent({ name: 'GrowLostModal' }).props('adAvailable')).toBe(false)
+    expect(home.find('[data-testid="home-freecoin"]').exists()).toBe(false)
+    state(home).onAdMenuClick()
+    await state(home).onClaimAdReward()
+    state(growth).lostModalSpecies = 'SPIRIT_A'
+    await state(growth).onRevive('AD')
+    expect(state(home).showFreeCoinDialog).toBe(false)
+    expect(mocks.showRewardedAd).not.toHaveBeenCalled()
+    expect(mocks.requestTrackingAuthorization).not.toHaveBeenCalled()
+    expect(mocks.issueServerNonce).not.toHaveBeenCalled()
   })
 
   it('플러그인과 ID가 있는 iOS는 홈·성장 광고 버튼을 표시하고 광고를 시작한다', async () => {
