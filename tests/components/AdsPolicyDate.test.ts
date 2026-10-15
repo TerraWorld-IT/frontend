@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { isAdsPolicyEffective } from '~/components/legal/adsPolicy'
+import { isAdsPolicyEffective as sharedIsAdsPolicyEffective } from '#shared/utils/adsPolicyEffective'
 
 describe('시행 시각 입력의 불변조건', () => {
+  it('클라이언트는 서버와 같은 순수 함수를 재수출한다', () => {
+    expect(isAdsPolicyEffective).toBe(sharedIsAdsPolicyEffective)
+  })
   it('같은 순간의 UTC·KST 표현은 모든 월의 시작과 윤년 경계에서도 같은 결과를 낸다', () => {
     for (let year = 2024; year <= 2032; year++) {
       for (let month = 0; month < 12; month++) {
