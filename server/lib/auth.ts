@@ -2,6 +2,8 @@ import { betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { jwt, bearer } from 'better-auth/plugins'
 import { Pool } from 'pg'
+import { useRuntimeConfig } from '#imports'
+import { isAdsPolicyEffective } from '#shared/utils/adsPolicyEffective'
 import { isForbiddenNickname, NICKNAME_NOT_ALLOWED_CODE, NICKNAME_NOT_ALLOWED_MESSAGE } from '#shared/utils/nicknamePolicy'
 
 const connectionString = process.env.DATABASE_URL
@@ -321,10 +323,11 @@ export const auth = betterAuth({
           if (isForbiddenNickname((user as { name?: string }).name ?? '')) {
             throw new APIError('BAD_REQUEST', { code: NICKNAME_NOT_ALLOWED_CODE, message: NICKNAME_NOT_ALLOWED_MESSAGE })
           }
-          // better-auth `before` hook signature: Promise<boolean | void | { data: Optional<User> & Record<string, any> }>.
-          // 통과 시 `return true` (passthrough) — user 객체 수정 없음, transaction 진행.
-          // 거절 시 위 throw — transaction rollback + client 가 가입 거절 응답 받음.
-          return true
+          // 클라이언트가 보낸 버전 대신 서버 시각과 시행 설정으로 가입 동의 버전을 확정한다.
+          const consentVersion = isAdsPolicyEffective(useRuntimeConfig().public.adsEffectiveAt)
+            ? '2026-10-23'
+            : '2026-06-23'
+          return { data: { ...user, consentVersion } }
         },
         after: async (user) => {
           // user.name = 가입 폼의 닉네임(signUp payload name). Spring 도메인 프로필 nickname 으로 전달.

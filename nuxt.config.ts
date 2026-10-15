@@ -199,7 +199,7 @@ export default defineNuxtConfig({
       admobRewardedAdId: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID || '',
       admobRewardedAdIdIos: process.env.NUXT_PUBLIC_ADMOB_REWARDED_AD_ID_IOS || '',
       // 개발·시뮬레이터에서도 환경 변수로 같은 시행일 게이트를 검증한다.
-      adsEffectiveAt: '2026-11-13T00:00:00+09:00',
+      adsEffectiveAt: '2026-10-23T00:00:00+09:00',
       // 인스타 스토리 직접 공유(source_application) — Meta App ID. 미설정 시 시스템 공유 폴백.
       metaAppId: process.env.NUXT_PUBLIC_META_APP_ID || '',
       // 힐링 모드 BGM 음원 URL(useBgm). 빈 값 = 무음 플레이스홀더(토글 UI 만 동작) — 음원은 외부 제공 대기.

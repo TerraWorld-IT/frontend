@@ -28,8 +28,8 @@ let nativeWrapper: VueWrapper | undefined
 let previousEffectiveAt: string
 beforeEach(() => {
   previousEffectiveAt = useRuntimeConfig().public.adsEffectiveAt
-  useRuntimeConfig().public.adsEffectiveAt = '2026-11-13T00:00:00+09:00'
-  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-12T14:59:59.999Z'))
+  useRuntimeConfig().public.adsEffectiveAt = '2026-10-23T00:00:00+09:00'
+  vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-22T14:59:59.999Z'))
   vi.clearAllMocks()
 })
 afterEach(() => {
@@ -84,7 +84,7 @@ describe('dev/ads-test', () => {
     })
 
     it('시행 시각부터 테스트 광고 초기화·로드·표시와 보상 결과가 유지된다', async () => {
-      vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-12T15:00:00.000Z'))
+      vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-22T15:00:00.000Z'))
       const listeners = new Map<string, (value?: unknown) => void>()
       sdk.initialize.mockResolvedValue(undefined)
       sdk.prepare.mockResolvedValue(undefined)

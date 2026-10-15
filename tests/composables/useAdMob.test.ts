@@ -638,14 +638,14 @@ describe('광고 시행일과 맞춤형 광고 동의', () => {
     await result
   })
 
-  it.each(['2026-11-12T14:59:59.999Z', '2026-11-12T15:00:00.000Z', '2026-11-12T15:00:00.001Z'])('시행 경계 %s에서 광고의 모든 진입을 제한한다', async (now) => {
+  it.each(['2026-10-22T14:59:59.999Z', '2026-10-22T15:00:00.000Z', '2026-10-22T15:00:00.001Z'])('시행 경계 %s에서 광고의 모든 진입을 제한한다', async (now) => {
     vi.stubEnv('PROD', true)
     useRuntimeConfig().public.admobRewardedAdIdIos = 'ios-real/1'
     vi.setSystemTime(new Date(now))
-    useRuntimeConfig().public.adsEffectiveAt = '2026-11-13T00:00:00+09:00'
+    useRuntimeConfig().public.adsEffectiveAt = '2026-10-23T00:00:00+09:00'
     mocks.platform = 'ios'
     const ad = useAdMob()
-    const allowed = now !== '2026-11-12T14:59:59.999Z'
+    const allowed = now !== '2026-10-22T14:59:59.999Z'
     expect(ad.isAvailable).toBe(allowed)
     await ad.initialize()
     await ad.requestTrackingAuthorization()

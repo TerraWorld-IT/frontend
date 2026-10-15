@@ -105,7 +105,9 @@ describe('가입 before hook 닉네임 검사', () => {
 
   it.each(['테라', '시바견', '🌱새싹🌱'])('정상 닉네임 %s 는 통과시킨다', async (name) => {
     const before = await loadCreateBefore()
-    await expect(before({ ...validUser, name })).resolves.toBe(true)
+    await expect(before({ ...validUser, name })).resolves.toEqual({
+      data: { ...validUser, name, consentVersion: expect.stringMatching(/^2026-(06-23|10-23)$/) },
+    })
   })
 
   it('만 14세·필수 동의 검사는 그대로 먼저 적용된다', async () => {

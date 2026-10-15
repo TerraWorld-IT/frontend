@@ -253,6 +253,7 @@
 </template>
 
 <script setup lang="ts">
+import { isAdsPolicyEffective } from '~/components/legal/adsPolicy'
 import { authClient } from '~/lib/auth-client'
 import { PUSH_PERMISSION_DENIED_MESSAGE } from '~/composables/useNative'
 import { STORAGE_KEYS } from '~/utils/constants'
@@ -368,7 +369,9 @@ const emailInput = ref<HTMLInputElement | null>(null)
 
 // P1-2 (PIPA 제15조): 분리 동의 상태. 필수(약관·개인정보) + 선택 4종.
 // 동의 버전 — privacy.md/terms.md 갱신 시 함께 올려 동의 이력의 정책 버전을 식별.
+const config = useRuntimeConfig()
 const CONSENT_VERSION = '2026-06-23'
+const REVISED_CONSENT_VERSION = '2026-10-23'
 const agreeTerms = ref<boolean>(false)
 const agreePrivacy = ref<boolean>(false)
 
@@ -514,7 +517,7 @@ async function onSubmit() {
         analyticsConsent: consentValue('analytics'),
         adConsent: consentValue('adId'),
         pushConsent: consentValue('push'),
-        consentVersion: CONSENT_VERSION,
+        consentVersion: isAdsPolicyEffective(config.public.adsEffectiveAt) ? REVISED_CONSENT_VERSION : CONSENT_VERSION,
         consentedAt: new Date().toISOString(),
       } as Parameters<typeof authClient.signUp.email>[0])
       if (error) throw new Error(authErrorMessage(error, t('auth.signupFailed')))
