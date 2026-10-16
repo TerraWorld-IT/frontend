@@ -16,6 +16,9 @@ function buildConnectSrc(): string {
     sources.add('http://localhost:8080')
     sources.add('http://localhost:3000')
   }
+  sources.add('https://*.google-analytics.com')
+  sources.add('https://*.analytics.google.com')
+  sources.add('https://*.googletagmanager.com')
   return Array.from(sources).join(' ')
 }
 
@@ -50,8 +53,8 @@ function buildSecurityHeaders(): Record<string, string> {
     // hash/nonce-based inline styles become feasible.
     'Content-Security-Policy': [
       "default-src 'self'",
-      // Google AdSense (PC 웹 배너) 스크립트 도메인 허용
-      "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://static.cloudflareinsights.com",
+      // Google AdSense와 별도 동의 후 로드하는 GA4 스크립트 도메인 허용
+      "script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://static.cloudflareinsights.com https://*.googletagmanager.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
@@ -309,8 +312,7 @@ export default defineNuxtConfig({
     id: process.env.NUXT_PUBLIC_GA_ID || '',
     enabled: process.env.NODE_ENV === 'production',
     // P2-2 (PIPA): GA4 는 '선택' 동의 항목 — 자동 로드 금지(opt-in 게이트).
-    // initMode:'manual' 이면 gtag.js 스크립트를 부팅 시 주입하지 않음. analyticsConsent=true
-    // 일 때만 plugins/analytics-consent.client.ts 가 useGtag().initialize() 호출.
+    // 개정본 가입 버전과 분석 별도 동의가 모두 충족될 때만 플러그인이 초기화한다.
     initMode: 'manual',
     config: {
       allow_google_signals: false,

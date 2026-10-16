@@ -38,6 +38,20 @@ afterEach(() => {
 })
 
 describe('가입 동의 버전', () => {
+  it('가입 분석 체크박스 밖에 항상 보이는 요약과 자세히를 제공한다', async () => {
+    wrapper = await mountSuspended(LoginPage)
+    await flushPromises()
+    await wrapper.get('button[type="button"]').trigger('click')
+    const summary = wrapper.get('fieldset details')
+    expect(summary.element.closest('label')).toBeNull()
+    expect(summary.element.previousElementSibling?.textContent).toContain('Google LLC(미국)에 이용 기록을 보내 통계를 냅니다.')
+    expect(summary.get('summary').text()).toBe('자세히')
+    const checkbox = wrapper.findAll('label').find(label => label.text().includes('서비스 이용 분석(GA4)'))!.get('input')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    await summary.get('summary').trigger('click')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+  })
+
   it.each([
     ['2026-10-22T14:59:59.999Z', '2026-10-23T00:00:00+09:00', '2026-06-23'],
     ['2026-10-22T15:00:00.000Z', '2026-10-23T00:00:00+09:00', '2026-10-23'],

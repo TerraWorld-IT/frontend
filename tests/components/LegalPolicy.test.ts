@@ -3,6 +3,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import PrivacyPage from '~/pages/legal/privacy.vue'
 import TermsPage from '~/pages/legal/terms.vue'
+import { GA4_ANNOUNCEMENT_DATE } from '~/components/legal/AnalyticsConsentNotice.vue'
 
 let wrapper: VueWrapper | undefined
 beforeEach(() => {
@@ -28,6 +29,11 @@ describe.each([
     const body = () => wrapper!.get('section').text()
     expect(body()).toContain(revised ? newText : oldText)
     expect(body()).not.toContain(revised ? oldText : newText)
+    expect(body().includes('GA4')).toBe(revised)
+    if (revised) {
+      expect(body()).toContain(GA4_ANNOUNCEMENT_DATE)
+      expect(body()).toContain('약관의 간주 동의는 적용하지 않습니다')
+    }
     if (revised) expect(body()).toContain('개정 공고일 현재 운영·테스트 계정 외에 가입한 회원이 없어 30일 사전 고지를 받을 기존 회원이 없으므로 시행일을 앞당깁니다.')
     expect(wrapper.get('aside').text()).toContain('2026-10-14')
     expect(wrapper.get('aside').text()).toContain('2026-10-23')
@@ -38,6 +44,7 @@ describe.each([
     await wrapper.get('aside button[aria-pressed="false"]').trigger('click')
     expect(body()).toContain(revised ? oldText : newText)
     expect(body()).not.toContain(revised ? newText : oldText)
+    expect(body().includes('GA4')).toBe(!revised)
     expect(wrapper.get('header p').text()).toContain(revised ? '2026년 10월 3일' : '2026년 10월 23일')
     if (!revised) expect(body()).toContain('2026년 10월 15일 시행일 정정 공고')
   })

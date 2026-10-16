@@ -205,17 +205,18 @@
             </label>
 
             <!-- 선택 -->
-            <label
-              v-for="opt in optionalConsents"
-              :key="opt.key"
-              class="flex items-center gap-2 cursor-pointer"
-            >
-              <input v-model="opt.value" type="checkbox" class="w-4 h-4 rounded" style="accent-color: #97a8f1">
-              <span class="text-xs" style="color: #7683a8">
-                <span class="font-medium" style="color: #4a67b5">[{{ t('auth.consent.optional') }}]</span>
-                {{ t(`auth.consent.${opt.key}`) }}
-              </span>
-            </label>
+            <template v-for="opt in optionalConsents" :key="opt.key">
+              <label
+                class="flex items-center gap-2 cursor-pointer"
+              >
+                <input v-model="opt.value" type="checkbox" class="w-4 h-4 rounded" style="accent-color: #97a8f1">
+                <span class="text-xs" style="color: #7683a8">
+                  <span class="font-medium" style="color: #4a67b5">[{{ t('auth.consent.optional') }}]</span>
+                  {{ t(`auth.consent.${opt.key}`) }}
+                </span>
+              </label>
+              <AnalyticsConsentNotice v-if="opt.key === 'analytics'" class="text-xs" />
+            </template>
           </fieldset>
 
           <button
@@ -253,6 +254,7 @@
 </template>
 
 <script setup lang="ts">
+import AnalyticsConsentNotice, { ANALYTICS_CONSENT_VERSION as REVISED_CONSENT_VERSION } from '~/components/legal/AnalyticsConsentNotice.vue'
 import { isAdsPolicyEffective } from '~/components/legal/adsPolicy'
 import { authClient } from '~/lib/auth-client'
 import { PUSH_PERMISSION_DENIED_MESSAGE } from '~/composables/useNative'
@@ -371,7 +373,6 @@ const emailInput = ref<HTMLInputElement | null>(null)
 // 동의 버전 — privacy.md/terms.md 갱신 시 함께 올려 동의 이력의 정책 버전을 식별.
 const config = useRuntimeConfig()
 const CONSENT_VERSION = '2026-06-23'
-const REVISED_CONSENT_VERSION = '2026-10-23'
 const agreeTerms = ref<boolean>(false)
 const agreePrivacy = ref<boolean>(false)
 
