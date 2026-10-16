@@ -196,7 +196,7 @@ export default defineNuxtConfig({
       authBaseUrl: process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000',
       gaId: process.env.NUXT_PUBLIC_GA_ID || '',
       appStoreId: '6786987682',
-      appStoreProviderToken: '',
+      appStoreProviderToken: '129029892',
       siteUrl: 'https://terraworld.web-qplay.kr',
       // AdSense (PC 웹 배너 전용)
       adsenseClient: process.env.NUXT_PUBLIC_ADSENSE_CLIENT || '',
