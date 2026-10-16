@@ -83,6 +83,15 @@
           >
             {{ $t('share.startTerraWorldCta') }}
           </NuxtLink>
+          <a
+            v-if="showAppStoreLink"
+            :href="appStoreUrl"
+            target="_blank"
+            rel="noopener"
+            class="text-sm text-riso-dark/40"
+          >
+            {{ $t('share.getAppOnAppStore') }}
+          </a>
         </div>
       </div>
     </template>
@@ -91,7 +100,9 @@
 
 <script setup lang="ts">
 import type { TerrariumResponse } from '@terraworld-it/openapi-frontend'
+import { Capacitor } from '@capacitor/core'
 import { useUserStore } from '~/stores/user'
+import { buildAppStoreUrl, buildSmartBannerContent } from '~/utils/appStore'
 
 definePageMeta({ layout: false })
 
@@ -102,6 +113,22 @@ const toast = useToast()
 const { t } = useI18n()
 
 const code = computed<string>(() => route.params.code as string)
+const config = useRuntimeConfig()
+const appStoreUrl = computed(() => buildAppStoreUrl('share', config.public))
+const showAppStoreLink = ref(false)
+onMounted(() => {
+  showAppStoreLink.value = !Capacitor.isNativePlatform()
+})
+useHead(() => ({
+  meta: [{
+    key: 'smart-app-banner',
+    name: 'apple-itunes-app',
+    content: buildSmartBannerContent({
+      campaign: 'share',
+      appArgument: new URL(`/share/${encodeURIComponent(code.value)}`, config.public.siteUrl || 'https://terraworld.web-qplay.kr').href,
+    }, config.public),
+  }],
+}))
 
 // N16 (구현 계획서 v4, 2026-05-21): 전용 public share API 연동.
 // `GET /api/v1/share/{code}` — invite code 의 발신자(초대자) terrarium + nickname 을 반환.
