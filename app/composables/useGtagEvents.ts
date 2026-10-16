@@ -1,3 +1,16 @@
+import { authClient } from '~/lib/auth-client'
+import { ANALYTICS_CONSENT_VERSION } from '~/components/legal/AnalyticsConsentNotice.vue'
+
+/**
+ * GA4 전송 허용 판정 — 개정본에 동의하고 가입한 회원이 분석 수집에도 별도로 동의한 상태.
+ * 초기화 플러그인(analytics-consent.client.ts)과 이벤트 전송이 같은 판정을 쓴다.
+ */
+export function isAnalyticsAllowed(user: { analyticsConsent?: boolean, consentVersion?: string } | null | undefined): boolean {
+  return user?.analyticsConsent === true
+    && typeof user.consentVersion === 'string'
+    && user.consentVersion >= ANALYTICS_CONSENT_VERSION
+}
+
 /**
  * GA4 event tracking composable.
  * Wraps nuxt-gtag's useGtag() with TerraWorld-specific event helpers.
@@ -7,7 +20,14 @@
  * - 25 char max per parameter key
  */
 export function useGtagEvents() {
-  const { gtag } = useGtag()
+  const { gtag: sendGtag } = useGtag()
+  const session = authClient.useSession()
+
+  // nuxt-gtag 는 manual 모드에서도 부팅 때 dataLayer 를 만들고 gtag 호출을 쌓아 두며, 동의 후
+  // initialize() 가 그 큐를 그대로 GA 로 보낸다. 동의 전·철회 중 이벤트는 큐에 넣지 않는다.
+  const gtag: typeof sendGtag = (command, ...args) => {
+    if (isAnalyticsAllowed(session.value?.data?.user as Parameters<typeof isAnalyticsAllowed>[0])) sendGtag(command, ...args)
+  }
 
   function trackRecordCreated(params: { categoryId: number; categoryName: string; basicCoins: number; categoryTokens: number }) {
     gtag('event', 'record_created', {

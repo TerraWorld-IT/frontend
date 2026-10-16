@@ -92,6 +92,19 @@
   "auth": {
     "birthDateLabel": "Date of birth",
     "birthDatePlaceholder": "Date of birth (14 or older)",
+    "analyticsNotice": {
+      "summary": "We send usage records to Google LLC (United States) for statistics. You can sign up and use the service without consenting.",
+      "legacyMember": "Applies to members who sign up on or after October 23, 2026. Enabling this consent does not enable analytics for existing members.",
+      "details": "Details",
+      "basis": "Overseas transfer basis: separate consent under Article 28-8(1)(1) of the Personal Information Protection Act.",
+      "recipient": "Recipient: Google LLC · Country: United States · Privacy contact:",
+      "transfer": "When and how: after an eligible member consents, screen views and events are sent via HTTPS as they occur.",
+      "items": "Data: GA cookies and client identifiers, screen views and events, device and browser information, and approximate location inferred from IP. We do not send member IDs or email addresses.",
+      "purpose": "Purpose: service usage statistics. Ad personalization and Google Signals are disabled.",
+      "retention": "Retention: Google event data for 2 months; device cookies (_ga) for up to 2 years. External data export (BigQuery) is not used.",
+      "refusal": "Refusal and effects: leaving the box unchecked prevents the analytics script from loading. Turning it off in Settings > Consent management stops further analytics transmission without affecting other features. Previously sent data is deleted through Google’s regular deletion process after the 2-month retention period. Existing cookies can be removed by clearing browser data.",
+      "scope": "Scope: only members who agree to the revised policy and sign up on or after October 23, 2026, 00:00 KST, and separately opt in to analytics. Deemed consent to the terms does not apply."
+    },
     "consent": {
       "legend": "Sign-up consent items",
       "agreeAll": "Agree to all",

@@ -334,6 +334,17 @@ export const auth = betterAuth({
           await provisionDomainProfile(user.id, user.email, user.name)
         },
       },
+      update: {
+        // 가입 동의 버전·시각은 가입 때 확정한 기록이라 /update-user 로 바꿀 수 없다.
+        // (GA4 게이트가 consentVersion 을 신뢰하므로 회원이 값을 올려 우회하지 못하게 한다.)
+        // better-auth 는 반환한 data 를 원래 변경값에 병합하므로 키는 원래 객체에서 지워야 빠진다.
+        before: async (user) => {
+          const data = user as Record<string, unknown>
+          delete data.consentVersion
+          delete data.consentedAt
+          return { data }
+        },
+      },
     },
   },
 
