@@ -192,6 +192,9 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1',
       authBaseUrl: process.env.NUXT_PUBLIC_AUTH_BASE_URL || 'http://localhost:3000',
       gaId: process.env.NUXT_PUBLIC_GA_ID || '',
+      appStoreId: '6786987682',
+      appStoreProviderToken: '',
+      siteUrl: 'https://terraworld.web-qplay.kr',
       // AdSense (PC 웹 배너 전용)
       adsenseClient: process.env.NUXT_PUBLIC_ADSENSE_CLIENT || '',
       adsenseSlot: process.env.NUXT_PUBLIC_ADSENSE_SLOT || '',
@@ -309,6 +312,10 @@ export default defineNuxtConfig({
     // initMode:'manual' 이면 gtag.js 스크립트를 부팅 시 주입하지 않음. analyticsConsent=true
     // 일 때만 plugins/analytics-consent.client.ts 가 useGtag().initialize() 호출.
     initMode: 'manual',
+    config: {
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+    },
     // Runtime access: useRuntimeConfig().public.gaId
   },
 

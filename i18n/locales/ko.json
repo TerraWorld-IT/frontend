@@ -565,6 +565,7 @@
     "tokenEarned": "토큰 {n}개 획득"
   },
   "share": {
+    "getAppOnAppStore": "App Store에서 앱 받기",
     "acceptFail": "초대 수락에 실패했습니다",
     "accepting": "수락 중...",
     "acceptInvite": "초대 수락하기",

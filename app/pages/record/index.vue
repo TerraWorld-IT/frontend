@@ -551,6 +551,7 @@ const { trackRecordCreated } = useGtagEvents()
 const userStore = useUserStore()
 const session = authClient.useSession()
 const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
+const { maybeRequestReview } = useAppReview(draftUserId)
 const {
   trackers,
   loaded: habitsLoaded,
@@ -987,7 +988,9 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
       // 생성은 이미 확정됐으므로 잔액 갱신 실패로 재전송을 유도하지 않는다.
       void userStore.fetchMe(true).catch(() => { toast.info('기록은 저장됐어요. 잔액은 잠시 후 갱신돼요') })
     }
-    return { ok: true, reward, growthAdvanced: await didGrowthAdvance(growthBefore) }
+    const growthAdvanced = await didGrowthAdvance(growthBefore)
+    void maybeRequestReview()
+    return { ok: true, reward, growthAdvanced }
   }
   catch (e) {
     toast.error((e as Error).message)

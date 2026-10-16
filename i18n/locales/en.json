@@ -565,6 +565,7 @@
     "tokenEarned": "Earned {n} tokens"
   },
   "share": {
+    "getAppOnAppStore": "Get it on the App Store",
     "acceptFail": "Failed to accept the invite",
     "accepting": "Accepting...",
     "acceptInvite": "Accept invite",
