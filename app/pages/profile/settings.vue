@@ -29,21 +29,22 @@
         </div>
         <p class="text-[12px] text-apjek-text-sub">{{ $t('profile.consentDesc') }}</p>
         <div class="flex flex-col gap-[8px]">
-          <label
-            v-for="item in visibleConsentToggles"
-            :key="`${item.key}-${consentRenderKey}`"
-            class="w-full flex items-center justify-between p-[13px] bg-apjek-surface border border-apjek-border rounded-[12px] cursor-pointer"
-          >
-            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ t(`auth.consent.${item.key}`) }}</span>
-            <input
-              type="checkbox"
-              :data-testid="`consent-${item.key}`"
-              :checked="item.value"
-              :disabled="!hasMountedSession || consentSaving || (item.key === 'push' && pushOffPending)"
-              class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
-              @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
+          <template v-for="item in visibleConsentToggles" :key="`${item.key}-${consentRenderKey}`">
+            <label
+              class="w-full flex items-center justify-between p-[13px] bg-apjek-surface border border-apjek-border rounded-[12px] cursor-pointer"
             >
-          </label>
+              <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">{{ t(`auth.consent.${item.key}`) }}</span>
+              <input
+                type="checkbox"
+                :data-testid="`consent-${item.key}`"
+                :checked="item.value"
+                :disabled="!hasMountedSession || consentSaving || (item.key === 'push' && pushOffPending)"
+                class="w-5 h-5 accent-riso-sage dark:accent-riso-grass disabled:opacity-50"
+                @change="onConsentToggle(item.key, ($event.target as HTMLInputElement).checked)"
+              >
+            </label>
+            <AnalyticsConsentNotice v-if="item.key === 'analytics'" :legacy-member="isLegacyAnalyticsMember" class="text-[12px] text-apjek-text-sub" />
+          </template>
           <button
             v-if="isAndroidNative && pushOffPending"
             type="button"
@@ -239,6 +240,7 @@
 </template>
 
 <script setup lang="ts">
+import AnalyticsConsentNotice, { ANALYTICS_CONSENT_VERSION } from '~/components/legal/AnalyticsConsentNotice.vue'
 import { authClient } from '~/lib/auth-client'
 import { useAdConsentState } from '~/composables/useAdMob'
 import { Capacitor } from '@capacitor/core'
@@ -361,6 +363,11 @@ const adConsentState = useAdConsentState()
 // 마운트 뒤에는 세션 교체·로그아웃을 계속 반영한다.
 const mounted = ref(false)
 const hasMountedSession = computed(() => mounted.value && !!session.value?.data?.user)
+const isLegacyAnalyticsMember = computed(() => {
+  if (!hasMountedSession.value) return false
+  const version = (session.value?.data?.user as { consentVersion?: string } | undefined)?.consentVersion
+  return typeof version !== 'string' || version < ANALYTICS_CONSENT_VERSION
+})
 const consentSaving = ref<boolean>(false)
 const consentRenderKey = ref<number>(0)
 const pushOffPending = ref<boolean>(false)

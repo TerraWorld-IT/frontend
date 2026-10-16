@@ -7,7 +7,7 @@ import { STORAGE_KEYS } from '~/utils/constants'
 import { deactivateDevicesOnce } from '~/composables/useNative'
 import { useAdMob, useAdConsentState } from '~/composables/useAdMob'
 
-type SettingsSession = { data: { user: { id: string; pushConsent: boolean; adConsent: boolean } } | null }
+type SettingsSession = { data: { user: { id: string; pushConsent: boolean; adConsent: boolean; consentVersion?: string } } | null }
 
 const mocks = vi.hoisted(() => ({
   session: null as Ref<SettingsSession> | null,
@@ -85,6 +85,18 @@ beforeEach(() => {
   mocks.registerPushIfGranted.mockReset().mockImplementation(async () => mocks.native && mocks.platform === 'android')
   mocks.getAppInfo.mockReset().mockResolvedValue({ version: '1.2.3', build: '42' })
   mocks.checkPushPermission.mockReset().mockImplementation(async () => mocks.native && mocks.platform === 'android' ? 'granted' : null)
+})
+
+describe('설정 분석 동의 안내', () => {
+  it.each(['2026-06-23', '2026-10-23', undefined])('가입 버전 %s에 맞게 적용 범위를 알린다', async (consentVersion) => {
+    mocks.session!.value.data!.user.consentVersion = consentVersion
+    wrapper = await mountSuspended(SettingsPage)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Google LLC(미국)에 이용 기록을 보내 통계를 냅니다.')
+    expect(wrapper.text().includes('2026년 10월 23일 이후 가입한 회원에게 적용돼요')).toBe(consentVersion !== '2026-10-23')
+    expect(wrapper.get('details').element.closest('label')).toBeNull()
+    expect(wrapper.get('[data-testid="consent-analytics"]').element.closest('label')!.nextElementSibling!.textContent).toContain('Google LLC')
+  })
 })
 
 describe('계정 삭제 서버 훅', () => {
