@@ -217,7 +217,7 @@
             : 'relative flex justify-center items-center w-full overflow-hidden']"
           :style="healingMode
             ? { touchAction: 'none', background: 'linear-gradient(180deg, #cfe0f6 0%, #eef5ff 55%, #ffffff 100%)', padding: 'var(--sat) var(--sar) var(--sab) var(--sal)' }
-            : { touchAction: editMode ? 'none' : 'pan-x pan-y', cursor: 'default', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
+            : { touchAction: editMode ? 'pan-y' : 'pan-x pan-y', cursor: 'default', paddingTop: '1.3rem', paddingBottom: '1.3rem', minHeight: viewScale < 1 ? '380px' : undefined }"
           @wheel="onWheel"
           @pointerdown="onPinchPointer"
           @pointermove="onPinchPointer"
@@ -310,7 +310,7 @@
                   <!-- 아이템 본체 — 히트영역은 scale 이 적용된 본체에 둬서 시각=히트(이웃 탭 가로채기 방지). -->
                   <div
                     class="relative flex items-center justify-center pointer-events-auto"
-                    :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center' }"
+                    :style="{ transform: `scale(${placed.scale}) scaleX(${placed.flipped ? -1 : 1})`, transformOrigin: 'center', touchAction: editMode ? 'none' : undefined }"
                     :role="editMode ? 'button' : undefined"
                     :tabindex="editMode ? 0 : undefined"
                     :aria-label="editMode ? placed.name : undefined"
