@@ -518,6 +518,7 @@
       :growth-advanced="completeToast?.growthAdvanced ?? false"
       @close="completeToast = null"
     />
+    <RecordDailyReminderPrompt v-model="reminderPromptOpen" :user-id="draftUserId" />
   </div>
 </template>
 
@@ -552,6 +553,34 @@ const userStore = useUserStore()
 const session = authClient.useSession()
 const draftUserId = computed<string | null>(() => session.value?.data?.user?.id ?? userStore.me?.userId ?? null)
 const { maybeRequestReview } = useAppReview(draftUserId)
+const dailyReminder = useDailyReminder(draftUserId)
+const reminderPromptOpen = ref<boolean>(false)
+const reminderPromptPending = ref<boolean>(false)
+let reminderPromptTimer: ReturnType<typeof setTimeout> | null = null
+let reminderPageActive = true
+
+// 평점 요청 조건은 기존 구현에 맡기고 실제 요청 이력 변경만 확인한다.
+async function afterRecordSaved() {
+  reminderPromptOpen.value = false
+  reminderPromptPending.value = false
+  const id = draftUserId.value
+  const refresh = dailyReminder.refresh(true)
+  let reviewBefore: string | null = null
+  let canReadReview = true
+  try { reviewBefore = id ? localStorage.getItem(`tw:app-review:${id}`) : null }
+  catch { canReadReview = false }
+  await maybeRequestReview()
+  await refresh
+  if (!canReadReview || !id || draftUserId.value !== id || !reminderPageActive) return
+  try {
+    const before = reviewBefore ? JSON.parse(reviewBefore).requestedVersions ?? [] : []
+    const raw = localStorage.getItem(`tw:app-review:${id}`)
+    const after = raw ? JSON.parse(raw).requestedVersions ?? [] : []
+    if (JSON.stringify(before) !== JSON.stringify(after)) return
+    reminderPromptPending.value = true
+  }
+  catch { /* 보조 제안 오류는 기록 저장을 바꾸지 않는다. */ }
+}
 const {
   trackers,
   loaded: habitsLoaded,
@@ -670,6 +699,7 @@ async function onCheckIn(tr: HabitTrackerResponse) {
     else {
       toast.success(growthAdvanced ? '오늘 체크인 완료 · 키우기 스탬프 +1' : '오늘 체크인 완료')
     }
+    void dailyReminder.refresh(true).catch(() => {})
   }
   catch (e) {
     toast.error((e as Error).message ?? '체크인에 실패했어요')
@@ -989,7 +1019,7 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
       void userStore.fetchMe(true).catch(() => { toast.info('기록은 저장됐어요. 잔액은 잠시 후 갱신돼요') })
     }
     const growthAdvanced = await didGrowthAdvance(growthBefore)
-    void maybeRequestReview()
+    void afterRecordSaved().catch(() => {})
     return { ok: true, reward, growthAdvanced }
   }
   catch (e) {
@@ -1004,6 +1034,26 @@ async function saveDailyRecord(dailyType: NonNullable<CreateRecordRequest['daily
 // 완료 카드 토스트 — 서버 보상 0/누락은 기록 완료만, 실제 성장 증가가 확인된 경우 스탬프 피드백. 탭 → /calendar.
 // TODO(C4 머지 후): useToast({title, description, icon, variant:'card'}) 로 대체.
 const completeToast = ref<{ kind: DailyTokenKind; count: number | null; growthAdvanced: boolean } | null>(null)
+
+watch([reminderPromptPending, completeToast, openModal, submitting, draftUserId], () => {
+  if (reminderPromptTimer) clearTimeout(reminderPromptTimer)
+  if (!reminderPromptPending.value || completeToast.value || openModal.value || submitting.value) return
+  // 완료 토스트의 퇴장 애니메이션까지 끝난 다음 제안을 연다.
+  reminderPromptTimer = setTimeout(() => {
+    if (reminderPageActive && !completeToast.value && !openModal.value && !submitting.value) {
+      reminderPromptPending.value = false
+      reminderPromptOpen.value = dailyReminder.claimPrompt()
+    }
+  }, 300)
+})
+watch(draftUserId, () => {
+  reminderPromptPending.value = false
+  reminderPromptOpen.value = false
+})
+onBeforeUnmount(() => {
+  reminderPageActive = false
+  if (reminderPromptTimer) clearTimeout(reminderPromptTimer)
+})
 
 function showCompleteToast(kind: DailyTokenKind, reward: RewardInfo | null, growthAdvanced: boolean) {
   const n = reward?.categoryTokens
