@@ -60,6 +60,13 @@ function resolveDevicePlatform(): 'ANDROID' | 'IOS' | 'WEB' {
 export default defineNuxtPlugin(async (nuxtApp) => {
   if (!Capacitor.isNativePlatform()) return
 
+  const reminderSession = authClient.useSession()
+  const dailyReminder = useDailyReminder(() => reminderSession.value?.data?.user?.id ?? null)
+  watch(() => reminderSession.value?.data?.user?.id, (id, previous) => {
+    if (previous && previous !== id) void cancelDailyReminders()
+    if (id) void dailyReminder.refresh()
+  }, { immediate: true })
+
   // 푸시 등록 재시도 훅 — 아래 Push 블록에서 실제 구현으로 대체되고 resume 리스너가 호출.
   let retryPushRegistration: () => void = () => {}
 
@@ -496,6 +503,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   // 오래 백그라운드에 있다가 돌아오면 JWT(5분 TTL)가 만료된 채일 수 있다. resume 시 즉시
   // best-effort 로 갱신(실패해도 openapi.ts 의 401 인터셉터가 최종 폴백).
   App.addListener('resume', () => {
+    void dailyReminder.refresh()
     refreshNetworkStatus()
     useAuth().loadJwt().catch(() => {})
     // 푸시 등록이 일시 실패로 미완이면 복귀 시점에 재시도 (latch 가 성공/denied 를 걸러줌).

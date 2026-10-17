@@ -3,6 +3,7 @@ import { useHomeSnapshotStore } from '~/stores/homeSnapshot'
 import { useTerrariumStore } from '~/stores/terrarium'
 import { useUserStore } from '~/stores/user'
 import { withTimeout } from '~/utils/withTimeout'
+import { cancelDailyReminders } from '~/composables/useDailyReminder'
 
 /**
  * Client-only JWT cache + auth lifecycle helpers.
@@ -160,6 +161,7 @@ export function useAuth() {
   }
 
   async function signOutAndClear() {
+    await cancelDailyReminders()
     // 로컬 푸시 토큰을 정리하고, 인증이 유지된 상태에서 기존 API 로 서버 디바이스도
     // 비활성화한다. 서버 비활성화 실패가 로그아웃 자체를 막지는 않는다.
     if (import.meta.client) {

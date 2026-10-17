@@ -702,5 +702,17 @@
   },
   "wallet": {
     "levelProgress": "Level {level}, {remaining} EXP to next level"
+  },
+  "dailyReminder": {
+    "title": "Daily record reminder",
+    "time": "Reminder time",
+    "notificationTitle": "TerraWorld",
+    "notificationBody": "Record your day and care for your terrarium.",
+    "promptTitle": "Would you like an evening reminder?",
+    "promptDescription": "We only remind you on days you haven’t recorded. Change the time or turn it off in Settings anytime.",
+    "accept": "Remind me",
+    "decline": "No thanks",
+    "permissionDenied": "Notifications are disabled. Allow notifications in your device settings.",
+    "updateFailed": "Couldn’t update reminders. Please try again shortly."
   }
 }

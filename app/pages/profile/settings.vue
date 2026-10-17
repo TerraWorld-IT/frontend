@@ -68,6 +68,8 @@
       </div>
     </div>
 
+    <ProfileReminderSettings :user-id="session?.data?.user?.id ?? null" />
+
     <!-- 차단한 회원 (App Store 1.2) — 이 기기에만 저장된 차단 목록을 보고 해제한다.
          목록은 기기 저장소에서 읽으므로 마운트 뒤에만 그려 서버 렌더와 첫 렌더를 같게 둔다. -->
     <div class="apjek-card w-full relative" data-testid="blocked-users-card">
