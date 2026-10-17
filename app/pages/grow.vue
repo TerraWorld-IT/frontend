@@ -87,7 +87,7 @@
             v-else
             :class="stageOf(items[0]).tier === 'stage1' ? 'scale-[0.85]' : ''"
           >
-            <GrowSpiritVisual :species-code="items[0].speciesCode" :name-ko="items[0].nameKo" :tier="stageOf(items[0]).tier" />
+            <GrowSpiritVisual :species-code="items[0].speciesCode" :revealed-spirit-code="items[0].revealedSpiritCode" :name-ko="items[0].nameKo" :tier="stageOf(items[0]).tier" />
           </div>
         </div>
 
@@ -154,7 +154,7 @@
                 :style="{ background: 'radial-gradient(circle, rgba(251,147,207,0.35) 0%, rgba(251,147,207,0) 70%)' }"
               />
               <div class="relative">
-                <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
+                <GrowSpiritVisual :species-code="c.speciesCode" :revealed-spirit-code="c.revealedSpiritCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
               </div>
             </div>
             <button
@@ -181,7 +181,7 @@
             <template v-else>
               <GrowMysterySpirit v-if="stageOf(c).tier === 'mystery'" />
               <div v-else :class="stageOf(c).tier === 'stage1' ? 'scale-[0.85] origin-bottom' : ''">
-                <GrowSpiritVisual :species-code="c.speciesCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
+                <GrowSpiritVisual :species-code="c.speciesCode" :revealed-spirit-code="c.revealedSpiritCode" :name-ko="c.nameKo" :tier="stageOf(c).tier" />
               </div>
               <p class="mt-[30px] text-[22px] font-bold text-white tracking-[-0.5px]">{{ stageOf(c).label }}</p>
             </template>
@@ -291,6 +291,7 @@ import {
   isGrowthLost,
   isReviveSnoozed,
   spiritStageOf,
+  growthCompletionMessage,
   type SpiritStage,
 } from '~/utils/grow'
 import svgPaths from './grow-svg-paths'
@@ -376,8 +377,9 @@ function markCompletionSeen(cycleId: string): void {
 }
 function showCompletionToast(c: GrowthItem): void {
   if (!isComplete(c) || !c.completedToday || completedToastCycles.has(c.cycleId)) return
+  const message = growthCompletionMessage(c)
   markCompletionSeen(c.cycleId)
-  toast.success(`${c.goal}개 달성! 정령을 획득했어요`, {
+  toast.success(message, {
     description: '획득한 정령을 나의 테라에 배치할 수 있어요',
     icon: 'lucide:party-popper',
     variant: 'card',

@@ -11,6 +11,31 @@ import { kstTodayKey } from '~/utils/habitState'
 /** 정령 단계 구분 — 수수께끼 / 1단계 / 2단계 / 획득(goal 달성) */
 export type SpiritTier = 'mystery' | 'stage1' | 'stage2' | 'acquired'
 
+/** 공개 종의 단계 일러스트 — 미지원 코드는 기존 고양이 그림으로 표시한다. */
+export function spiritImageSrc(code: string | null | undefined, tier?: SpiritTier): string {
+  const stage = tier === 'stage1' ? 'stage1' : 'stage2'
+  switch (code) {
+    case 'dino':
+    case 'squirrel':
+    case 'snail':
+    case 'otter':
+    case 'axolotl':
+    case 'rabbit':
+      return `/spirits/${code}-${stage}.png`
+    default:
+      return `/spirits/${stage}.png`
+  }
+}
+
+/** 공개된 종은 서버 이름으로 획득을 알리고, 이전 계약 응답은 기존 문구를 유지한다. */
+export function growthCompletionMessage(c: Pick<GrowthItem, 'goal' | 'nameKo' | 'revealedSpiritCode'>): string {
+  const name = (c.revealedSpiritCode && c.nameKo?.trim()) || '정령'
+  const lastChar = name.charCodeAt(name.length - 1)
+  const isHangul = lastChar >= 0xAC00 && lastChar <= 0xD7A3
+  const particle = isHangul ? ((lastChar - 0xAC00) % 28 !== 0 ? '을' : '를') : '을(를)'
+  return `${c.goal}개 달성! ${name}${particle} 획득했어요`
+}
+
 export interface SpiritStage {
   tier: SpiritTier
   label: string

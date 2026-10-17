@@ -70,6 +70,15 @@ describe('activeJarLevel', () => {
 })
 
 describe('spiritNameKo', () => {
+  it.each([
+    ['dino', '공룡'], ['squirrel', '다람쥐'], ['snail', '달팽이'],
+    ['otter', '수달'], ['axolotl', '아홀로틀'], ['rabbit', '토끼'],
+  ])('신규 종 %s와 변형 코드를 한글 이름으로 표시한다', (code, name) => {
+    expect(spiritNameKo(code)).toBe(name)
+    expect(spiritNameKo(`${code}-spirit`)).toBe(name)
+    expect(spiritNameKo(`${code}-spirit`.toUpperCase())).toBe(name)
+  })
+
   it('알려진 코드는 한글 이름, 없으면 "새로운"', () => {
     expect(spiritNameKo('pigeon')).toBe('비둘기')
     expect(spiritNameKo('PIGEON-SPIRIT')).toBe('비둘기')
