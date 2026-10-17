@@ -34,6 +34,7 @@
             v-for="tab in tabs"
             :key="tab.to"
             :to="tab.to"
+            :data-tour-target="tab.tour"
             :class="[
               tab.center
                 ? 'flex flex-col gap-[2px] items-center justify-center shrink-0'
@@ -66,6 +67,7 @@ import type { CSSProperties } from 'vue'
 useHead({ title: 'TERRAWORLD' })
 
 interface Tab {
+  tour: string
   to: string
   iconName: string
   label: string
@@ -78,11 +80,11 @@ const { t } = useI18n()
 // 유사한 lucide 아웃라인으로 정렬 (기록하기=펜툴, 키우기=반짝이, 나의테라=새싹,
 // 상점=쇼핑백, 더보기=점3개). 활성=진한 텍스트, 비활성=회색 — 색은 링크 class 에서 결정.
 const tabs = computed<Tab[]>(() => [
-  { to: '/record', iconName: 'lucide:pen-tool', label: t('nav.record') },
-  { to: '/grow', iconName: 'lucide:sparkles', label: t('nav.grow') },
-  { to: '/', iconName: 'lucide:sprout', label: t('nav.terrarium'), center: true },
-  { to: '/shop', iconName: 'lucide:shopping-bag', label: t('nav.shop') },
-  { to: '/profile', iconName: 'lucide:ellipsis', label: t('nav.profile') },
+  { to: '/record', tour: 'nav-record', iconName: 'lucide:pen-tool', label: t('nav.record') },
+  { to: '/grow', tour: 'nav-grow', iconName: 'lucide:sparkles', label: t('nav.grow') },
+  { to: '/', tour: 'nav-terrarium', iconName: 'lucide:sprout', label: t('nav.terrarium'), center: true },
+  { to: '/shop', tour: 'nav-shop', iconName: 'lucide:shopping-bag', label: t('nav.shop') },
+  { to: '/profile', tour: 'nav-profile', iconName: 'lucide:ellipsis', label: t('nav.profile') },
 ])
 
 const route = useRoute()

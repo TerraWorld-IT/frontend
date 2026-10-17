@@ -453,6 +453,7 @@
         <button
           type="button"
           data-testid="home-manage"
+          data-tour-target="home-manage"
           class="mode-pill"
           style="background: #bcdadd; color: #2f5f63"
           @click="enterManageMode()"
@@ -463,7 +464,7 @@
 
       <!-- ─── T4b 아코디언: 친구 목록 → 보유 재화 (기본 열림, 접으면 기억 — 관리 모드에선 숨김) ─── -->
       <template v-if="!editMode">
-        <TerrariumHomeAccordion v-model:open="friendsOpen" title="친구 목록" icon="lucide:users" data-layout-anchor="home-friends">
+        <TerrariumHomeAccordion v-model:open="friendsOpen" title="친구 목록" icon="lucide:users" data-layout-anchor="home-friends" data-tour-target="home-friends">
           <div class="px-4 pb-4 flex flex-col gap-2">
             <div v-if="homeFriendsLoading" class="rounded-xl bg-gray-50 p-3 text-center">
               <p class="text-xs text-apjek-text-faint">친구 목록 불러오는 중…</p>
@@ -2406,9 +2407,6 @@ onMounted(() => {
 })
 
 onMounted(async () => {
-  if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)) {
-    showOnboarding.value = true
-  }
   // 셋 중 하나가 던져도 나머지 초기화(딥링크 쿼리 소비)가 막히지 않게 한다 — 마운트 훅의 미처리 예외는
   // Vue 경고만 남기고 어디에도 보고되지 않아 조용히 깨진다.
   const results = await Promise.allSettled([load(), attendance.refresh(), tier.load()])
@@ -2419,6 +2417,10 @@ onMounted(async () => {
   // user/items/terrarium 및 tier의 DOM 반영 후 비크리티컬 요청을 발사한다.
   await nextTick()
   if (homeDisposed) return
+  if (import.meta.client && !localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)
+    && !fetchError.value && !editMode.value && !healingMode.value && introMode.value === null) {
+    showOnboarding.value = true
+  }
   homeSecondaryReady.value = true
   void loadUnreadNotificationCount()
 })
