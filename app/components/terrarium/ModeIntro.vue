@@ -23,10 +23,9 @@
           <p class="text-[26px] font-extrabold text-apjek-text tracking-[-0.5px] leading-[32px]">{{ title }}</p>
           <p class="text-sm text-apjek-text-sub leading-relaxed whitespace-pre-line">{{ description }}</p>
         </div>
-        <!-- 병 일러스트 — 홈에 표시 중인 병(레벨)을 축소 렌더. 홈과 같은 유리 질감(texture) 레이어를 겹친다. -->
+        <!-- 병 일러스트 — 홈에 표시 중인 병의 레벨과 색 변형을 축소 렌더한다. -->
         <div class="relative shrink-0 mb-auto mode-intro-jar" style="height: min(304px, max(0px, calc(100dvh - var(--sat) - var(--sab) - 200px))); aspect-ratio: 220 / 304; max-width: 100%" aria-hidden="true">
-          <TerrariumJarArt :level="level" layer="base" :variant="variant" />
-          <TerrariumJarArt :level="level" layer="texture" />
+          <TerrariumJarArt :level="level" :variant="variant" />
         </div>
       </div>
     </Transition>
