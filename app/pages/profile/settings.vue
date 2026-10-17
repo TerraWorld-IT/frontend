@@ -171,6 +171,15 @@
             <svg width="16" height="16" fill="none" viewBox="0 0 16 16" class="text-apjek-text-faint"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.33333" /></svg>
           </NuxtLink>
 
+          <button
+            type="button"
+            data-testid="replay-onboarding"
+            class="w-full bg-apjek-surface rounded-[12px] flex items-center justify-between p-[13px] text-left transition-all active:scale-[0.98] border border-apjek-border"
+            @click="replayOnboarding"
+          >
+            <span class="text-[14px] font-semibold text-apjek-text tracking-[-0.15px]">화면 안내 다시 보기</span>
+          </button>
+
           <!-- 로그인 — 비로그인 시에만 (더보기 계정 카드와 동일) -->
           <NuxtLink
             v-if="!hasMountedSession"
@@ -285,6 +294,11 @@ function onVersionTap(): void {
 const showDeleteDialog = ref<boolean>(false)
 const deletePassword = ref<string>('')
 const deletingAccount = ref<boolean>(false)
+
+function replayOnboarding() {
+  localStorage.removeItem(STORAGE_KEYS.ONBOARDING_DONE)
+  return navigateTo('/')
+}
 
 function onDeleteDialogChange(open: boolean) {
   if (deletingAccount.value) return

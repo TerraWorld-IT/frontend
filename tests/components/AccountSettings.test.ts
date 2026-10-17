@@ -157,6 +157,17 @@ async function mountSettings() {
 }
 
 describe('계정 설정', () => {
+  it('이용 안내 다음의 화면 안내 다시 보기가 완료 키를 지우고 홈으로 이동한다', async () => {
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE, 'true')
+    const w = await mountSettings()
+    const replay = w.get('[data-testid="replay-onboarding"]')
+    expect(w.get('a[href="/legal/guide"]').element.nextElementSibling).toBe(replay.element)
+    expect(replay.text()).toBe('화면 안내 다시 보기')
+    await replay.trigger('click')
+    expect(localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE)).toBeNull()
+    expect(mocks.navigate).toHaveBeenCalledWith('/')
+  })
+
   it('세션 준비 전에는 동의 토글을 잠그고 change 호출에도 저장하지 않는다', async () => {
     mocks.session!.value = { data: null }
     const w = await mountSettings()

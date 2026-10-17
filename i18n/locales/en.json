@@ -418,25 +418,27 @@
     "skip": "Skip",
     "start": "Get started!",
     "step1": {
-      "desc": "Walk, read, run, doodle — record daily activities to earn coins and tokens",
-      "title": "Record your activities"
+      "desc": "Use the 'Record' tab below to record habits and daily activities. Keep a habit for a week to earn sparkles, and record daily activities to earn tokens.",
+      "title": "Record"
     },
     "step2": {
-      "desc": "Earn currency like tokens and sparkles every time you record. Use what you collect to grow and decorate your terrarium",
-      "title": "Collect rewards"
+      "desc": "A mystery spirit awaits in the 'Grow' tab. Record every day to collect stamps. With 10 stamps, the spirit’s appearance is revealed. Collect 30 to obtain the spirit. You can also use sparkles to grow it faster.",
+      "title": "Grow a mystery spirit"
     },
     "step3": {
-      "desc": "Use the coins and tokens you've collected to buy cute items in the shop",
-      "title": "Buy items"
+      "desc": "Use your tokens and currency in the 'Shop' to buy items and backgrounds for your Terra.",
+      "title": "Shop"
     },
     "step4": {
-      "desc": "Place your purchased items inside the glass jar to complete your own terrarium",
-      "title": "Decorate your terrarium"
+      "desc": "In 'Manage mode', place purchased items and spirits you have obtained in your jar, and change the background to decorate your own Terra.",
+      "title": "Manage mode"
     },
     "step5": {
-      "desc": "Share your finished terrarium with friends, record together, and earn bigger rewards!",
-      "title": "Share with friends"
-    }
+      "desc": "Visit your friends’ Terras from the 'Friends list'. Invite friends so you both receive rubies, and record habits together.",
+      "title": "Friends"
+    },
+    "progress": "{current}/{total}",
+    "ariaLabel": "Screen tour"
   },
   "payment": {
     "appOnly": "Purchases are only available in the app",
