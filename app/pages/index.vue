@@ -257,17 +257,15 @@
               >
             </div>
 
-            <!-- 유리병 — 디자이너 Lv.1/2/3 병 이미지(표시 중 병 레벨). 질감 오버레이는 아이템 위에 겹친다.
-                 편집 모드(Figma 156:394 도 질감 유지)에선 핸들·드래그가 가려지지 않도록 아이템(z≥10) 아래로 내린다. -->
-            <TerrariumJarArt :level="viewLevel" layer="base" :variant="jarVariant" />
-            <TerrariumJarArt :level="viewLevel" layer="texture" :style="{ zIndex: editMode ? 9 : textureZ }" />
+            <!-- 유리병 — 표시 중 병 레벨의 디자이너 Lv.1/2/3 병 이미지를 아이템 아래에 그린다. -->
+            <TerrariumJarArt :level="viewLevel" :variant="jarVariant" />
 
             <!-- 병 좌표 안에서만 부유하는 장식: 기존 줌을 따르고 입력은 아래 레이어로 통과한다. -->
             <div
               v-if="!editMode"
               class="jar-fireflies absolute inset-0 pointer-events-none"
               :class="{ 'jar-fireflies-healing': healingMode }"
-              :style="{ zIndex: textureZ + 1 }"
+              :style="{ zIndex: itemsTopZ + 1 }"
               aria-hidden="true"
               data-testid="home-jar-fireflies"
             >
@@ -1239,8 +1237,8 @@ function visualHalf(placed: PlacedFreeItem): number {
   return HALF * placed.scale
 }
 
-// 병 질감 오버레이 z — 배치 아이템(10 + zIndex) 전부의 바로 위. 시들기 오버레이(z 6000)는 그 위.
-const textureZ = computed<number>(() => 11 + placedItems.value.reduce((m, p) => Math.max(m, p.zIndex), 0))
+// 배치 아이템(10 + zIndex) 전부의 바로 위. 반딧불 장식은 이 값에 1을 더한다.
+const itemsTopZ = computed<number>(() => 11 + placedItems.value.reduce((m, p) => Math.max(m, p.zIndex), 0))
 
 function animClass(placed: PlacedFreeItem): string {
   if (editMode.value) return ''

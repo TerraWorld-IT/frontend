@@ -35,9 +35,8 @@
         @error="onAssetError"
       >
 
-      <!-- 유리병 — 홈과 동일한 병 아트(친구가 표시 중인 티어의 레벨). 질감 오버레이는 아이템 위. -->
-      <TerrariumJarArt :level="jarLevel" layer="base" :variant="jarVariant" />
-      <TerrariumJarArt :level="jarLevel" layer="texture" style="z-index: 5000" />
+      <!-- 유리병 — 홈과 동일한 병 아트(친구가 표시 중인 티어의 레벨)를 아이템 아래에 그린다. -->
+      <TerrariumJarArt :level="jarLevel" :variant="jarVariant" />
 
       <!-- 배치된 아이템들 (읽기 전용) -->
       <div
