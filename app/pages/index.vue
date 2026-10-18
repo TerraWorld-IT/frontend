@@ -2394,7 +2394,7 @@ onMounted(() => {
         const target = document.getElementById('my-terra-container')?.querySelector<HTMLElement>(':scope > div')
         if (!target) return
         try {
-          const canvas = await captureTerraStage(target)
+          const canvas = await captureTerraStage(target, undefined, { fitBackdrop: true })
           if (!cancelled && !homeDisposed && !editMode.value) await saveWidgetCanvas(canvas, capturedEpoch)
         }
         catch { /* A widget capture failure must not interrupt home or sharing. */ }
