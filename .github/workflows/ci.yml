@@ -155,7 +155,7 @@ jobs:
       # (`vars.*`) 를 쓰는 곳이 없어 secrets 로 통일한다. 미설정이면 빈 문자열이 들어가
       # 기존 동작과 같아진다(해당 기능만 비활성, 빌드는 성공).
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
