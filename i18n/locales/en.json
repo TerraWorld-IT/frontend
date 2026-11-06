@@ -119,6 +119,46 @@
       "view": "View",
       "requiredError": "Please agree to the required items (Terms / personal data collection and use)"
     },
+    "recovery": {
+      "forgotPasswordLink": "Forgot your password?",
+      "findEmailLink": "Find your email",
+      "backToLogin": "Back to login",
+      "forgot": {
+        "title": "Reset password",
+        "desc": "We'll send a reset link to your registered email.",
+        "submit": "Send reset link",
+        "sending": "Sending...",
+        "sent": "If that email is registered, we've sent a reset link. Please check your inbox (and spam folder).",
+        "error": "Couldn't process your request. Please try again later."
+      },
+      "reset": {
+        "title": "Set a new password",
+        "desc": "Enter the new password you'd like to use.",
+        "newPassword": "New password",
+        "newPasswordPlaceholder": "New password (8+ characters)",
+        "confirmPassword": "Confirm password",
+        "confirmPasswordPlaceholder": "Re-enter your password",
+        "mismatch": "Passwords don't match",
+        "submit": "Change password",
+        "submitting": "Changing...",
+        "success": "Your password has been changed. Please log in with your new password.",
+        "invalidToken": "This link is invalid or has expired. Please request a new one.",
+        "missingToken": "Invalid access. Please request a password reset again.",
+        "requestAgain": "Request reset again"
+      },
+      "findEmail": {
+        "title": "Find your email",
+        "desc": "We'll find your email from the nickname and date of birth you signed up with.",
+        "submit": "Find email",
+        "submitting": "Searching...",
+        "resultLabel": "Registered email",
+        "notFound": "We couldn't find an account matching that information.",
+        "multiple": "Multiple accounts match. Please contact support.",
+        "tooMany": "Too many requests. Please try again later.",
+        "invalidInput": "Please enter a valid nickname and date of birth.",
+        "error": "Couldn't process your request. Please try again later."
+      }
+    },
     "email": "Email",
     "emailPlaceholder": "Enter your email",
     "hasAccount": "Already have an account?",

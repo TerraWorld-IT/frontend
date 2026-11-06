@@ -5,6 +5,7 @@ import { Pool } from 'pg'
 import { useRuntimeConfig } from '#imports'
 import { isAdsPolicyEffective } from '#shared/utils/adsPolicyEffective'
 import { isForbiddenNickname, NICKNAME_NOT_ALLOWED_CODE, NICKNAME_NOT_ALLOWED_MESSAGE } from '#shared/utils/nicknamePolicy'
+import { sendPasswordResetEmail } from './email'
 
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
@@ -122,6 +123,26 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    /**
+     * 비밀번호 재설정. 클라이언트가 `authClient.forgetPassword({ email, redirectTo:
+     * '/auth/reset-password' })` 를 호출하면 better-auth 가 토큰을 발급하고 이 콜백으로
+     * 재설정 링크(`url`)를 넘긴다. `url` 은 better-auth 의 검증 엔드포인트
+     * (`/api/auth/reset-password/:token?callbackURL=/auth/reset-password`)이며, 사용자가
+     * 클릭하면 토큰 유효성을 확인한 뒤 callbackURL 로 `?token=` 을 붙여 리다이렉트한다.
+     * 그 페이지(app/pages/auth/reset-password.vue)가 `resetPassword({ newPassword, token })`
+     * 를 호출한다.
+     *
+     * 메일 링크가 올바른 도메인을 가리키려면 BETTER_AUTH_URL / NUXT_PUBLIC_AUTH_BASE_URL 이
+     * 공개 도메인이어야 한다(프로덕션 로그인이 이미 그 origin 으로 동작하므로 동일).
+     *
+     * sendPasswordResetEmail 은 실패/미설정이어도 throw 하지 않는다 → forgetPassword 응답이
+     * 계정 존재 여부를 노출하지 않는다(계정 열거 방지).
+     */
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetEmail(user.email, url)
+    },
+    // 재설정 토큰 유효시간 1시간.
+    resetPasswordTokenExpiresIn: 3600,
   },
 
   hooks: {

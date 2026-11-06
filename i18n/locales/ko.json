@@ -119,6 +119,46 @@
       "view": "보기",
       "requiredError": "필수 항목(이용약관·개인정보 수집·이용)에 동의해 주세요"
     },
+    "recovery": {
+      "forgotPasswordLink": "비밀번호를 잊으셨나요?",
+      "findEmailLink": "이메일(계정) 찾기",
+      "backToLogin": "로그인으로 돌아가기",
+      "forgot": {
+        "title": "비밀번호 재설정",
+        "desc": "가입한 이메일로 재설정 링크를 보내드려요.",
+        "submit": "재설정 링크 보내기",
+        "sending": "보내는 중...",
+        "sent": "입력하신 이메일이 가입돼 있다면 재설정 링크를 보냈어요. 메일함(스팸함 포함)을 확인해 주세요.",
+        "error": "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."
+      },
+      "reset": {
+        "title": "새 비밀번호 설정",
+        "desc": "새로 사용할 비밀번호를 입력해 주세요.",
+        "newPassword": "새 비밀번호",
+        "newPasswordPlaceholder": "새 비밀번호 (8자 이상)",
+        "confirmPassword": "비밀번호 확인",
+        "confirmPasswordPlaceholder": "비밀번호를 다시 입력하세요",
+        "mismatch": "비밀번호가 일치하지 않아요",
+        "submit": "비밀번호 변경",
+        "submitting": "변경 중...",
+        "success": "비밀번호가 변경됐어요. 새 비밀번호로 로그인해 주세요.",
+        "invalidToken": "링크가 만료되었거나 올바르지 않아요. 다시 요청해 주세요.",
+        "missingToken": "잘못된 접근이에요. 비밀번호 재설정을 다시 요청해 주세요.",
+        "requestAgain": "재설정 다시 요청하기"
+      },
+      "findEmail": {
+        "title": "이메일(계정) 찾기",
+        "desc": "가입할 때 입력한 닉네임과 생년월일로 이메일을 찾아드려요.",
+        "submit": "이메일 찾기",
+        "submitting": "찾는 중...",
+        "resultLabel": "가입된 이메일",
+        "notFound": "입력한 정보와 일치하는 계정을 찾지 못했어요.",
+        "multiple": "일치하는 계정이 여러 개예요. 고객센터로 문의해 주세요.",
+        "tooMany": "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
+        "invalidInput": "닉네임과 생년월일을 정확히 입력해 주세요.",
+        "error": "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요."
+      }
+    },
     "email": "이메일",
     "emailPlaceholder": "이메일을 입력하세요",
     "hasAccount": "이미 계정이 있으신가요?",
