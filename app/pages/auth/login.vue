@@ -229,6 +229,17 @@
           </button>
         </form>
 
+        <!-- 계정 복구: 비밀번호 재설정 / 이메일(계정) 찾기 (로그인 모드에서만) -->
+        <div v-if="mode === 'login'" class="flex items-center justify-center gap-2 mt-4 text-xs">
+          <NuxtLink to="/auth/forgot-password" class="underline underline-offset-2 hover:opacity-70" style="color: #4a67b5">
+            {{ $t('auth.recovery.forgotPasswordLink') }}
+          </NuxtLink>
+          <span style="color: #b4bcd6" aria-hidden="true">·</span>
+          <NuxtLink to="/auth/find-email" class="underline underline-offset-2 hover:opacity-70" style="color: #4a67b5">
+            {{ $t('auth.recovery.findEmailLink') }}
+          </NuxtLink>
+        </div>
+
         <!-- 모드 전환 -->
         <div class="text-center mt-5">
           <button

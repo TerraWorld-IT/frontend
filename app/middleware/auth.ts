@@ -21,7 +21,14 @@ import { authClient } from '~/lib/auth-client'
 // '/shop' 도 같은 이유로 제거(Codex 감사 지적) — pages/shop/index.vue 의 loadShop() 이 게스트용
 // 분기 없이 무조건 sdk.getMe() 를 호출하고 실패 시 throw 해서, 게스트 브라우징용으로 의도적으로
 // public 이었던 게 아니라 '/' 와 동일한 누락이었던 것으로 보임.
-const PUBLIC_EXACT = new Set(['/auth/login', '/auth/signup'])
+// 계정 복구 화면들(비밀번호 재설정 요청/수행, 이메일 찾기)은 로그아웃 상태에서 열려야 하므로 public.
+const PUBLIC_EXACT = new Set([
+  '/auth/login',
+  '/auth/signup',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/find-email',
+])
 const PUBLIC_PREFIXES = ['/share/']
 
 // CSR getSession() 호출에 명시적 타임아웃이 없으면, 모바일 WebView 등 네트워크가
